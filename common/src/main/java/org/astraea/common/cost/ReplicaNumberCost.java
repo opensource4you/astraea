@@ -18,9 +18,7 @@ package org.astraea.common.cost;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -48,40 +46,12 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost =
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
-            .distinct()
-            .parallel()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Function.identity(),
-                    id -> {
-                      var removedReplicas =
-                          (int)
-                              before
-                                  .replicaStream(id)
-                                  .filter(
-                                      r ->
-                                          after.replicaStream(r.topicPartitionReplica()).count()
-                                              == 0)
-                                  .count();
-                      var newReplicas =
-                          (int)
-                              after
-                                  .replicaStream(id)
-                                  .filter(
-                                      r ->
-                                          before.replicaStream(r.topicPartitionReplica()).count()
-                                              == 0)
-                                  .count();
-                      return newReplicas - removedReplicas;
-                    }));
+    var moveCost = ClusterInfo.changedReplicaNumber(before, after, ignored -> true);
     var maxMigratedReplicas =
         config.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedReplicas < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
-    return MoveCost.changedReplicaCount(moveCost, overflow);
+    return () -> overflow;
   }
 
   @Override

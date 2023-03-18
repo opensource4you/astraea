@@ -48,7 +48,6 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
-import org.astraea.common.cost.MoveCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -192,13 +191,7 @@ class BalancerHandler implements Handler {
                 case SearchFailed:
                   return planGenerations
                       .get(taskId)
-                      .handle(
-                          (plan, err) ->
-                              err != null
-                                  ? err.toString()
-                                  : plan.solution().isEmpty()
-                                      ? "Unable to find a balance plan that can improve the cluster"
-                                      : null)
+                      .handle((plan, err) -> err != null ? err.toString() : null)
                       .toCompletableFuture()
                       .getNow(null);
                 case ExecutionFailed:
@@ -212,7 +205,7 @@ class BalancerHandler implements Handler {
               }
             };
     var changes =
-        (Function<Balancer.Solution, List<Change>>)
+        (Function<Balancer.Plan, List<Change>>)
             (solution) ->
                 ClusterInfo.findNonFulfilledAllocation(contextCluster, solution.proposal()).stream()
                     .map(
@@ -220,9 +213,6 @@ class BalancerHandler implements Handler {
                             Change.from(
                                 contextCluster.replicas(tp), solution.proposal().replicas(tp)))
                     .collect(Collectors.toUnmodifiableList());
-    var moveCosts =
-        (Function<Balancer.Solution, List<MigrationCost>>)
-            (solution) -> migrationCosts(solution.moveCost());
     var report =
         (Supplier<PlanReport>)
             () ->
@@ -232,10 +222,10 @@ class BalancerHandler implements Handler {
                             .toCompletableFuture()
                             .handle((res, err) -> res)
                             .getNow(null))
-                    .flatMap(Balancer.Plan::solution)
                     .map(
                         solution ->
-                            new PlanReport(changes.apply(solution), moveCosts.apply(solution)))
+                            new PlanReport(
+                                changes.apply(solution), BalancerHandler.migrationCosts(solution)))
                     .orElse(null);
     var phase = balancerConsole.taskPhase(taskId).orElseThrow();
     return new PlanExecutionProgress(
@@ -248,33 +238,46 @@ class BalancerHandler implements Handler {
         report.get());
   }
 
-  private static List<MigrationCost> migrationCosts(MoveCost cost) {
+  private static List<MigrationCost> migrationCosts(Balancer.Plan solution) {
     return Stream.of(
             new MigrationCost(
                 CHANGED_REPLICAS,
-                cost.changedReplicaCount().entrySet().stream()
+                ClusterInfo.changedReplicaNumber(
+                        solution.initialClusterInfo(), solution.proposal(), ignored -> true)
+                    .entrySet()
+                    .stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
             new MigrationCost(
                 CHANGED_LEADERS,
-                cost.changedReplicaLeaderCount().entrySet().stream()
+                ClusterInfo.changedReplicaNumber(
+                        solution.initialClusterInfo(), solution.proposal(), Replica::isLeader)
+                    .entrySet()
+                    .stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
             new MigrationCost(
                 MOVED_SIZE,
-                cost.movedRecordSize().entrySet().stream()
+                ClusterInfo.changedRecordSize(
+                        solution.initialClusterInfo(), solution.proposal(), ignored -> true)
+                    .entrySet()
+                    .stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
             new MigrationCost(
                 MOVED_LEADER_SIZE,
-                cost.movedReplicaLeaderSize().entrySet().stream()
+                ClusterInfo.changedRecordSize(
+                        solution.initialClusterInfo(), solution.proposal(), Replica::isLeader)
+                    .entrySet()
+                    .stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
-        .filter(m -> !m.brokerCosts.isEmpty())
+        .filter(
+            m -> !m.brokerCosts.isEmpty() && m.brokerCosts.values().stream().anyMatch(v -> v != 0))
         .collect(Collectors.toList());
   }
 

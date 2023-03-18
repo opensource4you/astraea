@@ -18,14 +18,11 @@ package org.astraea.common.cost;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.collector.MetricSensor;
 
@@ -61,18 +58,7 @@ public class ReplicaLeaderSizeCost
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost =
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
-            .distinct()
-            .parallel()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Function.identity(),
-                    id ->
-                        DataSize.Byte.of(
-                            after.replicaStream(id).mapToLong(Replica::size).sum()
-                                - before.replicaStream(id).mapToLong(Replica::size).sum())));
+    var moveCost = ClusterInfo.changedRecordSize(before, after, Replica::isLeader);
     var maxMigratedLeaderSize =
         config.string(COST_LIMIT_KEY).map(DataSize::of).map(DataSize::bytes).orElse(Long.MAX_VALUE);
     var overflow =
@@ -82,7 +68,7 @@ public class ReplicaLeaderSizeCost
                 .map(Math::abs)
                 .mapToLong(s -> s)
                 .sum();
-    return MoveCost.movedReplicaLeaderSize(moveCost, overflow);
+    return () -> overflow;
   }
 
   /**

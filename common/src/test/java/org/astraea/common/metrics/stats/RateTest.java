@@ -31,4 +31,16 @@ public class RateTest {
     Utils.sleep(Duration.ofSeconds(1));
     Assertions.assertTrue(rate.measure().bytes() < 100);
   }
+
+  @Test
+  void testCountMeasure() {
+    var rate = Rate.of();
+    Assertions.assertDoesNotThrow(rate::measure);
+    Assertions.assertEquals(0.0, rate.measure());
+    rate.record(1.0);
+    rate.record(1.0);
+    Utils.sleep(Duration.ofSeconds(1));
+    Assertions.assertTrue(rate.measure() < 2);
+    Assertions.assertTrue(rate.measure() > 1.5);
+  }
 }

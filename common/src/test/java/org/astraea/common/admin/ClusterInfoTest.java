@@ -24,6 +24,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
+import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.cost.ReplicaNumberCost;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -109,5 +111,345 @@ public class ClusterInfoTest {
         Exception.class, () -> cluster.replicas(TopicPartition.of("t", 0)).add(replica));
     Assertions.assertThrows(
         Exception.class, () -> cluster.replicas(TopicPartitionReplica.of("t", 0, 10)).add(replica));
+  }
+
+  @Test
+  void testChangedReplicaLeaderNumber() {
+    var costFunction = new ReplicaLeaderCost();
+    var before =
+        List.of(
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build());
+    var after =
+        List.of(
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build());
+    var beforeClusterInfo = ClusterInfoTest.of(before);
+    var afterClusterInfo = ClusterInfoTest.of(after);
+    var changedReplicaLeaderCount =
+        ClusterInfo.changedReplicaNumber(beforeClusterInfo, afterClusterInfo, Replica::isLeader);
+    Assertions.assertEquals(3, changedReplicaLeaderCount.size());
+    Assertions.assertTrue(changedReplicaLeaderCount.containsKey(0));
+    Assertions.assertTrue(changedReplicaLeaderCount.containsKey(1));
+    Assertions.assertTrue(changedReplicaLeaderCount.containsKey(2));
+    Assertions.assertEquals(-1, changedReplicaLeaderCount.get(0));
+    Assertions.assertEquals(0, changedReplicaLeaderCount.get(1));
+    Assertions.assertEquals(1, changedReplicaLeaderCount.get(2));
+  }
+
+  @Test
+  void testChangedReplicaNumber() {
+    var costFunction = new ReplicaNumberCost();
+    var before =
+        List.of(
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build());
+    var after =
+        List.of(
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(true)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .lag(-1)
+                .size(-1)
+                .isLeader(false)
+                .isSync(true)
+                .isFuture(false)
+                .isOffline(false)
+                .isPreferredLeader(false)
+                .path("")
+                .build());
+    var beforeClusterInfo = ClusterInfoTest.of(before);
+    var afterClusterInfo = ClusterInfoTest.of(after);
+    var changedReplicaCount =
+        ClusterInfo.changedReplicaNumber(beforeClusterInfo, afterClusterInfo, ignored -> true);
+    Assertions.assertEquals(3, changedReplicaCount.size(), changedReplicaCount.toString());
+    Assertions.assertTrue(changedReplicaCount.containsKey(0));
+    Assertions.assertTrue(changedReplicaCount.containsKey(1));
+    Assertions.assertTrue(changedReplicaCount.containsKey(2));
+    Assertions.assertEquals(-1, changedReplicaCount.get(0));
+    Assertions.assertEquals(-1, changedReplicaCount.get(1));
+    Assertions.assertEquals(2, changedReplicaCount.get(2));
+  }
+
+  @Test
+  void testChangedRecordSize() {
+    var clusterInfo =
+        ClusterInfo.of(
+            "fake",
+            List.of(NodeInfo.of(0, "aa", 22), NodeInfo.of(1, "aa", 22), NodeInfo.of(2, "aa", 22)),
+            Map.of(),
+            List.of(
+                Replica.builder()
+                    .topic("topic")
+                    .partition(0)
+                    .nodeInfo(NodeInfo.of(1, "aa", 22))
+                    .size(100)
+                    .path("/tmp/aa")
+                    .buildLeader(),
+                Replica.builder()
+                    .topic("topic")
+                    .partition(0)
+                    .nodeInfo(NodeInfo.of(2, "aa", 22))
+                    .size(99)
+                    .path("/tmp/aa")
+                    .buildInSyncFollower(),
+                Replica.builder()
+                    .topic("topic")
+                    .partition(1)
+                    .nodeInfo(NodeInfo.of(1, "aa", 22))
+                    .size(11)
+                    .path("/tmp/aa")
+                    .buildLeader()));
+    var before =
+        ClusterInfo.of(
+            "fake",
+            clusterInfo.nodes(),
+            Map.of(),
+            clusterInfo.replicas().stream()
+                .filter(r -> !r.isLeader())
+                .map(r -> Replica.builder(r).nodeInfo(NodeInfo.of(0, "aa", 22)).build())
+                .collect(Collectors.toList()));
+
+    var result = ClusterInfo.changedRecordSize(before, clusterInfo, ignored -> true);
+    Assertions.assertEquals(3, result.size());
+    Assertions.assertEquals(-99, result.get(0).bytes());
+    Assertions.assertEquals(111, result.get(1).bytes());
+    Assertions.assertEquals(99, result.get(2).bytes());
+  }
+
+  @Test
+  void testChangedLeaderRecordSize() {
+    var clusterInfo =
+        ClusterInfo.of(
+            "fake",
+            List.of(NodeInfo.of(0, "aa", 22), NodeInfo.of(1, "aa", 22), NodeInfo.of(2, "aa", 22)),
+            Map.of(),
+            List.of(
+                Replica.builder()
+                    .topic("topic")
+                    .partition(0)
+                    .nodeInfo(NodeInfo.of(1, "aa", 22))
+                    .size(100)
+                    .path("/tmp/aa")
+                    .buildLeader(),
+                Replica.builder()
+                    .topic("topic")
+                    .partition(0)
+                    .nodeInfo(NodeInfo.of(2, "aa", 22))
+                    .size(99)
+                    .path("/tmp/aa")
+                    .buildInSyncFollower(),
+                Replica.builder()
+                    .topic("topic")
+                    .partition(1)
+                    .nodeInfo(NodeInfo.of(1, "aa", 22))
+                    .size(11)
+                    .path("/tmp/aa")
+                    .buildInSyncFollower()));
+    var after =
+        ClusterInfo.of(
+            "fake",
+            clusterInfo.nodes(),
+            Map.of(),
+            clusterInfo.replicas().stream()
+                .filter(r -> r.nodeInfo().id() == 1)
+                .map(r -> Replica.builder(r).nodeInfo(NodeInfo.of(0, "aa", 22)).build())
+                .collect(Collectors.toList()));
+
+    var result = ClusterInfo.changedRecordSize(clusterInfo, after, Replica::isLeader);
+    Assertions.assertEquals(3, result.size());
+    Assertions.assertEquals(100, result.get(0).bytes());
+    Assertions.assertEquals(-100, result.get(1).bytes());
+    Assertions.assertEquals(0, result.get(2).bytes());
   }
 }

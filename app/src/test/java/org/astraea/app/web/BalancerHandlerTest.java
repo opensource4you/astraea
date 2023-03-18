@@ -66,7 +66,6 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
-import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.RecordSizeCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
@@ -266,14 +265,7 @@ public class BalancerHandlerTest {
       HasClusterCost clusterCostFunction =
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
-      HasMoveCost failMoveCostFunction =
-          (before, after, clusterBean) ->
-              new MoveCost() {
-                @Override
-                public boolean overflow() {
-                  return true;
-                }
-              };
+      HasMoveCost failMoveCostFunction = (before, after, clusterBean) -> () -> true;
 
       var Best =
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
@@ -328,8 +320,7 @@ public class BalancerHandlerTest {
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> false)
                       .moveCost(moveCostFunction)
-                      .build())
-              .solution());
+                      .build()));
 
       // test move cost predicate
       Assertions.assertEquals(
@@ -347,8 +338,7 @@ public class BalancerHandlerTest {
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> true)
                       .moveCost(failMoveCostFunction)
-                      .build())
-              .solution());
+                      .build()));
     }
   }
 
@@ -371,7 +361,7 @@ public class BalancerHandlerTest {
               sizeLimit);
       Assertions.assertEquals(2, request.moveCosts.size());
       var report = submitPlanGeneration(handler, request).plan;
-      Assertions.assertEquals(2, report.migrationCosts.size());
+      Assertions.assertEquals(4, report.migrationCosts.size());
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
@@ -1337,7 +1327,7 @@ public class BalancerHandlerTest {
     }
 
     @Override
-    public Plan offer(AlgorithmConfig config) {
+    public Optional<Plan> offer(AlgorithmConfig config) {
       offerCallbacks.forEach(Runnable::run);
       offerCallbacks.clear();
       return super.offer(config);
