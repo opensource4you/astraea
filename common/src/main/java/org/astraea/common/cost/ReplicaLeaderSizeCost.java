@@ -36,7 +36,7 @@ public class ReplicaLeaderSizeCost
 
   private final Configuration config;
 
-  public static final String COST_LIMIT_KEY = "maxMigratedLeaderSize";
+  public static final String COST_LIMIT_KEY = "max.migrated.leader.size";
 
   public ReplicaLeaderSizeCost() {
     this.config = Configuration.of(Map.of());

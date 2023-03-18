@@ -24,12 +24,12 @@ POST /balancer
 
 costConfig: 
 
-| config key            | config value                  |
-| --------------------- | ----------------------------- |
-| maxMigratedSize       | 設定最大可搬移的資料量        |
-| maxMigratedLeader     | 設定最大可搬移的leader 數量   |
-| maxMigratedReplicas   | 設定最大可搬移的replica 數量  |
-| maxMigratedLeaderSize | 設定最大可搬移的leader 資料量 |
+| config key                  | config value                  |
+| --------------------------- | ----------------------------- |
+| max.migrated.size           | 設定最大可搬移的資料量        |
+| max.migrated.leader.number  | 設定最大可搬移的leader 數量   |
+| max.migrated.replica.number | 設定最大可搬移的replica 數量  |
+| max.migrated.leader.size    | 設定最大可搬移的leader 資料量 |
 
 
 
@@ -71,8 +71,8 @@ curl -X POST http://localhost:8001/balancer \
   			"org.astraea.common.cost.RecordSizeCost"
   		],
   		"costConfig": {
-  			"maxMigratedSize": "500MB",
-  			"maxMigratedLeader": 5
+  			"max.migrated.size": "500MB",
+  			"max.migrated.leader.number": 5
   		}
     }'
 ```

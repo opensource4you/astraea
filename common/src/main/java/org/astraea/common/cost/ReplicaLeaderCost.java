@@ -31,7 +31,7 @@ import org.astraea.common.metrics.collector.MetricSensor;
 public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
   private final Dispersion dispersion = Dispersion.cov();
   private final Configuration config;
-  public static final String MAX_MIGRATE_LEADER_KEY = "maxMigratedLeader";
+  public static final String MAX_MIGRATE_LEADER_KEY = "max.migrated.leader.number";
 
   public ReplicaLeaderCost() {
     this.config = Configuration.of(Map.of());
