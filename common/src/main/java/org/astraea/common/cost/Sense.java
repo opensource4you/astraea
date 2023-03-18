@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.cost.sense;
+package org.astraea.common.cost;
 
 import java.util.Map;
+import java.util.Set;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.cost.PartitionCost;
 
-public interface SimilarTrafficSense extends Sense {
-
-  Map<Integer, Map<TopicPartition, Double>> sense(PartitionCost partitionCost, int traffic);
+@FunctionalInterface
+public interface Sense {
+  Map<Double, Set<TopicPartition>> sense(PartitionCost partitionCost);
 }
