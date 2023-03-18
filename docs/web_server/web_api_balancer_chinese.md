@@ -24,12 +24,12 @@ POST /balancer
 
 costConfig: 
 
-| config key               | config value                  |
-| ------------------------ | ----------------------------- |
-| max.migrated.size        | 設定最大可搬移的資料量        |
-| max.migrated.leader.num  | 設定最大可搬移的leader 數量   |
-| max.migrated.replica.num | 設定最大可搬移的replica 數量  |
-| max.migrated.leader.size | 設定最大可搬移的leader 資料量 |
+| config key                  | config value                  |
+| --------------------------- | ----------------------------- |
+| max.migrated.size           | 設定最大可搬移的資料量        |
+| max.migrated.leader.number  | 設定最大可搬移的leader 數量   |
+| max.migrated.replica.number | 設定最大可搬移的replica 數量  |
+| max.migrated.leader.size    | 設定最大可搬移的leader 資料量 |
 
 
 
