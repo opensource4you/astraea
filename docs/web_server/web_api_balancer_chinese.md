@@ -72,7 +72,7 @@ curl -X POST http://localhost:8001/balancer \
   		],
   		"costConfig": {
   			"max.migrated.size": "500MB",
-  			"max.migrated.leader.num": 5
+  			"max.migrated.leader.number": 5
   		}
     }'
 ```
