@@ -17,7 +17,6 @@
 package org.astraea.common.metrics.collector;
 
 import java.util.Collection;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -36,7 +35,7 @@ public interface MetricSensor {
    */
   static Optional<MetricSensor> of(Collection<MetricSensor> metricSensors) {
     if (metricSensors.isEmpty()) return Optional.empty();
-    return of(metricSensors, (ex) -> {});
+    return of(metricSensors, ignore -> {});
   }
 
   /**
@@ -55,7 +54,7 @@ public interface MetricSensor {
                     ms -> {
                       try {
                         return ms.fetch(client, clusterBean).stream();
-                      } catch (NoSuchElementException ex) {
+                      } catch (Exception ex) {
                         exceptionHandler.accept(ex);
                         return Stream.empty();
                       }
