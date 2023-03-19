@@ -57,7 +57,15 @@ public class MetricSensorTest {
         (client, ignored) -> {
           throw new RuntimeException("xxx");
         };
-    var sensor = MetricSensor.of(List.of(badMetricSensor, goodMetricSensor)).get();
+    var sensor =
+        MetricSensor.of(
+                List.of(badMetricSensor, goodMetricSensor),
+                e -> {
+                  if (e instanceof RuntimeException) {
+                    throw new RuntimeException();
+                  }
+                })
+            .get();
     Assertions.assertThrows(
         RuntimeException.class,
         () -> sensor.fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
@@ -82,10 +90,19 @@ public class MetricSensorTest {
     Assertions.assertEquals(
         1, sensor.fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY).size());
 
-    Assertions.assertThrows(
-        RuntimeException.class,
+    Assertions.assertDoesNotThrow(
         () ->
             MetricSensor.of(List.of(metricSensor0, metricSensor2))
+                .get()
+                .fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
+    Assertions.assertThrows(
+        NoSuchElementException.class,
+        () ->
+            MetricSensor.of(
+                    List.of(metricSensor1, metricSensor2),
+                    e -> {
+                      if (e instanceof NoSuchElementException) throw new NoSuchElementException();
+                    })
                 .get()
                 .fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
   }
