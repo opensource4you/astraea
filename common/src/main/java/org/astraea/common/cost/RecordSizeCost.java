@@ -17,9 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
@@ -30,7 +28,7 @@ import org.astraea.common.admin.Replica;
 public class RecordSizeCost
     implements HasClusterCost, HasBrokerCost, HasMoveCost, HasPartitionCost {
   private final Configuration config;
-  public static final String MAX_MIGRATE_SIZE_KEY = "maxMigratedSize";
+  public static final String MAX_MIGRATE_SIZE_KEY = "max.migrated.size";
 
   public RecordSizeCost() {
     this.config = Configuration.of(Map.of());
@@ -53,18 +51,7 @@ public class RecordSizeCost
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost =
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
-            .distinct()
-            .parallel()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Function.identity(),
-                    id ->
-                        DataSize.Byte.of(
-                            after.replicaStream(id).mapToLong(Replica::size).sum()
-                                - before.replicaStream(id).mapToLong(Replica::size).sum())));
+    var moveCost = ClusterInfo.changedRecordSize(before, after, ignored -> true);
     var maxMigratedSize =
         config
             .string(MAX_MIGRATE_SIZE_KEY)
@@ -78,7 +65,7 @@ public class RecordSizeCost
                 .map(Math::abs)
                 .mapToLong(s -> s)
                 .sum();
-    return MoveCost.movedRecordSize(moveCost, overflow);
+    return () -> overflow;
   }
 
   @Override

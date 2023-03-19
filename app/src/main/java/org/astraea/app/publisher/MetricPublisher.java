@@ -38,9 +38,20 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.MBeanRegister;
+import org.astraea.common.metrics.Sensor;
+import org.astraea.common.metrics.stats.Rate;
 
 /** Keep fetching all kinds of metrics and publish to inner topics. */
 public class MetricPublisher {
+  public static final String DOMAIN_NAME = "org.astraea";
+  public static final String TYPE_PROPERTY = "type";
+
+  public static final String TYPE_VALUE = "publisher";
+
+  public static final String NAME_PROPERTY = "name";
+  public static final String RATE_PROPERTY = "rate";
+
   public static String internalTopicName(String id) {
     return "__" + id + "_broker_metrics";
   }
@@ -56,11 +67,22 @@ public class MetricPublisher {
     var targetClients = new DelayQueue<DelayedIdClient>();
     // queue of fetched beans
     var beanQueue = new ArrayBlockingQueue<IdBean>(2000);
+    var fetchRateSensor = Sensor.builder().addStat(RATE_PROPERTY, Rate.of()).build();
     var close = new AtomicBoolean(false);
+    MBeanRegister.local()
+        .domainName(DOMAIN_NAME)
+        .property(TYPE_PROPERTY, TYPE_VALUE)
+        .property(NAME_PROPERTY, "BeanFetch")
+        .attribute(RATE_PROPERTY, Double.class, () -> fetchRateSensor.measure(RATE_PROPERTY))
+        .description("MBeans fetch-rate since publisher start up. (beans/second)")
+        .register();
 
     var JMXFetcherThreads =
-        jmxFetcherThreads(3, targetClients, arguments.period, beanQueue, close::get);
-    var publisherThreads = publisherThreads(2, arguments.bootstrapServers(), beanQueue, close::get);
+        jmxFetcherThreads(
+            3, targetClients, arguments.period, beanQueue, fetchRateSensor, close::get);
+    var publisherThreads =
+        publisherThreads(
+            2, arguments.bootstrapServers(), beanQueue, () -> close.get() && beanQueue.isEmpty());
     var periodicJobPool = Executors.newScheduledThreadPool(1);
     var threadPool = Executors.newFixedThreadPool(3 + 2);
     var admin = Admin.of(arguments.bootstrapServers());
@@ -126,6 +148,7 @@ public class MetricPublisher {
       DelayQueue<DelayedIdClient> clients,
       Duration duration,
       BlockingQueue<IdBean> beanQueue,
+      Sensor<Double> fetchRateSensor,
       Supplier<Boolean> closed) {
     return IntStream.range(0, threads)
         .mapToObj(
@@ -136,10 +159,10 @@ public class MetricPublisher {
                         try {
                           var delayedClient = clients.poll(5, TimeUnit.SECONDS);
                           if (delayedClient != null) {
-                            beanQueue.addAll(
-                                delayedClient.mBeanClient.beans(BeanQuery.all()).stream()
-                                    .map(bean -> new IdBean(delayedClient.id, bean))
-                                    .collect(Collectors.toList()));
+                            for (var bean : delayedClient.mBeanClient.beans(BeanQuery.all())) {
+                              beanQueue.put(new IdBean(delayedClient.id, bean));
+                              fetchRateSensor.record(1.0);
+                            }
                             clients.put(
                                 new DelayedIdClient(
                                     duration, delayedClient.id, delayedClient.mBeanClient));
