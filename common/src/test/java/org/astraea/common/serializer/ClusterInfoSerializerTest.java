@@ -19,12 +19,15 @@ package org.astraea.common.serializer;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.Node;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.ByteUtils;
@@ -243,5 +246,17 @@ public class ClusterInfoSerializerTest {
           clusterInfo.topics().keySet(), deserializedClusterInfo.topics().keySet());
       Assertions.assertTrue(deserializedClusterInfo.replicas().containsAll(clusterInfo.replicas()));
     }
+  }
+
+  @Test
+  void testSerializeEmptyClusterInfo(){
+    var clusterInfo = ClusterInfo.empty();
+    var serializedInfo = Serializer.CLUSTER_INFO.serialize("topic", Collections.emptyList(), clusterInfo);
+    var deserializedClusterInfo = Deserializer.CLUSTER_INFO.deserialize("topic", Collections.emptyList(), serializedInfo);
+
+    Assertions.assertEquals(clusterInfo.clusterId(), deserializedClusterInfo.clusterId());
+    Assertions.assertEquals(clusterInfo.nodes(), deserializedClusterInfo.nodes());
+    Assertions.assertEquals(clusterInfo.topics(), deserializedClusterInfo.topics());
+    Assertions.assertEquals(clusterInfo.replicas(), deserializedClusterInfo.replicas());
   }
 }
