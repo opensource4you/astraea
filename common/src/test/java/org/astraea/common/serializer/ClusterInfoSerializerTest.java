@@ -19,8 +19,6 @@ package org.astraea.common.serializer;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -249,10 +247,12 @@ public class ClusterInfoSerializerTest {
   }
 
   @Test
-  void testSerializeEmptyClusterInfo(){
+  void testSerializeEmptyClusterInfo() {
     var clusterInfo = ClusterInfo.empty();
-    var serializedInfo = Serializer.CLUSTER_INFO.serialize("topic", Collections.emptyList(), clusterInfo);
-    var deserializedClusterInfo = Deserializer.CLUSTER_INFO.deserialize("topic", Collections.emptyList(), serializedInfo);
+    var serializedInfo =
+        Serializer.CLUSTER_INFO.serialize("topic", Collections.emptyList(), clusterInfo);
+    var deserializedClusterInfo =
+        Deserializer.CLUSTER_INFO.deserialize("topic", Collections.emptyList(), serializedInfo);
 
     Assertions.assertEquals(clusterInfo.clusterId(), deserializedClusterInfo.clusterId());
     Assertions.assertEquals(clusterInfo.nodes(), deserializedClusterInfo.nodes());
