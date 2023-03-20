@@ -30,7 +30,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.common.DataSize;
 
 public interface ClusterInfo {
   static ClusterInfo empty() {
@@ -39,7 +38,7 @@ public interface ClusterInfo {
 
   // ---------------------[helpers]---------------------//
 
-  static Map<Integer, DataSize> changedRecordSize(
+  static Map<Integer, Long> changedRecordSize(
       ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate) {
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
         .map(NodeInfo::id)
@@ -49,16 +48,15 @@ public interface ClusterInfo {
             Collectors.toUnmodifiableMap(
                 Function.identity(),
                 id ->
-                    DataSize.Byte.of(
-                        after.replicaStream(id).filter(predicate).mapToLong(Replica::size).sum()
-                            - before
-                                .replicaStream(id)
-                                .filter(predicate)
-                                .mapToLong(Replica::size)
-                                .sum())));
+                    after.replicaStream(id).filter(predicate).mapToLong(Replica::size).sum()
+                        - before
+                            .replicaStream(id)
+                            .filter(predicate)
+                            .mapToLong(Replica::size)
+                            .sum()));
   }
 
-  static Map<Integer, Integer> changedReplicaNumber(
+  static Map<Integer, Long> changedReplicaNumber(
       ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate) {
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
         .map(NodeInfo::id)
@@ -69,27 +67,25 @@ public interface ClusterInfo {
                 Function.identity(),
                 id -> {
                   var removedLeaders =
-                      (int)
-                          before
-                              .replicaStream(id)
-                              .filter(predicate)
-                              .filter(
-                                  r ->
-                                      after
-                                          .replicaStream(r.topicPartitionReplica())
-                                          .noneMatch(predicate))
-                              .count();
+                      before
+                          .replicaStream(id)
+                          .filter(predicate)
+                          .filter(
+                              r ->
+                                  after
+                                      .replicaStream(r.topicPartitionReplica())
+                                      .noneMatch(predicate))
+                          .count();
                   var newLeaders =
-                      (int)
-                          after
-                              .replicaStream(id)
-                              .filter(predicate)
-                              .filter(
-                                  r ->
-                                      before
-                                          .replicaStream(r.topicPartitionReplica())
-                                          .noneMatch(predicate))
-                              .count();
+                      after
+                          .replicaStream(id)
+                          .filter(predicate)
+                          .filter(
+                              r ->
+                                  before
+                                      .replicaStream(r.topicPartitionReplica())
+                                      .noneMatch(predicate))
+                          .count();
                   return newLeaders - removedLeaders;
                 }));
   }

@@ -32,6 +32,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   private final Dispersion dispersion = Dispersion.cov();
   private final Configuration config;
   public static final String MAX_MIGRATE_LEADER_KEY = "max.migrated.leader.number";
+  public static final String CHANGED_LEADERS = "changed leaders";
 
   public ReplicaLeaderCost() {
     this.config = Configuration.of(Map.of());
@@ -84,7 +85,17 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
         config.string(MAX_MIGRATE_LEADER_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedLeader < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
-    return () -> overflow;
+    return new MoveCost() {
+      @Override
+      public boolean overflow() {
+        return overflow;
+      }
+
+      @Override
+      public List<MigrationCost> migrationCost() {
+        return List.of(new MigrationCost(CHANGED_LEADERS, moveCost));
+      }
+    };
   }
 
   @Override

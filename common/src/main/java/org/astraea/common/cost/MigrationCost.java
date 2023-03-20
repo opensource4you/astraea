@@ -16,32 +16,16 @@
  */
 package org.astraea.common.cost;
 
-import java.util.List;
+import java.util.Map;
 
-/** Return type of cost function, `HasMoveCost`. It returns the score of migrate plan. */
-public interface MoveCost {
+public class MigrationCost {
 
-  MoveCost EMPTY =
-      new MoveCost() {
+  public final String name;
 
-        @Override
-        public boolean overflow() {
-          return false;
-        }
+  public final Map<Integer, Long> brokerCosts;
 
-        @Override
-        public List<MigrationCost> migrationCost() {
-          return List.of();
-        }
-      };
-
-  /**
-   * @return check if the cost exceeds the limit value of the user
-   */
-  boolean overflow();
-
-  default List<MigrationCost> migrationCost() {
-    return List.of();
+  MigrationCost(String name, Map<Integer, Long> brokerCosts) {
+    this.name = name;
+    this.brokerCosts = brokerCosts;
   }
-  ;
 }

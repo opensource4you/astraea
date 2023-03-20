@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
@@ -40,11 +41,26 @@ public interface HasMoveCost extends CostFunction {
 
       @Override
       public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-        var overflow =
+        var moveCosts =
             hasMoveCosts.stream()
                 .map(c -> c.moveCost(before, after, clusterBean))
-                .anyMatch(MoveCost::overflow);
-        return () -> overflow;
+                .collect(Collectors.toSet());
+        var overflow = moveCosts.stream().anyMatch(MoveCost::overflow);
+        var migrateCosts =
+            moveCosts.stream()
+                .flatMap(moveCost -> moveCost.migrationCost().stream())
+                .collect(Collectors.toList());
+        return new MoveCost() {
+          @Override
+          public boolean overflow() {
+            return overflow;
+          }
+
+          @Override
+          public List<MigrationCost> migrationCost() {
+            return migrateCosts;
+          }
+        };
       }
 
       @Override

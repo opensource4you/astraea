@@ -16,6 +16,7 @@
  */
 package org.astraea.common.cost;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -37,6 +38,7 @@ public class ReplicaLeaderSizeCost
   private final Configuration config;
 
   public static final String COST_LIMIT_KEY = "max.migrated.leader.size";
+  public static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
 
   public ReplicaLeaderSizeCost() {
     this.config = Configuration.of(Map.of());
@@ -62,13 +64,18 @@ public class ReplicaLeaderSizeCost
     var maxMigratedLeaderSize =
         config.string(COST_LIMIT_KEY).map(DataSize::of).map(DataSize::bytes).orElse(Long.MAX_VALUE);
     var overflow =
-        maxMigratedLeaderSize
-            < moveCost.values().stream()
-                .map(DataSize::bytes)
-                .map(Math::abs)
-                .mapToLong(s -> s)
-                .sum();
-    return () -> overflow;
+        maxMigratedLeaderSize < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
+    return new MoveCost() {
+      @Override
+      public boolean overflow() {
+        return overflow;
+      }
+
+      @Override
+      public List<MigrationCost> migrationCost() {
+        return List.of(new MigrationCost(MOVED_LEADER_SIZE, moveCost));
+      }
+    };
   }
 
   /**

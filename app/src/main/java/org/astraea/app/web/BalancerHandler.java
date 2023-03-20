@@ -32,7 +32,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -48,6 +47,7 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.cost.MigrationCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -225,7 +225,7 @@ class BalancerHandler implements Handler {
                     .map(
                         solution ->
                             new PlanReport(
-                                changes.apply(solution), BalancerHandler.migrationCosts(solution)))
+                                changes.apply(solution), solution.moveCost().migrationCost()))
                     .orElse(null);
     var phase = balancerConsole.taskPhase(taskId).orElseThrow();
     return new PlanExecutionProgress(
@@ -236,49 +236,6 @@ class BalancerHandler implements Handler {
         taskMetadata.get(taskId).algorithmConfig.clusterCostFunction().toString(),
         exception.apply(phase),
         report.get());
-  }
-
-  private static List<MigrationCost> migrationCosts(Balancer.Plan solution) {
-    return Stream.of(
-            new MigrationCost(
-                CHANGED_REPLICAS,
-                ClusterInfo.changedReplicaNumber(
-                        solution.initialClusterInfo(), solution.proposal(), ignored -> true)
-                    .entrySet()
-                    .stream()
-                    .collect(
-                        Collectors.toMap(
-                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
-            new MigrationCost(
-                CHANGED_LEADERS,
-                ClusterInfo.changedReplicaNumber(
-                        solution.initialClusterInfo(), solution.proposal(), Replica::isLeader)
-                    .entrySet()
-                    .stream()
-                    .collect(
-                        Collectors.toMap(
-                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
-            new MigrationCost(
-                MOVED_SIZE,
-                ClusterInfo.changedRecordSize(
-                        solution.initialClusterInfo(), solution.proposal(), ignored -> true)
-                    .entrySet()
-                    .stream()
-                    .collect(
-                        Collectors.toMap(
-                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
-            new MigrationCost(
-                MOVED_LEADER_SIZE,
-                ClusterInfo.changedRecordSize(
-                        solution.initialClusterInfo(), solution.proposal(), Replica::isLeader)
-                    .entrySet()
-                    .stream()
-                    .collect(
-                        Collectors.toMap(
-                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
-        .filter(
-            m -> !m.brokerCosts.isEmpty() && m.brokerCosts.values().stream().anyMatch(v -> v != 0))
-        .collect(Collectors.toList());
   }
 
   private Balancer.Plan metricContext(
@@ -465,23 +422,6 @@ class BalancerHandler implements Handler {
       this.partition = partition;
       this.before = before;
       this.after = after;
-    }
-  }
-
-  // visible for testing
-  static final String CHANGED_REPLICAS = "changed replicas";
-  static final String CHANGED_LEADERS = "changed leaders";
-  static final String MOVED_SIZE = "moved size (bytes)";
-  static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
-
-  static class MigrationCost {
-    final String name;
-
-    final Map<String, Double> brokerCosts;
-
-    MigrationCost(String name, Map<String, Double> brokerCosts) {
-      this.name = name;
-      this.brokerCosts = brokerCosts;
     }
   }
 
