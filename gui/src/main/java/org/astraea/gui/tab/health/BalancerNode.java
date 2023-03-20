@@ -109,8 +109,13 @@ class BalancerNode {
         ClusterInfo.changedReplicaNumber(
             plan.initialClusterInfo(), plan.proposal(), Replica::isLeader));
     process.accept(
-        "changed size",
-        ClusterInfo.changedRecordSize(plan.initialClusterInfo(), plan.proposal(), ignored -> true));
+        "changed in size",
+        ClusterInfo.changedRecordSize(
+            plan.initialClusterInfo(), plan.proposal(), ignored -> true, false));
+    process.accept(
+        "changed out size",
+        ClusterInfo.changedRecordSize(
+            plan.proposal(), plan.initialClusterInfo(), ignored -> true, true));
 
     return List.copyOf(map.values());
   }

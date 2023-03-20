@@ -363,93 +363,140 @@ public class ClusterInfoTest {
 
   @Test
   void testChangedRecordSize() {
-    var clusterInfo =
-        ClusterInfo.of(
-            "fake",
-            List.of(NodeInfo.of(0, "aa", 22), NodeInfo.of(1, "aa", 22), NodeInfo.of(2, "aa", 22)),
-            Map.of(),
-            List.of(
-                Replica.builder()
-                    .topic("topic")
-                    .partition(0)
-                    .nodeInfo(NodeInfo.of(1, "aa", 22))
-                    .size(100)
-                    .path("/tmp/aa")
-                    .buildLeader(),
-                Replica.builder()
-                    .topic("topic")
-                    .partition(0)
-                    .nodeInfo(NodeInfo.of(2, "aa", 22))
-                    .size(99)
-                    .path("/tmp/aa")
-                    .buildInSyncFollower(),
-                Replica.builder()
-                    .topic("topic")
-                    .partition(1)
-                    .nodeInfo(NodeInfo.of(1, "aa", 22))
-                    .size(11)
-                    .path("/tmp/aa")
-                    .buildLeader()));
-    var before =
-        ClusterInfo.of(
-            "fake",
-            clusterInfo.nodes(),
-            Map.of(),
-            clusterInfo.replicas().stream()
-                .filter(r -> !r.isLeader())
-                .map(r -> Replica.builder(r).nodeInfo(NodeInfo.of(0, "aa", 22)).build())
-                .collect(Collectors.toList()));
 
-    var result = ClusterInfo.changedRecordSize(before, clusterInfo, ignored -> true);
-    Assertions.assertEquals(3, result.size());
-    Assertions.assertEquals(-99, result.get(0).bytes());
-    Assertions.assertEquals(111, result.get(1).bytes());
-    Assertions.assertEquals(99, result.get(2).bytes());
+    var moveInResult =
+        ClusterInfo.changedRecordSize(
+            beforeClusterInfo(), afterClusterInfo(), ignored -> true, false);
+    Assertions.assertEquals(3, moveInResult.size());
+    Assertions.assertEquals(0, moveInResult.get(0).bytes());
+    Assertions.assertEquals(1000, moveInResult.get(1).bytes());
+    Assertions.assertEquals(100 + 500, moveInResult.get(2).bytes());
+
+    var moveOutResult =
+        ClusterInfo.changedRecordSize(
+            afterClusterInfo(), beforeClusterInfo(), ignored -> true, true);
+    Assertions.assertEquals(3, moveOutResult.size());
+    Assertions.assertEquals(100 + 500, moveOutResult.get(0).bytes());
+    Assertions.assertEquals(0, moveOutResult.get(1).bytes());
+    Assertions.assertEquals(1000, moveOutResult.get(2).bytes());
+
+    var totalResult =
+        ClusterInfo.totalChangedRecordSize(
+            beforeClusterInfo(), afterClusterInfo(), ignored -> true);
+    Assertions.assertEquals(Math.max(1000 + 100 + 500, 100 + 500 + 1000), totalResult);
   }
 
-  @Test
-  void testChangedLeaderRecordSize() {
-    var clusterInfo =
-        ClusterInfo.of(
-            "fake",
-            List.of(NodeInfo.of(0, "aa", 22), NodeInfo.of(1, "aa", 22), NodeInfo.of(2, "aa", 22)),
-            Map.of(),
-            List.of(
-                Replica.builder()
-                    .topic("topic")
-                    .partition(0)
-                    .nodeInfo(NodeInfo.of(1, "aa", 22))
-                    .size(100)
-                    .path("/tmp/aa")
-                    .buildLeader(),
-                Replica.builder()
-                    .topic("topic")
-                    .partition(0)
-                    .nodeInfo(NodeInfo.of(2, "aa", 22))
-                    .size(99)
-                    .path("/tmp/aa")
-                    .buildInSyncFollower(),
-                Replica.builder()
-                    .topic("topic")
-                    .partition(1)
-                    .nodeInfo(NodeInfo.of(1, "aa", 22))
-                    .size(11)
-                    .path("/tmp/aa")
-                    .buildInSyncFollower()));
-    var after =
-        ClusterInfo.of(
-            "fake",
-            clusterInfo.nodes(),
-            Map.of(),
-            clusterInfo.replicas().stream()
-                .filter(r -> r.nodeInfo().id() == 1)
-                .map(r -> Replica.builder(r).nodeInfo(NodeInfo.of(0, "aa", 22)).build())
-                .collect(Collectors.toList()));
+  /*
+  before distribution:
+      p0: 0,1
+      p1: 0,1
+      p2: 2,0
+  after distribution:
+      p0: 2,1
+      p1: 0,2
+      p2: 1,0
+  leader log size:
+      p0: 100
+      p1: 500
+      p2  1000
+   */
+  private static ClusterInfo beforeClusterInfo() {
+    return ClusterInfo.of(
+        "fake",
+        List.of(NodeInfo.of(0, "aa", 22), NodeInfo.of(1, "aa", 22), NodeInfo.of(2, "aa", 22)),
+        Map.of(),
+        List.of(
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .size(100)
+                .isLeader(true)
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .size(99)
+                .isLeader(false)
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .size(500)
+                .isLeader(true)
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .size(499)
+                .isLeader(false)
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .size(1000)
+                .isLeader(true)
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .size(1000)
+                .isLeader(false)
+                .build()));
+  }
 
-    var result = ClusterInfo.changedRecordSize(clusterInfo, after, Replica::isLeader);
-    Assertions.assertEquals(3, result.size());
-    Assertions.assertEquals(100, result.get(0).bytes());
-    Assertions.assertEquals(-100, result.get(1).bytes());
-    Assertions.assertEquals(0, result.get(2).bytes());
+  private static ClusterInfo afterClusterInfo() {
+    return ClusterInfo.of(
+        "fake",
+        List.of(NodeInfo.of(0, "aa", 22), NodeInfo.of(1, "aa", 22), NodeInfo.of(2, "aa", 22)),
+        Map.of(),
+        List.of(
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .size(100)
+                .isLeader(true)
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .size(99)
+                .isLeader(false)
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .size(500)
+                .isLeader(true)
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .size(500)
+                .isLeader(false)
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .size(1000)
+                .isLeader(true)
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .size(1000)
+                .isLeader(false)
+                .build()));
   }
 }

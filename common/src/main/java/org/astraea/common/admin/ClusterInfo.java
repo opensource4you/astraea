@@ -39,23 +39,48 @@ public interface ClusterInfo {
 
   // ---------------------[helpers]---------------------//
 
+  /**
+   * @param before the ClusterInfo before migrated replicas
+   * @param after the ClusterInfo after migrated replicas
+   * @param predicate used with filter to filter some replicas
+   * @param fromLeader if data log need fetch from replica leader, set this true
+   * @return the data size to migrated by all brokers
+   */
   static Map<Integer, DataSize> changedRecordSize(
-      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate) {
-    return Stream.concat(before.nodes().stream(), after.nodes().stream())
+      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate, boolean fromLeader) {
+    var changePartitions = ClusterInfo.findNonFulfilledAllocation(before, after);
+    var cost =
+        changePartitions.stream()
+            .flatMap(
+                p ->
+                    after.replicas(p).stream()
+                        .filter(predicate)
+                        .filter(r -> !before.replicas(p).contains(r)))
+            .map(
+                r -> {
+                  if (fromLeader) return after.replicaLeader(r.topicPartition()).orElse(r);
+                  return r;
+                })
+            .collect(
+                Collectors.groupingBy(
+                    r -> r.nodeInfo().id(),
+                    Collectors.mapping(
+                        Function.identity(), Collectors.summingLong(Replica::size))));
+    return Stream.concat(after.nodes().stream(), before.nodes().stream())
         .map(NodeInfo::id)
         .distinct()
         .parallel()
         .collect(
-            Collectors.toUnmodifiableMap(
-                Function.identity(),
-                id ->
-                    DataSize.Byte.of(
-                        after.replicaStream(id).filter(predicate).mapToLong(Replica::size).sum()
-                            - before
-                                .replicaStream(id)
-                                .filter(predicate)
-                                .mapToLong(Replica::size)
-                                .sum())));
+            Collectors.toMap(Function.identity(), n -> DataSize.Byte.of(cost.getOrDefault(n, 0L))));
+  }
+
+  static Long totalChangedRecordSize(
+      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate) {
+    var addingSize = changedRecordSize(before, after, predicate, false);
+    var removedSize = changedRecordSize(after, before, predicate, true);
+    return Math.max(
+        addingSize.values().stream().mapToLong(DataSize::bytes).sum(),
+        removedSize.values().stream().mapToLong(DataSize::bytes).sum());
   }
 
   static Map<Integer, Integer> changedReplicaNumber(

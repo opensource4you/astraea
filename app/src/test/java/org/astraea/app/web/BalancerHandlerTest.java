@@ -147,7 +147,7 @@ public class BalancerHandlerTest {
           .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
       var sizeMigration =
           report.migrationCosts.stream()
-              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .filter(x -> x.name.equals(BalancerHandler.MOVED_IN_SIZE))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
@@ -175,7 +175,7 @@ public class BalancerHandlerTest {
           "Only allowed topics been altered");
       var sizeMigration =
           report.migrationCosts.stream()
-              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .filter(x -> x.name.equals(BalancerHandler.MOVED_IN_SIZE))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
@@ -361,7 +361,8 @@ public class BalancerHandlerTest {
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
-              case BalancerHandler.MOVED_SIZE:
+              case BalancerHandler.MOVED_IN_SIZE:
+              case BalancerHandler.MOVED_OUT_SIZE:
                 Assertions.assertTrue(
                     migrationCost.brokerCosts.values().stream()
                             .map(Math::abs)
