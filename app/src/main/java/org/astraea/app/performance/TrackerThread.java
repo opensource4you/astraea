@@ -128,11 +128,7 @@ public interface TrackerThread extends AbstractThread {
                       .filter(d -> !Double.isNaN(d))
                       .sum()));
       reports.stream()
-          .mapToLong(Report::maxLatency)
-          .max()
-          .ifPresent(i -> System.out.printf("  end-to-end max latency: %d ms%n", i));
-      reports.stream()
-          .mapToDouble(Report::avgLatency)
+          .mapToDouble(r -> r.e2eLatency().orElse(Double.NaN))
           .average()
           .ifPresent(i -> System.out.printf("  end-to-end average latency: %.3f ms%n", i));
       var metrics = ConsumerMetrics.coordinators(mBeanClient);
@@ -165,7 +161,8 @@ public interface TrackerThread extends AbstractThread {
             "  consumed[%d] average throughput: %s%n",
             i, DataSize.Byte.of((long) reports.get(i).avgThroughput()));
         System.out.printf(
-            "  consumer[%d] average ene-to-end latency: %.3f ms%n", i, report.avgLatency());
+            "  consumer[%d] average ene-to-end latency: %.3f ms%n",
+            i, report.e2eLatency().orElse(Double.NaN));
       }
       return true;
     }
