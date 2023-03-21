@@ -19,14 +19,19 @@ package org.astraea.connector.backup;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
@@ -103,12 +108,13 @@ public class Exporter extends SinkConnector {
           .documentation("a value that needs to be overridden in the file system.")
           .build();
 
-  static Definition QUEUE_SIZE_KEY =
+  static Definition BUFFER_SIZE_KEY =
       Definition.builder()
-          .name("records.queue.number")
-          .type(Definition.Type.INT)
+          .name("records.queue.size")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DataSize.of(obj.toString()))
           .documentation("a value that represents the size of the record queue.")
-          .defaultValue("100000")
+          .defaultValue("300MB")
           .build();
   private Configuration configs;
 
@@ -138,7 +144,7 @@ public class Exporter extends SinkConnector {
         PATH_KEY,
         SIZE_KEY,
         OVERRIDE_KEY,
-        QUEUE_SIZE_KEY);
+        BUFFER_SIZE_KEY);
   }
 
   public static class Task extends SinkTask {
@@ -148,6 +154,14 @@ public class Exporter extends SinkConnector {
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private BlockingQueue<Record<byte[], byte[]>> recordsQueue;
+
+    private final AtomicLong bufferSize = new AtomicLong();
+
+    private final ReentrantLock putLock = new ReentrantLock();
+
+    private final Condition notFull = putLock.newCondition();
+
+    private long bufferSizeLimit;
 
     static Runnable createWriter(
         FileSystem fs,
@@ -211,6 +225,16 @@ public class Exporter extends SinkConnector {
       };
     }
 
+    private void signalNotFull() {
+      final var putLock = this.putLock;
+      putLock.lock();
+      try {
+        notFull.signal();
+      } finally {
+        putLock.unlock();
+      }
+    }
+
     @Override
     protected void init(Configuration configuration) {
       var topicName = configuration.requireString(TOPICS_KEY);
@@ -223,11 +247,16 @@ public class Exporter extends SinkConnector {
                   configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()))
               .toMillis();
 
-      this.recordsQueue =
-          new LinkedBlockingQueue<>(
-              configuration
-                  .integer(QUEUE_SIZE_KEY.name())
-                  .orElse(Integer.valueOf(QUEUE_SIZE_KEY.defaultValue().toString())));
+      this.bufferSize.set(0);
+
+      this.bufferSizeLimit =
+          DataSize.of(
+                  configuration
+                      .string(BUFFER_SIZE_KEY.name())
+                      .orElse(BUFFER_SIZE_KEY.defaultValue().toString()))
+              .bytes();
+
+      this.recordsQueue = new LinkedBlockingQueue<>();
 
       var fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture =
@@ -245,13 +274,49 @@ public class Exporter extends SinkConnector {
                             var list =
                                 new ArrayList<Record<byte[], byte[]>>(this.recordsQueue.size());
                             this.recordsQueue.drainTo(list);
+                            var drainedSize =
+                                list.stream()
+                                    .map(
+                                        record -> {
+                                          int keyLength =
+                                              (record.key() == null) ? 0 : record.key().length;
+                                          int valueLength =
+                                              (record.value() == null) ? 0 : record.value().length;
+
+                                          return keyLength + valueLength;
+                                        })
+                                    .reduce(0, Integer::sum);
+
+                            this.bufferSize.getAndAdd(-drainedSize);
+                            signalNotFull();
                             return list;
                           })));
     }
 
     @Override
     protected void put(List<Record<byte[], byte[]>> records) {
-      records.forEach(r -> Utils.packException(() -> recordsQueue.put(r)));
+      records.forEach(
+          r ->
+              Utils.packException(
+                  () -> {
+                    final var putLock = this.putLock;
+                    putLock.lockInterruptibly();
+                    try {
+                      int recordLength =
+                          Stream.of(r.key(), r.value())
+                              .filter(Objects::nonNull)
+                              .map(i -> i.length)
+                              .reduce(0, Integer::sum);
+
+                      while (this.bufferSize.get() + recordLength >= this.bufferSizeLimit) {
+                        notFull.await();
+                      }
+                      recordsQueue.put(r);
+                      this.bufferSize.addAndGet(recordLength);
+                    } finally {
+                      putLock.unlock();
+                    }
+                  }));
     }
 
     @Override
