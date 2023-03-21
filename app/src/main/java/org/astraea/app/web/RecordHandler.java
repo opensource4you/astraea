@@ -379,7 +379,7 @@ public class RecordHandler implements Handler {
     final String topic;
     final int partition;
     final long offset;
-    final long timestamp;
+    final Optional<Long> timestamp;
     final int serializedKeySize;
     final int serializedValueSize;
 
