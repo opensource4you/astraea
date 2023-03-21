@@ -48,7 +48,8 @@ public class NeutralIntegratedCost implements HasBrokerCost {
         clusterBean.all().entrySet().stream()
             .filter(e -> e.getKey() != -1)
             .collect(Collectors.toMap(Map.Entry::getKey, entry -> 0.0));
-    var maskedClusterBean = ClusterBean.masked(clusterBean, node -> node != -1);
+    // The local MBean will affect the partitioner's judgment, so filtering out the local bean.
+    var clusterBeanWithoutLocal = ClusterBean.masked(clusterBean, node -> node != -1);
     costMetrics.forEach(
         (key, value) -> {
           if (!brokersMetric.containsKey(key)) {
@@ -57,7 +58,7 @@ public class NeutralIntegratedCost implements HasBrokerCost {
         });
 
     metricsCost.forEach(
-        hasBrokerCost -> setBrokerMetrics(hasBrokerCost, clusterInfo, maskedClusterBean));
+        hasBrokerCost -> setBrokerMetrics(hasBrokerCost, clusterInfo, clusterBeanWithoutLocal));
 
     var entropyEmpowerment = weight(weightProvider, brokersMetric);
     var entropyEmpowermentSum =
