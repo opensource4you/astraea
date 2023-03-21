@@ -164,7 +164,8 @@ public class RecordHandler implements Handler {
   GetResponse get(Consumer<byte[], byte[]> consumer, int limit, Duration timeout) {
     try {
       return new GetResponse(
-          consumer, consumer.poll(limit, timeout).stream().map(Record::new).collect(toList()));
+          consumer,
+          consumer.poll(timeout).stream().map(Record::new).limit(limit).collect(toList()));
     } catch (Exception e) {
       consumer.close();
       throw e;

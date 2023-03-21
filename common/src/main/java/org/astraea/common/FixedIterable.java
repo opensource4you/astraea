@@ -16,37 +16,44 @@
  */
 package org.astraea.common;
 
+import java.util.Iterator;
 import java.util.List;
-import java.util.Spliterators;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.apache.kafka.common.header.Headers;
 
-public interface Header {
-  static List<Header> of(Headers headers) {
-    var iter = headers.iterator();
-    // a minor optimization to avoid create extra collection.
-    if (!iter.hasNext()) return List.of();
-    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iter, 0), false)
-        .map(h -> of(h.key(), h.value()))
-        .collect(Collectors.toUnmodifiableList());
+/**
+ * this interface offers a "lazy" way to represent a bunch of elements. also, it offers common
+ * information/methods to simplify the use case.
+ */
+public interface FixedIterable<T> extends Iterable<T> {
+  FixedIterable EMPTY = of(0, List.of().iterator());
+
+  @SuppressWarnings("unchecked")
+  static <T> FixedIterable<T> empty() {
+    return (FixedIterable<T>) EMPTY;
   }
 
-  static Header of(String key, byte[] value) {
-    return new Header() {
+  static <T> FixedIterable<T> of(int size, Iterator<T> iterator) {
+    return new FixedIterable<>() {
       @Override
-      public String key() {
-        return key;
+      public int size() {
+        return size;
       }
 
       @Override
-      public byte[] value() {
-        return value;
+      public Iterator<T> iterator() {
+        return iterator;
       }
     };
   }
 
-  String key();
+  default boolean isEmpty() {
+    return size() <= 0;
+  }
 
-  byte[] value();
+  int size();
+
+  default Stream<T> stream() {
+    return StreamSupport.stream(spliterator(), false);
+  }
 }

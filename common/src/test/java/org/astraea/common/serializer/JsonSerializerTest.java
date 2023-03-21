@@ -64,7 +64,7 @@ public class JsonSerializerTest {
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(1));
-      var records = consumer.poll(2, Duration.ofSeconds(5));
+      var records = consumer.poll(Duration.ofSeconds(5));
       if (!records.isEmpty())
         Assertions.assertEquals(
             records.stream().findFirst().get().key(), "{\"age\":\"22\",\"name\":\"ben\"}");
@@ -115,7 +115,7 @@ public class JsonSerializerTest {
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(1));
-      var records = consumer.poll(2, Duration.ofSeconds(5));
+      var records = consumer.poll(Duration.ofSeconds(5));
       if (!records.isEmpty())
         Assertions.assertEquals(
             "{\"doubleValue\":456.0,\"intValue\":12,\"stringValue\":\"hello\"}",

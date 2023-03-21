@@ -150,7 +150,8 @@ public class RecordHandlerTest {
             .keyDeserializer(Deserializer.STRING)
             .valueDeserializer(Deserializer.STRING)
             .build()) {
-      var records = consumer.poll(1, Duration.ofSeconds(5));
+      var records =
+          consumer.poll(Duration.ofSeconds(5)).stream().collect(Collectors.toUnmodifiableList());
       Assertions.assertEquals(1, records.size());
       Assertions.assertEquals(0, records.get(0).partition());
       Assertions.assertEquals("abc", records.get(0).key());
@@ -208,7 +209,8 @@ public class RecordHandlerTest {
             .keyDeserializer(Deserializer.STRING)
             .valueDeserializer(Deserializer.INTEGER)
             .build()) {
-      var records = List.copyOf(consumer.poll(2, Duration.ofSeconds(10)));
+      var records =
+          consumer.poll(Duration.ofSeconds(10)).stream().collect(Collectors.toUnmodifiableList());
       Assertions.assertEquals(2, records.size());
 
       var record = records.get(0);
@@ -272,7 +274,7 @@ public class RecordHandlerTest {
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
-      var record = consumer.poll(1, Duration.ofSeconds(10)).iterator().next();
+      var record = consumer.poll(Duration.ofSeconds(10)).iterator().next();
       Assertions.assertEquals(topic, record.topic());
       Assertions.assertEquals(currentTimestamp, record.timestamp());
       Assertions.assertEquals(0, record.partition());
@@ -310,7 +312,7 @@ public class RecordHandlerTest {
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
-      var record = consumer.poll(1, Duration.ofSeconds(10)).iterator().next();
+      var record = consumer.poll(Duration.ofSeconds(10)).iterator().next();
       Assertions.assertArrayEquals(expected, record.key());
     }
   }
@@ -1090,7 +1092,7 @@ public class RecordHandlerTest {
     var exception = new IllegalArgumentException("hello");
     @SuppressWarnings({"unchecked", "resource"})
     Consumer<byte[], byte[]> consumer = Mockito.mock(Consumer.class);
-    Mockito.when(consumer.poll(Mockito.anyInt(), Mockito.any())).thenThrow(exception);
+    Mockito.when(consumer.poll(Mockito.any())).thenThrow(exception);
     var recordHandler = new RecordHandler(Admin.of(SERVICE.bootstrapServers()));
     Assertions.assertEquals(
         exception,

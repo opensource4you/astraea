@@ -17,26 +17,21 @@
 package org.astraea.common.consumer;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.astraea.common.FixedIterable;
 import org.astraea.common.admin.TopicPartition;
 
 /** An interface for polling records. */
 public interface Consumer<Key, Value> extends AutoCloseable {
-  default List<Record<Key, Value>> poll(Duration timeout) {
-    return poll(1, timeout);
-  }
-
   /**
-   * try to poll data until there are enough records to return or the timeout is reached.
+   * try to poll data until there are records to return or the timeout is reached.
    *
-   * @param recordCount max number of returned records.
    * @param timeout max time to wait data
    * @return records
    */
-  List<Record<Key, Value>> poll(int recordCount, Duration timeout);
+  FixedIterable<Record<Key, Value>> poll(Duration timeout);
 
   /**
    * Wakeup the consumer. This method is thread-safe and is useful in particular to abort a long

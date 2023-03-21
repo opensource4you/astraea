@@ -74,9 +74,10 @@ public interface Deserializer<T> {
     };
   }
 
-  static <T> Deserializer<T> of(
+  private static <T> Deserializer<T> of(
       org.apache.kafka.common.serialization.Deserializer<T> deserializer) {
-    return (topic, headers, data) -> deserializer.deserialize(topic, Header.of(headers), data);
+    // the headers are not used by primitive type deserializer
+    return (topic, headers, data) -> deserializer.deserialize(topic, data);
   }
 
   Deserializer<String> BASE64 =

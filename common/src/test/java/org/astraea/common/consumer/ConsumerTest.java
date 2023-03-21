@@ -82,6 +82,7 @@ public class ConsumerTest {
     }
   }
 
+  @Timeout(15)
   @Test
   void testFromBeginning() {
     var recordCount = 100;
@@ -94,9 +95,10 @@ public class ConsumerTest {
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
-
-      Assertions.assertEquals(
-          recordCount, consumer.poll(recordCount, Duration.ofSeconds(10)).size());
+      var count = 0;
+      while (count != recordCount) {
+        count += consumer.poll(Duration.ofSeconds(10)).size();
+      }
     }
   }
 
@@ -155,8 +157,7 @@ public class ConsumerTest {
                       ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
                   .config(ConsumerConfigs.GROUP_ID_CONFIG, id)
                   .build()) {
-            Assertions.assertEquals(
-                expectedSize, consumer.poll(expectedSize, Duration.ofSeconds(5)).size());
+            Assertions.assertEquals(expectedSize, consumer.poll(Duration.ofSeconds(5)).size());
             Assertions.assertEquals(id, consumer.groupId());
             Assertions.assertNotNull(consumer.memberId());
             Assertions.assertFalse(consumer.groupInstanceId().isPresent());
@@ -205,7 +206,7 @@ public class ConsumerTest {
             .bootstrapServers(SERVICE.bootstrapServers())
             .seek(DISTANCE_FROM_LATEST, 3)
             .build()) {
-      Assertions.assertEquals(3, consumer.poll(4, Duration.ofSeconds(5)).size());
+      Assertions.assertEquals(3, consumer.poll(Duration.ofSeconds(5)).size());
     }
 
     try (var consumer =
@@ -213,7 +214,7 @@ public class ConsumerTest {
             .bootstrapServers(SERVICE.bootstrapServers())
             .seek(DISTANCE_FROM_LATEST, 1000)
             .build()) {
-      Assertions.assertEquals(10, consumer.poll(11, Duration.ofSeconds(5)).size());
+      Assertions.assertEquals(10, consumer.poll(Duration.ofSeconds(5)).size());
     }
   }
 
@@ -269,7 +270,7 @@ public class ConsumerTest {
             .bootstrapServers(SERVICE.bootstrapServers())
             .seek(DISTANCE_FROM_LATEST, 20)
             .build()) {
-      var records = consumer.poll(20, Duration.ofSeconds(5));
+      var records = consumer.poll(Duration.ofSeconds(5));
       Assertions.assertEquals(10, records.size());
       Assertions.assertEquals(
           nCopies(10, 1), records.stream().map(Record::partition).collect(toList()));
@@ -280,7 +281,7 @@ public class ConsumerTest {
             .bootstrapServers(SERVICE.bootstrapServers())
             .seek(DISTANCE_FROM_LATEST, 20)
             .build()) {
-      var records = consumer.poll(20, Duration.ofSeconds(5));
+      var records = consumer.poll(Duration.ofSeconds(5));
       Assertions.assertEquals(20, records.size());
       Assertions.assertEquals(
           Stream.concat(nCopies(10, 0).stream(), nCopies(10, 1).stream()).collect(toList()),
@@ -309,7 +310,7 @@ public class ConsumerTest {
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
               .config(ConsumerConfigs.ENABLE_AUTO_COMMIT_CONFIG, "false")
               .build()) {
-        Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(4)).size());
+        Assertions.assertEquals(1, consumer.poll(Duration.ofSeconds(4)).size());
         Assertions.assertEquals(
             1, admin.consumerGroups(Set.of(groupId)).toCompletableFuture().join().size());
         // no offsets are committed, so there is no progress.
@@ -354,7 +355,7 @@ public class ConsumerTest {
                   .bootstrapServers(SERVICE.bootstrapServers())
                   .seek(DISTANCE_FROM_BEGINNING, distanceFromBeginning)
                   .build()) {
-            Assertions.assertEquals(expectedSize, consumer.poll(10, Duration.ofSeconds(5)).size());
+            Assertions.assertEquals(expectedSize, consumer.poll(Duration.ofSeconds(5)).size());
           }
         };
 
@@ -374,7 +375,7 @@ public class ConsumerTest {
                   .bootstrapServers(SERVICE.bootstrapServers())
                   .seek(SEEK_TO, seekTo)
                   .build()) {
-            Assertions.assertEquals(expectedSize, consumer.poll(10, Duration.ofSeconds(5)).size());
+            Assertions.assertEquals(expectedSize, consumer.poll(Duration.ofSeconds(5)).size());
           }
         };
 
@@ -605,7 +606,7 @@ public class ConsumerTest {
                 RandomAssignor.class.getName())
             .seek(DISTANCE_FROM_BEGINNING, 0)
             .build()) {
-      var records = consumer.poll(30, Duration.ofSeconds(5));
+      var records = consumer.poll(Duration.ofSeconds(5));
       Assertions.assertEquals(30, records.size());
       Assertions.assertEquals(3, consumer.assignments().size());
     }

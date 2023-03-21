@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.DataException;
@@ -57,26 +58,7 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
   @Override
   public final void put(Collection<SinkRecord> records) {
     if (records != null && !records.isEmpty())
-      put(
-          records.stream()
-              .map(
-                  r -> {
-                    var key = toBytes(r.keySchema(), r.key());
-                    var value = toBytes(r.valueSchema(), r.value());
-                    return Record.builder()
-                        .key(key)
-                        .serializedKeySize(key == null ? 0 : key.length)
-                        .value(value)
-                        .serializedValueSize(value == null ? 0 : value.length)
-                        .offset(r.kafkaOffset())
-                        .timestamp(r.timestamp() == null ? -1 : r.timestamp())
-                        .topic(r.topic())
-                        // partition is non-null in SinkRecord
-                        .partition(r.kafkaPartition())
-                        .headers(toHeaders(r.headers()))
-                        .build();
-                  })
-              .collect(Collectors.toList()));
+      put(records.stream().map(SinkTask::toRecord).collect(Collectors.toList()));
   }
 
   private static byte[] toBytes(Schema schema, Object value) {
@@ -91,9 +73,67 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
     return (byte[]) value;
   }
 
+  private static Record<byte[], byte[]> toRecord(SinkRecord record) {
+    return new Record<>() {
+      private final byte[] key = toBytes(record.keySchema(), record.key());
+      private final byte[] value = toBytes(record.valueSchema(), record.value());
+
+      @Override
+      public String topic() {
+        return record.topic();
+      }
+
+      @Override
+      public List<Header> headers() {
+        return toHeaders(record.headers());
+      }
+
+      @Override
+      public byte[] key() {
+        return key;
+      }
+
+      @Override
+      public byte[] value() {
+        return value;
+      }
+
+      @Override
+      public long offset() {
+        return record.kafkaOffset();
+      }
+
+      @Override
+      public long timestamp() {
+        return record.timestamp();
+      }
+
+      @Override
+      public int partition() {
+        // partition is non-null in SinkRecord
+        return record.kafkaPartition();
+      }
+
+      @Override
+      public int serializedKeySize() {
+        return key == null ? 0 : key.length;
+      }
+
+      @Override
+      public int serializedValueSize() {
+        return value == null ? 0 : value.length;
+      }
+
+      @Override
+      public Optional<Integer> leaderEpoch() {
+        return Optional.empty();
+      }
+    };
+  }
+
   private static List<Header> toHeaders(Headers headers) {
-    if (headers == null) return List.of();
-    var hs = new ArrayList<Header>();
+    if (headers == null || headers.isEmpty()) return List.of();
+    var hs = new ArrayList<Header>(headers.size());
     headers
         .iterator()
         .forEachRemaining(h -> hs.add(Header.of(h.key(), toBytes(h.schema(), h.value()))));

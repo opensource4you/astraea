@@ -19,8 +19,6 @@ package org.astraea.common.consumer;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -31,6 +29,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.astraea.common.FixedIterable;
+import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 
@@ -179,15 +180,29 @@ public abstract class Builder<Key, Value> {
     }
 
     @Override
-    public List<Record<Key, Value>> poll(int recordCount, Duration timeout) {
+    public FixedIterable<Record<Key, Value>> poll(Duration timeout) {
       var end = System.currentTimeMillis() + timeout.toMillis();
-      var records = new ArrayList<Record<Key, Value>>();
-      while (records.size() < recordCount) {
-        var remaining = end - System.currentTimeMillis();
-        if (remaining <= 0) break;
-        kafkaConsumer.poll(Duration.ofMillis(remaining)).forEach(r -> records.add(Record.of(r)));
-      }
-      return Collections.unmodifiableList(records);
+      do {
+        var records =
+            kafkaConsumer.poll(Duration.ofMillis(Math.min(0, end - System.currentTimeMillis())));
+        if (!records.isEmpty())
+          return FixedIterable.of(
+              records.count(),
+              new Iterator<>() {
+                private final Iterator<ConsumerRecord<Key, Value>> iter = records.iterator();
+
+                @Override
+                public boolean hasNext() {
+                  return iter.hasNext();
+                }
+
+                @Override
+                public Record<Key, Value> next() {
+                  return toRecord(iter.next());
+                }
+              });
+      } while (end - System.currentTimeMillis() > 0);
+      return FixedIterable.empty();
     }
 
     @Override
@@ -216,5 +231,59 @@ public abstract class Builder<Key, Value> {
     }
 
     protected abstract void doResubscribe();
+  }
+
+  private static <Key, Value> Record<Key, Value> toRecord(ConsumerRecord<Key, Value> record) {
+    return new Record<>() {
+      @Override
+      public String topic() {
+        return record.topic();
+      }
+
+      @Override
+      public List<Header> headers() {
+        return Header.of(record.headers());
+      }
+
+      @Override
+      public Key key() {
+        return record.key();
+      }
+
+      @Override
+      public Value value() {
+        return record.value();
+      }
+
+      @Override
+      public long offset() {
+        return record.offset();
+      }
+
+      @Override
+      public long timestamp() {
+        return record.timestamp();
+      }
+
+      @Override
+      public int partition() {
+        return record.partition();
+      }
+
+      @Override
+      public int serializedKeySize() {
+        return record.serializedKeySize();
+      }
+
+      @Override
+      public int serializedValueSize() {
+        return record.serializedValueSize();
+      }
+
+      @Override
+      public Optional<Integer> leaderEpoch() {
+        return record.leaderEpoch();
+      }
+    };
   }
 }
