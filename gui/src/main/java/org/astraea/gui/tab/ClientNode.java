@@ -432,11 +432,15 @@ public class ClientNode {
                                           result.put("topic", metadata.topic());
                                           result.put("partition", metadata.partition());
                                           result.put("offset", metadata.offset());
-                                          result.put(
-                                              "timestamp",
-                                              LocalDateTime.ofInstant(
-                                                  Instant.ofEpochMilli(metadata.timestamp()),
-                                                  ZoneId.systemDefault()));
+                                          metadata
+                                              .timestamp()
+                                              .ifPresent(
+                                                  t ->
+                                                      result.put(
+                                                          "timestamp",
+                                                          LocalDateTime.ofInstant(
+                                                              Instant.ofEpochMilli(t),
+                                                              ZoneId.systemDefault())));
                                           result.put(
                                               "serializedKeySize",
                                               DataSize.Byte.of(metadata.serializedKeySize()));

@@ -94,13 +94,9 @@ public class BalancerHandlerTest {
     SERVICE.close();
   }
 
-  static final String TOPICS_KEY = "topics";
   static final String TIMEOUT_KEY = "timeout";
-  static final String MAX_MIGRATE_SIZE_KEY = "maxMigratedSize";
-  static final String MAX_MIGRATE_LEADER_KEY = "maxMigratedLeader";
   static final String CLUSTER_COSTS_KEY = "clusterCosts";
   static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
-  static final String BALANCER_CONFIGURATION_KEY = "balancerConfig";
   static final int TIMEOUT_DEFAULT = 3;
 
   private static final List<BalancerHandler.CostWeight> defaultIncreasing =

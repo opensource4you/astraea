@@ -138,7 +138,7 @@ public class PartitionerTest {
                       Metadata metadata;
                       metadata = producerSend(producer, topicName, key, value, timestamp, header);
                       assertEquals(topicName, metadata.topic());
-                      assertEquals(timestamp, metadata.timestamp());
+                      assertEquals(timestamp, metadata.timestamp().get());
                       assertEquals(exceptPartition, metadata.partition());
                     });
             Partitioner.endInterdependent(instanceOfProducer(producer));
@@ -158,7 +158,7 @@ public class PartitionerTest {
                 Metadata metadata;
                 metadata = producerSend(producer, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
-                assertEquals(timestamp, metadata.timestamp());
+                assertEquals(timestamp, metadata.timestamp().get());
                 assertEquals(exceptPartition, metadata.partition());
               });
       Partitioner.endInterdependent(instanceOfProducer(producer));
@@ -189,7 +189,7 @@ public class PartitionerTest {
                 Metadata metadata;
                 metadata = producerSend(producer, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
-                assertEquals(timestamp, metadata.timestamp());
+                assertEquals(timestamp, metadata.timestamp().get());
               });
       Partitioner.beginInterdependent(instanceOfProducer(producer));
       var exceptPartition =
@@ -200,7 +200,7 @@ public class PartitionerTest {
                 Metadata metadata;
                 metadata = producerSend(producer, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
-                assertEquals(timestamp, metadata.timestamp());
+                assertEquals(timestamp, metadata.timestamp().get());
                 assertEquals(exceptPartition, metadata.partition());
               });
       Partitioner.endInterdependent(instanceOfProducer(producer));
@@ -210,7 +210,7 @@ public class PartitionerTest {
                 Metadata metadata;
                 metadata = producerSend(producer, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
-                assertEquals(timestamp, metadata.timestamp());
+                assertEquals(timestamp, metadata.timestamp().get());
               });
       Partitioner.beginInterdependent(instanceOfProducer(producer));
       var exceptPartitionSec =
@@ -221,7 +221,7 @@ public class PartitionerTest {
                 Metadata metadata;
                 metadata = producerSend(producer, topicName, key, value, timestamp, header);
                 assertEquals(topicName, metadata.topic());
-                assertEquals(timestamp, metadata.timestamp());
+                assertEquals(timestamp, metadata.timestamp().get());
                 assertEquals(exceptPartitionSec, metadata.partition());
               });
       Partitioner.endInterdependent(instanceOfProducer(producer));
