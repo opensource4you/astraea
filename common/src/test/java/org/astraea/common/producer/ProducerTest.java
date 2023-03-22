@@ -72,7 +72,7 @@ public class ProducerTest {
               .toCompletableFuture()
               .join();
       Assertions.assertEquals(topicName, metadata.topic());
-      Assertions.assertEquals(timestamp, metadata.timestamp());
+      Assertions.assertEquals(timestamp, metadata.timestamp().get());
     }
 
     try (var consumer =
