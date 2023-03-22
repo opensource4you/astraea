@@ -16,11 +16,17 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
 import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
 public interface Sense {
-  Map<Double, Set<TopicPartition>> sense(PartitionCost partitionCost);
+  /**
+   * Return the partitions which aren't suitable to put together.
+   *
+   * @param partitionCost partition cost
+   * @param partitions Partitions that need to be validated for suitability to be put together
+   * @return the partitions which aren't suitable to put together
+   */
+  List<TopicPartition> validate(PartitionCost partitionCost, List<TopicPartition> partitions);
 }

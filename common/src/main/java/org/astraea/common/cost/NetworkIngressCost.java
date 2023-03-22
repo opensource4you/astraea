@@ -17,8 +17,8 @@
 package org.astraea.common.cost;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
@@ -50,7 +50,6 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost,
   public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     noMetricCheck(clusterBean);
 
-    var partitionLocation = new HashMap<TopicPartition, Integer>();
     var partitionCost =
         estimateRate(clusterInfo, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC)
             .entrySet()
@@ -84,12 +83,9 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost,
   }
 
   @Override
-  public Map<Double, Set<TopicPartition>> sense(PartitionCost partitionCost) {
-    // get upper bound and traffic interval to distinguish partitions
-    var upperBound = config.string(UPPER_BOUND).map(Double::valueOf).get();
-    var interval = config.string(TRAFFIC_INTERVAL).map(Double::valueOf).get();
-
-    // impl the detail of sense
+  public List<TopicPartition> validate(
+      PartitionCost partitionCost, List<TopicPartition> partitions) {
+    // impl the logic for determining suitable
     return null;
   }
 
