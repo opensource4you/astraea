@@ -402,9 +402,9 @@ public class ClusterInfoTest {
 
     var result = ClusterInfo.changedRecordSize(before, clusterInfo, ignored -> true);
     Assertions.assertEquals(3, result.size());
-    Assertions.assertEquals(-99, result.get(0).bytes());
-    Assertions.assertEquals(111, result.get(1).bytes());
-    Assertions.assertEquals(99, result.get(2).bytes());
+    Assertions.assertEquals(-99, result.get(0));
+    Assertions.assertEquals(111, result.get(1));
+    Assertions.assertEquals(99, result.get(2));
   }
 
   @Test
@@ -448,8 +448,8 @@ public class ClusterInfoTest {
 
     var result = ClusterInfo.changedRecordSize(clusterInfo, after, Replica::isLeader);
     Assertions.assertEquals(3, result.size());
-    Assertions.assertEquals(100, result.get(0).bytes());
-    Assertions.assertEquals(-100, result.get(1).bytes());
-    Assertions.assertEquals(0, result.get(2).bytes());
+    Assertions.assertEquals(100, result.get(0));
+    Assertions.assertEquals(-100, result.get(1));
+    Assertions.assertEquals(0, result.get(2));
   }
 }
