@@ -374,7 +374,7 @@ public class ClusterInfoTest {
 
     var moveOutResult =
         ClusterInfo.changedRecordSize(
-            afterClusterInfo(), beforeClusterInfo(), ignored -> true, true);
+            beforeClusterInfo(), afterClusterInfo(), ignored -> true, true);
     Assertions.assertEquals(3, moveOutResult.size());
     Assertions.assertEquals(100 + 500, moveOutResult.get(0).bytes());
     Assertions.assertEquals(0, moveOutResult.get(1).bytes());

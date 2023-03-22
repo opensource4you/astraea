@@ -270,7 +270,7 @@ class BalancerHandler implements Handler {
             new MigrationCost(
                 MOVED_OUT_SIZE,
                 ClusterInfo.changedRecordSize(
-                        solution.proposal(), solution.initialClusterInfo(), ignored -> true, true)
+                        solution.initialClusterInfo(), solution.proposal(), ignored -> true, true)
                     .entrySet()
                     .stream()
                     .collect(

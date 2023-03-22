@@ -115,7 +115,7 @@ class BalancerNode {
     process.accept(
         "changed out size",
         ClusterInfo.changedRecordSize(
-            plan.proposal(), plan.initialClusterInfo(), ignored -> true, true));
+            plan.initialClusterInfo(), plan.proposal(), ignored -> true, true));
 
     return List.copyOf(map.values());
   }

@@ -43,22 +43,33 @@ public interface ClusterInfo {
    * @param before the ClusterInfo before migrated replicas
    * @param after the ClusterInfo after migrated replicas
    * @param predicate used with filter to filter some replicas
-   * @param fromLeader if data log need fetch from replica leader, set this true
+   * @param migrateOut if data log need fetch from replica leader, set this true
    * @return the data size to migrated by all brokers
    */
   static Map<Integer, DataSize> changedRecordSize(
-      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate, boolean fromLeader) {
-    var changePartitions = ClusterInfo.findNonFulfilledAllocation(before, after);
+      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate, boolean migrateOut) {
+    final ClusterInfo sourceClusterInfo;
+    final ClusterInfo destClusterInfo;
+    if (migrateOut) {
+      sourceClusterInfo = after;
+      destClusterInfo = before;
+    } else {
+      sourceClusterInfo = before;
+      destClusterInfo = after;
+    }
+    var changePartitions =
+        ClusterInfo.findNonFulfilledAllocation(sourceClusterInfo, destClusterInfo);
     var cost =
         changePartitions.stream()
             .flatMap(
                 p ->
-                    after.replicas(p).stream()
+                    destClusterInfo.replicas(p).stream()
                         .filter(predicate)
-                        .filter(r -> !before.replicas(p).contains(r)))
+                        .filter(r -> !sourceClusterInfo.replicas(p).contains(r)))
             .map(
                 r -> {
-                  if (fromLeader) return after.replicaLeader(r.topicPartition()).orElse(r);
+                  if (migrateOut)
+                    return destClusterInfo.replicaLeader(r.topicPartition()).orElse(r);
                   return r;
                 })
             .collect(
@@ -66,7 +77,7 @@ public interface ClusterInfo {
                     r -> r.nodeInfo().id(),
                     Collectors.mapping(
                         Function.identity(), Collectors.summingLong(Replica::size))));
-    return Stream.concat(after.nodes().stream(), before.nodes().stream())
+    return Stream.concat(destClusterInfo.nodes().stream(), sourceClusterInfo.nodes().stream())
         .map(NodeInfo::id)
         .distinct()
         .parallel()
@@ -77,7 +88,7 @@ public interface ClusterInfo {
   static Long totalChangedRecordSize(
       ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate) {
     var addingSize = changedRecordSize(before, after, predicate, false);
-    var removedSize = changedRecordSize(after, before, predicate, true);
+    var removedSize = changedRecordSize(before, after, predicate, true);
     return Math.max(
         addingSize.values().stream().mapToLong(DataSize::bytes).sum(),
         removedSize.values().stream().mapToLong(DataSize::bytes).sum());
