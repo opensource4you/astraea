@@ -22,8 +22,10 @@ import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -263,6 +265,18 @@ public final class Utils {
       }
     if (lastError != null) throw new RuntimeException(lastError);
     throw new RuntimeException("Timeout to wait procedure");
+  }
+
+  public static <E> List<E> wait(
+      Supplier<Iterable<E>> supplier, int expectedSize, Duration timeout) {
+    var end = System.currentTimeMillis() + timeout.toMillis();
+    var list = new ArrayList<E>(expectedSize);
+    while (list.size() < expectedSize) {
+      var remaining = end - System.currentTimeMillis();
+      if (remaining <= 0) break;
+      supplier.get().forEach(list::add);
+    }
+    return Collections.unmodifiableList(list);
   }
 
   public static int requirePositive(int value) {

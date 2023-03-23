@@ -18,6 +18,7 @@ package org.astraea.common;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -26,14 +27,14 @@ import java.util.stream.StreamSupport;
  * information/methods to simplify the use case.
  */
 public interface FixedIterable<T> extends Iterable<T> {
-  FixedIterable EMPTY = of(0, List.of().iterator());
+  FixedIterable EMPTY = of(0, () -> List.of().iterator());
 
   @SuppressWarnings("unchecked")
   static <T> FixedIterable<T> empty() {
     return (FixedIterable<T>) EMPTY;
   }
 
-  static <T> FixedIterable<T> of(int size, Iterator<T> iterator) {
+  static <T> FixedIterable<T> of(int size, Supplier<Iterator<T>> supplier) {
     return new FixedIterable<>() {
       @Override
       public int size() {
@@ -42,13 +43,17 @@ public interface FixedIterable<T> extends Iterable<T> {
 
       @Override
       public Iterator<T> iterator() {
-        return iterator;
+        return supplier.get();
       }
     };
   }
 
   default boolean isEmpty() {
     return size() <= 0;
+  }
+
+  default boolean nonEmpty() {
+    return size() > 0;
   }
 
   int size();

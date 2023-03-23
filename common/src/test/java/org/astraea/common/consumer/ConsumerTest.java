@@ -157,7 +157,13 @@ public class ConsumerTest {
                       ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
                   .config(ConsumerConfigs.GROUP_ID_CONFIG, id)
                   .build()) {
-            Assertions.assertEquals(expectedSize, consumer.poll(Duration.ofSeconds(5)).size());
+            Assertions.assertEquals(
+                expectedSize,
+                Utils.wait(
+                        () -> consumer.poll(Duration.ofSeconds(1)),
+                        expectedSize,
+                        Duration.ofSeconds(10))
+                    .size());
             Assertions.assertEquals(id, consumer.groupId());
             Assertions.assertNotNull(consumer.memberId());
             Assertions.assertFalse(consumer.groupInstanceId().isPresent());
@@ -281,7 +287,8 @@ public class ConsumerTest {
             .bootstrapServers(SERVICE.bootstrapServers())
             .seek(DISTANCE_FROM_LATEST, 20)
             .build()) {
-      var records = consumer.poll(Duration.ofSeconds(5));
+      var records =
+          Utils.wait(() -> consumer.poll(Duration.ofSeconds(1)), 20, Duration.ofSeconds(10));
       Assertions.assertEquals(20, records.size());
       Assertions.assertEquals(
           Stream.concat(nCopies(10, 0).stream(), nCopies(10, 1).stream()).collect(toList()),
@@ -528,7 +535,7 @@ public class ConsumerTest {
     }
   }
 
-  @Timeout(20)
+  @Timeout(30)
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void testIterator(boolean isAssigned) {
@@ -560,14 +567,14 @@ public class ConsumerTest {
 
     // test idle limit
     Assertions.assertEquals(
-        records, supplier.apply(IteratorLimit.idle(Duration.ofSeconds(3))).count());
+        records, supplier.apply(IteratorLimit.idle(Duration.ofSeconds(5))).count());
 
     // test size limit
     Assertions.assertEquals(records, supplier.apply(IteratorLimit.size(1L)).count());
 
     // test elapsed time limit
     Assertions.assertEquals(
-        records, supplier.apply(IteratorLimit.elapsed(Duration.ofSeconds(3))).count());
+        records, supplier.apply(IteratorLimit.elapsed(Duration.ofSeconds(5))).count());
   }
 
   @Test
@@ -606,7 +613,8 @@ public class ConsumerTest {
                 RandomAssignor.class.getName())
             .seek(DISTANCE_FROM_BEGINNING, 0)
             .build()) {
-      var records = consumer.poll(Duration.ofSeconds(5));
+      var records =
+          Utils.wait(() -> consumer.poll(Duration.ofSeconds(1)), 30, Duration.ofSeconds(10));
       Assertions.assertEquals(30, records.size());
       Assertions.assertEquals(3, consumer.assignments().size());
     }

@@ -98,6 +98,7 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
   public SubscribedConsumer<Key, Value> build() {
     // generate group id if it is empty
     configs.putIfAbsent(ConsumerConfigs.GROUP_ID_CONFIG, "groupId-" + System.currentTimeMillis());
+    System.out.println("auto: " + configs.get(ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG));
 
     var kafkaConsumer =
         new KafkaConsumer<>(
