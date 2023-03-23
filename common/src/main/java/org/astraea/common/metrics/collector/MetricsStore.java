@@ -91,15 +91,9 @@ public interface MetricsStore extends AutoCloseable {
      * Using an embedded fetcher build the receiver. The fetcher will keep fetching beans
      * background, and it pushes all beans to store internally.
      */
-    public Builder localReceiver() {
+    public Builder localReceiver(Supplier<Map<Integer, MBeanClient>> clientSupplier) {
       var cache = LocalSenderReceiver.of();
-      var fetcher =
-          MetricsFetcher.builder()
-              .clientSupplier(() -> Map.of(-1, MBeanClient.local()))
-              // local mode so we don't need to update metadata
-              .fetchMetadataDelay(Duration.ofDays(300))
-              .sender(cache)
-              .build();
+      var fetcher = MetricsFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
       return receiver(
           new Receiver() {
             @Override
