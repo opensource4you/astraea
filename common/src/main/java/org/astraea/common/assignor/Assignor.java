@@ -80,8 +80,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    */
   protected Map<Integer, String> checkUnregister(List<NodeInfo> nodes) {
     return nodes.stream()
-        .filter(
-            i -> (metricCollector == null || !metricCollector.identities().contains(i.id())))
+        .filter(i -> (metricCollector == null || !metricCollector.identities().contains(i.id())))
         .collect(Collectors.toMap(NodeInfo::id, NodeInfo::host));
   }
 
