@@ -85,7 +85,7 @@ class BalancerHandler implements Handler {
                     freshJmxAddresses().entrySet().stream()
                         .collect(
                             Collectors.toUnmodifiableMap(
-                                    Map.Entry::getKey,
+                                Map.Entry::getKey,
                                 e ->
                                     MBeanClient.jndi(
                                         e.getValue().getHostName(), e.getValue().getPort()))))
