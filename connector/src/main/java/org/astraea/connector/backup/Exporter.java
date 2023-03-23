@@ -26,8 +26,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -110,10 +108,11 @@ public class Exporter extends SinkConnector {
 
   static Definition BUFFER_SIZE_KEY =
       Definition.builder()
-          .name("records.queue.size")
+          .name("writer.buffer.size")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
-          .documentation("a value that represents the size of the record queue.")
+          .documentation(
+              "a value that represents the capacity of a blocking queue from which the writer can take records.")
           .defaultValue("300MB")
           .build();
   private Configuration configs;
@@ -153,13 +152,9 @@ public class Exporter extends SinkConnector {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private BlockingQueue<Record<byte[], byte[]>> recordsQueue;
+    private final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
 
     private final AtomicLong bufferSize = new AtomicLong();
-
-    private final ReentrantLock putLock = new ReentrantLock();
-
-    private final Condition notFull = putLock.newCondition();
 
     private long bufferSizeLimit;
 
@@ -170,7 +165,7 @@ public class Exporter extends SinkConnector {
         long interval,
         DataSize size,
         Supplier<Boolean> closed,
-        Supplier<ArrayList<Record<byte[], byte[]>>> recordsQueue) {
+        Supplier<List<Record<byte[], byte[]>>> recordsQueue) {
       return () -> {
         var writers = new HashMap<TopicPartition, RecordWriter>();
         var longestWriteTime = System.currentTimeMillis();
@@ -194,45 +189,33 @@ public class Exporter extends SinkConnector {
               }
             }
 
-            if (!records.isEmpty()) {
-              records.forEach(
-                  record -> {
-                    var writer =
-                        writers.computeIfAbsent(
-                            record.topicPartition(),
-                            ignored -> {
-                              var fileName = String.valueOf(record.offset());
-                              return RecordWriter.builder(
-                                      fs.write(
-                                          String.join(
-                                              "/",
-                                              path,
-                                              topicName,
-                                              String.valueOf(record.partition()),
-                                              fileName)))
-                                  .build();
-                            });
-                    writer.append(record);
-                    if (writer.size().greaterThan(size)) {
-                      writers.remove(record.topicPartition()).close();
-                    }
-                  });
-            }
+            records.forEach(
+                record -> {
+                  var writer =
+                      writers.computeIfAbsent(
+                          record.topicPartition(),
+                          ignored -> {
+                            var fileName = String.valueOf(record.offset());
+                            return RecordWriter.builder(
+                                    fs.write(
+                                        String.join(
+                                            "/",
+                                            path,
+                                            topicName,
+                                            String.valueOf(record.partition()),
+                                            fileName)))
+                                .build();
+                          });
+                  writer.append(record);
+                  if (writer.size().greaterThan(size)) {
+                    writers.remove(record.topicPartition()).close();
+                  }
+                });
           }
         } finally {
           writers.forEach((tp, writer) -> writer.close());
         }
       };
-    }
-
-    private void signalNotFull() {
-      final var putLock = this.putLock;
-      putLock.lock();
-      try {
-        notFull.signal();
-      } finally {
-        putLock.unlock();
-      }
     }
 
     @Override
@@ -256,8 +239,6 @@ public class Exporter extends SinkConnector {
                       .orElse(BUFFER_SIZE_KEY.defaultValue().toString()))
               .bytes();
 
-      this.recordsQueue = new LinkedBlockingQueue<>();
-
       var fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture =
           CompletableFuture.runAsync(
@@ -271,25 +252,29 @@ public class Exporter extends SinkConnector {
                   () ->
                       Utils.packException(
                           () -> {
-                            var list =
-                                new ArrayList<Record<byte[], byte[]>>(this.recordsQueue.size());
-                            this.recordsQueue.drainTo(list);
-                            var drainedSize =
-                                list.stream()
-                                    .map(
-                                        record -> {
-                                          int keyLength =
-                                              (record.key() == null) ? 0 : record.key().length;
-                                          int valueLength =
-                                              (record.value() == null) ? 0 : record.value().length;
+                            synchronized (recordsQueue) {
+                              var list =
+                                  new ArrayList<Record<byte[], byte[]>>(this.recordsQueue.size());
+                              this.recordsQueue.drainTo(list);
+                              var drainedSize =
+                                  list.stream()
+                                      .map(
+                                          record -> {
+                                            int keyLength =
+                                                (record.key() == null) ? 0 : record.key().length;
+                                            int valueLength =
+                                                (record.value() == null)
+                                                    ? 0
+                                                    : record.value().length;
 
-                                          return keyLength + valueLength;
-                                        })
-                                    .reduce(0, Integer::sum);
+                                            return keyLength + valueLength;
+                                          })
+                                      .reduce(0, Integer::sum);
 
-                            this.bufferSize.getAndAdd(-drainedSize);
-                            signalNotFull();
-                            return list;
+                              this.bufferSize.getAndAdd(-drainedSize);
+                              recordsQueue.notify();
+                              return list;
+                            }
                           })));
     }
 
@@ -299,23 +284,19 @@ public class Exporter extends SinkConnector {
           r ->
               Utils.packException(
                   () -> {
-                    final var putLock = this.putLock;
-                    putLock.lockInterruptibly();
-                    try {
-                      int recordLength =
-                          Stream.of(r.key(), r.value())
-                              .filter(Objects::nonNull)
-                              .map(i -> i.length)
-                              .reduce(0, Integer::sum);
+                    int recordLength =
+                        Stream.of(r.key(), r.value())
+                            .filter(Objects::nonNull)
+                            .map(i -> i.length)
+                            .reduce(0, Integer::sum);
 
+                    synchronized (recordsQueue) {
                       while (this.bufferSize.get() + recordLength >= this.bufferSizeLimit) {
-                        notFull.await();
+                        recordsQueue.wait();
                       }
                       recordsQueue.put(r);
-                      this.bufferSize.addAndGet(recordLength);
-                    } finally {
-                      putLock.unlock();
                     }
+                    this.bufferSize.addAndGet(recordLength);
                   }));
     }
 
