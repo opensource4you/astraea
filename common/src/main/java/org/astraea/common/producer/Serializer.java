@@ -66,8 +66,10 @@ public interface Serializer<T> {
     };
   }
 
-  static <T> Serializer<T> of(org.apache.kafka.common.serialization.Serializer<T> serializer) {
-    return (topic, headers, data) -> serializer.serialize(topic, Header.of(headers), data);
+  private static <T> Serializer<T> of(
+      org.apache.kafka.common.serialization.Serializer<T> serializer) {
+    // the headers are not used by primitive type serializer
+    return (topic, headers, data) -> serializer.serialize(topic, data);
   }
 
   Serializer<byte[]> BYTE_ARRAY = of(new ByteArraySerializer());

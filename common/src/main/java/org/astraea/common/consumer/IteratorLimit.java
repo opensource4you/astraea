@@ -17,9 +17,10 @@
 package org.astraea.common.consumer;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.StreamSupport;
+import org.astraea.common.FixedIterable;
 
 @FunctionalInterface
 public interface IteratorLimit<Key, Value> {
@@ -29,7 +30,7 @@ public interface IteratorLimit<Key, Value> {
     var sum = new AtomicLong();
     return current ->
         sum.addAndGet(
-                current.stream()
+                StreamSupport.stream(current.spliterator(), false)
                     .mapToLong(r -> r.serializedKeySize() + r.serializedValueSize())
                     .sum())
             >= size;
@@ -51,7 +52,7 @@ public interface IteratorLimit<Key, Value> {
   static <Key, Value> IteratorLimit<Key, Value> idle(Duration timeout) {
     var lastFetchRecords = new AtomicLong(System.currentTimeMillis());
     return current -> {
-      if (!current.isEmpty()) {
+      if (current.size() > 0) {
         lastFetchRecords.set(System.currentTimeMillis());
         return false;
       }
@@ -60,5 +61,5 @@ public interface IteratorLimit<Key, Value> {
     };
   }
 
-  boolean done(List<Record<Key, Value>> current);
+  boolean done(FixedIterable<Record<Key, Value>> current);
 }

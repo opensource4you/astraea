@@ -72,7 +72,7 @@ public class ProducerTest {
               .toCompletableFuture()
               .join();
       Assertions.assertEquals(topicName, metadata.topic());
-      Assertions.assertEquals(timestamp, metadata.timestamp());
+      Assertions.assertEquals(timestamp, metadata.timestamp().get());
     }
 
     try (var consumer =
@@ -188,7 +188,7 @@ public class ProducerTest {
                     ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
                     : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
             .build()) {
-      Assertions.assertEquals(count, consumer.poll(count, Duration.ofSeconds(10)).size());
+      Assertions.assertEquals(count, consumer.poll(Duration.ofSeconds(10)).size());
     }
   }
 
