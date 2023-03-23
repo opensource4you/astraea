@@ -181,12 +181,12 @@ public class LocalMetricCollector implements MetricCollector {
   }
 
   @Override
-  public Set<Integer> listIdentities() {
+  public Set<Integer> identities() {
     return mBeanClients.keySet();
   }
 
   @Override
-  public Set<Class<? extends HasBeanObject>> listMetricTypes() {
+  public Set<Class<? extends HasBeanObject>> metricTypes() {
     return beans.values().stream()
         .flatMap(Collection::stream)
         .map(HasBeanObject::getClass)
