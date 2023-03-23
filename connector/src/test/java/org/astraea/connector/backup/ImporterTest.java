@@ -28,7 +28,6 @@ import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.connector.Config;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.Value;
-import org.astraea.common.consumer.Record;
 import org.astraea.connector.MetadataStorage;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
@@ -130,14 +129,14 @@ public class ImporterTest {
 
       var records =
           List.of(
-              Record.builder()
+              RecordBuilder.of()
                   .topic(topicName)
                   .key("test".getBytes())
                   .value("test0".getBytes())
                   .partition(0)
                   .timestamp(System.currentTimeMillis())
                   .build(),
-              Record.builder()
+              RecordBuilder.of()
                   .topic(topicName)
                   .key("test".getBytes())
                   .value("test1".getBytes())
