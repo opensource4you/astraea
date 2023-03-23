@@ -22,7 +22,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.management.MBeanFeatureInfo;
 import javax.management.MBeanServerConnection;
@@ -46,6 +49,44 @@ import org.astraea.common.Utils;
  * }</pre>
  */
 public interface MBeanClient extends AutoCloseable {
+  static MBeanClient of(Collection<BeanObject> objs) {
+    return new MBeanClient() {
+
+      @Override
+      public BeanObject bean(BeanQuery beanQuery) {
+        return beans(beanQuery).stream().findAny().orElseThrow(NoSuchElementException::new);
+      }
+
+      @Override
+      public Collection<BeanObject> beans(BeanQuery beanQuery) {
+        // The queried domain name (or properties) may contain wildcard. Change wildcard to regular
+        // expression.
+        var wildCardDomain =
+            Pattern.compile(beanQuery.domainName().replaceAll("[*]", ".*").replaceAll("[?]", "."));
+        var wildCardProperties =
+            beanQuery.properties().entrySet().stream()
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey,
+                        e ->
+                            Pattern.compile(
+                                e.getValue().replaceAll("[*]", ".*").replaceAll("[?]", "."))));
+        // Filtering out beanObject that match the query
+        return objs.stream()
+            .filter(storedEntry -> wildCardDomain.matcher(storedEntry.domainName()).matches())
+            .filter(
+                storedEntry ->
+                    wildCardProperties.entrySet().stream()
+                        .allMatch(
+                            e ->
+                                storedEntry.properties().containsKey(e.getKey())
+                                    && e.getValue()
+                                        .matcher(storedEntry.properties().get(e.getKey()))
+                                        .matches()))
+            .collect(Collectors.toUnmodifiableList());
+      }
+    };
+  }
 
   /**
    * @param host the address of jmx server
@@ -67,7 +108,7 @@ public interface MBeanClient extends AutoCloseable {
     return Utils.packException(
         () -> {
           var jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
-          return new AbstractMBeanClient(
+          return new BasicMBeanClient(
               jmxConnector.getMBeanServerConnection(),
               jmxServiceURL.getHost(),
               jmxServiceURL.getPort()) {
@@ -80,11 +121,7 @@ public interface MBeanClient extends AutoCloseable {
   }
 
   static MBeanClient local() {
-    return new AbstractMBeanClient(
-        ManagementFactory.getPlatformMBeanServer(), Utils.hostname(), -1) {
-      @Override
-      public void close() {}
-    };
+    return new BasicMBeanClient(ManagementFactory.getPlatformMBeanServer(), Utils.hostname(), -1);
   }
 
   /**
@@ -113,16 +150,16 @@ public interface MBeanClient extends AutoCloseable {
   Collection<BeanObject> beans(BeanQuery beanQuery);
 
   @Override
-  void close();
+  default void close() {}
 
-  abstract class AbstractMBeanClient implements MBeanClient {
+  class BasicMBeanClient implements MBeanClient {
 
     private final MBeanServerConnection connection;
     final String host;
 
     final int port;
 
-    AbstractMBeanClient(MBeanServerConnection connection, String host, int port) {
+    BasicMBeanClient(MBeanServerConnection connection, String host, int port) {
       this.connection = connection;
       this.host = host;
       this.port = port;
