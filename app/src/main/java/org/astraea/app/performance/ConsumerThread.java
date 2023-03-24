@@ -42,7 +42,7 @@ public interface ConsumerThread extends AbstractThread {
   String DOMAIN_NAME = "org.astraea";
   String TYPE_PROPERTY = "type";
   String TYPE_VALUE = "consumer";
-  String AVG_PROPERTY = "avg";
+  String EXP_WEIGHT_BY_TIME_PROPERTY = "exp-weight-by-time";
   String ID_PROPERTY = "client-id";
   ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_ASSIGNED_PARTITIONS =
       new ConcurrentHashMap<>();
@@ -95,13 +95,21 @@ public interface ConsumerThread extends AbstractThread {
               var closed = new AtomicBoolean(false);
               var closeLatch = closeLatches.get(index);
               var subscribed = new AtomicBoolean(true);
-              var sensor = Sensor.builder().addStat(AVG_PROPERTY, Avg.of()).build();
+              var sensor =
+                  Sensor.builder()
+                      .addStat(
+                          EXP_WEIGHT_BY_TIME_PROPERTY,
+                          Avg.expWeightByTime(Duration.ofSeconds(0), 1))
+                      .build();
               // export the custom MBean for file writer
               MBeanRegister.local()
                   .domainName(DOMAIN_NAME)
                   .property(TYPE_PROPERTY, TYPE_VALUE)
                   .property(ID_PROPERTY, clientId)
-                  .attribute(AVG_PROPERTY, Double.class, () -> sensor.measure(AVG_PROPERTY))
+                  .attribute(
+                      EXP_WEIGHT_BY_TIME_PROPERTY,
+                      Double.class,
+                      () -> sensor.measure(EXP_WEIGHT_BY_TIME_PROPERTY))
                   .register();
               executors.execute(
                   () -> {

@@ -83,7 +83,7 @@ public interface Report {
                                         .property(ConsumerThread.ID_PROPERTY, m.clientId())
                                         .build())
                                 .attributes()
-                                .get(ConsumerThread.AVG_PROPERTY))
+                                .get(ConsumerThread.EXP_WEIGHT_BY_TIME_PROPERTY))
                         .map(v -> (double) v);
                   }
                 })
