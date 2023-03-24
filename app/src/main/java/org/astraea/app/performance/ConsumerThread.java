@@ -84,7 +84,7 @@ public interface ConsumerThread extends AbstractThread {
     return IntStream.range(0, consumers)
         .mapToObj(
             index -> {
-              var clientId = Utils.randomString();
+              var clientId = "consumer-" + index;
               var consumer = consumerSupplier.apply(clientId, new PartitionRatioListener(clientId));
               var closed = new AtomicBoolean(false);
               var closeLatch = closeLatches.get(index);
