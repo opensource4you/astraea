@@ -161,7 +161,7 @@ public interface TrackerThread extends AbstractThread {
             "  consumed[%d] average throughput: %s%n",
             i, DataSize.Byte.of((long) reports.get(i).avgThroughput()));
         System.out.printf(
-            "  consumer[%d] average ene-to-end latency: %.3f ms%n",
+            "  consumer[%d] average end-to-end latency: %.3f ms%n",
             i, report.e2eLatency().orElse(Double.NaN));
       }
       return true;
