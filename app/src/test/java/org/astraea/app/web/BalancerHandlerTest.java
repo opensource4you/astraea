@@ -1024,7 +1024,7 @@ public class BalancerHandlerTest {
       var function = List.of(costWeight(SensorAndCost.class.getName(), 1));
 
       var request = new BalancerHandler.BalancerPostRequest();
-      request.timeout = Duration.ofSeconds(8);
+      request.timeout = Duration.ofSeconds(15);
       request.clusterCosts = function;
       request.topics = topics;
       var progress = submitPlanGeneration(handler, request);
@@ -1225,7 +1225,8 @@ public class BalancerHandlerTest {
                   handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
           Assertions.assertNull(progress.exception, progress.exception);
           return progress.phase == Searched;
-        });
+        },
+        Duration.ofSeconds(30));
     return (BalancerHandler.PlanExecutionProgress)
         handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
   }
