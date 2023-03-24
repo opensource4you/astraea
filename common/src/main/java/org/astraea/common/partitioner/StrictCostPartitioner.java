@@ -78,7 +78,7 @@ public class StrictCostPartitioner extends Partitioner {
                       .nodes()
                       .forEach(
                           node -> {
-                            if (!localCollector.listIdentities().contains(node.id())) {
+                            if (!localCollector.identities().contains(node.id())) {
                               jmxPortGetter
                                   .apply(node.id())
                                   .ifPresent(

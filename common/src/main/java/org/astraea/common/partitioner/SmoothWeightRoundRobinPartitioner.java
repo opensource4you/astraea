@@ -120,10 +120,10 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
     if (this.metricCollector instanceof LocalMetricCollector) {
       var localCollector = (LocalMetricCollector) this.metricCollector;
       clusterInfo.availableReplicas(topic).stream()
-          .filter(p -> !localCollector.listIdentities().contains(p.nodeInfo().id()))
+          .filter(p -> !localCollector.identities().contains(p.nodeInfo().id()))
           .forEach(
               node -> {
-                if (!localCollector.listIdentities().contains(node.nodeInfo().id())) {
+                if (!localCollector.identities().contains(node.nodeInfo().id())) {
                   jmxPortGetter
                       .apply(node.nodeInfo().id())
                       .ifPresent(

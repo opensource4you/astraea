@@ -67,7 +67,7 @@ public abstract class AbstractMetricCollectorTest {
       Utils.sleep(sample);
       var ids = new HashSet<>(SERVICE.dataFolders().keySet());
       ids.add(-1);
-      Assertions.assertEquals(ids, collector.listIdentities());
+      Assertions.assertEquals(ids, collector.identities());
     }
   }
 
@@ -87,7 +87,7 @@ public abstract class AbstractMetricCollectorTest {
 
       Assertions.assertEquals(
           Set.of(JvmMemory.class, OperatingSystemInfo.class, ServerMetrics.BrokerTopic.Meter.class),
-          collector.listMetricTypes());
+          collector.metricTypes());
     }
   }
 
