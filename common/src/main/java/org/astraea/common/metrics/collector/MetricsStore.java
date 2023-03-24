@@ -131,6 +131,9 @@ public interface MetricsStore extends AutoCloseable {
 
     private final ExecutorService executor;
 
+    // cache the latest cluster to be shared between all threads.
+    private volatile ClusterBean latest = ClusterBean.EMPTY;
+
     private MetricsStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier,
         Receiver receiver,
@@ -178,6 +181,15 @@ public interface MetricsStore extends AutoCloseable {
                                 }
                               });
                     });
+                // generate new cluster bean
+                if (!allBeans.isEmpty())
+                  latest =
+                      ClusterBean.of(
+                          beans.entrySet().stream()
+                              .filter(entry -> !entry.getValue().isEmpty())
+                              .collect(
+                                  Collectors.toUnmodifiableMap(
+                                      Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
               } catch (Exception e) {
                 // TODO: it needs better error handling
                 e.printStackTrace();
@@ -190,11 +202,7 @@ public interface MetricsStore extends AutoCloseable {
 
     @Override
     public ClusterBean clusterBean() {
-      return ClusterBean.of(
-          beans.entrySet().stream()
-              .filter(entry -> !entry.getValue().isEmpty())
-              .collect(
-                  Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
+      return latest;
     }
 
     @Override

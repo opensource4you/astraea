@@ -235,7 +235,8 @@ class MBeanClientTest {
       // act assert
       assertThrows(NoSuchElementException.class, () -> client.bean(beanQuery));
       assertThrows(
-          NoSuchElementException.class, () -> client.queryBean(beanQuery, Collections.emptyList()));
+          javax.management.InstanceNotFoundException.class,
+          () -> client.queryBean(beanQuery, Collections.emptyList()));
     }
   }
 

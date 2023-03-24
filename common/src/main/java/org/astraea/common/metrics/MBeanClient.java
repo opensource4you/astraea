@@ -255,7 +255,7 @@ public interface MBeanClient extends AutoCloseable {
                           return Stream.empty();
                         }
                       })
-                  .collect(Collectors.toSet()));
+                  .collect(Collectors.toUnmodifiableList()));
     }
 
     /**
