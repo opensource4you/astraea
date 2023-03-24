@@ -135,6 +135,8 @@ public final class Utils {
       var e = new NoSuchElementException(exception.getMessage());
       e.initCause(exception);
       throw e;
+    } catch (RuntimeException exception) {
+      throw exception;
     } catch (ExecutionException exception) {
       throw new ExecutionRuntimeException(exception);
     } catch (Throwable exception) {
