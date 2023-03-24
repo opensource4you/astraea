@@ -74,7 +74,7 @@ public interface MetricsStore extends AutoCloseable {
                 (id, ignored) -> {});
 
     private Receiver receiver;
-    private Duration beanExpiration = Duration.ofSeconds(5);
+    private Duration beanExpiration = Duration.ofSeconds(10);
 
     public Builder sensorSupplier(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier) {
