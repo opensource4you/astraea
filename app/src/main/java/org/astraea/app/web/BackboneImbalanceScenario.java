@@ -378,7 +378,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
         final Map<String, String> keyDistributionConfig = new HashMap<>();
       }
       var clientCount = config.performanceClientCount();
-      if (clientCount < 2) throw new IllegalArgumentException("At least two clients are required");
+      if (clientCount < 3) throw new IllegalArgumentException("At least three perf clients required");
       var clients =
           IntStream.range(0, clientCount)
               .mapToObj(i -> new PerfClient())
@@ -389,17 +389,26 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
         var dataRate = (long) topicDataRates.get(topic).byteRate();
         var fanout = (int) topicConsumerFanout.get(topic);
         for (int i = 0; i < fanout; i++) {
-          var nextClient =
-              topic.equals(BackboneImbalanceScenario.backboneTopicName)
-                  ? clients.get(0)
-                  : clients.stream()
-                      .skip(1)
-                      .filter(x -> !x.topics.contains(topic))
-                      .min(Comparator.comparing(x -> x.consumeRate))
-                      .orElseThrow();
-          nextClient.consumeRate += dataRate;
-          nextClient.produceRate += dataRate / fanout;
-          nextClient.topics.add(topic);
+          if (topic.equals(BackboneImbalanceScenario.backboneTopicName)) {
+            // separate the processing of produce/consume to two individual clients.
+            // see https://github.com/skiptests/astraea/issues/1567
+            var produceClient = clients.get(0);
+            produceClient.produceRate += dataRate;
+            produceClient.topics.add(topic);
+            var consumeClient = clients.get(1);
+            consumeClient.consumeRate += dataRate;
+            consumeClient.topics.add(topic);
+          } else {
+            var nextClient =
+                    clients.stream()
+                    .skip(2)
+                    .filter(x -> !x.topics.contains(topic))
+                    .min(Comparator.comparing(x -> x.consumeRate))
+                    .orElseThrow();
+            nextClient.consumeRate += dataRate;
+            nextClient.produceRate += dataRate / fanout;
+            nextClient.topics.add(topic);
+          }
         }
       }
       for(var client: clients) {
@@ -453,6 +462,8 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                     Map.entry("key_distribution", client.keyDistribution),
                     Map.entry("key_distribution_config", keyDistConfigString),
                     Map.entry("key_table_seed", Integer.toString(config.keyTableSeed())),
+                    Map.entry("no_consumer", Boolean.toString(consumeRate.byteRate() == 0)),
+                    Map.entry("no_producer", Boolean.toString(produceRate.byteRate() == 0)),
                     Map.entry("consume_rate", consumeRate.toString()),
                     Map.entry("produce_rate", produceRate.toString()));
               })
