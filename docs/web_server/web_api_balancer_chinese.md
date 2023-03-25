@@ -24,12 +24,14 @@ POST /balancer
 
 costConfig: 
 
-| config key                  | config value                  |
-| --------------------------- | ----------------------------- |
-| max.migrated.size           | 設定最大可搬移的資料量        |
-| max.migrated.leader.number  | 設定最大可搬移的leader 數量   |
-| max.migrated.replica.number | 設定最大可搬移的replica 數量  |
-| max.migrated.leader.size    | 設定最大可搬移的leader 資料量 |
+| config key                  | config value                                        |
+| --------------------------- | --------------------------------------------------- |
+| max.migrated.size           | 設定最大可搬移的資料量                              |
+| max.migrated.leader.number  | 設定最大可搬移的leader 數量                         |
+| max.migrated.replica.number | 設定最大可搬移的replica 數量                        |
+| max.migrated.leader.size    | 設定最大可搬移的leader 資料量                       |
+| max.broker.disk.space       | 設定搬移過程中broker最大可以佔用的replica 資料量    |
+| max.disk.space              | 設定搬移過程中data path最大可以佔用的replica 資料量 |
 
 
 
@@ -72,7 +74,8 @@ curl -X POST http://localhost:8001/balancer \
   		],
   		"costConfig": {
   			"max.migrated.size": "500MB",
-  			"max.migrated.leader.number": 5
+  			"max.migrated.leader.number": 5,
+  			"max.disk.space": "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:1000MB"
   		}
     }'
 ```
