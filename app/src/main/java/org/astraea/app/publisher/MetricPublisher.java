@@ -32,13 +32,6 @@ import org.astraea.common.metrics.collector.MetricsFetcher;
 
 /** Keep fetching all kinds of metrics and publish to inner topics. */
 public class MetricPublisher {
-  public static final String DOMAIN_NAME = "org.astraea";
-  public static final String TYPE_PROPERTY = "type";
-
-  public static final String TYPE_VALUE = "publisher";
-
-  public static final String NAME_PROPERTY = "name";
-  public static final String RATE_PROPERTY = "rate";
 
   public static String internalTopicName(String id) {
     return "__" + id + "_broker_metrics";
