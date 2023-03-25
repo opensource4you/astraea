@@ -612,13 +612,12 @@ public class BalancerHandlerTest {
         ClusterInfoBuilder.builder(base)
             .mapLog(r -> Replica.builder(r).isRemoving(iter2.next()).build())
             .build();
-    try (Admin admin = Mockito.mock(Admin.class);
-        var handler = new BalancerHandler(admin)) {
-      Mockito.when(admin.brokers())
-          .thenAnswer((invoke) -> CompletableFuture.completedFuture(List.of()));
-      Mockito.when(admin.topicNames(Mockito.anyBoolean()))
-          .thenAnswer((invoke) -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
-
+    var admin = Mockito.mock(Admin.class);
+    Mockito.when(admin.brokers())
+        .thenAnswer((invoke) -> CompletableFuture.completedFuture(List.of()));
+    Mockito.when(admin.topicNames(Mockito.anyBoolean()))
+        .thenAnswer((invoke) -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
+    try (var handler = new BalancerHandler(admin)) {
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasFuture));
       var task0 =
