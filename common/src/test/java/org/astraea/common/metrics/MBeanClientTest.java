@@ -35,12 +35,15 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
+import javax.management.AttributeNotFoundException;
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.InstanceNotFoundException;
+import javax.management.MBeanException;
 import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
+import javax.management.ReflectionException;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
@@ -150,7 +153,9 @@ class MBeanClientTest {
   }
 
   @Test
-  void testFetchSelectedAttributes() {
+  void testFetchSelectedAttributes()
+      throws ReflectionException, InstanceNotFoundException, IOException,
+          AttributeNotFoundException, MBeanException {
     // arrange
     try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
@@ -230,7 +235,8 @@ class MBeanClientTest {
       // act assert
       assertThrows(NoSuchElementException.class, () -> client.bean(beanQuery));
       assertThrows(
-          NoSuchElementException.class, () -> client.queryBean(beanQuery, Collections.emptyList()));
+          javax.management.InstanceNotFoundException.class,
+          () -> client.queryBean(beanQuery, Collections.emptyList()));
     }
   }
 

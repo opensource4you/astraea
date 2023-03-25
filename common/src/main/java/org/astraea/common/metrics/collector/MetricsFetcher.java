@@ -187,7 +187,7 @@ public interface MetricsFetcher extends AutoCloseable {
       lock.readLock().lock();
       Collection<BeanObject> beans;
       try {
-        beans = clients.get(identity.id).beans(BeanQuery.all());
+        beans = clients.get(identity.id).beans(BeanQuery.all(), e -> {});
       } finally {
         lock.readLock().unlock();
       }

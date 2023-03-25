@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -49,10 +50,12 @@ import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.json.TypeRef;
+import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
+import org.astraea.common.metrics.collector.MetricsStore;
 
-class BalancerHandler implements Handler {
+class BalancerHandler implements Handler, AutoCloseable {
 
   private final Admin admin;
   private final BalancerConsole balancerConsole;
@@ -62,6 +65,10 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletionStage<Void>> planExecutions = new ConcurrentHashMap<>();
   private final Function<Integer, Optional<Integer>> jmxPortMapper;
 
+  private final Collection<MetricSensor> sensors = new ConcurrentLinkedQueue<>();
+
+  private final MetricsStore metricsStore;
+
   BalancerHandler(Admin admin) {
     this(admin, (ignore) -> Optional.empty());
   }
@@ -70,6 +77,25 @@ class BalancerHandler implements Handler {
     this.admin = admin;
     this.jmxPortMapper = jmxPortMapper;
     this.balancerConsole = BalancerConsole.create(admin);
+    this.metricsStore =
+        MetricsStore.builder()
+            .beanExpiration(Duration.ofSeconds(1))
+            .localReceiver(
+                () ->
+                    freshJmxAddresses().entrySet().stream()
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                Map.Entry::getKey,
+                                e ->
+                                    MBeanClient.jndi(
+                                        e.getValue().getHostName(), e.getValue().getPort()))))
+            .sensorSupplier(
+                () ->
+                    sensors.stream()
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                Function.identity(), ignored -> (id, ee) -> {})))
+            .build();
   }
 
   @Override
@@ -97,46 +123,26 @@ class BalancerHandler implements Handler {
         Utils.construct(request.balancerClasspath, Balancer.class, request.balancerConfig);
     synchronized (this) {
       var taskId = UUID.randomUUID().toString();
-      MetricCollector metricCollector = null;
-      try {
-        var collectorBuilder = MetricCollector.local().interval(Duration.ofSeconds(1));
+      request.algorithmConfig.clusterCostFunction().metricSensor().ifPresent(sensors::add);
+      request.algorithmConfig.moveCostFunction().metricSensor().ifPresent(sensors::add);
 
-        request
-            .algorithmConfig
-            .clusterCostFunction()
-            .metricSensor()
-            .ifPresent(collectorBuilder::addMetricSensor);
-        request
-            .algorithmConfig
-            .moveCostFunction()
-            .metricSensor()
-            .ifPresent(collectorBuilder::addMetricSensor);
-        freshJmxAddresses().forEach(collectorBuilder::registerJmx);
-        metricCollector = collectorBuilder.build();
-        final var mc = metricCollector;
-
-        var task =
-            balancerConsole
-                .launchRebalancePlanGeneration()
-                .setTaskId(taskId)
-                .setBalancer(balancer)
-                .setAlgorithmConfig(request.algorithmConfig)
-                .setClusterBeanSource(mc::clusterBean)
-                .checkNoOngoingMigration(true)
-                .generate();
-        task.whenComplete(
-            (result, error) -> {
-              if (error != null)
-                new RuntimeException("Failed to generate balance plan: " + taskId, error)
-                    .printStackTrace();
-            });
-        task.whenComplete((result, error) -> mc.close());
-        taskMetadata.put(taskId, request);
-        planGenerations.put(taskId, task);
-      } catch (RuntimeException e) {
-        if (metricCollector != null) metricCollector.close();
-        throw e;
-      }
+      var task =
+          balancerConsole
+              .launchRebalancePlanGeneration()
+              .setTaskId(taskId)
+              .setBalancer(balancer)
+              .setAlgorithmConfig(request.algorithmConfig)
+              .setClusterBeanSource(metricsStore::clusterBean)
+              .checkNoOngoingMigration(true)
+              .generate();
+      task.whenComplete(
+          (result, error) -> {
+            if (error != null)
+              new RuntimeException("Failed to generate balance plan: " + taskId, error)
+                  .printStackTrace();
+          });
+      taskMetadata.put(taskId, request);
+      planGenerations.put(taskId, task);
       return CompletableFuture.completedFuture(new PostPlanResponse(taskId));
     }
   }
@@ -301,14 +307,12 @@ class BalancerHandler implements Handler {
     var brokers = admin.brokers().toCompletableFuture().join();
     var jmxAddresses =
         brokers.stream()
-            .map(broker -> Map.entry(broker, jmxPortMapper.apply(broker.id())))
-            .filter(entry -> entry.getValue().isPresent())
+            .flatMap(
+                broker -> jmxPortMapper.apply(broker.id()).map(p -> Map.entry(broker, p)).stream())
             .collect(
                 Collectors.toUnmodifiableMap(
                     e -> e.getKey().id(),
-                    e ->
-                        InetSocketAddress.createUnresolved(
-                            e.getKey().host(), e.getValue().orElseThrow())));
+                    e -> InetSocketAddress.createUnresolved(e.getKey().host(), e.getValue())));
 
     // JMX is disabled
     if (jmxAddresses.size() == 0) return Map.of();
@@ -552,5 +556,15 @@ class BalancerHandler implements Handler {
       this.function = function;
       this.timeout = timeout;
     }
+  }
+
+  // metricsStore creates many threads so we have to close it
+  // in production, the web service will terminate all threads automatically.
+  // in testing, all threads is still running even though the test get completed. hence, the test
+  // case must close the
+  // handle manually
+  @Override
+  public void close() {
+    metricsStore.close();
   }
 }
