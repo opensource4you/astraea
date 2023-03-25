@@ -46,7 +46,6 @@ import org.astraea.app.argument.PatternField;
 import org.astraea.app.argument.PositiveIntegerField;
 import org.astraea.app.argument.PositiveIntegerListField;
 import org.astraea.app.argument.PositiveLongField;
-import org.astraea.app.argument.PositiveShortField;
 import org.astraea.app.argument.StringListField;
 import org.astraea.app.argument.StringMapField;
 import org.astraea.app.argument.TopicPartitionDataRateMapField;
@@ -211,8 +210,8 @@ public class Performance {
     @Parameter(
         names = {"--producers"},
         description = "Integer: number of producers to produce records",
-        validateWith = PositiveShortField.class,
-        converter = PositiveShortField.class)
+        validateWith = NonNegativeShortField.class,
+        converter = NonNegativeShortField.class)
     int producers = 1;
 
     @Parameter(
