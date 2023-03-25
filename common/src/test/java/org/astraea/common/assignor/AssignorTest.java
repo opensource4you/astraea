@@ -25,6 +25,7 @@ import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 import org.apache.kafka.common.TopicPartition;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -88,7 +89,8 @@ public class AssignorTest {
   @Test
   void testJMXPort() {
     var randomAssignor = new RandomAssignor();
-    randomAssignor.configure(Map.of());
+    randomAssignor.configure(
+        Map.of(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG, SERVICE.bootstrapServers()));
     Assertions.assertEquals(Optional.empty(), randomAssignor.jmxPortGetter.apply(0));
     randomAssignor.configure(Map.of("broker.1000.jmx.port", "12345"));
     Assertions.assertEquals(Optional.of(12345), randomAssignor.jmxPortGetter.apply(1000));
@@ -109,7 +111,14 @@ public class AssignorTest {
   @Test
   void testUnregisterId() {
     var assignor = new RandomAssignor();
-    assignor.configure(Map.of("broker.1000.jmx.port", "8000", "broker.1001.jmx.port", "8100"));
+    assignor.configure(
+        Map.of(
+            "broker.1000.jmx.port",
+            "8000",
+            "broker.1001.jmx.port",
+            "8100",
+            ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
+            SERVICE.bootstrapServers()));
     var nodes =
         List.of(
             NodeInfo.of(1000, "192.168.103.1", 8000),
@@ -128,7 +137,12 @@ public class AssignorTest {
     var brokerId = SERVICE.dataFolders().keySet().stream().findAny().get();
     var jmxAddr = SERVICE.jmxServiceURL().getHost();
     var jmxPort = SERVICE.jmxServiceURL().getPort();
-    assignor.configure(Map.of("broker." + brokerId + ".jmx.port", jmxPort));
+    assignor.configure(
+        Map.of(
+            "broker." + brokerId + ".jmx.port",
+            jmxPort,
+            ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
+            SERVICE.bootstrapServers()));
 
     var nodes = new ArrayList<NodeInfo>();
     nodes.add(NodeInfo.of(brokerId, jmxAddr, jmxPort));
