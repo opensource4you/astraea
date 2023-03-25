@@ -17,6 +17,7 @@
 package org.astraea.common.metrics.collector;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -29,9 +30,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
+import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
@@ -49,9 +54,41 @@ public interface MetricsStore extends AutoCloseable {
   void close();
 
   interface Receiver extends AutoCloseable {
+    Pattern INTERNAL_TOPIC_PATTERN = Pattern.compile("__(?<brokerId>[0-9]+)_broker_metrics");
 
     static MetricsFetcher.Sender local() {
       return LocalSenderReceiver.of();
+    }
+
+    static Receiver topic(String bootstrapServer) {
+      var consumer =
+          Consumer.forTopics(INTERNAL_TOPIC_PATTERN)
+              .bootstrapServers(bootstrapServer)
+              .config(
+                  ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                  ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+              .valueDeserializer(Deserializer.BEAN_OBJECT)
+              .build();
+      return new Receiver() {
+        @Override
+        public Map<Integer, Collection<BeanObject>> receive(Duration timeout) {
+          return consumer.poll(timeout).stream()
+              .filter(r -> r.value() != null)
+              // Parsing topic name
+              .map(r -> Map.entry(INTERNAL_TOPIC_PATTERN.matcher(r.topic()), r.value()))
+              .filter(matcherBean -> matcherBean.getKey().matches())
+              .collect(
+                  Collectors.groupingBy(
+                      matcherBean -> Integer.parseInt(matcherBean.getKey().group("brokerId")),
+                      Collectors.mapping(
+                          Map.Entry::getValue, Collectors.toCollection(ArrayList::new))));
+        }
+
+        @Override
+        public void close() {
+          consumer.close();
+        }
+      };
     }
 
     Map<Integer, Collection<BeanObject>> receive(Duration timeout);
@@ -112,6 +149,10 @@ public interface MetricsStore extends AutoCloseable {
               fetcher.close();
             }
           });
+    }
+
+    public Builder topicReceiver(String bootstrapServer) {
+      return receiver(Receiver.topic(bootstrapServer));
     }
 
     public Builder beanExpiration(Duration beanExpiration) {
