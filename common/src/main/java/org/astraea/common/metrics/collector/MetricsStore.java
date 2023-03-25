@@ -146,12 +146,13 @@ public interface MetricsStore extends AutoCloseable {
             while (!closed.get()) {
               try {
                 var before = System.currentTimeMillis() - beanExpiration.toMillis();
-                this.beans
-                    .values()
-                    .forEach(
-                        bs ->
-                            bs.removeIf(
-                                hasBeanObject -> hasBeanObject.createdTimestamp() < before));
+                var noUpdate =
+                    this.beans.values().stream()
+                        .noneMatch(
+                            bs ->
+                                bs.removeIf(
+                                    hasBeanObject -> hasBeanObject.createdTimestamp() < before));
+                if (!noUpdate) updateClusterBean();
                 TimeUnit.MILLISECONDS.sleep(beanExpiration.toMillis());
               } catch (Exception e) {
                 // TODO: it needs better error handling
@@ -182,14 +183,7 @@ public interface MetricsStore extends AutoCloseable {
                               });
                     });
                 // generate new cluster bean
-                if (!allBeans.isEmpty())
-                  latest =
-                      ClusterBean.of(
-                          beans.entrySet().stream()
-                              .filter(entry -> !entry.getValue().isEmpty())
-                              .collect(
-                                  Collectors.toUnmodifiableMap(
-                                      Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
+                if (!allBeans.isEmpty()) updateClusterBean();
               } catch (Exception e) {
                 // TODO: it needs better error handling
                 e.printStackTrace();
@@ -211,6 +205,16 @@ public interface MetricsStore extends AutoCloseable {
       executor.shutdownNow();
       Utils.packException(() -> executor.awaitTermination(30, TimeUnit.SECONDS));
       receiver.close();
+    }
+
+    private void updateClusterBean() {
+      latest =
+          ClusterBean.of(
+              beans.entrySet().stream()
+                  .filter(entry -> !entry.getValue().isEmpty())
+                  .collect(
+                      Collectors.toUnmodifiableMap(
+                          Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
     }
   }
 }

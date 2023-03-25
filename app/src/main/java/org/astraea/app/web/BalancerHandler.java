@@ -55,7 +55,7 @@ import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.collector.MetricsStore;
 
-class BalancerHandler implements Handler {
+class BalancerHandler implements Handler, AutoCloseable {
 
   private final Admin admin;
   private final BalancerConsole balancerConsole;
@@ -556,5 +556,15 @@ class BalancerHandler implements Handler {
       this.function = function;
       this.timeout = timeout;
     }
+  }
+
+  // metricsStore creates many threads so we have to close it
+  // in production, the web service will terminate all threads automatically.
+  // in testing, all threads is still running even though the test get completed. hence, the test
+  // case must close the
+  // handle manually
+  @Override
+  public void close() {
+    metricsStore.close();
   }
 }
