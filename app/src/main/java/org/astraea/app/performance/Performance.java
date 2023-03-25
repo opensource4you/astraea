@@ -87,8 +87,7 @@ public class Performance {
 
     System.out.println("creating threads");
     var producerThreads =
-        ProducerThread.create(
-            blockingQueues, param.producers, param::createProducer, param.interdependent);
+        ProducerThread.create(blockingQueues, param::createProducer, param.interdependent);
     var consumerThreads =
         param.monkeys != null
             ? Collections.synchronizedList(new ArrayList<>(consumers(param, latestOffsets)))
