@@ -144,6 +144,9 @@ public interface MetricsStore extends AutoCloseable {
     // cache the latest cluster to be shared between all threads.
     private volatile ClusterBean latest = ClusterBean.EMPTY;
 
+    // trace the identities of returned metrics
+    private volatile Set<Integer> identities = Set.of();
+
     private MetricsStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier,
         Receiver receiver,
@@ -175,6 +178,7 @@ public interface MetricsStore extends AutoCloseable {
             while (!closed.get()) {
               try {
                 var allBeans = receiver.receive(Duration.ofSeconds(3));
+                identities = allBeans.keySet();
                 allBeans.forEach(
                     (id, bs) -> {
                       var client = MBeanClient.of(bs);
@@ -211,10 +215,7 @@ public interface MetricsStore extends AutoCloseable {
 
     @Override
     public Set<Integer> identities() {
-      return beans.entrySet().stream()
-          .filter(e -> !e.getValue().isEmpty())
-          .map(e -> e.getKey())
-          .collect(Collectors.toUnmodifiableSet());
+      return identities;
     }
 
     @Override
