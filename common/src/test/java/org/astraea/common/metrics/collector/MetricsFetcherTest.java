@@ -55,7 +55,7 @@ public class MetricsFetcherTest {
             .fetchBeanDelay(Duration.ofSeconds(1))
             .build()) {
       Utils.sleep(Duration.ofSeconds(3));
-      Assertions.assertEquals(Set.of(-1000), fetcher.clientIds());
+      Assertions.assertEquals(Set.of(-1000), fetcher.identities());
       Assertions.assertNotEquals(0, queue.size());
       queue.forEach((id, es) -> Assertions.assertEquals(beans, es));
 
@@ -90,7 +90,7 @@ public class MetricsFetcherTest {
             .fetchBeanDelay(Duration.ofSeconds(1000))
             .build()) {
       Utils.sleep(Duration.ofSeconds(3));
-      Assertions.assertEquals(1, fetcher.clientIds().size());
+      Assertions.assertEquals(1, fetcher.identities().size());
       Assertions.assertEquals(0, fetcher.latest().size());
       // make sure client is not called
       Mockito.verify(client, Mockito.never()).beans(Mockito.any());
@@ -110,7 +110,7 @@ public class MetricsFetcherTest {
             .build()) {
       Utils.sleep(Duration.ofSeconds(3));
       // the metadata is get updated immediately
-      Assertions.assertEquals(1, fetcher.clientIds().size());
+      Assertions.assertEquals(1, fetcher.identities().size());
       // the delay is too larger to see next update
       Mockito.verify(supplier, Mockito.times(1)).get();
     }

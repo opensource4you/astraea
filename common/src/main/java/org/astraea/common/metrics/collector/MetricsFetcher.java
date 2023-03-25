@@ -45,9 +45,15 @@ public interface MetricsFetcher extends AutoCloseable {
     return new Builder();
   }
 
+  /**
+   * @return the latest beans
+   */
   Map<Integer, Collection<BeanObject>> latest();
 
-  Set<Integer> clientIds();
+  /**
+   * @return the latest fetched identities
+   */
+  Set<Integer> identities();
 
   @Override
   void close();
@@ -201,7 +207,7 @@ public interface MetricsFetcher extends AutoCloseable {
     }
 
     @Override
-    public Set<Integer> clientIds() {
+    public Set<Integer> identities() {
       return Set.copyOf(clients.keySet());
     }
 

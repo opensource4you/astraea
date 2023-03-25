@@ -135,7 +135,6 @@ public class AssignorTest {
     var unregisterNode = assignor.checkUnregister(nodes);
     Assertions.assertEquals(1, unregisterNode.size());
     Assertions.assertEquals(jmxAddr, unregisterNode.get(brokerId));
-    assignor.registerJMX(Map.of(brokerId, jmxAddr));
     unregisterNode = assignor.checkUnregister(nodes);
     Assertions.assertEquals(0, unregisterNode.size());
 
