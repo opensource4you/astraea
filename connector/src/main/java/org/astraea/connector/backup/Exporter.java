@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -154,9 +154,9 @@ public class Exporter extends SinkConnector {
 
     private final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
 
-    private final AtomicLong bufferSize = new AtomicLong();
+    private final LongAdder bufferSize = new LongAdder();
 
-    final Object putLock = new Object();
+    private final Object putLock = new Object();
 
     private long bufferSizeLimit;
 
@@ -232,7 +232,7 @@ public class Exporter extends SinkConnector {
                   configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()))
               .toMillis();
 
-      this.bufferSize.set(0);
+      this.bufferSize.reset();
 
       this.bufferSizeLimit =
           DataSize.of(
@@ -257,22 +257,18 @@ public class Exporter extends SinkConnector {
                             var list =
                                 new ArrayList<Record<byte[], byte[]>>(this.recordsQueue.size());
                             this.recordsQueue.drainTo(list);
-                            var drainedSize =
-                                list.stream()
-                                    .map(
-                                        record -> {
-                                          int keyLength =
-                                              (record.key() == null) ? 0 : record.key().length;
-                                          int valueLength =
-                                              (record.value() == null) ? 0 : record.value().length;
-
-                                          return keyLength + valueLength;
-                                        })
-                                    .reduce(0, Integer::sum);
-
-                            this.bufferSize.getAndAdd(-drainedSize);
-                            synchronized (putLock) {
-                              putLock.notify();
+                            if (list.size() > 0) {
+                              var drainedSize =
+                                  list.stream()
+                                      .mapToInt(
+                                          record ->
+                                              record.serializedKeySize()
+                                                  + record.serializedValueSize())
+                                      .sum();
+                              this.bufferSize.add(-drainedSize);
+                              synchronized (putLock) {
+                                putLock.notify();
+                              }
                             }
                             return list;
                           })));
@@ -291,13 +287,13 @@ public class Exporter extends SinkConnector {
                             .reduce(0, Integer::sum);
 
                     synchronized (putLock) {
-                      while (this.bufferSize.get() + recordLength >= this.bufferSizeLimit) {
+                      while (this.bufferSize.sum() + recordLength >= this.bufferSizeLimit) {
                         putLock.wait();
                       }
                     }
                     recordsQueue.put(r);
 
-                    this.bufferSize.addAndGet(recordLength);
+                    this.bufferSize.add(recordLength);
                   }));
     }
 
