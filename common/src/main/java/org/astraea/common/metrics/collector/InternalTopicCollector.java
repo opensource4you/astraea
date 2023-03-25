@@ -220,7 +220,8 @@ public class InternalTopicCollector implements MetricCollector {
     }
 
     @Override
-    public Collection<BeanObject> beans(BeanQuery beanQuery) {
+    public Collection<BeanObject> beans(
+        BeanQuery beanQuery, java.util.function.Consumer<RuntimeException> errorHandler) {
       // The queried domain name (or properties) may contain wildcard. Change wildcard to regular
       // expression.
       var wildCardDomain =

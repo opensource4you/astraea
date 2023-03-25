@@ -44,6 +44,8 @@ public interface DataGenerator extends AbstractThread {
       List<ArrayBlockingQueue<List<Record<byte[], byte[]>>>> queues,
       Supplier<TopicPartition> partitionSelector,
       Performance.Argument argument) {
+    if (queues.size() == 0) return terminatedGenerator();
+
     var keyDistConfig = Configuration.of(argument.keyDistributionConfig);
     var keySizeDistConfig = Configuration.of(argument.keySizeDistributionConfig);
     var valueDistConfig = Configuration.of(argument.valueDistributionConfig);
@@ -124,6 +126,21 @@ public interface DataGenerator extends AbstractThread {
         closed.set(true);
         waitForDone();
       }
+    };
+  }
+
+  static DataGenerator terminatedGenerator() {
+    return new DataGenerator() {
+      @Override
+      public void waitForDone() {}
+
+      @Override
+      public boolean closed() {
+        return true;
+      }
+
+      @Override
+      public void close() {}
     };
   }
 

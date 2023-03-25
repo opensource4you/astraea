@@ -18,7 +18,9 @@ package org.astraea.common.metrics.collector;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Map;
 import org.astraea.common.Utils;
+import org.astraea.common.metrics.MBeanClient;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -37,7 +39,10 @@ public class LocalMetricsTest {
   @Test
   void test() {
     try (var store =
-        MetricsStore.builder().beanExpiration(Duration.ofSeconds(1)).localReceiver().build()) {
+        MetricsStore.builder()
+            .beanExpiration(Duration.ofSeconds(1))
+            .localReceiver(() -> Map.of(-1, MBeanClient.local()))
+            .build()) {
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertNotEquals(0, store.clusterBean().all().size());
       Assertions.assertNotEquals(

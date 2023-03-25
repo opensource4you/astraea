@@ -37,7 +37,7 @@ public class MetricsFetcherTest {
   void testPublishAndClose() {
     var beans = List.of(new BeanObject(Utils.randomString(), Map.of(), Map.of()));
     var client = Mockito.mock(MBeanClient.class);
-    Mockito.when(client.beans(Mockito.any())).thenReturn(beans);
+    Mockito.when(client.beans(Mockito.any(), Mockito.any())).thenReturn(beans);
     var sender = Mockito.mock(MetricsFetcher.Sender.class);
     var queue = new ConcurrentHashMap<Integer, Collection<BeanObject>>();
     Mockito.when(sender.send(Mockito.anyInt(), Mockito.any()))
@@ -57,7 +57,7 @@ public class MetricsFetcherTest {
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(Set.of(-1000), fetcher.clientIds());
       Assertions.assertNotEquals(0, queue.size());
-      queue.values().forEach(es -> Assertions.assertEquals(beans, es));
+      queue.forEach((id, es) -> Assertions.assertEquals(beans, es));
 
       var latest = fetcher.latest();
       Assertions.assertEquals(1, latest.size());

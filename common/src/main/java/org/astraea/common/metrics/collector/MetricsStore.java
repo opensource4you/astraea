@@ -111,7 +111,7 @@ public interface MetricsStore extends AutoCloseable {
                 (id, ignored) -> {});
 
     private Receiver receiver;
-    private Duration beanExpiration = Duration.ofSeconds(5);
+    private Duration beanExpiration = Duration.ofSeconds(10);
 
     public Builder sensorSupplier(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier) {
@@ -128,15 +128,9 @@ public interface MetricsStore extends AutoCloseable {
      * Using an embedded fetcher build the receiver. The fetcher will keep fetching beans
      * background, and it pushes all beans to store internally.
      */
-    public Builder localReceiver() {
+    public Builder localReceiver(Supplier<Map<Integer, MBeanClient>> clientSupplier) {
       var cache = LocalSenderReceiver.of();
-      var fetcher =
-          MetricsFetcher.builder()
-              .clientSupplier(() -> Map.of(-1, MBeanClient.local()))
-              // local mode so we don't need to update metadata
-              .fetchMetadataDelay(Duration.ofDays(300))
-              .sender(cache)
-              .build();
+      var fetcher = MetricsFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
       return receiver(
           new Receiver() {
             @Override
@@ -178,6 +172,9 @@ public interface MetricsStore extends AutoCloseable {
 
     private final ExecutorService executor;
 
+    // cache the latest cluster to be shared between all threads.
+    private volatile ClusterBean latest = ClusterBean.EMPTY;
+
     private MetricsStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier,
         Receiver receiver,
@@ -190,12 +187,13 @@ public interface MetricsStore extends AutoCloseable {
             while (!closed.get()) {
               try {
                 var before = System.currentTimeMillis() - beanExpiration.toMillis();
-                this.beans
-                    .values()
-                    .forEach(
-                        bs ->
-                            bs.removeIf(
-                                hasBeanObject -> hasBeanObject.createdTimestamp() < before));
+                var noUpdate =
+                    this.beans.values().stream()
+                        .noneMatch(
+                            bs ->
+                                bs.removeIf(
+                                    hasBeanObject -> hasBeanObject.createdTimestamp() < before));
+                if (!noUpdate) updateClusterBean();
                 TimeUnit.MILLISECONDS.sleep(beanExpiration.toMillis());
               } catch (Exception e) {
                 // TODO: it needs better error handling
@@ -225,6 +223,8 @@ public interface MetricsStore extends AutoCloseable {
                                 }
                               });
                     });
+                // generate new cluster bean
+                if (!allBeans.isEmpty()) updateClusterBean();
               } catch (Exception e) {
                 // TODO: it needs better error handling
                 e.printStackTrace();
@@ -237,11 +237,7 @@ public interface MetricsStore extends AutoCloseable {
 
     @Override
     public ClusterBean clusterBean() {
-      return ClusterBean.of(
-          beans.entrySet().stream()
-              .filter(entry -> !entry.getValue().isEmpty())
-              .collect(
-                  Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
+      return latest;
     }
 
     @Override
@@ -250,6 +246,16 @@ public interface MetricsStore extends AutoCloseable {
       executor.shutdownNow();
       Utils.packException(() -> executor.awaitTermination(30, TimeUnit.SECONDS));
       receiver.close();
+    }
+
+    private void updateClusterBean() {
+      latest =
+          ClusterBean.of(
+              beans.entrySet().stream()
+                  .filter(entry -> !entry.getValue().isEmpty())
+                  .collect(
+                      Collectors.toUnmodifiableMap(
+                          Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
     }
   }
 }
