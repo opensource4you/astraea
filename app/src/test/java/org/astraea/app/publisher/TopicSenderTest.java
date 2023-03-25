@@ -17,6 +17,7 @@
 package org.astraea.app.publisher;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -30,14 +31,14 @@ import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class JMXPublisherTest {
+public class TopicSenderTest {
   Service service = Service.builder().numberOfWorkers(0).build();
 
   @Test
   void testPublish() throws InterruptedException, ExecutionException {
     var testBean = new BeanObject("java.lang", Map.of("name", "n1"), Map.of("value", "v1"));
-    try (var jmxPublisher = JMXPublisher.create(service.bootstrapServers())) {
-      jmxPublisher.publish("1", testBean);
+    try (var topicSender = new TopicSender(service.bootstrapServers())) {
+      topicSender.send(1, List.of(testBean));
 
       // Test topic creation
       try (var admin = Admin.of(service.bootstrapServers())) {
@@ -46,7 +47,7 @@ public class JMXPublisherTest {
         Assertions.assertEquals("__1_broker_metrics", topics.stream().findAny().get());
       }
 
-      // Test record published
+      // Test record sent
       try (var consumer =
           Consumer.forTopics(Set.of("__1_broker_metrics"))
               .bootstrapServers(service.bootstrapServers())
