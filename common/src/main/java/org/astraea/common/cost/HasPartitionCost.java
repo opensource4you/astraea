@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -58,6 +59,20 @@ public interface HasPartitionCost extends CostFunction {
       }
 
       @Override
+      public Optional<Map<TopicPartition, Set<TopicPartition>>> validate(
+          PartitionCost partitionCost) {
+        return Optional.of(
+            costAndWeight.keySet().stream()
+                .map(cost -> cost.validate(partitionCost).orElse(Map.of()))
+                .flatMap(m -> m.entrySet().stream())
+                .collect(
+                    Collectors.groupingBy(
+                        Map.Entry::getKey,
+                        Collectors.flatMapping(
+                            e -> e.getValue().stream(), Collectors.toUnmodifiableSet()))));
+      }
+
+      @Override
       public Optional<MetricSensor> metricSensor() {
         return sensor;
       }
@@ -71,4 +86,8 @@ public interface HasPartitionCost extends CostFunction {
   }
 
   PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean);
+
+  default Optional<Map<TopicPartition, Set<TopicPartition>>> validate(PartitionCost partitionCost) {
+    return Optional.empty();
+  }
 }

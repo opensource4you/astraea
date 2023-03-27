@@ -17,8 +17,9 @@
 package org.astraea.common.cost;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
@@ -31,7 +32,7 @@ import org.astraea.common.metrics.broker.ServerMetrics;
  * A cost function to evaluate cluster load balance score in terms of message ingress data rate. See
  * {@link NetworkCost} for further detail.
  */
-public class NetworkIngressCost extends NetworkCost implements HasPartitionCost, Sense {
+public class NetworkIngressCost extends NetworkCost implements HasPartitionCost {
   private final Configuration config;
   private static final String UPPER_BOUND = "upper.bound";
   private static final String TRAFFIC_INTERVAL = "traffic.interval";
@@ -83,10 +84,11 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost,
   }
 
   @Override
-  public List<TopicPartition> validate(
-      PartitionCost partitionCost, List<TopicPartition> partitions) {
-    // impl the logic for determining suitable
-    return null;
+  public Optional<Map<TopicPartition, Set<TopicPartition>>> validate(PartitionCost partitionCost) {
+    // impl detail to return feedback
+
+    // temporarily use `Optional.empty()` instead of a return value
+    return Optional.empty();
   }
 
   @Override
