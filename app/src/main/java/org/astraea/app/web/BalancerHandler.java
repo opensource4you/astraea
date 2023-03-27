@@ -83,7 +83,7 @@ class BalancerHandler implements Handler, AutoCloseable {
         MetricsStore.builder()
             .beanExpiration(Duration.ofSeconds(1))
             .localReceiver(clientSupplier)
-            .sensorSupplier(
+            .sensorsSupplier(
                 () ->
                     sensors.stream()
                         .collect(
