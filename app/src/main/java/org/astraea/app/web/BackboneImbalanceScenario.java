@@ -77,7 +77,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
         new ParetoDistribution(rng, config.topicRateParetoScale(), config.topicRateParetoShape());
     final var backboneDataRateDistribution =
         new UniformRealDistribution(
-            rng, config.backboneDataRate() * 0.999, config.backboneDataRate() * 1.001);
+            rng, config.backboneDataRate() * 0.8, config.backboneDataRate() * 1.2);
     final var topicPartitionCountDistribution =
         new UniformIntegerDistribution(rng, config.partitionMin(), config.partitionMax());
     final var topicConsumerFanoutDistribution =
@@ -378,7 +378,8 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
         final Map<String, String> keyDistributionConfig = new HashMap<>();
       }
       var clientCount = config.performanceClientCount();
-      if (clientCount < 3) throw new IllegalArgumentException("At least three perf clients required");
+      if (clientCount < 3)
+        throw new IllegalArgumentException("At least three perf clients required");
       var clients =
           IntStream.range(0, clientCount)
               .mapToObj(i -> new PerfClient())
@@ -400,7 +401,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
             consumeClient.topics.add(topic);
           } else {
             var nextClient =
-                    clients.stream()
+                clients.stream()
                     .skip(2)
                     .filter(x -> !x.topics.contains(topic))
                     .min(Comparator.comparing(x -> x.consumeRate))
@@ -411,13 +412,11 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
           }
         }
       }
-      for(var client: clients) {
-        var zipfian =
-            client.topics.equals(Set.of(BackboneImbalanceScenario.backboneTopicName));
+      for (var client : clients) {
+        var zipfian = client.topics.equals(Set.of(BackboneImbalanceScenario.backboneTopicName));
         client.keyDistribution = zipfian ? "zipfian" : "uniform";
         if (zipfian) {
-          client.keyDistributionConfig.put(
-              "exponent", Double.toString(config.zipfianExponent()));
+          client.keyDistributionConfig.put("exponent", Double.toString(config.zipfianExponent()));
         }
       }
 
@@ -451,9 +450,10 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                             })
                         .collect(Collectors.joining(","));
                 var throughput = String.format("%dByte/second", (long) produceRate.byteRate());
-                var keyDistConfigString = client.keyDistributionConfig.entrySet().stream()
-                    .map(e -> String.format("%s=%s", e.getKey(), e.getValue()))
-                    .collect(Collectors.joining());
+                var keyDistConfigString =
+                    client.keyDistributionConfig.entrySet().stream()
+                        .map(e -> String.format("%s=%s", e.getKey(), e.getValue()))
+                        .collect(Collectors.joining());
                 return Map.ofEntries(
                     Map.entry("backbone", Boolean.toString(isBackbone)),
                     Map.entry("topics", String.join(",", client.topics)),
@@ -522,7 +522,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                   Arrays.stream(seriesString.split(","))
                       .map(Integer::parseInt)
                       .collect(Collectors.toUnmodifiableList()))
-          .orElse(List.of(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 6));
+          .orElse(List.of(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 5));
     }
 
     double topicRateParetoScale() {
@@ -543,7 +543,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
       return scenarioConfig
           .string(CONFIG_BACKBONE_DATA_RATE)
           .map(Long::parseLong)
-          .orElse(DataSize.MB.of(800).bytes());
+          .orElse(DataSize.MB.of(950).bytes());
     }
 
     int performanceClientCount() {
