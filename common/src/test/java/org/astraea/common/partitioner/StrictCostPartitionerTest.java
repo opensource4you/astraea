@@ -20,7 +20,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
@@ -35,11 +35,8 @@ import org.astraea.common.cost.BrokerInputCost;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeThroughputCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
-import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.MetricSensor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 public class StrictCostPartitionerTest {
 
@@ -47,9 +44,10 @@ public class StrictCostPartitionerTest {
   void testJmxPort() {
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(Configuration.of(Map.of()));
-      Assertions.assertEquals(Optional.empty(), partitioner.jmxPortGetter.apply(0));
+      Assertions.assertThrows(
+          NoSuchElementException.class, () -> partitioner.jmxPortGetter.apply(0));
       partitioner.configure(Configuration.of(Map.of(StrictCostPartitioner.JMX_PORT, "12345")));
-      Assertions.assertEquals(Optional.of(12345), partitioner.jmxPortGetter.apply(0));
+      Assertions.assertEquals(12345, partitioner.jmxPortGetter.apply(0));
     }
   }
 
@@ -133,7 +131,6 @@ public class StrictCostPartitionerTest {
 
   @Test
   void testCostFunctionWithoutSensor() {
-    HasBrokerCost costFunction = (clusterInfo, bean) -> Mockito.mock(BrokerCost.class);
     var replicaInfo0 =
         Replica.builder()
             .topic("topic")
@@ -157,7 +154,7 @@ public class StrictCostPartitionerTest {
           new byte[0],
           new byte[0],
           ClusterInfoTest.of(List.of(replicaInfo0, replicaInfo1)));
-      Assertions.assertEquals(0, partitioner.metricCollector.metricSensors().size());
+      Assertions.assertEquals(0, partitioner.metricsStore.sensors().size());
     }
   }
 
@@ -217,7 +214,7 @@ public class StrictCostPartitionerTest {
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(Configuration.of(Map.of()));
       Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.costFunction);
-      Assertions.assertEquals(1, partitioner.metricCollector.metricSensors().size());
+      Assertions.assertEquals(1, partitioner.metricsStore.sensors().size());
     }
   }
 
@@ -264,53 +261,6 @@ public class StrictCostPartitionerTest {
       partitioner.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
       // rr is updated already
       Assertions.assertNotEquals(t, partitioner.roundRobinKeeper.lastUpdated.get());
-    }
-  }
-
-  @Test
-  void testTryToUpdateSensor() {
-    try (MBeanClient local = MBeanClient.local()) {
-      try (var ignore =
-          Mockito.mockStatic(
-              MBeanClient.class,
-              (invoke) ->
-                  invoke.getMethod().getName().equals("jndi") ? local : invoke.callRealMethod())) {
-        try (var partitioner = new StrictCostPartitioner()) {
-          var nodeInfo = NodeInfo.of(10, "host", 2222);
-          partitioner.configure(Map.of("jmx.port", "1111"));
-
-          var clusterInfo =
-              ClusterInfoTest.of(
-                  List.of(
-                      Replica.builder()
-                          .topic("topic")
-                          .partition(0)
-                          .nodeInfo(nodeInfo)
-                          .path("/tmp/aa")
-                          .buildLeader()));
-
-          Assertions.assertEquals(1, partitioner.metricCollector.identities().size());
-          partitioner.costFunction =
-              new HasBrokerCost() {
-                @Override
-                public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-                  return Map::of;
-                }
-
-                @Override
-                public Optional<MetricSensor> metricSensor() {
-                  return Optional.of(Mockito.mock(MetricSensor.class));
-                }
-              };
-          partitioner.updatePeriod = Duration.ZERO;
-          partitioner.tryToUpdateSensor(clusterInfo);
-          Assertions.assertNotNull(partitioner.metricCollector);
-          Assertions.assertEquals(2, partitioner.metricCollector.identities().size());
-
-          partitioner.tryToUpdateSensor(clusterInfo);
-          Assertions.assertEquals(2, partitioner.metricCollector.identities().size());
-        }
-      }
     }
   }
 }
