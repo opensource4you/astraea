@@ -65,7 +65,7 @@ public class MemoryCostTest {
       Utils.sleep(interval);
 
       Assertions.assertFalse(collector.metricSensors().isEmpty());
-      Assertions.assertFalse(collector.listIdentities().isEmpty());
+      Assertions.assertFalse(collector.identities().isEmpty());
       Assertions.assertTrue(collector.metrics(JvmMemory.class).allMatch(Objects::nonNull));
 
       // Test if we can get "used memory" and "max memory".

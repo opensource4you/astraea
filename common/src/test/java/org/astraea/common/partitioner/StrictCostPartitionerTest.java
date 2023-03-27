@@ -289,7 +289,7 @@ public class StrictCostPartitionerTest {
                           .path("/tmp/aa")
                           .buildLeader()));
 
-          Assertions.assertEquals(1, partitioner.metricCollector.listIdentities().size());
+          Assertions.assertEquals(1, partitioner.metricCollector.identities().size());
           partitioner.costFunction =
               new HasBrokerCost() {
                 @Override
@@ -305,10 +305,10 @@ public class StrictCostPartitionerTest {
           partitioner.updatePeriod = Duration.ZERO;
           partitioner.tryToUpdateSensor(clusterInfo);
           Assertions.assertNotNull(partitioner.metricCollector);
-          Assertions.assertEquals(2, partitioner.metricCollector.listIdentities().size());
+          Assertions.assertEquals(2, partitioner.metricCollector.identities().size());
 
           partitioner.tryToUpdateSensor(clusterInfo);
-          Assertions.assertEquals(2, partitioner.metricCollector.listIdentities().size());
+          Assertions.assertEquals(2, partitioner.metricCollector.identities().size());
         }
       }
     }

@@ -10,7 +10,7 @@
 可量測的數據如下：
 
 1. Publish latency : 完成producer request的時間
-2. End-to-End latency : 一筆record從producer端到consumer端的時間
+2. End-to-End latency : 一筆record從producer端到consumer端的時間，含 record 在節點中等待的時間
 3. Consume rate : consumer拉取資料的速率(MB/s)
 4. Produce rate : producer送資料的速率(MB/s)
 5. Produce record error rate : 發送資料時錯誤的頻率
@@ -73,7 +73,7 @@
 1. 確認自己的Kafka server ip，並且Kafka 有正常運作，關於啟動Kafka 可參考 [run_kafka_broker](run_kafka_broker.md)。
 2. 可使用 [Web Service](web_server/README.md) 來建構測試用途的 `topics`
 
-使用`docker`執行`performance benchmark`
+使用`docker`執行`performance benchmark`，指令如下：
 
 ```bash 
 docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics MyTopic
@@ -81,7 +81,7 @@ docker/start_app.sh performance --bootstrap.servers 192.168.103.26:9092 --topics
 
 (192.168.103.26, 9092 替換成自己Kafka server 的 ip 和 port)
 
-![performance_tool_demo](pictures/performance_tool_demo.png)
+![performance_tool_demo](pictures/Perf_tool_demo.png)
 
 `performance benchmark`可以指定各種參數如資料大小、分佈、執行時間... 等等。全部參數可以參考上述表格。
 

@@ -41,6 +41,7 @@ import org.apache.kafka.common.errors.LogDirNotFoundException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.internals.KafkaFutureImpl;
 import org.astraea.common.DataRate;
+import org.astraea.common.FixedIterable;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -177,7 +178,7 @@ public class AdminTest {
                   ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
               .build()) {
-        Assertions.assertNotEquals(0, consumer.poll(3, Duration.ofSeconds(7)).size());
+        Assertions.assertNotEquals(0, consumer.poll(Duration.ofSeconds(7)).size());
       }
 
       admin
@@ -1218,7 +1219,7 @@ public class AdminTest {
         var records =
             IntStream.range(0, 5)
                 .mapToObj(i -> consumer.poll(Duration.ofSeconds(1)))
-                .flatMap(Collection::stream)
+                .flatMap(FixedIterable::stream)
                 .collect(Collectors.toList());
 
         Assertions.assertEquals(
@@ -1663,7 +1664,7 @@ public class AdminTest {
                   ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
               .build()) {
-        Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
+        Assertions.assertEquals(1, consumer.poll(Duration.ofSeconds(5)).size());
         admin.deleteMembers(Set.of(consumer.groupId())).toCompletableFuture().join();
         groupId = consumer.groupId();
       }
@@ -1693,7 +1694,7 @@ public class AdminTest {
                   ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
               .build()) {
-        Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
+        Assertions.assertEquals(1, consumer.poll(Duration.ofSeconds(5)).size());
         groupId = consumer.groupId();
       }
       admin.deleteGroups(Set.of(groupId)).toCompletableFuture().join();
