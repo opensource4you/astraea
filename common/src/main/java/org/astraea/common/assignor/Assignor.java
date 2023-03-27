@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
@@ -48,7 +49,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Integer> jmxPortGetter =
       (id) -> {
-        throw new IllegalArgumentException("must define either broker.x.jmx.port or jmx.port");
+        throw new NoSuchElementException("must define either broker.x.jmx.port or jmx.port");
       };
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
   // TODO: metric collector may be configured by user in the future.
@@ -152,7 +153,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
             Optional.ofNullable(customJMXPort.get(id))
                 .or(() -> defaultJMXPort)
                 .orElseThrow(
-                    () -> new IllegalArgumentException("failed to get jmx port for broker: " + id));
+                    () -> new NoSuchElementException("failed to get jmx port for broker: " + id));
     Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
         () ->
             admin

@@ -182,12 +182,18 @@ public interface MetricsFetcher extends AutoCloseable {
           .get()
           .whenCompleteAsync(
               (r, e) -> {
-                if (r == null) return;
+                if (e != null) {
+                  // TODO: it needs better error handling
+                  e.printStackTrace();
+                  return;
+                }
+                System.out.println("update metadata: " + r.keySet());
                 lock.writeLock().lock();
                 Map<Integer, MBeanClient> old;
                 try {
                   old = clients;
                   clients = r;
+                  works.clear();
                   clients.forEach(
                       (id, client) -> works.put(new DelayedIdentity(fetchBeanDelay, id)));
                 } finally {
