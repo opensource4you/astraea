@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import org.astraea.common.Utils;
@@ -51,7 +52,7 @@ public class MetricsFetcherTest {
     try (var fetcher =
         MetricsFetcher.builder()
             .sender(sender)
-            .clientSupplier(() -> Map.of(-1000, client))
+            .clientSupplier(() -> CompletableFuture.completedStage(Map.of(-1000, client)))
             .fetchBeanDelay(Duration.ofSeconds(1))
             .build()) {
       Utils.sleep(Duration.ofSeconds(3));
@@ -75,7 +76,7 @@ public class MetricsFetcherTest {
     Assertions.assertThrows(NullPointerException.class, builder::build);
     builder.sender(MetricsFetcher.Sender.local());
     Assertions.assertThrows(NullPointerException.class, builder::build);
-    builder.clientSupplier(Map::of);
+    builder.clientSupplier(() -> CompletableFuture.completedStage(Map.of()));
     var fetcher = builder.build();
     fetcher.close();
   }
@@ -86,7 +87,7 @@ public class MetricsFetcherTest {
     try (var fetcher =
         MetricsFetcher.builder()
             .sender(MetricsFetcher.Sender.local())
-            .clientSupplier(() -> Map.of(-1000, client))
+            .clientSupplier(() -> CompletableFuture.completedStage(Map.of(-1000, client)))
             .fetchBeanDelay(Duration.ofSeconds(1000))
             .build()) {
       Utils.sleep(Duration.ofSeconds(3));
@@ -100,8 +101,9 @@ public class MetricsFetcherTest {
   @Test
   void testFetchMetadataDelay() {
     var client = Mockito.mock(MBeanClient.class);
-    Supplier<Map<Integer, MBeanClient>> supplier = Mockito.mock(Supplier.class);
-    Mockito.when(supplier.get()).thenReturn(Map.of(-1000, client));
+    Supplier<CompletionStage<Map<Integer, MBeanClient>>> supplier = Mockito.mock(Supplier.class);
+    Mockito.when(supplier.get())
+        .thenReturn(CompletableFuture.completedStage(Map.of(-1000, client)));
     try (var fetcher =
         MetricsFetcher.builder()
             .sender(MetricsFetcher.Sender.local())

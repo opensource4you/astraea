@@ -16,7 +16,6 @@
  */
 package org.astraea.app.web;
 
-import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
@@ -37,7 +36,6 @@ import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
@@ -51,7 +49,6 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.collector.MetricsStore;
 
@@ -77,18 +74,30 @@ class BalancerHandler implements Handler, AutoCloseable {
     this.admin = admin;
     this.jmxPortMapper = jmxPortMapper;
     this.balancerConsole = BalancerConsole.create(admin);
+    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+        () ->
+            admin
+                .brokers()
+                .thenApply(
+                    brokers ->
+                        brokers.stream()
+                            .collect(
+                                Collectors.toUnmodifiableMap(
+                                    NodeInfo::id,
+                                    b ->
+                                        MBeanClient.jndi(
+                                            b.host(),
+                                            jmxPortMapper
+                                                .apply(b.id())
+                                                .orElseThrow(
+                                                    () ->
+                                                        new IllegalArgumentException(
+                                                            "failed to get jmx port for broker: "
+                                                                + b.id()))))));
     this.metricsStore =
         MetricsStore.builder()
             .beanExpiration(Duration.ofSeconds(1))
-            .localReceiver(
-                () ->
-                    freshJmxAddresses().entrySet().stream()
-                        .collect(
-                            Collectors.toUnmodifiableMap(
-                                Map.Entry::getKey,
-                                e ->
-                                    MBeanClient.jndi(
-                                        e.getValue().getHostName(), e.getValue().getPort()))))
+            .localReceiver(clientSupplier)
             .sensorSupplier(
                 () ->
                     sensors.stream()
@@ -285,48 +294,6 @@ class BalancerHandler implements Handler, AutoCloseable {
         .filter(
             m -> !m.brokerCosts.isEmpty() && m.brokerCosts.values().stream().anyMatch(v -> v != 0))
         .collect(Collectors.toList());
-  }
-
-  private Balancer.Plan metricContext(
-      Collection<MetricSensor> metricSensors,
-      Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
-    // TODO: use a global metric collector when we are ready to enable long-run metric sampling
-    //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
-    try (var collector =
-        MetricCollector.local()
-            .registerJmxs(freshJmxAddresses())
-            .addMetricSensors(metricSensors)
-            .interval(Duration.ofSeconds(1))
-            .build()) {
-      return execution.apply(collector::clusterBean);
-    }
-  }
-
-  // visible for test
-  Map<Integer, InetSocketAddress> freshJmxAddresses() {
-    var brokers = admin.brokers().toCompletableFuture().join();
-    var jmxAddresses =
-        brokers.stream()
-            .flatMap(
-                broker -> jmxPortMapper.apply(broker.id()).map(p -> Map.entry(broker, p)).stream())
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    e -> e.getKey().id(),
-                    e -> InetSocketAddress.createUnresolved(e.getKey().host(), e.getValue())));
-
-    // JMX is disabled
-    if (jmxAddresses.size() == 0) return Map.of();
-
-    // JMX is partially enabled, forbidden this use case since it is probably a bad idea
-    if (brokers.size() != jmxAddresses.size())
-      throw new IllegalArgumentException(
-          "Some brokers has no JMX port specified in the web service argument: "
-              + brokers.stream()
-                  .map(NodeInfo::id)
-                  .filter(id -> !jmxAddresses.containsKey(id))
-                  .collect(Collectors.toUnmodifiableSet()));
-
-    return jmxAddresses;
   }
 
   // visible for test

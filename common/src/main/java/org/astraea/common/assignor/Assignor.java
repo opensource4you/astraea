@@ -16,11 +16,11 @@
  */
 package org.astraea.common.assignor;
 
-import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -144,28 +144,32 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
             ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
             : HasPartitionCost.of(costFunctions);
     this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
-    Supplier<Map<Integer, MBeanClient>> clientSupplier =
-        () -> {
-          var map =
-              new HashMap<>(
-                  admin.brokers().toCompletableFuture().join().stream()
-                      .flatMap(
-                          b ->
-                              jmxPortGetter.apply(b.id()).stream()
-                                  .map(
-                                      port ->
-                                          Map.entry(
-                                              b.id(),
-                                              InetSocketAddress.createUnresolved(b.host(), port))))
-                      .collect(
-                          Collectors.toUnmodifiableMap(
-                              Map.Entry::getKey,
-                              e ->
-                                  MBeanClient.jndi(
-                                      e.getValue().getHostName(), e.getValue().getPort()))));
-          map.put(-1, MBeanClient.local());
-          return map;
-        };
+    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+        () ->
+            admin
+                .brokers()
+                .thenApply(
+                    brokers -> {
+                      var map =
+                          new HashMap<>(
+                              brokers.stream()
+                                  .collect(
+                                      Collectors.toUnmodifiableMap(
+                                          NodeInfo::id,
+                                          b ->
+                                              MBeanClient.jndi(
+                                                  b.host(),
+                                                  jmxPortGetter
+                                                      .apply(b.id())
+                                                      .orElseThrow(
+                                                          () ->
+                                                              new IllegalArgumentException(
+                                                                  "failed to get jmx port for broker: "
+                                                                      + b.id()))))));
+                      // add local client to fetch consumer metrics
+                      map.put(-1, MBeanClient.local());
+                      return map;
+                    });
     metricStore =
         MetricsStore.builder()
             .localReceiver(clientSupplier)

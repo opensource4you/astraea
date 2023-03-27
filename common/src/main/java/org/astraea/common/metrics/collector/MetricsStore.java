@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -101,7 +102,8 @@ public interface MetricsStore extends AutoCloseable {
      * Using an embedded fetcher build the receiver. The fetcher will keep fetching beans
      * background, and it pushes all beans to store internally.
      */
-    public Builder localReceiver(Supplier<Map<Integer, MBeanClient>> clientSupplier) {
+    public Builder localReceiver(
+        Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier) {
       var cache = LocalSenderReceiver.of();
       var fetcher = MetricsFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
       return receiver(

@@ -1160,20 +1160,6 @@ public class BalancerHandlerTest {
   }
 
   @Test
-  void testFreshJmxAddress() {
-    try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var noJmx = new BalancerHandler(admin, (id) -> Optional.empty());
-        var withJmx = new BalancerHandler(admin, (id) -> Optional.of(5566));
-        var partialJmx =
-            new BalancerHandler(admin, (id) -> Optional.ofNullable(id != 0 ? 1000 : null))) {
-
-      Assertions.assertEquals(0, noJmx.freshJmxAddresses().size());
-      Assertions.assertEquals(3, withJmx.freshJmxAddresses().size());
-      Assertions.assertThrows(IllegalArgumentException.class, partialJmx::freshJmxAddresses);
-    }
-  }
-
-  @Test
   void testExecutorConfig() {
     var topic = createAndProduceTopic(1).iterator().next();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
