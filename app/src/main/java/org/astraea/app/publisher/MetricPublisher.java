@@ -19,7 +19,6 @@ package org.astraea.app.publisher;
 import com.beust.jcommander.Parameter;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.app.argument.DurationField;
@@ -45,23 +44,18 @@ public class MetricPublisher {
   // Valid for testing
   static void execute(Arguments arguments) {
     var admin = Admin.of(arguments.bootstrapServers());
-    var topicSender = new TopicSender(arguments.bootstrapServers());
+    var topicSender = MetricsFetcher.Sender.topic(arguments.bootstrapServers());
     try (var metricFetcher =
         MetricsFetcher.builder()
             .clientSupplier(
-                () -> {
-                  try {
-                    return admin.nodeInfos().toCompletableFuture().get().stream()
+                () ->
+                    admin.nodeInfos().toCompletableFuture().join().stream()
                         .collect(
                             Collectors.toUnmodifiableMap(
                                 NodeInfo::id,
                                 node ->
                                     MBeanClient.jndi(
-                                        node.host(), arguments.idToJmxPort().apply(node.id()))));
-                  } catch (InterruptedException | ExecutionException e) {
-                    return Map.of();
-                  }
-                })
+                                        node.host(), arguments.idToJmxPort().apply(node.id())))))
             .fetchBeanDelay(arguments.period)
             .fetchMetadataDelay(Duration.ofMinutes(5))
             .threads(3)

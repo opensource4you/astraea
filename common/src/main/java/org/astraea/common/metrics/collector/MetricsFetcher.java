@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.DelayQueue;
@@ -32,12 +33,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
+import org.astraea.common.producer.Serializer;
 
 public interface MetricsFetcher extends AutoCloseable {
 
@@ -56,6 +62,40 @@ public interface MetricsFetcher extends AutoCloseable {
 
     static Sender local() {
       return LocalSenderReceiver.of();
+    }
+
+    static Sender topic(String bootstrapServer) {
+      var producer =
+          Producer.builder()
+              .bootstrapServers(bootstrapServer)
+              .valueSerializer(Serializer.STRING)
+              .build();
+      Function<Integer, String> internalTopicName = id -> "__" + id + "_broker_metrics";
+      return new Sender() {
+        @Override
+        public CompletionStage<Void> send(int id, Collection<BeanObject> beans) {
+          var records =
+              beans.stream()
+                  .map(
+                      bean ->
+                          Record.builder()
+                              .topic(internalTopicName.apply(id))
+                              .key((byte[]) null)
+                              .value(bean.toString())
+                              .build())
+                  .collect(Collectors.toUnmodifiableList());
+          return producer.send(records).stream()
+              .reduce(
+                  CompletableFuture.completedStage(null),
+                  (stage1, stage2) -> stage1.thenCombine(stage2, (ignore1, ignore2) -> null),
+                  (stage1, stage2) -> null);
+        }
+
+        @Override
+        public void close() {
+          producer.close();
+        }
+      };
     }
 
     CompletionStage<Void> send(int id, Collection<BeanObject> beans);
