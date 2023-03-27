@@ -187,7 +187,6 @@ public interface MetricsFetcher extends AutoCloseable {
                   e.printStackTrace();
                   return;
                 }
-                System.out.println("update metadata: " + r.keySet());
                 lock.writeLock().lock();
                 Map<Integer, MBeanClient> old;
                 try {
