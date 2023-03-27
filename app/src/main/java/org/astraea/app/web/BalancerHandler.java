@@ -60,19 +60,13 @@ class BalancerHandler implements Handler, AutoCloseable {
   private final Map<String, CompletionStage<Balancer.Plan>> planGenerations =
       new ConcurrentHashMap<>();
   private final Map<String, CompletionStage<Void>> planExecutions = new ConcurrentHashMap<>();
-  private final Function<Integer, Optional<Integer>> jmxPortMapper;
 
   private final Collection<MetricSensor> sensors = new ConcurrentLinkedQueue<>();
 
   private final MetricsStore metricsStore;
 
-  BalancerHandler(Admin admin) {
-    this(admin, (ignore) -> Optional.empty());
-  }
-
-  BalancerHandler(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
+  BalancerHandler(Admin admin, Function<Integer, Integer> jmxPortMapper) {
     this.admin = admin;
-    this.jmxPortMapper = jmxPortMapper;
     this.balancerConsole = BalancerConsole.create(admin);
     Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
         () ->
@@ -84,16 +78,7 @@ class BalancerHandler implements Handler, AutoCloseable {
                             .collect(
                                 Collectors.toUnmodifiableMap(
                                     NodeInfo::id,
-                                    b ->
-                                        MBeanClient.jndi(
-                                            b.host(),
-                                            jmxPortMapper
-                                                .apply(b.id())
-                                                .orElseThrow(
-                                                    () ->
-                                                        new IllegalArgumentException(
-                                                            "failed to get jmx port for broker: "
-                                                                + b.id()))))));
+                                    b -> MBeanClient.jndi(b.host(), jmxPortMapper.apply(b.id())))));
     this.metricsStore =
         MetricsStore.builder()
             .beanExpiration(Duration.ofSeconds(1))
