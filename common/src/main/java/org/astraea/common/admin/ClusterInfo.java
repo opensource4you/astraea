@@ -39,6 +39,14 @@ public interface ClusterInfo {
 
   // ---------------------[helpers]---------------------//
 
+  static Map<Integer, DataSize> recordSizeToFetch(ClusterInfo before, ClusterInfo after) {
+    return changedRecordSize(before, after, ignore -> true, true);
+  }
+
+  static Map<Integer, DataSize> recordSizeToSync(ClusterInfo before, ClusterInfo after) {
+    return changedRecordSize(before, after, ignore -> true, false);
+  }
+
   /**
    * @param before the ClusterInfo before migrated replicas
    * @param after the ClusterInfo after migrated replicas
@@ -46,7 +54,7 @@ public interface ClusterInfo {
    * @param migrateOut if data log need fetch from replica leader, set this true
    * @return the data size to migrated by all brokers
    */
-  static Map<Integer, DataSize> changedRecordSize(
+  private static Map<Integer, DataSize> changedRecordSize(
       ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate, boolean migrateOut) {
     final ClusterInfo sourceClusterInfo;
     final ClusterInfo destClusterInfo;

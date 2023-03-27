@@ -259,18 +259,16 @@ class BalancerHandler implements Handler {
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
             new MigrationCost(
-                MOVED_IN_SIZE,
-                ClusterInfo.changedRecordSize(
-                        solution.initialClusterInfo(), solution.proposal(), ignored -> true, false)
+                TO_SYNC_BYTES,
+                ClusterInfo.recordSizeToSync(solution.initialClusterInfo(), solution.proposal())
                     .entrySet()
                     .stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
             new MigrationCost(
-                MOVED_OUT_SIZE,
-                ClusterInfo.changedRecordSize(
-                        solution.initialClusterInfo(), solution.proposal(), ignored -> true, true)
+                TO_FETCH_BYTES,
+                ClusterInfo.recordSizeToFetch(solution.initialClusterInfo(), solution.proposal())
                     .entrySet()
                     .stream()
                     .collect(
@@ -471,8 +469,8 @@ class BalancerHandler implements Handler {
   // visible for testing
   static final String CHANGED_REPLICAS = "changed replicas";
   static final String CHANGED_LEADERS = "changed leaders";
-  static final String MOVED_IN_SIZE = "moved in size (bytes)";
-  static final String MOVED_OUT_SIZE = "moved out size (bytes)";
+  static final String TO_SYNC_BYTES = "record size to sync (bytes)";
+  static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
 
   static class MigrationCost {
     final String name;

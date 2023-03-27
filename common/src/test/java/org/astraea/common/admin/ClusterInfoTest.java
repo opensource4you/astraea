@@ -364,17 +364,13 @@ public class ClusterInfoTest {
   @Test
   void testChangedRecordSize() {
 
-    var moveInResult =
-        ClusterInfo.changedRecordSize(
-            beforeClusterInfo(), afterClusterInfo(), ignored -> true, false);
+    var moveInResult = ClusterInfo.recordSizeToSync(beforeClusterInfo(), afterClusterInfo());
     Assertions.assertEquals(3, moveInResult.size());
     Assertions.assertEquals(0, moveInResult.get(0).bytes());
     Assertions.assertEquals(1000, moveInResult.get(1).bytes());
     Assertions.assertEquals(100 + 500, moveInResult.get(2).bytes());
 
-    var moveOutResult =
-        ClusterInfo.changedRecordSize(
-            beforeClusterInfo(), afterClusterInfo(), ignored -> true, true);
+    var moveOutResult = ClusterInfo.recordSizeToFetch(beforeClusterInfo(), afterClusterInfo());
     Assertions.assertEquals(3, moveOutResult.size());
     Assertions.assertEquals(100 + 500, moveOutResult.get(0).bytes());
     Assertions.assertEquals(0, moveOutResult.get(1).bytes());
