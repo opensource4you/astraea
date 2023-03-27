@@ -78,7 +78,7 @@ public class StrictCostPartitioner extends Partitioner {
                       .nodes()
                       .forEach(
                           node -> {
-                            if (!localCollector.listIdentities().contains(node.id())) {
+                            if (!localCollector.identities().contains(node.id())) {
                               jmxPortGetter
                                   .apply(node.id())
                                   .ifPresent(
@@ -143,7 +143,8 @@ public class StrictCostPartitioner extends Partitioner {
   @Override
   public void configure(Configuration config) {
     var configuredFunctions =
-        Utils.costFunctions(config.filteredPrefixConfigs(COST_PREFIX), HasBrokerCost.class);
+        Utils.costFunctions(
+            config.filteredPrefixConfigs(COST_PREFIX).raw(), HasBrokerCost.class, config);
     if (!configuredFunctions.isEmpty()) this.costFunction = HasBrokerCost.of(configuredFunctions);
     var customJmxPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJmxPort = config.integer(JMX_PORT);

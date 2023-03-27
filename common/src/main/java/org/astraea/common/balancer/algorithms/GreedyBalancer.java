@@ -133,7 +133,7 @@ public class GreedyBalancer implements Balancer {
   }
 
   @Override
-  public Plan offer(AlgorithmConfig config) {
+  public Optional<Plan> offer(AlgorithmConfig config) {
     final var currentClusterInfo = config.clusterInfo();
     final var clusterBean = config.clusterBean();
     final var allocationTweaker =
@@ -148,18 +148,20 @@ public class GreedyBalancer implements Balancer {
     final var executionTime = config.timeout().toMillis();
     Supplier<Boolean> moreRoom =
         () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
-    BiFunction<ClusterInfo, ClusterCost, Optional<Solution>> next =
+    BiFunction<ClusterInfo, ClusterCost, Optional<Plan>> next =
         (currentAllocation, currentCost) ->
             allocationTweaker
                 .generate(currentAllocation)
                 .takeWhile(ignored -> moreRoom.get())
                 .map(
                     newAllocation ->
-                        new Solution(
+                        new Plan(
+                            config.clusterInfo(),
+                            initialCost,
+                            newAllocation,
                             clusterCostFunction.clusterCost(newAllocation, clusterBean),
                             moveCostFunction.moveCost(
-                                currentClusterInfo, newAllocation, clusterBean),
-                            newAllocation))
+                                currentClusterInfo, newAllocation, clusterBean)))
                 .filter(
                     plan ->
                         config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
@@ -167,7 +169,7 @@ public class GreedyBalancer implements Balancer {
                 .findFirst();
     var currentCost = initialCost;
     var currentAllocation = currentClusterInfo;
-    var currentSolution = Optional.<Solution>empty();
+    var currentSolution = Optional.<Plan>empty();
 
     // register JMX
     var currentIteration = new LongAdder();
@@ -191,6 +193,6 @@ public class GreedyBalancer implements Balancer {
       currentCost = currentSolution.get().proposalClusterCost();
       currentAllocation = currentSolution.get().proposal();
     }
-    return new Plan(currentClusterInfo, initialCost, currentSolution.orElse(null));
+    return currentSolution;
   }
 }

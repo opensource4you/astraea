@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.Deserializer;
@@ -52,7 +53,8 @@ public class JMXPublisherTest {
               .valueDeserializer(Deserializer.STRING)
               .seek(SeekStrategy.DISTANCE_FROM_BEGINNING, 0)
               .build()) {
-        var records = consumer.poll(Duration.ofSeconds(5));
+        var records =
+            consumer.poll(Duration.ofSeconds(5)).stream().collect(Collectors.toUnmodifiableList());
         Assertions.assertEquals(1, records.size());
         Assertions.assertEquals(testBean.toString(), records.get(0).value());
       }

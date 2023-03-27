@@ -29,6 +29,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.astraea.common.FixedIterable;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 
@@ -169,9 +170,9 @@ public class TopicsBuilder<Key, Value> extends Builder<Key, Value> {
     }
 
     @Override
-    public List<Record<Key, Value>> poll(int recordCount, Duration timeout) {
+    public FixedIterable<Record<Key, Value>> poll(Duration timeout) {
       waitRebalance.join();
-      return super.poll(recordCount, timeout);
+      return super.poll(timeout);
     }
 
     @Override

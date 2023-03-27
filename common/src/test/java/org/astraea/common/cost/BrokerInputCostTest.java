@@ -71,7 +71,7 @@ public class BrokerInputCostTest {
                 new BrokerInputCost().metricSensor().orElseThrow(),
                 (id, err) -> Assertions.fail(err.getMessage()))
             .build()) {
-      Assertions.assertFalse(collector.listIdentities().isEmpty());
+      Assertions.assertFalse(collector.identities().isEmpty());
       Assertions.assertFalse(collector.metricSensors().isEmpty());
 
       // wait for first fetch

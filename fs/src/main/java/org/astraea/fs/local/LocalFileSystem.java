@@ -72,7 +72,6 @@ public class LocalFileSystem implements FileSystem {
 
   private synchronized List<String> listFolders(String path, boolean requireFile) {
     var folder = resolvePath(path);
-    System.out.println("[chia] " + folder);
     if (!Files.isDirectory(folder)) throw new IllegalArgumentException(path + " is not a folder");
     return Utils.packException(() -> Files.list(folder))
         .filter(f -> requireFile ? Files.isRegularFile(f) : Files.isDirectory(f))

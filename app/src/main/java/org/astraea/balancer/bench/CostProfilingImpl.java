@@ -145,11 +145,6 @@ class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
             }
 
             @Override
-            public Optional<Balancer.Solution> solution() {
-              return plan.solution();
-            }
-
-            @Override
             public Map<Long, ClusterCost> costTimeSeries() {
               return Collections.unmodifiableMap(costTimeSeries);
             }

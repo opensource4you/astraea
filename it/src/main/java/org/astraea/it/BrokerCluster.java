@@ -137,10 +137,6 @@ public interface BrokerCluster extends AutoCloseable {
                   configs.put("offsets.topic.replication.factor", String.valueOf(1));
                   configs.put("log.dirs", String.join(",", tempFolders.get(entry.getKey())));
 
-                  // disable auto leader balance to ensure AdminTest#preferredLeaderElection works
-                  // correctly.
-                  configs.put("auto.leader.rebalance.enable", String.valueOf(false));
-
                   // add custom configs
                   configs.putAll(override);
 

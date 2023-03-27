@@ -16,38 +16,20 @@
  */
 package org.astraea.common;
 
-import java.util.Collection;
 import java.util.List;
+import java.util.Spliterators;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.header.Headers;
-import org.apache.kafka.common.header.internals.RecordHeaders;
 
 public interface Header {
-
   static List<Header> of(Headers headers) {
-    return StreamSupport.stream(headers.spliterator(), false)
+    var iter = headers.iterator();
+    // a minor optimization to avoid create extra collection.
+    if (!iter.hasNext()) return List.of();
+    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iter, 0), false)
         .map(h -> of(h.key(), h.value()))
-        .collect(Collectors.toList());
-  }
-
-  static Headers of(Collection<Header> headers) {
-    return new RecordHeaders(
-        headers.stream()
-            .map(
-                h ->
-                    new org.apache.kafka.common.header.Header() {
-                      @Override
-                      public String key() {
-                        return h.key();
-                      }
-
-                      @Override
-                      public byte[] value() {
-                        return h.value();
-                      }
-                    })
-            .collect(Collectors.toList()));
+        .collect(Collectors.toUnmodifiableList());
   }
 
   static Header of(String key, byte[] value) {

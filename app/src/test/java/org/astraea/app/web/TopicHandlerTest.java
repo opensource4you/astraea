@@ -373,7 +373,7 @@ public class TopicHandlerTest {
           .join();
 
       // try poll
-      Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
+      Assertions.assertEquals(1, consumer.poll(Duration.ofSeconds(5)).size());
       consumer.commitOffsets(Duration.ofSeconds(2));
       Assertions.assertEquals(1, consumer.assignments().size());
 

@@ -31,12 +31,12 @@ public interface MetricCollector extends AutoCloseable {
   /**
    * @return the current registered identities.
    */
-  Set<Integer> listIdentities();
+  Set<Integer> identities();
 
   /**
    * @return the type of metrics has been sampled so far.
    */
-  Set<Class<? extends HasBeanObject>> listMetricTypes();
+  Set<Class<? extends HasBeanObject>> metricTypes();
 
   /**
    * @return size of stored beans
@@ -65,5 +65,9 @@ public interface MetricCollector extends AutoCloseable {
 
   static LocalMetricCollector.Builder local() {
     return new LocalMetricCollector.Builder();
+  }
+
+  static InternalTopicCollector.Builder internalTopic() {
+    return new InternalTopicCollector.Builder();
   }
 }

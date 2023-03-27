@@ -34,10 +34,16 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerRebalanceListener;
 import org.astraea.common.consumer.SubscribedConsumer;
+import org.astraea.common.metrics.MBeanRegister;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.stats.Avg;
 
 public interface ConsumerThread extends AbstractThread {
+  String DOMAIN_NAME = "org.astraea";
+  String TYPE_PROPERTY = "type";
+  String TYPE_VALUE = "consumer";
+  String EXP_WEIGHT_BY_TIME_PROPERTY = "exp-weight-by-time";
+  String ID_PROPERTY = "client-id";
   ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_ASSIGNED_PARTITIONS =
       new ConcurrentHashMap<>();
   ConcurrentMap<String, Set<TopicPartition>> CLIENT_ID_REVOKED_PARTITIONS =
@@ -84,11 +90,27 @@ public interface ConsumerThread extends AbstractThread {
     return IntStream.range(0, consumers)
         .mapToObj(
             index -> {
-              var clientId = Utils.randomString();
+              var clientId = "consumer-" + index;
               var consumer = consumerSupplier.apply(clientId, new PartitionRatioListener(clientId));
               var closed = new AtomicBoolean(false);
               var closeLatch = closeLatches.get(index);
               var subscribed = new AtomicBoolean(true);
+              var sensor =
+                  Sensor.builder()
+                      .addStat(
+                          EXP_WEIGHT_BY_TIME_PROPERTY,
+                          Avg.expWeightByTime(Duration.ofSeconds(0), 1))
+                      .build();
+              // export the custom MBean for file writer
+              MBeanRegister.local()
+                  .domainName(DOMAIN_NAME)
+                  .property(TYPE_PROPERTY, TYPE_VALUE)
+                  .property(ID_PROPERTY, clientId)
+                  .attribute(
+                      EXP_WEIGHT_BY_TIME_PROPERTY,
+                      Double.class,
+                      () -> sensor.measure(EXP_WEIGHT_BY_TIME_PROPERTY))
+                  .register();
               executors.execute(
                   () -> {
                     try {
@@ -99,7 +121,10 @@ public interface ConsumerThread extends AbstractThread {
                           Utils.sleep(Duration.ofSeconds(1));
                           continue;
                         }
-                        consumer.poll(Duration.ofSeconds(1));
+                        consumer.poll(Duration.ofSeconds(1)).stream()
+                            .mapToLong(r -> System.currentTimeMillis() - r.timestamp())
+                            .average()
+                            .ifPresent(sensor::record);
                       }
                     } catch (WakeupException ignore) {
                       // Stop polling and being ready to clean up

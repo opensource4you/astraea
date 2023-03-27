@@ -29,13 +29,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
-import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
@@ -50,24 +49,13 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
-import org.astraea.common.cost.MoveCost;
-import org.astraea.common.cost.RecordSizeCost;
-import org.astraea.common.cost.ReplicaLeaderCost;
-import org.astraea.common.cost.ReplicaLeaderSizeCost;
-import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.json.TypeRef;
+import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
+import org.astraea.common.metrics.collector.MetricsStore;
 
-class BalancerHandler implements Handler {
-
-  static final HasMoveCost DEFAULT_MOVE_COST_FUNCTIONS =
-      HasMoveCost.of(
-          List.of(
-              new ReplicaNumberCost(),
-              new ReplicaLeaderCost(),
-              new RecordSizeCost(),
-              new ReplicaLeaderSizeCost()));
+class BalancerHandler implements Handler, AutoCloseable {
 
   private final Admin admin;
   private final BalancerConsole balancerConsole;
@@ -77,6 +65,10 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletionStage<Void>> planExecutions = new ConcurrentHashMap<>();
   private final Function<Integer, Optional<Integer>> jmxPortMapper;
 
+  private final Collection<MetricSensor> sensors = new ConcurrentLinkedQueue<>();
+
+  private final MetricsStore metricsStore;
+
   BalancerHandler(Admin admin) {
     this(admin, (ignore) -> Optional.empty());
   }
@@ -85,6 +77,25 @@ class BalancerHandler implements Handler {
     this.admin = admin;
     this.jmxPortMapper = jmxPortMapper;
     this.balancerConsole = BalancerConsole.create(admin);
+    this.metricsStore =
+        MetricsStore.builder()
+            .beanExpiration(Duration.ofSeconds(1))
+            .localReceiver(
+                () ->
+                    freshJmxAddresses().entrySet().stream()
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                Map.Entry::getKey,
+                                e ->
+                                    MBeanClient.jndi(
+                                        e.getValue().getHostName(), e.getValue().getPort()))))
+            .sensorSupplier(
+                () ->
+                    sensors.stream()
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                Function.identity(), ignored -> (id, ee) -> {})))
+            .build();
   }
 
   @Override
@@ -112,46 +123,26 @@ class BalancerHandler implements Handler {
         Utils.construct(request.balancerClasspath, Balancer.class, request.balancerConfig);
     synchronized (this) {
       var taskId = UUID.randomUUID().toString();
-      MetricCollector metricCollector = null;
-      try {
-        var collectorBuilder = MetricCollector.local().interval(Duration.ofSeconds(1));
+      request.algorithmConfig.clusterCostFunction().metricSensor().ifPresent(sensors::add);
+      request.algorithmConfig.moveCostFunction().metricSensor().ifPresent(sensors::add);
 
-        request
-            .algorithmConfig
-            .clusterCostFunction()
-            .metricSensor()
-            .ifPresent(collectorBuilder::addMetricSensor);
-        request
-            .algorithmConfig
-            .moveCostFunction()
-            .metricSensor()
-            .ifPresent(collectorBuilder::addMetricSensor);
-        freshJmxAddresses().forEach(collectorBuilder::registerJmx);
-        metricCollector = collectorBuilder.build();
-        final var mc = metricCollector;
-
-        var task =
-            balancerConsole
-                .launchRebalancePlanGeneration()
-                .setTaskId(taskId)
-                .setBalancer(balancer)
-                .setAlgorithmConfig(request.algorithmConfig)
-                .setClusterBeanSource(mc::clusterBean)
-                .checkNoOngoingMigration(true)
-                .generate();
-        task.whenComplete(
-            (result, error) -> {
-              if (error != null)
-                new RuntimeException("Failed to generate balance plan: " + taskId, error)
-                    .printStackTrace();
-            });
-        task.whenComplete((result, error) -> mc.close());
-        taskMetadata.put(taskId, request);
-        planGenerations.put(taskId, task);
-      } catch (RuntimeException e) {
-        if (metricCollector != null) metricCollector.close();
-        throw e;
-      }
+      var task =
+          balancerConsole
+              .launchRebalancePlanGeneration()
+              .setTaskId(taskId)
+              .setBalancer(balancer)
+              .setAlgorithmConfig(request.algorithmConfig)
+              .setClusterBeanSource(metricsStore::clusterBean)
+              .checkNoOngoingMigration(true)
+              .generate();
+      task.whenComplete(
+          (result, error) -> {
+            if (error != null)
+              new RuntimeException("Failed to generate balance plan: " + taskId, error)
+                  .printStackTrace();
+          });
+      taskMetadata.put(taskId, request);
+      planGenerations.put(taskId, task);
       return CompletableFuture.completedFuture(new PostPlanResponse(taskId));
     }
   }
@@ -206,13 +197,7 @@ class BalancerHandler implements Handler {
                 case SearchFailed:
                   return planGenerations
                       .get(taskId)
-                      .handle(
-                          (plan, err) ->
-                              err != null
-                                  ? err.toString()
-                                  : plan.solution().isEmpty()
-                                      ? "Unable to find a balance plan that can improve the cluster"
-                                      : null)
+                      .handle((plan, err) -> err != null ? err.toString() : null)
                       .toCompletableFuture()
                       .getNow(null);
                 case ExecutionFailed:
@@ -226,7 +211,7 @@ class BalancerHandler implements Handler {
               }
             };
     var changes =
-        (Function<Balancer.Solution, List<Change>>)
+        (Function<Balancer.Plan, List<Change>>)
             (solution) ->
                 ClusterInfo.findNonFulfilledAllocation(contextCluster, solution.proposal()).stream()
                     .map(
@@ -234,9 +219,6 @@ class BalancerHandler implements Handler {
                             Change.from(
                                 contextCluster.replicas(tp), solution.proposal().replicas(tp)))
                     .collect(Collectors.toUnmodifiableList());
-    var moveCosts =
-        (Function<Balancer.Solution, List<MigrationCost>>)
-            (solution) -> migrationCosts(solution.moveCost());
     var report =
         (Supplier<PlanReport>)
             () ->
@@ -246,10 +228,10 @@ class BalancerHandler implements Handler {
                             .toCompletableFuture()
                             .handle((res, err) -> res)
                             .getNow(null))
-                    .flatMap(Balancer.Plan::solution)
                     .map(
                         solution ->
-                            new PlanReport(changes.apply(solution), moveCosts.apply(solution)))
+                            new PlanReport(
+                                changes.apply(solution), BalancerHandler.migrationCosts(solution)))
                     .orElse(null);
     var phase = balancerConsole.taskPhase(taskId).orElseThrow();
     return new PlanExecutionProgress(
@@ -262,27 +244,46 @@ class BalancerHandler implements Handler {
         report.get());
   }
 
-  private static List<MigrationCost> migrationCosts(MoveCost cost) {
+  private static List<MigrationCost> migrationCosts(Balancer.Plan solution) {
     return Stream.of(
             new MigrationCost(
                 CHANGED_REPLICAS,
-                cost.changedReplicaCount().entrySet().stream()
+                ClusterInfo.changedReplicaNumber(
+                        solution.initialClusterInfo(), solution.proposal(), ignored -> true)
+                    .entrySet()
+                    .stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
             new MigrationCost(
                 CHANGED_LEADERS,
-                cost.changedReplicaLeaderCount().entrySet().stream()
+                ClusterInfo.changedReplicaNumber(
+                        solution.initialClusterInfo(), solution.proposal(), Replica::isLeader)
+                    .entrySet()
+                    .stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
             new MigrationCost(
                 MOVED_SIZE,
-                cost.movedRecordSize().entrySet().stream()
+                ClusterInfo.changedRecordSize(
+                        solution.initialClusterInfo(), solution.proposal(), ignored -> true)
+                    .entrySet()
+                    .stream()
+                    .collect(
+                        Collectors.toMap(
+                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
+            new MigrationCost(
+                MOVED_LEADER_SIZE,
+                ClusterInfo.changedRecordSize(
+                        solution.initialClusterInfo(), solution.proposal(), Replica::isLeader)
+                    .entrySet()
+                    .stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
-        .filter(m -> !m.brokerCosts.isEmpty())
+        .filter(
+            m -> !m.brokerCosts.isEmpty() && m.brokerCosts.values().stream().anyMatch(v -> v != 0))
         .collect(Collectors.toList());
   }
 
@@ -306,14 +307,12 @@ class BalancerHandler implements Handler {
     var brokers = admin.brokers().toCompletableFuture().join();
     var jmxAddresses =
         brokers.stream()
-            .map(broker -> Map.entry(broker, jmxPortMapper.apply(broker.id())))
-            .filter(entry -> entry.getValue().isPresent())
+            .flatMap(
+                broker -> jmxPortMapper.apply(broker.id()).map(p -> Map.entry(broker, p)).stream())
             .collect(
                 Collectors.toUnmodifiableMap(
                     e -> e.getKey().id(),
-                    e ->
-                        InetSocketAddress.createUnresolved(
-                            e.getKey().host(), e.getValue().orElseThrow())));
+                    e -> InetSocketAddress.createUnresolved(e.getKey().host(), e.getValue())));
 
     // JMX is disabled
     if (jmxAddresses.size() == 0) return Map.of();
@@ -351,24 +350,11 @@ class BalancerHandler implements Handler {
         Configuration.of(balancerPostRequest.balancerConfig),
         AlgorithmConfig.builder()
             .clusterCost(balancerPostRequest.clusterCost())
-            .moveCost(DEFAULT_MOVE_COST_FUNCTIONS)
+            .moveCost(balancerPostRequest.moveCost())
             .timeout(balancerPostRequest.timeout)
-            .movementConstraint(movementConstraint(balancerPostRequest))
             .topicFilter(topics::contains)
             .build(),
         currentClusterInfo);
-  }
-
-  // TODO: There needs to be a way for"GU" and Web to share this function.
-  static Predicate<MoveCost> movementConstraint(BalancerPostRequest request) {
-    return cost -> {
-      if (request.maxMigratedSize.bytes()
-          < cost.movedRecordSize().values().stream().mapToLong(DataSize::bytes).sum()) return false;
-      if (request.maxMigratedLeader
-          < cost.changedReplicaLeaderCount().values().stream().mapToLong(s -> s).sum())
-        return false;
-      return true;
-    };
   }
 
   static class BalancerPostRequest implements Request {
@@ -376,25 +362,33 @@ class BalancerHandler implements Handler {
     String balancer = GreedyBalancer.class.getName();
 
     Map<String, String> balancerConfig = Map.of();
-
+    Map<String, String> costConfig = Map.of();
     Duration timeout = Duration.ofSeconds(3);
     Set<String> topics = Set.of();
-
-    DataSize maxMigratedSize = DataSize.Byte.of(Long.MAX_VALUE);
-
-    long maxMigratedLeader = Long.MAX_VALUE;
-
     List<CostWeight> clusterCosts = List.of();
+    Set<String> moveCosts =
+        Set.of(
+            "org.astraea.common.cost.ReplicaLeaderCost",
+            "org.astraea.common.cost.RecordSizeCost",
+            "org.astraea.common.cost.ReplicaNumberCost",
+            "org.astraea.common.cost.ReplicaLeaderSizeCost");
 
     HasClusterCost clusterCost() {
       if (clusterCosts.isEmpty())
         throw new IllegalArgumentException("clusterCosts is not specified");
+      var config = Configuration.of(costConfig);
       return HasClusterCost.of(
           Utils.costFunctions(
-              Configuration.of(
-                  clusterCosts.stream()
-                      .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight)))),
-              HasClusterCost.class));
+              clusterCosts.stream()
+                  .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight))),
+              HasClusterCost.class,
+              config));
+    }
+
+    HasMoveCost moveCost() {
+      var config = Configuration.of(costConfig);
+      var cf = Utils.costFunctions(moveCosts, HasMoveCost.class, config);
+      return HasMoveCost.of(cf);
     }
   }
 
@@ -482,6 +476,7 @@ class BalancerHandler implements Handler {
   static final String CHANGED_REPLICAS = "changed replicas";
   static final String CHANGED_LEADERS = "changed leaders";
   static final String MOVED_SIZE = "moved size (bytes)";
+  static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
 
   static class MigrationCost {
     final String name;
@@ -561,5 +556,15 @@ class BalancerHandler implements Handler {
       this.function = function;
       this.timeout = timeout;
     }
+  }
+
+  // metricsStore creates many threads so we have to close it
+  // in production, the web service will terminate all threads automatically.
+  // in testing, all threads is still running even though the test get completed. hence, the test
+  // case must close the
+  // handle manually
+  @Override
+  public void close() {
+    metricsStore.close();
   }
 }

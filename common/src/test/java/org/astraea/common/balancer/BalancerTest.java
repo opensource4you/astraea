@@ -124,7 +124,6 @@ class BalancerTest {
                       .clusterCost(new ReplicaLeaderCost())
                       .topicFilter(topic -> topic.equals(topicName))
                       .build())
-              .solution()
               .orElseThrow();
       new StraightPlanExecutor(Configuration.EMPTY)
           .run(admin, plan.proposal(), Duration.ofSeconds(10))
@@ -178,7 +177,6 @@ class BalancerTest {
                       .topicFilter(t -> t.equals(theTopic))
                       .clusterCost(randomScore)
                       .build())
-              .solution()
               .get()
               .proposal();
 
@@ -244,7 +242,6 @@ class BalancerTest {
                               .timeout(Duration.ofSeconds(3))
                               .clusterCost((clusterInfo, bean) -> Math::random)
                               .build())
-                      .solution()
                       .get()
                       .proposal());
       Utils.sleep(Duration.ofMillis(1000));

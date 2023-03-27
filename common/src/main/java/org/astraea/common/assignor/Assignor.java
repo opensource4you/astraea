@@ -17,11 +17,13 @@
 package org.astraea.common.assignor;
 
 import java.net.InetSocketAddress;
-import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 import org.apache.kafka.common.Cluster;
@@ -35,8 +37,8 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.cost.HasPartitionCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
-import org.astraea.common.metrics.collector.LocalMetricCollector;
-import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.collector.MetricsStore;
 import org.astraea.common.partitioner.PartitionerUtils;
 
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
@@ -44,12 +46,13 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   public static final String COST_PREFIX = "assignor.cost";
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
-  private String bootstrap;
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
   // TODO: metric collector may be configured by user in the future.
   // TODO: need to track the performance when using the assignor in large scale consumers, see
   // https://github.com/skiptests/astraea/pull/1162#discussion_r1036285677
-  protected MetricCollector metricCollector = null;
+  protected MetricsStore metricStore = null;
+
+  protected Admin admin = null;
 
   /**
    * Perform the group assignment given the member subscriptions and current cluster metadata.
@@ -80,24 +83,8 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    */
   protected Map<Integer, String> checkUnregister(List<NodeInfo> nodes) {
     return nodes.stream()
-        .filter(
-            i -> (metricCollector == null || !metricCollector.listIdentities().contains(i.id())))
+        .filter(i -> (metricStore == null || !metricStore.identities().contains(i.id())))
         .collect(Collectors.toMap(NodeInfo::id, NodeInfo::host));
-  }
-
-  /**
-   * register the JMX for metric collector. only register the JMX that is not registered yet.
-   *
-   * @param unregister Map from each broker id to broker host
-   */
-  protected void registerJMX(Map<Integer, String> unregister) {
-    if (metricCollector instanceof LocalMetricCollector) {
-      var localCollector = (LocalMetricCollector) metricCollector;
-      unregister.forEach(
-          (id, host) ->
-              localCollector.registerJmx(
-                  id, InetSocketAddress.createUnresolved(host, jmxPortGetter.apply(id).get())));
-    }
   }
 
   /**
@@ -106,9 +93,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    * @return cluster information
    */
   private ClusterInfo updateClusterInfo() {
-    try (Admin admin = Admin.of(bootstrap)) {
-      return admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
-    }
+    return admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
   }
 
   // -----------------------[kafka method]-----------------------//
@@ -141,9 +126,17 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
         Configuration.of(
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
-    config.string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> bootstrap = s);
+    admin =
+        config
+            .string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG)
+            .map(Admin::of)
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG + " must be defined"));
     var costFunctions =
-        Utils.costFunctions(config.filteredPrefixConfigs(COST_PREFIX), HasPartitionCost.class);
+        Utils.costFunctions(
+            config.filteredPrefixConfigs(COST_PREFIX).raw(), HasPartitionCost.class, config);
     var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJMXPort = config.integer(JMX_PORT);
     this.costFunction =
@@ -151,11 +144,37 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
             ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
             : HasPartitionCost.of(costFunctions);
     this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
-    metricCollector =
-        MetricCollector.local()
-            .interval(Duration.ofSeconds(1))
-            .expiration(Duration.ofSeconds(15))
-            .addMetricSensors(this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
+    Supplier<Map<Integer, MBeanClient>> clientSupplier =
+        () -> {
+          var map =
+              new HashMap<>(
+                  admin.brokers().toCompletableFuture().join().stream()
+                      .flatMap(
+                          b ->
+                              jmxPortGetter.apply(b.id()).stream()
+                                  .map(
+                                      port ->
+                                          Map.entry(
+                                              b.id(),
+                                              InetSocketAddress.createUnresolved(b.host(), port))))
+                      .collect(
+                          Collectors.toUnmodifiableMap(
+                              Map.Entry::getKey,
+                              e ->
+                                  MBeanClient.jndi(
+                                      e.getValue().getHostName(), e.getValue().getPort()))));
+          map.put(-1, MBeanClient.local());
+          return map;
+        };
+    metricStore =
+        MetricsStore.builder()
+            .localReceiver(clientSupplier)
+            .sensorSupplier(
+                () ->
+                    this.costFunction
+                        .metricSensor()
+                        .map(s -> Map.of(s, (BiConsumer<Integer, Exception>) (integer, e) -> {}))
+                        .orElse(Map.of()))
             .build();
     configure(config);
   }

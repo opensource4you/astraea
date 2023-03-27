@@ -18,13 +18,16 @@ package org.astraea.common.assignor;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 import org.apache.kafka.common.TopicPartition;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -88,14 +91,27 @@ public class AssignorTest {
   @Test
   void testJMXPort() {
     var randomAssignor = new RandomAssignor();
-    randomAssignor.configure(Map.of());
+    randomAssignor.configure(
+        Map.of(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG, SERVICE.bootstrapServers()));
     Assertions.assertEquals(Optional.empty(), randomAssignor.jmxPortGetter.apply(0));
-    randomAssignor.configure(Map.of("broker.1000.jmx.port", "12345"));
+    randomAssignor.configure(
+        Map.of(
+            "broker.1000.jmx.port",
+            "12345",
+            ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
+            SERVICE.bootstrapServers()));
     Assertions.assertEquals(Optional.of(12345), randomAssignor.jmxPortGetter.apply(1000));
     Assertions.assertNotEquals(Optional.of(12345), randomAssignor.jmxPortGetter.apply(0));
 
     var random2 = new RandomAssignor();
-    random2.configure(Map.of("jmx.port", "8000", "broker.1002.jmx.port", "8888"));
+    random2.configure(
+        Map.of(
+            "jmx.port",
+            "8000",
+            "broker.1002.jmx.port",
+            "8888",
+            ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
+            SERVICE.bootstrapServers()));
     Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(0));
     Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(1));
     Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(2));
@@ -109,12 +125,20 @@ public class AssignorTest {
   @Test
   void testUnregisterId() {
     var assignor = new RandomAssignor();
-    assignor.configure(Map.of("broker.1000.jmx.port", "8000", "broker.1001.jmx.port", "8100"));
+    assignor.configure(
+        Map.of(
+            "broker.1000.jmx.port",
+            "8000",
+            "broker.1001.jmx.port",
+            "8100",
+            ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
+            SERVICE.bootstrapServers()));
     var nodes =
         List.of(
             NodeInfo.of(1000, "192.168.103.1", 8000),
             NodeInfo.of(1001, "192.168.103.2", 8100),
             NodeInfo.of(-1, "local jmx", 0));
+    Utils.sleep(Duration.ofSeconds(3));
     var unregister = assignor.checkUnregister(nodes);
     Assertions.assertEquals(2, unregister.size());
     Assertions.assertEquals("192.168.103.1", unregister.get(1000));
@@ -128,15 +152,17 @@ public class AssignorTest {
     var brokerId = SERVICE.dataFolders().keySet().stream().findAny().get();
     var jmxAddr = SERVICE.jmxServiceURL().getHost();
     var jmxPort = SERVICE.jmxServiceURL().getPort();
-    assignor.configure(Map.of("broker." + brokerId + ".jmx.port", jmxPort));
+    assignor.configure(
+        Map.of(
+            "broker." + brokerId + ".jmx.port",
+            jmxPort,
+            ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
+            SERVICE.bootstrapServers()));
 
     var nodes = new ArrayList<NodeInfo>();
     nodes.add(NodeInfo.of(brokerId, jmxAddr, jmxPort));
+    Utils.sleep(Duration.ofSeconds(3));
     var unregisterNode = assignor.checkUnregister(nodes);
-    Assertions.assertEquals(1, unregisterNode.size());
-    Assertions.assertEquals(jmxAddr, unregisterNode.get(brokerId));
-    assignor.registerJMX(Map.of(brokerId, jmxAddr));
-    unregisterNode = assignor.checkUnregister(nodes);
     Assertions.assertEquals(0, unregisterNode.size());
 
     // after add a new node, assignor check unregister node

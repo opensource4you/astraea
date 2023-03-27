@@ -22,13 +22,16 @@ import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -39,6 +42,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.management.AttributeNotFoundException;
 import javax.management.InstanceNotFoundException;
 import org.astraea.common.cost.CostFunction;
 
@@ -127,8 +131,10 @@ public final class Utils {
       return getter.get();
     } catch (IOException exception) {
       throw new UncheckedIOException(exception);
-    } catch (InstanceNotFoundException e) {
-      throw new NoSuchElementException(e.getMessage());
+    } catch (InstanceNotFoundException | AttributeNotFoundException exception) {
+      var e = new NoSuchElementException(exception.getMessage());
+      e.initCause(exception);
+      throw e;
     } catch (RuntimeException exception) {
       throw exception;
     } catch (ExecutionException exception) {
@@ -178,9 +184,18 @@ public final class Utils {
     }
   }
 
+  public static <T extends CostFunction> Set<T> costFunctions(
+      Set<String> names, Class<T> baseClass, Configuration config) {
+    return costFunctions(
+            names.stream().collect(Collectors.toUnmodifiableMap(n -> n, ignored -> "1")),
+            baseClass,
+            config)
+        .keySet();
+  }
+
   public static <T extends CostFunction> Map<T, Double> costFunctions(
-      Configuration config, Class<T> baseClass) {
-    return config.entrySet().stream()
+      Map<String, String> nameAndWeight, Class<T> baseClass, Configuration config) {
+    return nameAndWeight.entrySet().stream()
         .collect(
             Collectors.toUnmodifiableMap(
                 entry -> construct(entry.getKey(), baseClass, config),
@@ -253,6 +268,18 @@ public final class Utils {
       }
     if (lastError != null) throw new RuntimeException(lastError);
     throw new RuntimeException("Timeout to wait procedure");
+  }
+
+  public static <E> List<E> wait(
+      Supplier<Iterable<E>> supplier, int expectedSize, Duration timeout) {
+    var end = System.currentTimeMillis() + timeout.toMillis();
+    var list = new ArrayList<E>(expectedSize);
+    while (list.size() < expectedSize) {
+      var remaining = end - System.currentTimeMillis();
+      if (remaining <= 0) break;
+      supplier.get().forEach(list::add);
+    }
+    return Collections.unmodifiableList(list);
   }
 
   public static int requirePositive(int value) {

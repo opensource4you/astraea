@@ -98,7 +98,8 @@ public class SourceDataTest {
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
-      var records = consumer.poll(1, Duration.ofSeconds(10));
+      var records =
+          consumer.poll(Duration.ofSeconds(10)).stream().collect(Collectors.toUnmodifiableList());
       Assertions.assertEquals(1, records.size());
       Assertions.assertArrayEquals(KEY, records.get(0).key());
       Assertions.assertArrayEquals(VALUE, records.get(0).value());
