@@ -37,11 +37,6 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
   private static final String UPPER_BOUND = "upper.bound";
   private static final String TRAFFIC_INTERVAL = "traffic.interval";
 
-  public NetworkIngressCost() {
-    super(BandwidthType.Ingress);
-    this.config = Configuration.of(Map.of());
-  }
-
   public NetworkIngressCost(Configuration config) {
     super(BandwidthType.Ingress);
     this.config = config;
