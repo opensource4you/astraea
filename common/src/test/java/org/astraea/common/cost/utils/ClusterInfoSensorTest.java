@@ -267,6 +267,7 @@ class ClusterInfoSensorTest {
 
   @Test
   void testPartialMetricsException() {
+    // The ClusterBean states there is a topic-0, but no relevant log size metrics found.
     Assertions.assertThrows(
         IllegalStateException.class,
         () ->

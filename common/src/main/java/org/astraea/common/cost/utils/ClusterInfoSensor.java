@@ -95,7 +95,8 @@ public class ClusterInfoSensor implements MetricSensor {
                                                     new IllegalStateException(
                                                         "Partition "
                                                             + tp
-                                                            + " detected, but its size metric doesn't exists. Maybe the given cluster bean is partially sampled"))
+                                                            + " detected, but its size metric doesn't exists. "
+                                                            + "Maybe the given cluster bean is partially sampled"))
                                             .value();
                                     var build =
                                         Replica.builder()
