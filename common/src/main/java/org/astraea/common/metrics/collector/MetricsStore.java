@@ -22,8 +22,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -101,7 +103,8 @@ public interface MetricsStore extends AutoCloseable {
      * Using an embedded fetcher build the receiver. The fetcher will keep fetching beans
      * background, and it pushes all beans to store internally.
      */
-    public Builder localReceiver(Supplier<Map<Integer, MBeanClient>> clientSupplier) {
+    public Builder localReceiver(
+        Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier) {
       var cache = LocalSenderReceiver.of();
       var fetcher = MetricsFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
       return receiver(
@@ -145,7 +148,7 @@ public interface MetricsStore extends AutoCloseable {
     private volatile ClusterBean latest = ClusterBean.EMPTY;
 
     // trace the identities of returned metrics
-    private volatile Set<Integer> identities = Set.of();
+    private final Set<Integer> identities = new ConcurrentSkipListSet<>();
 
     private MetricsStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier,
@@ -178,7 +181,7 @@ public interface MetricsStore extends AutoCloseable {
             while (!closed.get()) {
               try {
                 var allBeans = receiver.receive(Duration.ofSeconds(3));
-                identities = allBeans.keySet();
+                identities.addAll(allBeans.keySet());
                 allBeans.forEach(
                     (id, bs) -> {
                       var client = MBeanClient.of(bs);
@@ -215,7 +218,7 @@ public interface MetricsStore extends AutoCloseable {
 
     @Override
     public Set<Integer> identities() {
-      return identities;
+      return Set.copyOf(identities);
     }
 
     @Override
