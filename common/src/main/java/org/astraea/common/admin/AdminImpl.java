@@ -868,6 +868,7 @@ class AdminImpl implements Admin {
       private String topic;
       private int numberOfPartitions = 1;
       private short numberOfReplicas = 1;
+      private Map<Integer, List<Integer>> replicasAssignments = null;
       private Map<String, String> configs = Map.of();
 
       @Override
@@ -889,6 +890,12 @@ class AdminImpl implements Admin {
       }
 
       @Override
+      public TopicCreator replicasAssignments(Map<Integer, List<Integer>> replicasAssignments) {
+        this.replicasAssignments = Objects.requireNonNull(replicasAssignments);
+        return this;
+      }
+
+      @Override
       public TopicCreator configs(Map<String, String> configs) {
         this.configs = Objects.requireNonNull(configs);
         return this;
@@ -905,8 +912,10 @@ class AdminImpl implements Admin {
                     return to(kafkaAdmin
                             .createTopics(
                                 List.of(
-                                    new NewTopic(topic, numberOfPartitions, numberOfReplicas)
-                                        .configs(configs)))
+                                    replicasAssignments == null
+                                        ? new NewTopic(topic, numberOfPartitions, numberOfReplicas)
+                                            .configs(configs)
+                                        : new NewTopic(topic, replicasAssignments)))
                             .all())
                         .thenApply(r -> true);
                   return FutureUtils.combine(
