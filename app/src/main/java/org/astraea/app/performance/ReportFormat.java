@@ -217,6 +217,11 @@ public enum ReportFormat implements EnumInfo {
                           Long.toString(
                               ConsumerThread.differenceBetweenRebalance(
                                   consumerReports.get(i).clientId()))));
+              elements.add(
+                  CSVContentElement.create(
+                      "Consumer[" + i + "] average e2e latency (ms)",
+                      () ->
+                          Double.toString(consumerReports.get(i).e2eLatency().orElse(Double.NaN))));
             });
     return elements;
   }

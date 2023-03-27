@@ -42,6 +42,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.management.AttributeNotFoundException;
 import javax.management.InstanceNotFoundException;
 import org.astraea.common.cost.CostFunction;
 
@@ -130,8 +131,10 @@ public final class Utils {
       return getter.get();
     } catch (IOException exception) {
       throw new UncheckedIOException(exception);
-    } catch (InstanceNotFoundException e) {
-      throw new NoSuchElementException(e.getMessage());
+    } catch (InstanceNotFoundException | AttributeNotFoundException exception) {
+      var e = new NoSuchElementException(exception.getMessage());
+      e.initCause(exception);
+      throw e;
     } catch (RuntimeException exception) {
       throw exception;
     } catch (ExecutionException exception) {

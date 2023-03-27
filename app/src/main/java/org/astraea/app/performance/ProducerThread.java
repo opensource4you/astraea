@@ -46,9 +46,9 @@ public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
       List<ArrayBlockingQueue<List<Record<byte[], byte[]>>>> queues,
-      int producers,
       Supplier<Producer<byte[], byte[]>> producerSupplier,
       int interdependent) {
+    var producers = queues.size();
     if (producers <= 0) return List.of();
     var closeLatches =
         IntStream.range(0, producers)

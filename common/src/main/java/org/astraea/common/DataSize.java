@@ -37,8 +37,6 @@ public class DataSize implements Comparable<DataSize> {
       if (index <= 0) return unit.of((long) value);
       var smaller = DataUnit.BYTE_UNIT_SIZE_ORDERED_LIST.get(index - 1);
       var newValue = unit.bits.divide(smaller.bits).doubleValue() * value;
-      System.out.println(
-          "unit: " + unit + " smaller: " + smaller + " value: " + value + " new: " + newValue);
       return smaller.of((long) newValue);
     }
     throw new IllegalArgumentException("Unknown DataSize \"" + argument + "\"");
