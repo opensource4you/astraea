@@ -264,4 +264,14 @@ class ClusterInfoSensorTest {
     Assertions.assertEquals(1, info.nodes().size());
     Assertions.assertEquals(id, info.clusterId());
   }
+
+  @Test
+  void testPartialMetricsException() {
+    Assertions.assertThrows(
+        IllegalStateException.class,
+        () ->
+            ClusterInfoSensor.metricViewCluster(
+                ClusterBean.of(
+                    Map.of(1, List.of(MetricFactory.ofPartitionMetric("topic", 0, 0))))));
+  }
 }
