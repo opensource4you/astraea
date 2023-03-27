@@ -98,6 +98,8 @@ public class AssignorTest {
         NoSuchElementException.class, () -> randomAssignor.jmxPortGetter.apply(0));
     randomAssignor.configure(
         Map.of(
+            "jmx.port",
+            "8000",
             "broker.1000.jmx.port",
             "12345",
             ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
