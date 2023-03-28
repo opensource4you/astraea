@@ -22,7 +22,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -66,7 +65,8 @@ public class TopicHandlerTest {
       request.topics = List.of(topic);
 
       try (var service =
-          new WebService(Admin.of(SERVICE.bootstrapServers()), 0, id -> Optional.empty())) {
+          new WebService(
+              Admin.of(SERVICE.bootstrapServers()), 0, id -> SERVICE.jmxServiceURL().getPort())) {
         Response<TopicHandler.Topics> response =
             HttpExecutor.builder()
                 .build()
