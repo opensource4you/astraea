@@ -95,11 +95,33 @@ public interface ClusterInfo {
 
   static Long totalChangedRecordSize(
       ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate) {
-    var addingSize = changedRecordSize(before, after, predicate, false);
-    var removedSize = changedRecordSize(before, after, predicate, true);
-    return Math.max(
-        addingSize.values().stream().mapToLong(DataSize::bytes).sum(),
-        removedSize.values().stream().mapToLong(DataSize::bytes).sum());
+    var removedSize = 0L;
+    var addedSize = 0L;
+    for (var id :
+        Stream.concat(before.nodes().stream(), after.nodes().stream())
+            .map(NodeInfo::id)
+            .parallel()
+            .collect(Collectors.toSet())) {
+      var removed =
+          (int)
+              before
+                  .replicaStream(id)
+                  .filter(predicate)
+                  .filter(r -> after.replicaStream(r.topicPartitionReplica()).noneMatch(predicate))
+                  .mapToLong(Replica::size)
+                  .sum();
+      var added =
+          (int)
+              after
+                  .replicaStream(id)
+                  .filter(predicate)
+                  .filter(r -> before.replicaStream(r.topicPartitionReplica()).noneMatch(predicate))
+                  .mapToLong(Replica::size)
+                  .sum();
+      removedSize = removedSize + removed;
+      addedSize = addedSize + added;
+    }
+    return Math.max(removedSize, addedSize);
   }
 
   static Map<Integer, Integer> changedReplicaNumber(
