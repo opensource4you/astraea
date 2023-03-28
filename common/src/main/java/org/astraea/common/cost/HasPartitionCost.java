@@ -60,10 +60,10 @@ public interface HasPartitionCost extends CostFunction {
 
       @Override
       public Optional<Map<TopicPartition, Set<TopicPartition>>> validate(
-          PartitionCost partitionCost) {
+          ClusterInfo clusterInfo, ClusterBean clusterBean) {
         return Optional.of(
             costAndWeight.keySet().stream()
-                .map(cost -> cost.validate(partitionCost).orElse(Map.of()))
+                .map(cost -> cost.validate(clusterInfo, clusterBean).orElse(Map.of()))
                 .flatMap(m -> m.entrySet().stream())
                 .collect(
                     Collectors.groupingBy(
@@ -87,7 +87,8 @@ public interface HasPartitionCost extends CostFunction {
 
   PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean);
 
-  default Optional<Map<TopicPartition, Set<TopicPartition>>> validate(PartitionCost partitionCost) {
+  default Optional<Map<TopicPartition, Set<TopicPartition>>> validate(
+      ClusterInfo clusterInfo, ClusterBean clusterBean) {
     return Optional.empty();
   }
 }

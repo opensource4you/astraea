@@ -79,7 +79,9 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
   }
 
   @Override
-  public Optional<Map<TopicPartition, Set<TopicPartition>>> validate(PartitionCost partitionCost) {
+  public Optional<Map<TopicPartition, Set<TopicPartition>>> validate(
+      ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    var partitionCost = partitionCost(clusterInfo, clusterBean);
     // impl detail to return feedback
 
     // temporarily use `Optional.empty()` instead of a return value
