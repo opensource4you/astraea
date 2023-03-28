@@ -51,14 +51,14 @@ public class RecordSizeCost
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = ClusterInfo.totalChangedRecordSize(before, after, ignored -> true);
     var maxMigratedSize =
         config
             .string(MAX_MIGRATE_SIZE_KEY)
             .map(DataSize::of)
             .map(DataSize::bytes)
             .orElse(Long.MAX_VALUE);
-    var overflow = maxMigratedSize < moveCost;
+    var overflow =
+        ClusterInfo.changedRecordSizeOverflow(before, after, ignored -> true, maxMigratedSize);
     return () -> overflow;
   }
 

@@ -93,10 +93,10 @@ public interface ClusterInfo {
             Collectors.toMap(Function.identity(), n -> DataSize.Byte.of(cost.getOrDefault(n, 0L))));
   }
 
-  static Long totalChangedRecordSize(
-      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate) {
-    var removedSize = 0L;
-    var addedSize = 0L;
+  static boolean changedRecordSizeOverflow(
+      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate, long limit) {
+    var totalRemovedSize = 0L;
+    var totalAddedSize = 0L;
     for (var id :
         Stream.concat(before.nodes().stream(), after.nodes().stream())
             .map(NodeInfo::id)
@@ -107,7 +107,7 @@ public interface ClusterInfo {
               before
                   .replicaStream(id)
                   .filter(predicate)
-                  .filter(r -> after.replicaStream(r.topicPartitionReplica()).noneMatch(predicate))
+                  .filter(r -> !after.replicas(r.topicPartition()).contains(r))
                   .mapToLong(Replica::size)
                   .sum();
       var added =
@@ -115,13 +115,15 @@ public interface ClusterInfo {
               after
                   .replicaStream(id)
                   .filter(predicate)
-                  .filter(r -> before.replicaStream(r.topicPartitionReplica()).noneMatch(predicate))
+                  .filter(r -> !before.replicas(r.topicPartition()).contains(r))
                   .mapToLong(Replica::size)
                   .sum();
-      removedSize = removedSize + removed;
-      addedSize = addedSize + added;
+      totalRemovedSize = totalRemovedSize + removed;
+      totalAddedSize = totalAddedSize + added;
+      // if migrate cost overflow, leave early and return true
+      if (totalRemovedSize > limit || totalAddedSize > limit) return true;
     }
-    return Math.max(removedSize, addedSize);
+    return Math.max(totalRemovedSize, totalAddedSize) > limit;
   }
 
   static Map<Integer, Integer> changedReplicaNumber(

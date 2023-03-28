@@ -58,10 +58,11 @@ public class ReplicaLeaderSizeCost
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = ClusterInfo.totalChangedRecordSize(before, after, Replica::isLeader);
     var maxMigratedLeaderSize =
         config.string(COST_LIMIT_KEY).map(DataSize::of).map(DataSize::bytes).orElse(Long.MAX_VALUE);
-    var overflow = maxMigratedLeaderSize < moveCost;
+    var overflow =
+        ClusterInfo.changedRecordSizeOverflow(
+            before, after, Replica::isLeader, maxMigratedLeaderSize);
     return () -> overflow;
   }
 

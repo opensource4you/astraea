@@ -364,10 +364,7 @@ public class BalancerHandlerTest {
               case BalancerHandler.TO_SYNC_BYTES:
               case BalancerHandler.TO_FETCH_BYTES:
                 Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream()
-                            .map(Math::abs)
-                            .mapToLong(Double::intValue)
-                            .sum()
+                    migrationCost.brokerCosts.values().stream().mapToLong(Double::intValue).sum()
                         <= DataSize.of(sizeLimit).bytes());
                 break;
               case BalancerHandler.CHANGED_LEADERS:
