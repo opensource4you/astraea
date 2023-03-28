@@ -833,6 +833,37 @@ public class AdminTest {
   }
 
   @Test
+  void testCreateTopicWithReplicasAssignment() {
+    var topic = Utils.randomString();
+    var replicasAssignment = Map.of(0, List.of(0, 2), 1, List.of(2, 1));
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .replicasAssignments(replicasAssignment)
+          .configs(Map.of(TopicConfigs.COMPRESSION_TYPE_CONFIG, "lz4"))
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var config = admin.topics(Set.of(topic)).toCompletableFuture().join().get(0).config();
+      var partitions =
+          admin.partitions(Set.of(topic)).toCompletableFuture().join().stream()
+              .collect(Collectors.toUnmodifiableList());
+      Assertions.assertTrue(config.raw().containsValue("lz4"));
+      Assertions.assertEquals(
+          List.of(0, 2),
+          partitions.get(0).replicas().stream().map(NodeInfo::id).collect(Collectors.toList()));
+      Assertions.assertEquals(
+          List.of(2, 1),
+          partitions.get(1).replicas().stream().map(NodeInfo::id).collect(Collectors.toList()));
+      Assertions.assertEquals(0, partitions.get(0).leader().get().id());
+      Assertions.assertEquals(2, partitions.get(1).leader().get().id());
+    }
+  }
+
+  @Test
   void testPartitions() {
     var topic = Utils.randomString();
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {

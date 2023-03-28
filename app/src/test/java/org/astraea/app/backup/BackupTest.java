@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.backup;
+package org.astraea.app.backup;
 
 import java.time.Duration;
 import java.util.Set;
@@ -25,7 +25,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ClusterRestorerTest {
+public class BackupTest {
   private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
 
   @AfterAll
@@ -34,7 +34,7 @@ public class ClusterRestorerTest {
   }
 
   @Test
-  void testRestore() {
+  void testRestoreDistribution() {
     var topic1 = Utils.randomString();
     var topic2 = Utils.randomString();
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
@@ -60,8 +60,8 @@ public class ClusterRestorerTest {
       admin.deleteTopics(Set.of(topic1, topic2)).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(1));
 
-      var restorer = new ClusterRestorer();
-      restorer.restore(clusterInfo, SERVICE.bootstrapServers());
+      var backup = new Backup();
+      backup.restoreDistribution(clusterInfo, SERVICE.bootstrapServers());
       var restoredClusterInfo =
           admin.clusterInfo(Set.of(topic1, topic2)).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(1));

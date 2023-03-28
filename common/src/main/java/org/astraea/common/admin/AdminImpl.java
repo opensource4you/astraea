@@ -904,6 +904,10 @@ class AdminImpl implements Admin {
       @Override
       public CompletionStage<Boolean> run() {
         Utils.requireNonEmpty(topic);
+        if ((numberOfPartitions != 1 || numberOfReplicas != 1) && replicasAssignments != null)
+          throw new IllegalArgumentException(
+              "Using \"numberOfPartitions\" and \"numberOfReplicas\" settings "
+                  + "is mutually exclusive with specifying \"replicasAssignments\"");
 
         return topicNames(true)
             .thenCompose(
@@ -915,7 +919,8 @@ class AdminImpl implements Admin {
                                     replicasAssignments == null
                                         ? new NewTopic(topic, numberOfPartitions, numberOfReplicas)
                                             .configs(configs)
-                                        : new NewTopic(topic, replicasAssignments)))
+                                        : new NewTopic(topic, replicasAssignments)
+                                            .configs(configs)))
                             .all())
                         .thenApply(r -> true);
                   return FutureUtils.combine(

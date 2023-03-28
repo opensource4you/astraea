@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.backup;
+package org.astraea.app.backup;
 
 import java.util.Comparator;
 import java.util.stream.Collectors;
@@ -22,9 +22,10 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 
-public class ClusterRestorer {
+public class Backup {
+  public static void main(String[] args) {}
 
-  public void restore(ClusterInfo clusterInfo, String bootstrapServers) {
+  public void restoreDistribution(ClusterInfo clusterInfo, String bootstrapServers) {
     try (var admin = Admin.of(bootstrapServers)) {
       clusterInfo
           .topics()
