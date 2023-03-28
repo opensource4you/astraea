@@ -16,11 +16,16 @@
  */
 package org.astraea.common.partitioner;
 
-import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.CompletionStage;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
@@ -29,8 +34,8 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeLatencyCost;
-import org.astraea.common.metrics.collector.LocalMetricCollector;
-import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.collector.MetricsStore;
 
 /**
  * this partitioner scores the nodes by multiples cost functions. Each function evaluate the target
@@ -52,46 +57,15 @@ public class StrictCostPartitioner extends Partitioner {
   static final String JMX_PORT = "jmx.port";
   static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
   // visible for testing
-  MetricCollector metricCollector = null;
+  MetricsStore metricsStore = null;
 
   private Duration roundRobinLease = Duration.ofSeconds(4);
   HasBrokerCost costFunction = new NodeLatencyCost();
-  Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
+  Function<Integer, Integer> jmxPortGetter =
+      (id) -> {
+        throw new NoSuchElementException("must define either broker.x.jmx.port or jmx.port");
+      };
   RoundRobinKeeper roundRobinKeeper;
-
-  // visible for test
-  Duration updatePeriod = Duration.ofMinutes(5);
-  private long lastUpdate = 0;
-
-  void tryToUpdateSensor(ClusterInfo clusterInfo) {
-    if (System.currentTimeMillis() < lastUpdate + updatePeriod.toMillis()) {
-      return;
-    }
-
-    if (metricCollector instanceof LocalMetricCollector) {
-      var localCollector = (LocalMetricCollector) metricCollector;
-      costFunction
-          .metricSensor()
-          .ifPresent(
-              ignored ->
-                  clusterInfo
-                      .nodes()
-                      .forEach(
-                          node -> {
-                            if (!localCollector.identities().contains(node.id())) {
-                              jmxPortGetter
-                                  .apply(node.id())
-                                  .ifPresent(
-                                      port ->
-                                          localCollector.registerJmx(
-                                              node.id(),
-                                              InetSocketAddress.createUnresolved(
-                                                  node.host(), port)));
-                            }
-                          }));
-    }
-    lastUpdate = System.currentTimeMillis();
-  }
 
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
@@ -102,11 +76,9 @@ public class StrictCostPartitioner extends Partitioner {
     // just return the only one available partition
     if (partitionLeaders.size() == 1) return partitionLeaders.get(0).partition();
 
-    tryToUpdateSensor(clusterInfo);
-
     roundRobinKeeper.tryToUpdate(
         clusterInfo,
-        () -> costToScore(costFunction.brokerCost(clusterInfo, metricCollector.clusterBean())));
+        () -> costToScore(costFunction.brokerCost(clusterInfo, metricsStore.clusterBean())));
 
     var target = roundRobinKeeper.next();
 
@@ -148,25 +120,49 @@ public class StrictCostPartitioner extends Partitioner {
     if (!configuredFunctions.isEmpty()) this.costFunction = HasBrokerCost.of(configuredFunctions);
     var customJmxPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJmxPort = config.integer(JMX_PORT);
-    this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> defaultJmxPort);
+    this.jmxPortGetter =
+        id ->
+            Optional.ofNullable(customJmxPort.get(id))
+                .or(() -> defaultJmxPort)
+                .orElseThrow(
+                    () -> new NoSuchElementException("failed to get jmx port for broker: " + id));
     config
         .string(ROUND_ROBIN_LEASE_KEY)
         .map(Utils::toDuration)
         .ifPresent(d -> this.roundRobinLease = d);
+    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+        () ->
+            admin
+                .brokers()
+                .thenApply(
+                    brokers -> {
+                      var map = new HashMap<Integer, MBeanClient>();
+                      brokers.forEach(
+                          b ->
+                              map.put(
+                                  b.id(), MBeanClient.jndi(b.host(), jmxPortGetter.apply(b.id()))));
+                      // add local client to fetch consumer metrics
+                      map.put(-1, MBeanClient.local());
+                      return Collections.unmodifiableMap(map);
+                    });
 
     // put local mbean client first
-    metricCollector =
-        MetricCollector.local()
-            .interval(Duration.ofMillis(1500))
-            .addMetricSensors(this.costFunction.metricSensor().stream().collect(Collectors.toSet()))
+    metricsStore =
+        MetricsStore.builder()
+            .localReceiver(clientSupplier)
+            .sensorsSupplier(
+                () ->
+                    this.costFunction
+                        .metricSensor()
+                        .map(s -> Map.of(s, (BiConsumer<Integer, Exception>) (integer, e) -> {}))
+                        .orElse(Map.of()))
             .build();
-
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
   }
 
   @Override
   public void close() {
-    metricCollector.close();
+    metricsStore.close();
     super.close();
   }
 }

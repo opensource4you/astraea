@@ -22,8 +22,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -55,6 +57,11 @@ public interface MetricsStore extends AutoCloseable {
    */
   Set<Integer> identities();
 
+  /**
+   * @return the last used sensors
+   */
+  Map<MetricSensor, BiConsumer<Integer, Exception>> sensors();
+
   @Override
   void close();
 
@@ -73,7 +80,7 @@ public interface MetricsStore extends AutoCloseable {
   class Builder {
 
     // default impl returns all input metrics
-    private Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier =
+    private Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier =
         () ->
             Map.of(
                 (MetricSensor)
@@ -86,9 +93,9 @@ public interface MetricsStore extends AutoCloseable {
     private Receiver receiver;
     private Duration beanExpiration = Duration.ofSeconds(10);
 
-    public Builder sensorSupplier(
-        Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier) {
-      this.sensorSupplier = sensorSupplier;
+    public Builder sensorsSupplier(
+        Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier) {
+      this.sensorsSupplier = sensorsSupplier;
       return this;
     }
 
@@ -101,7 +108,8 @@ public interface MetricsStore extends AutoCloseable {
      * Using an embedded fetcher build the receiver. The fetcher will keep fetching beans
      * background, and it pushes all beans to store internally.
      */
-    public Builder localReceiver(Supplier<Map<Integer, MBeanClient>> clientSupplier) {
+    public Builder localReceiver(
+        Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier) {
       var cache = LocalSenderReceiver.of();
       var fetcher = MetricsFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
       return receiver(
@@ -125,7 +133,7 @@ public interface MetricsStore extends AutoCloseable {
 
     public MetricsStore build() {
       return new MetricsStoreImpl(
-          Objects.requireNonNull(sensorSupplier, "sensorSupplier can't be null"),
+          Objects.requireNonNull(sensorsSupplier, "sensorsSupplier can't be null"),
           Objects.requireNonNull(receiver, "receiver can't be null"),
           Objects.requireNonNull(beanExpiration, "beanExpiration can't be null"));
     }
@@ -142,13 +150,15 @@ public interface MetricsStore extends AutoCloseable {
     private final ExecutorService executor;
 
     // cache the latest cluster to be shared between all threads.
-    private volatile ClusterBean latest = ClusterBean.EMPTY;
+    private volatile ClusterBean lastClusterBean = ClusterBean.EMPTY;
 
     // trace the identities of returned metrics
-    private volatile Set<Integer> identities = Set.of();
+    private final Set<Integer> identities = new ConcurrentSkipListSet<>();
+
+    private volatile Map<MetricSensor, BiConsumer<Integer, Exception>> lastSensors = Map.of();
 
     private MetricsStoreImpl(
-        Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier,
+        Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier,
         Receiver receiver,
         Duration beanExpiration) {
       this.receiver = receiver;
@@ -178,23 +188,22 @@ public interface MetricsStore extends AutoCloseable {
             while (!closed.get()) {
               try {
                 var allBeans = receiver.receive(Duration.ofSeconds(3));
-                identities = allBeans.keySet();
+                identities.addAll(allBeans.keySet());
+                lastSensors = sensorsSupplier.get();
                 allBeans.forEach(
                     (id, bs) -> {
                       var client = MBeanClient.of(bs);
                       var clusterBean = clusterBean();
-                      sensorSupplier
-                          .get()
-                          .forEach(
-                              (sensor, errorHandler) -> {
-                                try {
-                                  beans
-                                      .computeIfAbsent(id, ignored -> new ConcurrentLinkedQueue<>())
-                                      .addAll(sensor.fetch(client, clusterBean));
-                                } catch (Exception e) {
-                                  errorHandler.accept(id, e);
-                                }
-                              });
+                      lastSensors.forEach(
+                          (sensor, errorHandler) -> {
+                            try {
+                              beans
+                                  .computeIfAbsent(id, ignored -> new ConcurrentLinkedQueue<>())
+                                  .addAll(sensor.fetch(client, clusterBean));
+                            } catch (Exception e) {
+                              errorHandler.accept(id, e);
+                            }
+                          });
                     });
                 // generate new cluster bean
                 if (!allBeans.isEmpty()) updateClusterBean();
@@ -210,12 +219,17 @@ public interface MetricsStore extends AutoCloseable {
 
     @Override
     public ClusterBean clusterBean() {
-      return latest;
+      return lastClusterBean;
     }
 
     @Override
     public Set<Integer> identities() {
-      return identities;
+      return Set.copyOf(identities);
+    }
+
+    @Override
+    public Map<MetricSensor, BiConsumer<Integer, Exception>> sensors() {
+      return Map.copyOf(lastSensors);
     }
 
     @Override
@@ -227,7 +241,7 @@ public interface MetricsStore extends AutoCloseable {
     }
 
     private void updateClusterBean() {
-      latest =
+      lastClusterBean =
           ClusterBean.of(
               beans.entrySet().stream()
                   .filter(entry -> !entry.getValue().isEmpty())
