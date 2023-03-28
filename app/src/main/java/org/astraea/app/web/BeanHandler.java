@@ -17,8 +17,6 @@
 package org.astraea.app.web;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -29,9 +27,9 @@ import org.astraea.common.metrics.MBeanClient;
 
 public class BeanHandler implements Handler {
   private final Admin admin;
-  private final Function<Integer, Optional<Integer>> jmxPorts;
+  private final Function<Integer, Integer> jmxPorts;
 
-  BeanHandler(Admin admin, Function<Integer, Optional<Integer>> jmxPorts) {
+  BeanHandler(Admin admin, Function<Integer, Integer> jmxPorts) {
     this.admin = admin;
     this.jmxPorts = jmxPorts;
   }
@@ -43,28 +41,17 @@ public class BeanHandler implements Handler {
         .brokers()
         .thenApply(
             brokers ->
-                brokers.stream()
-                    .flatMap(
-                        b ->
-                            jmxPorts
-                                .apply(b.id())
-                                .map(port -> Map.entry(b.host(), MBeanClient.jndi(b.host(), port)))
-                                .stream())
-                    .collect(Collectors.toUnmodifiableList()))
-        .thenApply(
-            clients ->
                 new NodeBeans(
-                    clients.stream()
+                    brokers.stream()
                         .map(
-                            entry -> {
-                              try {
+                            b -> {
+                              try (var client =
+                                  MBeanClient.jndi(b.host(), jmxPorts.apply(b.id()))) {
                                 return new NodeBean(
-                                    entry.getKey(),
-                                    entry.getValue().beans(builder.build()).stream()
+                                    b.host(),
+                                    client.beans(builder.build()).stream()
                                         .map(Bean::new)
                                         .collect(Collectors.toUnmodifiableList()));
-                              } finally {
-                                entry.getValue().close();
                               }
                             })
                         .collect(Collectors.toUnmodifiableList())));

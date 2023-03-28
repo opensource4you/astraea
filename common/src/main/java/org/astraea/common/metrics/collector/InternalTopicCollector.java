@@ -100,13 +100,13 @@ public class InternalTopicCollector implements MetricCollector {
   }
 
   @Override
-  public Set<Integer> listIdentities() {
+  public Set<Integer> identities() {
     return Stream.concat(Stream.of(-1), metricStores.keySet().stream())
         .collect(Collectors.toUnmodifiableSet());
   }
 
   @Override
-  public Set<Class<? extends HasBeanObject>> listMetricTypes() {
+  public Set<Class<? extends HasBeanObject>> metricTypes() {
     return Stream.concat(Stream.of(Map.entry(-1, local)), metricStores.entrySet().stream())
         .flatMap(
             idClient ->
@@ -220,7 +220,8 @@ public class InternalTopicCollector implements MetricCollector {
     }
 
     @Override
-    public Collection<BeanObject> beans(BeanQuery beanQuery) {
+    public Collection<BeanObject> beans(
+        BeanQuery beanQuery, java.util.function.Consumer<RuntimeException> errorHandler) {
       // The queried domain name (or properties) may contain wildcard. Change wildcard to regular
       // expression.
       var wildCardDomain =
@@ -276,7 +277,8 @@ public class InternalTopicCollector implements MetricCollector {
         }
 
         @Override
-        public Collection<BeanObject> beans(BeanQuery beanQuery) {
+        public Collection<BeanObject> beans(
+            BeanQuery beanQuery, java.util.function.Consumer<RuntimeException> errorHandler) {
           return null;
         }
 

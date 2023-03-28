@@ -33,6 +33,7 @@ import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 public class PerformanceTest {
 
@@ -540,5 +541,38 @@ public class PerformanceTest {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> Argument.parse(new Performance.Argument(), argument4).partitioner());
+  }
+
+  @Timeout(20)
+  @Test
+  void testNoProducer() {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      var topicName = Utils.randomString();
+      admin
+          .creator()
+          .topic(topicName)
+          .numberOfPartitions(1)
+          .numberOfReplicas((short) 1)
+          .run()
+          .toCompletableFuture()
+          .join();
+
+      var start = System.nanoTime();
+      Performance.main(
+          new String[] {
+            "--bootstrap.servers", SERVICE.bootstrapServers(),
+            "--topics", topicName,
+            "--producers", "0",
+            "--consumers", "1",
+            "--read.idle", "12s"
+          });
+      var stop = System.nanoTime();
+
+      // Stopped by read idle check
+      var runtime = Duration.ofNanos(stop - start).toMillis();
+      Assertions.assertTrue(
+          12000 < runtime && runtime < 15000,
+          "Perf should stop roughly 12 sec: " + runtime + " ms");
+    }
   }
 }

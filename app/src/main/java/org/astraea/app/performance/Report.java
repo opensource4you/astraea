@@ -70,6 +70,22 @@ public interface Report {
                   public String clientId() {
                     return m.clientId();
                   }
+
+                  @Override
+                  public Optional<Double> e2eLatency() {
+                    return Optional.ofNullable(
+                            MBeanClient.local()
+                                .bean(
+                                    BeanQuery.builder()
+                                        .domainName(ConsumerThread.DOMAIN_NAME)
+                                        .property(
+                                            ConsumerThread.TYPE_PROPERTY, ConsumerThread.TYPE_VALUE)
+                                        .property(ConsumerThread.ID_PROPERTY, m.clientId())
+                                        .build())
+                                .attributes()
+                                .get(ConsumerThread.EXP_WEIGHT_BY_TIME_PROPERTY))
+                        .map(v -> (double) v);
+                  }
                 })
         .collect(Collectors.toList());
   }

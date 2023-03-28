@@ -16,18 +16,28 @@
  */
 package org.astraea.common.metrics;
 
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.MalformedURLException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.management.AttributeNotFoundException;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanException;
 import javax.management.MBeanFeatureInfo;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
+import javax.management.ReflectionException;
 import javax.management.RuntimeMBeanException;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
@@ -46,6 +56,47 @@ import org.astraea.common.Utils;
  * }</pre>
  */
 public interface MBeanClient extends AutoCloseable {
+  static MBeanClient of(Collection<BeanObject> objs) {
+    return new MBeanClient() {
+
+      @Override
+      public BeanObject bean(BeanQuery beanQuery) {
+        return beans(beanQuery).stream()
+            .findAny()
+            .orElseThrow(() -> new NoSuchElementException("failed to get metrics from cache"));
+      }
+
+      @Override
+      public Collection<BeanObject> beans(
+          BeanQuery beanQuery, Consumer<RuntimeException> errorHandle) {
+        // The queried domain name (or properties) may contain wildcard. Change wildcard to regular
+        // expression.
+        var wildCardDomain =
+            Pattern.compile(beanQuery.domainName().replaceAll("[*]", ".*").replaceAll("[?]", "."));
+        var wildCardProperties =
+            beanQuery.properties().entrySet().stream()
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey,
+                        e ->
+                            Pattern.compile(
+                                e.getValue().replaceAll("[*]", ".*").replaceAll("[?]", "."))));
+        // Filtering out beanObject that match the query
+        return objs.stream()
+            .filter(storedEntry -> wildCardDomain.matcher(storedEntry.domainName()).matches())
+            .filter(
+                storedEntry ->
+                    wildCardProperties.entrySet().stream()
+                        .allMatch(
+                            e ->
+                                storedEntry.properties().containsKey(e.getKey())
+                                    && e.getValue()
+                                        .matcher(storedEntry.properties().get(e.getKey()))
+                                        .matches()))
+            .collect(Collectors.toUnmodifiableList());
+      }
+    };
+  }
 
   /**
    * @param host the address of jmx server
@@ -67,7 +118,7 @@ public interface MBeanClient extends AutoCloseable {
     return Utils.packException(
         () -> {
           var jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
-          return new AbstractMBeanClient(
+          return new BasicMBeanClient(
               jmxConnector.getMBeanServerConnection(),
               jmxServiceURL.getHost(),
               jmxServiceURL.getPort()) {
@@ -80,11 +131,7 @@ public interface MBeanClient extends AutoCloseable {
   }
 
   static MBeanClient local() {
-    return new AbstractMBeanClient(
-        ManagementFactory.getPlatformMBeanServer(), Utils.hostname(), -1) {
-      @Override
-      public void close() {}
-    };
+    return new BasicMBeanClient(ManagementFactory.getPlatformMBeanServer(), Utils.hostname(), -1);
   }
 
   /**
@@ -98,6 +145,14 @@ public interface MBeanClient extends AutoCloseable {
    */
   BeanObject bean(BeanQuery beanQuery);
 
+  default Collection<BeanObject> beans(BeanQuery beanQuery) {
+    return beans(
+        beanQuery,
+        e -> {
+          throw e;
+        });
+  }
+
   /**
    * Query mBeans by pattern.
    *
@@ -108,21 +163,22 @@ public interface MBeanClient extends AutoCloseable {
    * exception will be placed into the attribute field.
    *
    * @param beanQuery the pattern to query
+   * @param errorHandle used to handle the error when fetching specify bean from remote server
    * @return A {@link Set} of {@link BeanObject}, all BeanObject has its own attributes resolved.
    */
-  Collection<BeanObject> beans(BeanQuery beanQuery);
+  Collection<BeanObject> beans(BeanQuery beanQuery, Consumer<RuntimeException> errorHandle);
 
   @Override
-  void close();
+  default void close() {}
 
-  abstract class AbstractMBeanClient implements MBeanClient {
+  class BasicMBeanClient implements MBeanClient {
 
     private final MBeanServerConnection connection;
     final String host;
 
     final int port;
 
-    AbstractMBeanClient(MBeanServerConnection connection, String host, int port) {
+    BasicMBeanClient(MBeanServerConnection connection, String host, int port) {
       this.connection = connection;
       this.host = host;
       this.port = port;
@@ -146,49 +202,42 @@ public interface MBeanClient extends AutoCloseable {
           });
     }
 
-    BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection) {
-      return Utils.packException(
-          () -> {
-            // fetch attribute value from mbean server
-            var attributeNameArray = attributeNameCollection.toArray(new String[0]);
-            var attributeList =
-                connection.getAttributes(beanQuery.objectName(), attributeNameArray).asList();
+    BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection)
+        throws ReflectionException, InstanceNotFoundException, IOException,
+            AttributeNotFoundException, MBeanException {
+      // fetch attribute value from mbean server
+      var attributeNameArray = attributeNameCollection.toArray(new String[0]);
+      var attributeList =
+          connection.getAttributes(beanQuery.objectName(), attributeNameArray).asList();
 
-            // collect attribute name & value into a map
-            var attributes = new HashMap<String, Object>();
-            attributeList.forEach(
-                attribute -> attributes.put(attribute.getName(), attribute.getValue()));
+      // collect attribute name & value into a map
+      var attributes = new HashMap<String, Object>();
+      attributeList.forEach(attribute -> attributes.put(attribute.getName(), attribute.getValue()));
 
-            // according to the javadoc of MBeanServerConnection#getAttributes, the API will
-            // ignore any error occurring during the fetch process (for example, attribute not
-            // exists). Below code check for such condition and try to figure out what exactly
-            // the error is. put it into attributes return result.
-            Arrays.stream(attributeNameArray)
-                .filter(str -> !attributes.containsKey(str))
-                .distinct()
-                .forEach(
-                    attributeName -> {
-                      try {
-                        var r = connection.getAttribute(beanQuery.objectName(), attributeName);
-                        attributes.put(attributeName, r);
-                      } catch (RuntimeMBeanException e) {
-                        if (!(e.getCause() instanceof UnsupportedOperationException))
-                          throw new IllegalStateException(e);
-                        // the UnsupportedOperationException is thrown when we query unacceptable
-                        // attribute. we just skip it as it is normal case to
-                        // return "acceptable" attribute only
-                      } catch (Exception e) {
-                        throw new RuntimeException(e);
-                      }
-                    });
+      // according to the javadoc of MBeanServerConnection#getAttributes, the API will
+      // ignore any error occurring during the fetch process (for example, attribute not
+      // exists). Below code check for such condition and try to figure out what exactly
+      // the error is. put it into attributes return result.
+      for (var str : attributeNameArray) {
+        if (attributes.containsKey(str)) continue;
+        try {
+          attributes.put(str, connection.getAttribute(beanQuery.objectName(), str));
+        } catch (RuntimeMBeanException e) {
+          if (!(e.getCause() instanceof UnsupportedOperationException))
+            throw new IllegalStateException(e);
+          // the UnsupportedOperationException is thrown when we query unacceptable
+          // attribute. we just skip it as it is normal case to
+          // return "acceptable" attribute only
+        }
+      }
 
-            // collect result, and build a new BeanObject as return result
-            return new BeanObject(beanQuery.domainName(), beanQuery.properties(), attributes);
-          });
+      // collect result, and build a new BeanObject as return result
+      return new BeanObject(beanQuery.domainName(), beanQuery.properties(), attributes);
     }
 
     @Override
-    public Collection<BeanObject> beans(BeanQuery beanQuery) {
+    public Collection<BeanObject> beans(
+        BeanQuery beanQuery, Consumer<RuntimeException> errorHandle) {
       return Utils.packException(
           () ->
               connection.queryMBeans(beanQuery.objectName(), null).stream()
@@ -197,8 +246,16 @@ public interface MBeanClient extends AutoCloseable {
                   .parallel()
                   .map(ObjectInstance::getObjectName)
                   .map(BeanQuery::fromObjectName)
-                  .map(this::bean)
-                  .collect(Collectors.toSet()));
+                  .flatMap(
+                      query -> {
+                        try {
+                          return Stream.of(bean(query));
+                        } catch (RuntimeException e) {
+                          errorHandle.accept(e);
+                          return Stream.empty();
+                        }
+                      })
+                  .collect(Collectors.toUnmodifiableList()));
     }
 
     /**

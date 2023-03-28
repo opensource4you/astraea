@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Lazy;
@@ -30,6 +31,13 @@ import org.astraea.common.metrics.HasBeanObject;
 /** Used to get beanObject using a variety of different keys . */
 public interface ClusterBean {
   ClusterBean EMPTY = ClusterBean.of(Map.of());
+
+  static ClusterBean masked(ClusterBean clusterBean, Predicate<Integer> nodeFilter) {
+    return ClusterBean.of(
+        clusterBean.all().entrySet().stream()
+            .filter(e -> nodeFilter.test(e.getKey()))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)));
+  }
 
   static ClusterBean of(Map<Integer, ? extends Collection<? extends HasBeanObject>> allBeans) {
     return new ClusterBean() {

@@ -18,7 +18,6 @@ package org.astraea.app.web;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.it.Service;
@@ -41,7 +40,7 @@ public class BeanHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
-      var handler = new BeanHandler(admin, name -> Optional.of(SERVICE.jmxServiceURL().getPort()));
+      var handler = new BeanHandler(admin, name -> SERVICE.jmxServiceURL().getPort());
       var response =
           Assertions.assertInstanceOf(
               BeanHandler.NodeBeans.class, handler.get(Channel.EMPTY).toCompletableFuture().join());

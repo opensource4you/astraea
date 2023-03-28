@@ -53,7 +53,7 @@ public class ClientNodeTest {
           .send(Record.builder().topic(topic).key(new byte[100]).build())
           .toCompletableFuture()
           .join();
-      var records = consumer.poll(1, Duration.ofSeconds(10));
+      var records = consumer.poll(Duration.ofSeconds(10));
       Assertions.assertEquals(0, records.size());
 
       var cgs = admin.consumerGroups(Set.of(group)).toCompletableFuture().join();
