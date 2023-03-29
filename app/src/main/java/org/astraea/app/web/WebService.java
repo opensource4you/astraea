@@ -36,7 +36,7 @@ public class WebService implements AutoCloseable {
   private final HttpServer server;
   private final Admin admin;
 
-  public WebService(Admin admin, int port, Function<Integer, Optional<Integer>> brokerIdToJmxPort) {
+  public WebService(Admin admin, int port, Function<Integer, Integer> brokerIdToJmxPort) {
     this.admin = admin;
     server = Utils.packException(() -> HttpServer.create(new InetSocketAddress(port), 0));
     server.createContext("/topics", to(new TopicHandler(admin)));
@@ -65,13 +65,12 @@ public class WebService implements AutoCloseable {
 
   public static void main(String[] args) throws Exception {
     var arg = org.astraea.app.argument.Argument.parse(new Argument(), args);
-    Function<Integer, Optional<Integer>> brokerIdToPort =
-        id -> {
-          var r = Optional.ofNullable(arg.jmxPorts.get(String.valueOf(id))).map(Integer::parseInt);
-          if (r.isPresent()) return r;
-          if (arg.jmxPort > 0) return Optional.of(arg.jmxPort);
-          return Optional.empty();
-        };
+    Function<Integer, Integer> brokerIdToPort =
+        id ->
+            Optional.ofNullable(arg.jmxPorts.get(String.valueOf(id)))
+                .map(Integer::parseInt)
+                .orElseThrow(
+                    () -> new IllegalArgumentException("failed to get jmx port for broker: " + id));
     try (var service = new WebService(Admin.of(arg.configs()), arg.port, brokerIdToPort)) {
       if (arg.ttl == null) {
         System.out.println("enter ctrl + c to terminate web service");

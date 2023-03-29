@@ -77,7 +77,7 @@ public interface MetricsFetcher extends AutoCloseable {
     private Duration fetchBeanDelay = Duration.ofSeconds(1);
     private Duration fetchMetadataDelay = Duration.ofMinutes(5);
     private Sender sender;
-    private Supplier<Map<Integer, MBeanClient>> clientSupplier;
+    private Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier;
 
     private Builder() {}
 
@@ -101,7 +101,8 @@ public interface MetricsFetcher extends AutoCloseable {
       return this;
     }
 
-    public Builder clientSupplier(Supplier<Map<Integer, MBeanClient>> clientSupplier) {
+    public Builder clientSupplier(
+        Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier) {
       this.clientSupplier = clientSupplier;
       return this;
     }
@@ -131,7 +132,7 @@ public interface MetricsFetcher extends AutoCloseable {
 
     private final ExecutorService executor;
 
-    private final Supplier<Map<Integer, MBeanClient>> clientSupplier;
+    private final Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier;
 
     private final Duration fetchBeanDelay;
 
@@ -140,7 +141,7 @@ public interface MetricsFetcher extends AutoCloseable {
         Duration fetchBeanDelay,
         Duration fetchMetadataDelay,
         Sender sender,
-        Supplier<Map<Integer, MBeanClient>> clientSupplier) {
+        Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier) {
       this.fetchBeanDelay = fetchBeanDelay;
       this.sender = sender;
       this.clientSupplier = clientSupplier;
@@ -177,16 +178,28 @@ public interface MetricsFetcher extends AutoCloseable {
     }
 
     private void updateMetadata() {
-      lock.writeLock().lock();
-      Map<Integer, MBeanClient> old;
-      try {
-        old = clients;
-        clients = clientSupplier.get();
-        clients.forEach((id, client) -> works.put(new DelayedIdentity(fetchBeanDelay, id)));
-      } finally {
-        lock.writeLock().unlock();
-      }
-      old.values().forEach(c -> Utils.swallowException(c::close));
+      clientSupplier
+          .get()
+          .whenCompleteAsync(
+              (r, e) -> {
+                if (e != null) {
+                  // TODO: it needs better error handling
+                  e.printStackTrace();
+                  return;
+                }
+                lock.writeLock().lock();
+                Map<Integer, MBeanClient> old;
+                try {
+                  old = clients;
+                  clients = r;
+                  works.clear();
+                  clients.forEach(
+                      (id, client) -> works.put(new DelayedIdentity(fetchBeanDelay, id)));
+                } finally {
+                  lock.writeLock().unlock();
+                }
+                old.values().forEach(c -> Utils.swallowException(c::close));
+              });
     }
 
     private void updateData(DelayedIdentity identity) {
