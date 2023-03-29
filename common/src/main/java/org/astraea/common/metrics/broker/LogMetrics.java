@@ -58,16 +58,17 @@ public final class LogMetrics {
       return alias();
     }
 
+    public BeanQuery query() {
+      return BeanQuery.builder()
+          .domainName(DOMAIN_NAME)
+          .property("type", "LogCleanerManager")
+          .property("logDirectory", "*")
+          .property("name", metricName)
+          .build();
+    }
+
     public List<Gauge> fetch(MBeanClient mBeanClient) {
-      return mBeanClient
-          .beans(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", "LogCleanerManager")
-                  .property("logDirectory", "*")
-                  .property("name", metricName)
-                  .build())
-          .stream()
+      return mBeanClient.beans(query()).stream()
           .map(Gauge::new)
           .collect(Collectors.toUnmodifiableList());
     }
@@ -139,23 +140,24 @@ public final class LogMetrics {
           .collect(Collectors.toUnmodifiableList());
     }
 
+    public BeanQuery query() {
+      return BeanQuery.builder()
+          .domainName(DOMAIN_NAME)
+          .property("type", LOG_TYPE)
+          .property("topic", "*")
+          .property("partition", "*")
+          .property("name", metricName)
+          // Due to a Kafka bug. This log metrics might come with an `is-future` property
+          // with it.
+          // And the property is never removed even if the folder migration is done.
+          // We use the BeanQuery property list pattern to work around this issue.
+          // See https://github.com/apache/kafka/pull/12979
+          .usePropertyListPattern()
+          .build();
+    }
+
     public List<Gauge> fetch(MBeanClient mBeanClient) {
-      return mBeanClient
-          .beans(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", LOG_TYPE)
-                  .property("topic", "*")
-                  .property("partition", "*")
-                  .property("name", metricName)
-                  // Due to a Kafka bug. This log metrics might come with an `is-future` property
-                  // with it.
-                  // And the property is never removed even if the folder migration is done.
-                  // We use the BeanQuery property list pattern to work around this issue.
-                  // See https://github.com/apache/kafka/pull/12979
-                  .usePropertyListPattern()
-                  .build())
-          .stream()
+      return mBeanClient.beans(query()).stream()
           .map(Gauge::new)
           .collect(Collectors.toUnmodifiableList());
     }
