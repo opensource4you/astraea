@@ -20,9 +20,11 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -60,13 +62,19 @@ public class BrokerOutputCostTest {
 
   @Test
   void testSensor() {
+    var topic = Utils.randomString(10);
     try (var producer = Producer.of(SERVICE.bootstrapServers())) {
-      producer.send(Record.builder().topic("test").key(new byte[100]).build());
+      producer.send(Record.builder().topic(topic).key(new byte[100]).build());
       producer.flush();
     }
     try (var consumer =
-        Consumer.forTopics(Set.of("test")).bootstrapServers(SERVICE.bootstrapServers()).build()) {
-      var records = consumer.poll(Duration.ofSeconds(3));
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(SERVICE.bootstrapServers())
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+            .build()) {
+      var records = consumer.poll(Duration.ofSeconds(5));
       Assertions.assertEquals(1, records.size());
     }
 
