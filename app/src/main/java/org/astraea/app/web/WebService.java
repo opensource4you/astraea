@@ -22,12 +22,11 @@ import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.astraea.app.argument.DurationField;
+import org.astraea.app.argument.IntegerMapField;
 import org.astraea.app.argument.NonNegativeIntegerField;
-import org.astraea.app.argument.StringMapField;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 
@@ -65,13 +64,7 @@ public class WebService implements AutoCloseable {
 
   public static void main(String[] args) throws Exception {
     var arg = org.astraea.app.argument.Argument.parse(new Argument(), args);
-    Function<Integer, Integer> brokerIdToPort =
-        id ->
-            Optional.ofNullable(arg.jmxPorts.get(String.valueOf(id)))
-                .map(Integer::parseInt)
-                .orElseThrow(
-                    () -> new IllegalArgumentException("failed to get jmx port for broker: " + id));
-    try (var service = new WebService(Admin.of(arg.configs()), arg.port, brokerIdToPort)) {
+    try (var service = new WebService(Admin.of(arg.configs()), arg.port, arg::jmxPortMapping)) {
       if (arg.ttl == null) {
         System.out.println("enter ctrl + c to terminate web service");
         TimeUnit.MILLISECONDS.sleep(Long.MAX_VALUE);
@@ -108,9 +101,16 @@ public class WebService implements AutoCloseable {
         names = {"--jmx.ports"},
         description =
             "Map: the JMX port for each broker. For example: 1024=19999 means for the broker with id 1024, its JMX port located at 19999 port",
-        validateWith = StringMapField.class,
-        converter = StringMapField.class)
-    Map<String, String> jmxPorts = Map.of();
+        validateWith = IntegerMapField.class,
+        converter = IntegerMapField.class)
+    Map<Integer, Integer> jmxPorts = Map.of();
+
+    int jmxPortMapping(int brokerId) {
+      int port = jmxPorts.getOrDefault(brokerId, jmxPort);
+      if (port < 0)
+        throw new IllegalArgumentException("Failed to get jmx port for broker: " + brokerId);
+      return port;
+    }
 
     @Parameter(
         names = {"--ttl"},
