@@ -44,7 +44,7 @@ import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 
-public interface MetricsFetcher extends AutoCloseable {
+public interface MetricFetcher extends AutoCloseable {
 
   static Builder builder() {
     return new Builder();
@@ -147,8 +147,8 @@ public interface MetricsFetcher extends AutoCloseable {
       return this;
     }
 
-    public MetricsFetcher build() {
-      return new MetricsFetcherImpl(
+    public MetricFetcher build() {
+      return new MetricFetcherImpl(
           threads,
           Objects.requireNonNull(fetchBeanDelay, "fetchBeanDelay can't be null"),
           Objects.requireNonNull(fetchMetadataDelay, "fetchMetadataDelay can't be null"),
@@ -157,7 +157,7 @@ public interface MetricsFetcher extends AutoCloseable {
     }
   }
 
-  class MetricsFetcherImpl implements MetricsFetcher {
+  class MetricFetcherImpl implements MetricFetcher {
     private volatile Map<Integer, MBeanClient> clients = new HashMap<>();
 
     private final Map<Integer, Collection<BeanObject>> latest = new ConcurrentHashMap<>();
@@ -176,7 +176,7 @@ public interface MetricsFetcher extends AutoCloseable {
 
     private final Duration fetchBeanDelay;
 
-    private MetricsFetcherImpl(
+    private MetricFetcherImpl(
         int threads,
         Duration fetchBeanDelay,
         Duration fetchMetadataDelay,

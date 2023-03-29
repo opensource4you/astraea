@@ -154,7 +154,7 @@ public class StrictCostPartitionerTest {
           new byte[0],
           new byte[0],
           ClusterInfoTest.of(List.of(replicaInfo0, replicaInfo1)));
-      Assertions.assertEquals(0, partitioner.metricsStore.sensors().size());
+      Assertions.assertEquals(0, partitioner.metricStore.sensors().size());
     }
   }
 
@@ -214,7 +214,7 @@ public class StrictCostPartitionerTest {
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(Configuration.of(Map.of()));
       Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.costFunction);
-      Utils.waitFor(() -> partitioner.metricsStore.sensors().size() == 1);
+      Utils.waitFor(() -> partitioner.metricStore.sensors().size() == 1);
     }
   }
 

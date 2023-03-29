@@ -40,7 +40,7 @@ public class LocalMetricsTest {
   @Test
   void test() {
     try (var store =
-        MetricsStore.builder()
+        MetricStore.builder()
             .beanExpiration(Duration.ofSeconds(1))
             .localReceiver(() -> CompletableFuture.completedStage(Map.of(-1, MBeanClient.local())))
             .build()) {
