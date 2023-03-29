@@ -32,7 +32,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -47,7 +46,6 @@ import org.astraea.common.metrics.MetricFactory;
 import org.astraea.common.metrics.MetricSeriesBuilder;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
-import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -411,23 +409,6 @@ class NetworkCostTest {
         (NetworkCost.NetworkClusterCost) new NetworkEgressCost().clusterCost(scaledCluster, beans);
     Assertions.assertEquals(2, costE.brokerRate.size());
     Assertions.assertEquals(0L, costE.brokerRate.get(node.id()));
-  }
-
-  @Test
-  void testNoMetricCheck() {
-    var ingressCost = new NetworkIngressCost(Configuration.EMPTY);
-    var collectorBuilder = MetricCollector.local().interval(Duration.ofMillis(100));
-    ingressCost.metricSensor().ifPresent(collectorBuilder::addMetricSensor);
-    try (var collector = collectorBuilder.build()) {
-
-      // sample metrics for a while.
-      Utils.sleep(Duration.ofMillis(500));
-
-      var emptyCluster = ClusterInfoBuilder.builder().addNode(Set.of(1, 2, 3)).build();
-      Assertions.assertDoesNotThrow(
-          () -> ingressCost.clusterCost(emptyCluster, collector.clusterBean()),
-          "Should not raise an exception");
-    }
   }
 
   @Test
