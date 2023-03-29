@@ -49,13 +49,18 @@ public class MetricPublisher {
         MetricsFetcher.builder()
             .clientSupplier(
                 () ->
-                    admin.nodeInfos().toCompletableFuture().join().stream()
-                        .collect(
-                            Collectors.toUnmodifiableMap(
-                                NodeInfo::id,
-                                node ->
-                                    MBeanClient.jndi(
-                                        node.host(), arguments.idToJmxPort().apply(node.id())))))
+                    admin
+                        .nodeInfos()
+                        .thenApply(
+                            nodes ->
+                                nodes.stream()
+                                    .collect(
+                                        Collectors.toUnmodifiableMap(
+                                            NodeInfo::id,
+                                            node ->
+                                                MBeanClient.jndi(
+                                                    node.host(),
+                                                    arguments.idToJmxPort().apply(node.id()))))))
             .fetchBeanDelay(arguments.period)
             .fetchMetadataDelay(Duration.ofMinutes(5))
             .threads(3)
