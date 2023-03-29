@@ -16,14 +16,18 @@
  */
 package org.astraea.common.metrics.broker;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.Utils;
 import org.astraea.common.metrics.AppInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
@@ -33,39 +37,52 @@ import org.astraea.common.metrics.MBeanClient;
 public final class ServerMetrics {
   public static final String DOMAIN_NAME = "kafka.server";
 
+  public static final BeanQuery APP_INFO_QUERY =
+      BeanQuery.builder()
+          .domainName(DOMAIN_NAME)
+          .property("type", "app-info")
+          .property("id", "*")
+          .build();
+
+  public static final Collection<BeanQuery> QUERIES =
+      Stream.of(
+              Stream.of(APP_INFO_QUERY),
+              KafkaServer.ALL.values().stream(),
+              DelayedOperationPurgatory.ALL.values().stream(),
+              Topic.ALL.values().stream(),
+              BrokerTopic.ALL.values().stream(),
+              ReplicaManager.ALL.values().stream(),
+              Socket.QUERIES.stream())
+          .flatMap(f -> f)
+          .collect(Collectors.toUnmodifiableList());
+
   public static List<AppInfo> appInfo(MBeanClient client) {
-    return client
-        .beans(
-            BeanQuery.builder()
-                .domainName(DOMAIN_NAME)
-                .property("type", "app-info")
-                .property("id", "*")
-                .build())
-        .stream()
+    return client.beans(APP_INFO_QUERY).stream()
         .map(b -> (AppInfo) () -> b)
         .collect(Collectors.toList());
   }
 
   public enum KafkaServer implements EnumInfo {
+    CLUSTER_ID("ClusterId"),
     YAMMER_METRICS_COUNT("yammer-metrics-count"),
     BROKER_STATE("BrokerState"),
     LINUX_DISK_READ_BYTES("linux-disk-read-bytes"),
     LINUX_DISK_WRITE_BYTES("linux-disk-write-bytes");
 
     /** Others are Gauge-Number , this is Gauge-String */
-    public static final String CLUSTER_ID = "ClusterId";
-
     private final String metricName;
 
-    public static ClusterIdGauge clusterId(MBeanClient mBeanClient) {
-      return new ClusterIdGauge(
-          mBeanClient.bean(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", "KafkaServer")
-                  .property("name", CLUSTER_ID)
-                  .build()));
-    }
+    private static final Map<KafkaServer, BeanQuery> ALL =
+        Arrays.stream(KafkaServer.values())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    m ->
+                        BeanQuery.builder()
+                            .domainName(DOMAIN_NAME)
+                            .property("type", "KafkaServer")
+                            .property("name", m.metricName)
+                            .build()));
 
     KafkaServer(String name) {
       this.metricName = name;
@@ -75,16 +92,8 @@ public final class ServerMetrics {
       return metricName;
     }
 
-    public BeanQuery query() {
-      return BeanQuery.builder()
-          .domainName(DOMAIN_NAME)
-          .property("type", "KafkaServer")
-          .property("name", metricName)
-          .build();
-    }
-
     public Gauge fetch(MBeanClient mBeanClient) {
-      return new Gauge(mBeanClient.bean(query()));
+      return new Gauge(mBeanClient.bean(ALL.get(this)));
     }
 
     public static KafkaServer ofAlias(String alias) {
@@ -145,6 +154,19 @@ public final class ServerMetrics {
     PRODUCE("Produce"),
     REBALANCE("Rebalance");
 
+    private static final Map<DelayedOperationPurgatory, BeanQuery> ALL =
+        Arrays.stream(DelayedOperationPurgatory.values())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    m ->
+                        BeanQuery.builder()
+                            .domainName(DOMAIN_NAME)
+                            .property("type", "DelayedOperationPurgatory")
+                            .property("delayedOperation", m.metricName)
+                            .property("name", "PurgatorySize")
+                            .build()));
+
     public static DelayedOperationPurgatory ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(DelayedOperationPurgatory.class, alias);
     }
@@ -169,17 +191,8 @@ public final class ServerMetrics {
       return alias();
     }
 
-    public BeanQuery query() {
-      return BeanQuery.builder()
-          .domainName(DOMAIN_NAME)
-          .property("type", "DelayedOperationPurgatory")
-          .property("delayedOperation", metricName)
-          .property("name", "PurgatorySize")
-          .build();
-    }
-
     public Gauge fetch(MBeanClient mBeanClient) {
-      return new Gauge(mBeanClient.bean(query()));
+      return new Gauge(mBeanClient.bean(ALL.get(this)));
     }
 
     public static class Gauge implements HasGauge<Integer> {
@@ -211,6 +224,19 @@ public final class ServerMetrics {
     TOTAL_FETCH_REQUESTS_PER_SEC("TotalFetchRequestsPerSec"),
     TOTAL_PRODUCE_REQUESTS_PER_SEC("TotalProduceRequestsPerSec");
 
+    private static final Map<Topic, BeanQuery> ALL =
+        Arrays.stream(Topic.values())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    m ->
+                        BeanQuery.builder()
+                            .domainName(DOMAIN_NAME)
+                            .property("type", "BrokerTopicMetrics")
+                            .property("topic", "*")
+                            .property("name", m.metricName())
+                            .build()));
+
     public static Topic ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(Topic.class, alias);
     }
@@ -235,17 +261,10 @@ public final class ServerMetrics {
       return alias();
     }
 
-    public BeanQuery query() {
-      return BeanQuery.builder()
-          .domainName(DOMAIN_NAME)
-          .property("type", "BrokerTopicMetrics")
-          .property("topic", "*")
-          .property("name", this.metricName())
-          .build();
-    }
-
     public List<Topic.Meter> fetch(MBeanClient mBeanClient) {
-      return mBeanClient.beans(query()).stream().map(Topic.Meter::new).collect(Collectors.toList());
+      return mBeanClient.beans(ALL.get(this)).stream()
+          .map(Topic.Meter::new)
+          .collect(Collectors.toList());
     }
 
     public Builder builder() {
@@ -395,6 +414,18 @@ public final class ServerMetrics {
     /** Byte out rate to clients. */
     BYTES_OUT_PER_SEC("BytesOutPerSec");
 
+    private static final Map<BrokerTopic, BeanQuery> ALL =
+        Arrays.stream(BrokerTopic.values())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    m ->
+                        BeanQuery.builder()
+                            .domainName(DOMAIN_NAME)
+                            .property("type", "BrokerTopicMetrics")
+                            .property("name", m.metricName())
+                            .build()));
+
     public static BrokerTopic ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(BrokerTopic.class, alias);
     }
@@ -434,16 +465,8 @@ public final class ServerMetrics {
           .collect(Collectors.toUnmodifiableList());
     }
 
-    public BeanQuery query() {
-      return BeanQuery.builder()
-          .domainName(DOMAIN_NAME)
-          .property("type", "BrokerTopicMetrics")
-          .property("name", this.metricName())
-          .build();
-    }
-
     public Meter fetch(MBeanClient mBeanClient) {
-      return new Meter(mBeanClient.bean(query()));
+      return new Meter(mBeanClient.bean(ALL.get(this)));
     }
 
     public static class Meter implements HasMeter {
@@ -483,6 +506,18 @@ public final class ServerMetrics {
     UNDER_MIN_ISR_PARTITION_COUNT("UnderMinIsrPartitionCount"),
     UNDER_REPLICATED_PARTITIONS("UnderReplicatedPartitions");
 
+    private static final Map<ReplicaManager, BeanQuery> ALL =
+        Arrays.stream(ReplicaManager.values())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    m ->
+                        BeanQuery.builder()
+                            .domainName(DOMAIN_NAME)
+                            .property("type", "ReplicaManager")
+                            .property("name", m.metricName)
+                            .build()));
+
     public static ReplicaManager ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(ReplicaManager.class, alias);
     }
@@ -497,16 +532,8 @@ public final class ServerMetrics {
       return metricName;
     }
 
-    public BeanQuery query() {
-      return BeanQuery.builder()
-          .domainName(DOMAIN_NAME)
-          .property("type", "ReplicaManager")
-          .property("name", metricName)
-          .build();
-    }
-
     public Gauge fetch(MBeanClient mBeanClient) {
-      return new Gauge(mBeanClient.bean(query()));
+      return new Gauge(mBeanClient.bean(ALL.get(this)));
     }
 
     @Override
@@ -554,54 +581,56 @@ public final class ServerMetrics {
     private static final String PROP_CLIENT_SOFTWARE_NAME = "clientSoftwareName";
     private static final String PROP_CLIENT_SOFTWARE_VERSION = "clientSoftwareVersion";
 
+    public static final BeanQuery SOCKET_LISTENER_QUERY =
+        BeanQuery.builder()
+            .domainName(DOMAIN_NAME)
+            .property("type", METRIC_TYPE)
+            .property(PROP_LISTENER, "*")
+            .build();
+
+    public static final BeanQuery SOCKET_NETWORK_PROCESSOR_QUERY =
+        BeanQuery.builder()
+            .domainName(DOMAIN_NAME)
+            .property("type", METRIC_TYPE)
+            .property(PROP_LISTENER, "*")
+            .property(PROP_NETWORK_PROCESSOR, "*")
+            .build();
+
+    public static final BeanQuery CLIENT_QUERY =
+        BeanQuery.builder()
+            .domainName(DOMAIN_NAME)
+            .property("type", METRIC_TYPE)
+            .property(PROP_LISTENER, "*")
+            .property(PROP_NETWORK_PROCESSOR, "*")
+            .property(PROP_CLIENT_SOFTWARE_NAME, "*")
+            .property(PROP_CLIENT_SOFTWARE_VERSION, "*")
+            .build();
+
+    public static final BeanQuery SOCKET_QUERY =
+        BeanQuery.builder().domainName(DOMAIN_NAME).property("type", METRIC_TYPE).build();
+
+    public static final Collection<BeanQuery> QUERIES =
+        Utils.constants(Socket.class, name -> name.endsWith("QUERY"), BeanQuery.class);
+
     public static SocketMetric socket(MBeanClient mBeanClient) {
-      return new SocketMetric(
-          mBeanClient.bean(
-              BeanQuery.builder().domainName(DOMAIN_NAME).property("type", METRIC_TYPE).build()));
+      return new SocketMetric(mBeanClient.bean(SOCKET_QUERY));
     }
 
     public static List<SocketListenerMetric> socketListener(MBeanClient mBeanClient) {
-      return mBeanClient
-          .beans(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", METRIC_TYPE)
-                  .property(PROP_LISTENER, "*")
-                  .build())
-          .stream()
+      return mBeanClient.beans(SOCKET_LISTENER_QUERY).stream()
           .map(SocketListenerMetric::new)
           .collect(Collectors.toList());
     }
 
     public static List<SocketNetworkProcessorMetric> socketNetworkProcessor(
         MBeanClient mBeanClient) {
-      return mBeanClient
-          .beans(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", METRIC_TYPE)
-                  .property(PROP_LISTENER, "*")
-                  .property(PROP_NETWORK_PROCESSOR, "*")
-                  .build())
-          .stream()
+      return mBeanClient.beans(SOCKET_NETWORK_PROCESSOR_QUERY).stream()
           .map(SocketNetworkProcessorMetric::new)
           .collect(Collectors.toList());
     }
 
     public static List<Client> client(MBeanClient mBeanClient) {
-      return mBeanClient
-          .beans(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", METRIC_TYPE)
-                  .property(PROP_LISTENER, "*")
-                  .property(PROP_NETWORK_PROCESSOR, "*")
-                  .property(PROP_CLIENT_SOFTWARE_NAME, "*")
-                  .property(PROP_CLIENT_SOFTWARE_VERSION, "*")
-                  .build())
-          .stream()
-          .map(Client::new)
-          .collect(Collectors.toList());
+      return mBeanClient.beans(CLIENT_QUERY).stream().map(Client::new).collect(Collectors.toList());
     }
 
     public static class SocketMetric implements HasBeanObject {

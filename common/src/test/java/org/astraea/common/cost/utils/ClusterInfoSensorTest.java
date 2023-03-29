@@ -238,7 +238,7 @@ class ClusterInfoSensorTest {
                                 "type",
                                 "KafkaServer",
                                 "name",
-                                ServerMetrics.KafkaServer.CLUSTER_ID),
+                                ServerMetrics.KafkaServer.CLUSTER_ID.metricName()),
                             Map.of("Value", id))))));
 
     var info = ClusterInfoSensor.metricViewCluster(cb);
