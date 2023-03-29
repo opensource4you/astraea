@@ -42,6 +42,6 @@ public class BrokerConfigsTest {
   void testDuplicate() {
     Assertions.assertEquals(
         BrokerConfigs.DYNAMICAL_CONFIGS.size(),
-        Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG")).size());
+        Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG"), String.class).size());
   }
 }

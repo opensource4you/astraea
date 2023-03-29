@@ -75,14 +75,16 @@ public final class ServerMetrics {
       return metricName;
     }
 
+    public BeanQuery query() {
+      return BeanQuery.builder()
+          .domainName(DOMAIN_NAME)
+          .property("type", "KafkaServer")
+          .property("name", metricName)
+          .build();
+    }
+
     public Gauge fetch(MBeanClient mBeanClient) {
-      return new Gauge(
-          mBeanClient.bean(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", "KafkaServer")
-                  .property("name", metricName)
-                  .build()));
+      return new Gauge(mBeanClient.bean(query()));
     }
 
     public static KafkaServer ofAlias(String alias) {
@@ -167,15 +169,17 @@ public final class ServerMetrics {
       return alias();
     }
 
+    public BeanQuery query() {
+      return BeanQuery.builder()
+          .domainName(DOMAIN_NAME)
+          .property("type", "DelayedOperationPurgatory")
+          .property("delayedOperation", metricName)
+          .property("name", "PurgatorySize")
+          .build();
+    }
+
     public Gauge fetch(MBeanClient mBeanClient) {
-      return new Gauge(
-          mBeanClient.bean(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", "DelayedOperationPurgatory")
-                  .property("delayedOperation", metricName)
-                  .property("name", "PurgatorySize")
-                  .build()));
+      return new Gauge(mBeanClient.bean(query()));
     }
 
     public static class Gauge implements HasGauge<Integer> {
@@ -231,18 +235,17 @@ public final class ServerMetrics {
       return alias();
     }
 
+    public BeanQuery query() {
+      return BeanQuery.builder()
+          .domainName(DOMAIN_NAME)
+          .property("type", "BrokerTopicMetrics")
+          .property("topic", "*")
+          .property("name", this.metricName())
+          .build();
+    }
+
     public List<Topic.Meter> fetch(MBeanClient mBeanClient) {
-      return mBeanClient
-          .beans(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", "BrokerTopicMetrics")
-                  .property("topic", "*")
-                  .property("name", this.metricName())
-                  .build())
-          .stream()
-          .map(Topic.Meter::new)
-          .collect(Collectors.toList());
+      return mBeanClient.beans(query()).stream().map(Topic.Meter::new).collect(Collectors.toList());
     }
 
     public Builder builder() {
@@ -431,14 +434,16 @@ public final class ServerMetrics {
           .collect(Collectors.toUnmodifiableList());
     }
 
+    public BeanQuery query() {
+      return BeanQuery.builder()
+          .domainName(DOMAIN_NAME)
+          .property("type", "BrokerTopicMetrics")
+          .property("name", this.metricName())
+          .build();
+    }
+
     public Meter fetch(MBeanClient mBeanClient) {
-      return new Meter(
-          mBeanClient.bean(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", "BrokerTopicMetrics")
-                  .property("name", this.metricName())
-                  .build()));
+      return new Meter(mBeanClient.bean(query()));
     }
 
     public static class Meter implements HasMeter {
@@ -492,14 +497,16 @@ public final class ServerMetrics {
       return metricName;
     }
 
+    public BeanQuery query() {
+      return BeanQuery.builder()
+          .domainName(DOMAIN_NAME)
+          .property("type", "ReplicaManager")
+          .property("name", metricName)
+          .build();
+    }
+
     public Gauge fetch(MBeanClient mBeanClient) {
-      return new Gauge(
-          mBeanClient.bean(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", "ReplicaManager")
-                  .property("name", metricName)
-                  .build()));
+      return new Gauge(mBeanClient.bean(query()));
     }
 
     @Override

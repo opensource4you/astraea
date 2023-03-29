@@ -108,15 +108,17 @@ public class NetworkMetrics {
       return alias();
     }
 
-    public Histogram totalTimeMs(MBeanClient mBeanClient) {
-      return new Histogram(
-          mBeanClient.bean(
-              BeanQuery.builder()
-                  .domainName("kafka.network")
-                  .property("type", "RequestMetrics")
-                  .property("request", this.metricName())
-                  .property("name", "TotalTimeMs")
-                  .build()));
+    public BeanQuery query() {
+      return BeanQuery.builder()
+          .domainName("kafka.network")
+          .property("type", "RequestMetrics")
+          .property("request", this.metricName())
+          .property("name", "TotalTimeMs")
+          .build();
+    }
+
+    public Histogram fetch(MBeanClient mBeanClient) {
+      return new Histogram(mBeanClient.bean(query()));
     }
 
     public static class Histogram implements HasHistogram {

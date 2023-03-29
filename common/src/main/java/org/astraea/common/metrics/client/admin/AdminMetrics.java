@@ -18,41 +18,46 @@ package org.astraea.common.metrics.client.admin;
 
 import java.util.Collection;
 import java.util.stream.Collectors;
+import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.metrics.client.HasSelectorMetrics;
 
 public class AdminMetrics {
+
+  public static final BeanQuery NODE_QUERY =
+      BeanQuery.builder()
+          .domainName("kafka.admin.client")
+          .property("type", "admin-client-node-metrics")
+          .property("node-id", "*")
+          .property("client-id", "*")
+          .build();
+
+  public static final BeanQuery ADMIN_QUERY =
+      BeanQuery.builder()
+          .domainName("kafka.admin.client")
+          .property("type", "admin-client-metrics")
+          .property("client-id", "*")
+          .build();
+
+  public static final Collection<BeanQuery> QUERIES =
+      Utils.constants(AdminMetrics.class, name -> name.endsWith("QUERY"), BeanQuery.class);
+
   /**
    * collect HasNodeMetrics from all consumers.
    *
    * @param mBeanClient to query metrics
    * @return key is broker id, and value is associated to broker metrics recorded by all consumers
    */
-  public static Collection<HasNodeMetrics> nodes(MBeanClient mBeanClient) {
-    return mBeanClient
-        .beans(
-            BeanQuery.builder()
-                .domainName("kafka.admin.client")
-                .property("type", "admin-client-node-metrics")
-                .property("node-id", "*")
-                .property("client-id", "*")
-                .build())
-        .stream()
+  public static Collection<HasNodeMetrics> node(MBeanClient mBeanClient) {
+    return mBeanClient.beans(NODE_QUERY).stream()
         .map(b -> (HasNodeMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public static Collection<HasSelectorMetrics> of(MBeanClient mBeanClient) {
-    return mBeanClient
-        .beans(
-            BeanQuery.builder()
-                .domainName("kafka.admin.client")
-                .property("type", "admin-client-metrics")
-                .property("client-id", "*")
-                .build())
-        .stream()
+  public static Collection<HasSelectorMetrics> admin(MBeanClient mBeanClient) {
+    return mBeanClient.beans(ADMIN_QUERY).stream()
         .map(b -> (HasSelectorMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }

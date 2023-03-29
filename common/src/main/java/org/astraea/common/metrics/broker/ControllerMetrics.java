@@ -16,13 +16,34 @@
  */
 package org.astraea.common.metrics.broker;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 
 public class ControllerMetrics {
+
+  private static final Map<Controller, BeanQuery> ALL =
+      Arrays.stream(Controller.values())
+          .collect(
+              Collectors.toUnmodifiableMap(
+                  Function.identity(),
+                  m ->
+                      BeanQuery.builder()
+                          .domainName("kafka.controller")
+                          .property("type", "KafkaController")
+                          .property("name", m.metricName())
+                          .build()));
+
+  public static final Collection<BeanQuery> QUERIES = List.copyOf(ALL.values());
+
   public enum Controller implements EnumInfo {
     ACTIVE_CONTROLLER_COUNT("ActiveControllerCount"),
     OFFLINE_PARTITIONS_COUNT("OfflinePartitionsCount"),
@@ -57,13 +78,7 @@ public class ControllerMetrics {
     }
 
     public Gauge fetch(MBeanClient mBeanClient) {
-      return new Gauge(
-          mBeanClient.bean(
-              BeanQuery.builder()
-                  .domainName("kafka.controller")
-                  .property("type", "KafkaController")
-                  .property("name", this.metricName())
-                  .build()));
+      return new Gauge(mBeanClient.bean(ALL.get(this)));
     }
 
     public static class Gauge implements HasGauge<Integer> {
