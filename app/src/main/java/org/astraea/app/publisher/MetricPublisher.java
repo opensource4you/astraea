@@ -27,7 +27,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.MetricsFetcher;
+import org.astraea.common.metrics.collector.MetricFetcher;
 
 /** Keep fetching all kinds of metrics and publish to inner topics. */
 public class MetricPublisher {
@@ -44,9 +44,9 @@ public class MetricPublisher {
   // Valid for testing
   static void execute(Arguments arguments) {
     var admin = Admin.of(arguments.bootstrapServers());
-    var topicSender = MetricsFetcher.Sender.topic(arguments.bootstrapServers());
+    var topicSender = MetricFetcher.Sender.topic(arguments.bootstrapServers());
     try (var metricFetcher =
-        MetricsFetcher.builder()
+        MetricFetcher.builder()
             .clientSupplier(
                 () ->
                     admin

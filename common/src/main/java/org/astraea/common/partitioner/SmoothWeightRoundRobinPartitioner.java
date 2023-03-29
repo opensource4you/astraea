@@ -34,7 +34,7 @@ import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.NeutralIntegratedCost;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.MetricsStore;
+import org.astraea.common.metrics.collector.MetricStore;
 
 public class SmoothWeightRoundRobinPartitioner extends Partitioner {
   private static final int ROUND_ROBIN_LENGTH = 400;
@@ -44,7 +44,7 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
 
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
 
-  MetricsStore metricsStore = null;
+  MetricStore metricStore = null;
 
   private SmoothWeightCal<Integer> smoothWeightCal;
   private RoundRobinKeeper roundRobinKeeper;
@@ -66,7 +66,7 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
     Supplier<Map<Integer, Double>> supplier =
         () ->
             // fetch the latest beans for each node
-            neutralIntegratedCost.brokerCost(clusterInfo, metricsStore.clusterBean()).value();
+            neutralIntegratedCost.brokerCost(clusterInfo, metricStore.clusterBean()).value();
 
     smoothWeightCal.refresh(supplier);
 
@@ -86,7 +86,7 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
 
   @Override
   public void close() {
-    metricsStore.close();
+    metricStore.close();
   }
 
   @Override
@@ -135,8 +135,8 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
                     });
 
     // put local mbean client first
-    metricsStore =
-        MetricsStore.builder()
+    metricStore =
+        MetricStore.builder()
             .localReceiver(clientSupplier)
             .sensorsSupplier(
                 () ->

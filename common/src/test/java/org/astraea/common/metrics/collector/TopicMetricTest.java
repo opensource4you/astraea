@@ -45,7 +45,7 @@ public class TopicMetricTest {
 
   @Test
   void test() {
-    try (var receiver = MetricsStore.Receiver.topic(SERVICE.bootstrapServers())) {
+    try (var receiver = MetricStore.Receiver.topic(SERVICE.bootstrapServers())) {
       Assertions.assertEquals(Map.of(), receiver.receive(Duration.ofSeconds(1)));
 
       try (var admin = Admin.of(SERVICE.bootstrapServers())) {

@@ -45,7 +45,7 @@ import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
-public interface MetricsStore extends AutoCloseable {
+public interface MetricStore extends AutoCloseable {
 
   static Builder builder() {
     return new Builder();
@@ -72,7 +72,7 @@ public interface MetricsStore extends AutoCloseable {
 
   interface Receiver extends AutoCloseable {
 
-    static MetricsFetcher.Sender local() {
+    static MetricFetcher.Sender local() {
       return LocalSenderReceiver.of();
     }
 
@@ -144,7 +144,7 @@ public interface MetricsStore extends AutoCloseable {
     public Builder localReceiver(
         Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier) {
       var cache = LocalSenderReceiver.of();
-      var fetcher = MetricsFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
+      var fetcher = MetricFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
       return receiver(
           new Receiver() {
             @Override
@@ -168,15 +168,15 @@ public interface MetricsStore extends AutoCloseable {
       return this;
     }
 
-    public MetricsStore build() {
-      return new MetricsStoreImpl(
+    public MetricStore build() {
+      return new MetricStoreImpl(
           Objects.requireNonNull(sensorsSupplier, "sensorsSupplier can't be null"),
           Objects.requireNonNull(receiver, "receiver can't be null"),
           Objects.requireNonNull(beanExpiration, "beanExpiration can't be null"));
     }
   }
 
-  class MetricsStoreImpl implements MetricsStore {
+  class MetricStoreImpl implements MetricStore {
 
     private final Map<Integer, Collection<HasBeanObject>> beans = new ConcurrentHashMap<>();
 
@@ -194,7 +194,7 @@ public interface MetricsStore extends AutoCloseable {
 
     private volatile Map<MetricSensor, BiConsumer<Integer, Exception>> lastSensors = Map.of();
 
-    private MetricsStoreImpl(
+    private MetricStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier,
         Receiver receiver,
         Duration beanExpiration) {

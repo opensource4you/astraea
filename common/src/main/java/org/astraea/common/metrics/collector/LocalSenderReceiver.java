@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 
-public class LocalSenderReceiver implements MetricsFetcher.Sender, MetricsStore.Receiver {
+public class LocalSenderReceiver implements MetricFetcher.Sender, MetricStore.Receiver {
 
   public static LocalSenderReceiver of() {
     return new LocalSenderReceiver();
