@@ -18,6 +18,7 @@ package org.astraea.common.cost;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -43,33 +44,32 @@ public interface HasPartitionCost extends CostFunction {
     return new HasPartitionCost() {
       @Override
       public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-        var result = new HashMap<TopicPartition, Double>();
+        var result = new HashMap<TopicPartition, PartitionCost.CostInfo>();
+        var cost = new HashMap<TopicPartition, Double>();
+        var incompatible = new HashMap<TopicPartition, Set<TopicPartition>>();
+
         costAndWeight.forEach(
             (function, weight) ->
                 function
                     .partitionCost(clusterInfo, clusterBean)
                     .value()
                     .forEach(
-                        (tp, v) ->
-                            result.compute(
-                                tp,
-                                (ignore, previous) ->
-                                    previous == null ? v * weight : v * weight + previous)));
-        return () -> Collections.unmodifiableMap(result);
-      }
+                        (tp, info) -> {
+                          cost.compute(
+                              tp,
+                              (ignore, prevCost) ->
+                                  prevCost == null
+                                      ? info.cost() * weight
+                                      : prevCost + info.cost() * weight);
+                          var set = incompatible.getOrDefault(tp, new HashSet<>());
+                          set.addAll(info.incompatible());
+                          incompatible.put(tp, set);
+                        }));
 
-      @Override
-      public Optional<Map<TopicPartition, Set<TopicPartition>>> validate(
-          ClusterInfo clusterInfo, ClusterBean clusterBean) {
-        return Optional.of(
-            costAndWeight.keySet().stream()
-                .map(cost -> cost.validate(clusterInfo, clusterBean).orElse(Map.of()))
-                .flatMap(m -> m.entrySet().stream())
-                .collect(
-                    Collectors.groupingBy(
-                        Map.Entry::getKey,
-                        Collectors.flatMapping(
-                            e -> e.getValue().stream(), Collectors.toUnmodifiableSet()))));
+        cost.forEach(
+            (tp, c) -> result.put(tp, new PartitionCost.CostInfo(c, incompatible.get(tp))));
+
+        return () -> Collections.unmodifiableMap(result);
       }
 
       @Override
@@ -86,9 +86,4 @@ public interface HasPartitionCost extends CostFunction {
   }
 
   PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean);
-
-  default Optional<Map<TopicPartition, Set<TopicPartition>>> validate(
-      ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    return Optional.empty();
-  }
 }

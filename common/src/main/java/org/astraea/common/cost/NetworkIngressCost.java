@@ -18,7 +18,6 @@ package org.astraea.common.cost;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
@@ -73,19 +72,12 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
                 topicPartitionDoubleMap ->
                     Normalizer.proportion().normalize(topicPartitionDoubleMap))
             .flatMap(cost -> cost.entrySet().stream())
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, e -> new PartitionCost.CostInfo(e.getValue(), Set.of())));
+    // temporarily use `Set.of()` instead of an incompatible partitions
 
     return () -> result;
-  }
-
-  @Override
-  public Optional<Map<TopicPartition, Set<TopicPartition>>> validate(
-      ClusterInfo clusterInfo, ClusterBean clusterBean) {
-    var partitionCost = partitionCost(clusterInfo, clusterBean);
-    // impl detail to return feedback
-
-    // temporarily use `Optional.empty()` instead of a return value
-    return Optional.empty();
   }
 
   @Override
