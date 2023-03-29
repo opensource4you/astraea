@@ -33,11 +33,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
+import org.astraea.common.producer.Serializer;
 
 public interface MetricsFetcher extends AutoCloseable {
 
@@ -62,6 +67,41 @@ public interface MetricsFetcher extends AutoCloseable {
 
     static Sender local() {
       return LocalSenderReceiver.of();
+    }
+
+    static Sender topic(String bootstrapServer) {
+      var producer =
+          Producer.builder()
+              .bootstrapServers(bootstrapServer)
+              .keySerializer(Serializer.INTEGER)
+              .valueSerializer(Serializer.STRING)
+              .build();
+      String METRIC_TOPIC = "__metrics";
+      return new Sender() {
+        @Override
+        public CompletionStage<Void> send(int id, Collection<BeanObject> beans) {
+          var records =
+              beans.stream()
+                  .map(
+                      bean ->
+                          Record.builder()
+                              .topic(METRIC_TOPIC)
+                              .key(id)
+                              .value(bean.toString())
+                              .build())
+                  .collect(Collectors.toUnmodifiableList());
+          return FutureUtils.sequence(
+                  producer.send(records).stream()
+                      .map(CompletionStage::toCompletableFuture)
+                      .collect(Collectors.toUnmodifiableList()))
+              .thenAccept(ignored -> {});
+        }
+
+        @Override
+        public void close() {
+          producer.close();
+        }
+      };
     }
 
     CompletionStage<Void> send(int id, Collection<BeanObject> beans);
