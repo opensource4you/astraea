@@ -140,12 +140,12 @@ public class MetricsFetcherTest {
       try (var admin = Admin.of(SERVICE.bootstrapServers())) {
         var topics = admin.topicNames(false).toCompletableFuture().get();
         Assertions.assertEquals(1, topics.size());
-        Assertions.assertEquals("__1_broker_metrics", topics.stream().findAny().get());
+        Assertions.assertEquals("__metrics", topics.stream().findAny().get());
       }
 
       // Test record sent
       try (var consumer =
-          Consumer.forTopics(Set.of("__1_broker_metrics"))
+          Consumer.forTopics(Set.of("__metrics"))
               .bootstrapServers(SERVICE.bootstrapServers())
               .valueDeserializer(Deserializer.STRING)
               .seek(SeekStrategy.DISTANCE_FROM_BEGINNING, 0)

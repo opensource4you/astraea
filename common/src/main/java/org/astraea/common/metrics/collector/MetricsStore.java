@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -30,13 +31,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
+import org.astraea.common.consumer.Record;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
@@ -54,34 +55,30 @@ public interface MetricsStore extends AutoCloseable {
   void close();
 
   interface Receiver extends AutoCloseable {
-    Pattern INTERNAL_TOPIC_PATTERN = Pattern.compile("__(?<brokerId>[0-9]+)_broker_metrics");
 
     static MetricsFetcher.Sender local() {
       return LocalSenderReceiver.of();
     }
 
     static Receiver topic(String bootstrapServer) {
+      String METRIC_TOPIC = "__metrics";
       var consumer =
-          Consumer.forTopics(INTERNAL_TOPIC_PATTERN)
+          Consumer.forTopics(Set.of(METRIC_TOPIC))
               .bootstrapServers(bootstrapServer)
               .config(
                   ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+              .keyDeserializer(Deserializer.INTEGER)
               .valueDeserializer(Deserializer.BEAN_OBJECT)
               .build();
       return new Receiver() {
         @Override
         public Map<Integer, Collection<BeanObject>> receive(Duration timeout) {
           return consumer.poll(timeout).stream()
-              .filter(r -> r.value() != null)
-              // Parsing topic name
-              .map(r -> Map.entry(INTERNAL_TOPIC_PATTERN.matcher(r.topic()), r.value()))
-              .filter(matcherBean -> matcherBean.getKey().matches())
               .collect(
                   Collectors.groupingBy(
-                      matcherBean -> Integer.parseInt(matcherBean.getKey().group("brokerId")),
-                      Collectors.mapping(
-                          Map.Entry::getValue, Collectors.toCollection(ArrayList::new))));
+                      Record::key,
+                      Collectors.mapping(Record::value, Collectors.toCollection(ArrayList::new))));
         }
 
         @Override
