@@ -16,7 +16,6 @@
  */
 package org.astraea.app.web;
 
-import java.util.Optional;
 import org.astraea.app.argument.Argument;
 import org.astraea.common.admin.Admin;
 import org.junit.jupiter.api.Assertions;
@@ -39,7 +38,7 @@ public class WebServiceTest {
   @Timeout(10)
   @Test
   void testClose() {
-    var web = new WebService(Mockito.mock(Admin.class), 0, id -> Optional.empty());
+    var web = new WebService(Mockito.mock(Admin.class), 0, id -> -1);
     web.close();
   }
 }
