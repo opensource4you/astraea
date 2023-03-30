@@ -55,17 +55,18 @@ public final class ClusterMetrics {
       return EnumInfo.ignoreCaseEnum(ClusterMetrics.Partition.class, alias);
     }
 
+    public BeanQuery query() {
+      return BeanQuery.builder()
+          .domainName(DOMAIN_NAME)
+          .property("type", "Partition")
+          .property("topic", "*")
+          .property("partition", "*")
+          .property("name", metricName())
+          .build();
+    }
+
     public List<PartitionMetric> fetch(MBeanClient client) {
-      return client
-          .beans(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", "Partition")
-                  .property("topic", "*")
-                  .property("partition", "*")
-                  .property("name", metricName())
-                  .build())
-          .stream()
+      return client.beans(query()).stream()
           .map(PartitionMetric::new)
           .collect(Collectors.toUnmodifiableList());
     }

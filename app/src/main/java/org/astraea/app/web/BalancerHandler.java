@@ -50,7 +50,7 @@ import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricSensor;
-import org.astraea.common.metrics.collector.MetricsStore;
+import org.astraea.common.metrics.collector.MetricStore;
 
 class BalancerHandler implements Handler, AutoCloseable {
 
@@ -63,7 +63,7 @@ class BalancerHandler implements Handler, AutoCloseable {
 
   private final Collection<MetricSensor> sensors = new ConcurrentLinkedQueue<>();
 
-  private final MetricsStore metricsStore;
+  private final MetricStore metricStore;
 
   BalancerHandler(Admin admin, Function<Integer, Integer> jmxPortMapper) {
     this.admin = admin;
@@ -79,9 +79,9 @@ class BalancerHandler implements Handler, AutoCloseable {
                                 Collectors.toUnmodifiableMap(
                                     NodeInfo::id,
                                     b -> MBeanClient.jndi(b.host(), jmxPortMapper.apply(b.id())))));
-    this.metricsStore =
-        MetricsStore.builder()
-            .beanExpiration(Duration.ofSeconds(90))
+    this.metricStore =
+        MetricStore.builder()
+            .beanExpiration(Duration.ofSeconds(1))
             .localReceiver(clientSupplier)
             .sensorsSupplier(
                 () ->
@@ -126,7 +126,7 @@ class BalancerHandler implements Handler, AutoCloseable {
               .setTaskId(taskId)
               .setBalancer(balancer)
               .setAlgorithmConfig(request.algorithmConfig)
-              .setClusterBeanSource(metricsStore::clusterBean)
+              .setClusterBeanSource(metricStore::clusterBean)
               .checkNoOngoingMigration(true)
               .generate();
       task.whenComplete(
@@ -517,6 +517,6 @@ class BalancerHandler implements Handler, AutoCloseable {
   // handle manually
   @Override
   public void close() {
-    metricsStore.close();
+    metricStore.close();
   }
 }

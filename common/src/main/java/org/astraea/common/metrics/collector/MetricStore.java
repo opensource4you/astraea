@@ -17,6 +17,7 @@
 package org.astraea.common.metrics.collector;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -35,12 +36,16 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
+import org.astraea.common.consumer.Deserializer;
+import org.astraea.common.consumer.Record;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
-public interface MetricsStore extends AutoCloseable {
+public interface MetricStore extends AutoCloseable {
 
   static Builder builder() {
     return new Builder();
@@ -67,8 +72,36 @@ public interface MetricsStore extends AutoCloseable {
 
   interface Receiver extends AutoCloseable {
 
-    static MetricsFetcher.Sender local() {
+    static MetricFetcher.Sender local() {
       return LocalSenderReceiver.of();
+    }
+
+    static Receiver topic(String bootstrapServer) {
+      String METRIC_TOPIC = "__metrics";
+      var consumer =
+          Consumer.forTopics(Set.of(METRIC_TOPIC))
+              .bootstrapServers(bootstrapServer)
+              .config(
+                  ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                  ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+              .keyDeserializer(Deserializer.INTEGER)
+              .valueDeserializer(Deserializer.BEAN_OBJECT)
+              .build();
+      return new Receiver() {
+        @Override
+        public Map<Integer, Collection<BeanObject>> receive(Duration timeout) {
+          return consumer.poll(timeout).stream()
+              .collect(
+                  Collectors.groupingBy(
+                      Record::key,
+                      Collectors.mapping(Record::value, Collectors.toCollection(ArrayList::new))));
+        }
+
+        @Override
+        public void close() {
+          consumer.close();
+        }
+      };
     }
 
     Map<Integer, Collection<BeanObject>> receive(Duration timeout);
@@ -111,7 +144,7 @@ public interface MetricsStore extends AutoCloseable {
     public Builder localReceiver(
         Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier) {
       var cache = LocalSenderReceiver.of();
-      var fetcher = MetricsFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
+      var fetcher = MetricFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
       return receiver(
           new Receiver() {
             @Override
@@ -126,20 +159,24 @@ public interface MetricsStore extends AutoCloseable {
           });
     }
 
+    public Builder topicReceiver(String bootstrapServer) {
+      return receiver(Receiver.topic(bootstrapServer));
+    }
+
     public Builder beanExpiration(Duration beanExpiration) {
       this.beanExpiration = beanExpiration;
       return this;
     }
 
-    public MetricsStore build() {
-      return new MetricsStoreImpl(
+    public MetricStore build() {
+      return new MetricStoreImpl(
           Objects.requireNonNull(sensorsSupplier, "sensorsSupplier can't be null"),
           Objects.requireNonNull(receiver, "receiver can't be null"),
           Objects.requireNonNull(beanExpiration, "beanExpiration can't be null"));
     }
   }
 
-  class MetricsStoreImpl implements MetricsStore {
+  class MetricStoreImpl implements MetricStore {
 
     private final Map<Integer, Collection<HasBeanObject>> beans = new ConcurrentHashMap<>();
 
@@ -157,7 +194,7 @@ public interface MetricsStore extends AutoCloseable {
 
     private volatile Map<MetricSensor, BiConsumer<Integer, Exception>> lastSensors = Map.of();
 
-    private MetricsStoreImpl(
+    private MetricStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier,
         Receiver receiver,
         Duration beanExpiration) {

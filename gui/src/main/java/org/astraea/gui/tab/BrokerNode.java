@@ -126,7 +126,7 @@ public class BrokerNode {
         "request",
         client ->
             Arrays.stream(NetworkMetrics.Request.values())
-                .flatMap(m -> tryToFetch(() -> m.totalTimeMs(client)).stream())
+                .flatMap(m -> tryToFetch(() -> m.fetch(client)).stream())
                 .collect(Collectors.toMap(m -> m.type().name(), HasStatistics::stdDev))),
     NETWORK(
         "network",

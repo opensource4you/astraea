@@ -16,24 +16,26 @@
  */
 package org.astraea.common.metrics.platform;
 
+import java.util.Collection;
+import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 
 public final class HostMetrics {
+  public static final BeanQuery OPERATING_SYSTEM_QUERY =
+      BeanQuery.builder().domainName("java.lang").property("type", "OperatingSystem").build();
+  public static final BeanQuery JVM_MEMORY_QUERY =
+      BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
+
+  public static final Collection<BeanQuery> QUERIES =
+      Utils.constants(HostMetrics.class, name -> name.endsWith("QUERY"), BeanQuery.class);
 
   public static OperatingSystemInfo operatingSystem(MBeanClient mBeanClient) {
-    return new OperatingSystemInfo(
-        mBeanClient.bean(
-            BeanQuery.builder()
-                .domainName("java.lang")
-                .property("type", "OperatingSystem")
-                .build()));
+    return new OperatingSystemInfo(mBeanClient.bean(OPERATING_SYSTEM_QUERY));
   }
 
   public static JvmMemory jvmMemory(MBeanClient mBeanClient) {
-    return new JvmMemory(
-        mBeanClient.bean(
-            BeanQuery.builder().domainName("java.lang").property("type", "Memory").build()));
+    return new JvmMemory(mBeanClient.bean(JVM_MEMORY_QUERY));
   }
 
   private HostMetrics() {}
