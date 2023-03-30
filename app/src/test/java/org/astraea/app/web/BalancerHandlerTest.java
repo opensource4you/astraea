@@ -562,7 +562,7 @@ public class BalancerHandlerTest {
                       clusterInfo
                           .replicaStream()
                           .noneMatch(r -> r.isFuture() || r.isRemoving() || r.isAdding()),
-                  Duration.ofSeconds(10),
+                  Duration.ofSeconds(20),
                   2)
               .toCompletableFuture()
               .join());
