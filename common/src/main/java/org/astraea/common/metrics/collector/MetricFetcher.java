@@ -60,7 +60,6 @@ public interface MetricFetcher extends AutoCloseable {
   Collection<BeanQuery> QUERIES =
       Stream.of(
               LogMetrics.QUERIES.stream(),
-              LogMetrics.QUERIES.stream(),
               ServerMetrics.QUERIES.stream(),
               NetworkMetrics.QUERIES.stream(),
               ClusterMetrics.QUERIES.stream(),
