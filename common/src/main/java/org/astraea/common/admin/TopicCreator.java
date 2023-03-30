@@ -16,6 +16,7 @@
  */
 package org.astraea.common.admin;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
 
@@ -26,6 +27,12 @@ public interface TopicCreator {
   TopicCreator numberOfPartitions(int numberOfPartitions);
 
   TopicCreator numberOfReplicas(short numberOfReplicas);
+
+  /**
+   * @param replicasAssignments map from partition id to replica ids (i.e. broker ids)
+   * @return this creator
+   */
+  TopicCreator replicasAssignments(Map<Integer, List<Integer>> replicasAssignments);
 
   /**
    * @param configs used to create new topic
