@@ -92,8 +92,13 @@ public final class ServerMetrics {
       return metricName;
     }
 
-    public Gauge fetch(MBeanClient mBeanClient) {
-      return new Gauge(mBeanClient.bean(ALL.get(this)));
+    public HasBeanObject fetch(MBeanClient mBeanClient) {
+      switch (this) {
+        case CLUSTER_ID:
+          return new ClusterIdGauge(mBeanClient.bean(ALL.get(this)));
+        default:
+          return new Gauge(mBeanClient.bean(ALL.get(this)));
+      }
     }
 
     public static KafkaServer ofAlias(String alias) {
