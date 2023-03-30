@@ -72,11 +72,19 @@ public class MetricFetcherTest {
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(Set.of(-1000), fetcher.identities());
       Assertions.assertNotEquals(0, queue.size());
-      queue.forEach((id, es) -> Assertions.assertEquals(beans, es));
+      queue.forEach(
+          (id, es) ->
+              Assertions.assertEquals(
+                  beans, es.stream().distinct().collect(Collectors.toUnmodifiableList())));
 
       var latest = fetcher.latest();
       Assertions.assertEquals(1, latest.size());
-      latest.values().forEach(bs -> Assertions.assertEquals(beans, bs));
+      latest
+          .values()
+          .forEach(
+              bs ->
+                  Assertions.assertEquals(
+                      beans, bs.stream().distinct().collect(Collectors.toUnmodifiableList())));
     }
     // make sure client get closed
     Mockito.verify(client, Mockito.times(1)).close();

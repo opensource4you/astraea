@@ -16,10 +16,13 @@
  */
 package org.astraea.common.metrics.broker;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
@@ -30,9 +33,27 @@ public final class LogMetrics {
   public static final String DOMAIN_NAME = "kafka.log";
   public static final String LOG_TYPE = "Log";
 
+  public static final Collection<BeanQuery> QUERIES =
+      Stream.of(LogCleanerManager.ALL.values().stream(), Log.ALL.values().stream())
+          .flatMap(f -> f)
+          .collect(Collectors.toUnmodifiableList());
+
   public enum LogCleanerManager implements EnumInfo {
     UNCLEANABLE_BYTES("uncleanable-bytes"),
     UNCLEANABLE_PARTITIONS_COUNT("uncleanable-partitions-count");
+
+    private static final Map<LogCleanerManager, BeanQuery> ALL =
+        Arrays.stream(LogCleanerManager.values())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    m ->
+                        BeanQuery.builder()
+                            .domainName(DOMAIN_NAME)
+                            .property("type", "LogCleanerManager")
+                            .property("logDirectory", "*")
+                            .property("name", m.metricName)
+                            .build()));
 
     public static LogCleanerManager ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(LogCleanerManager.class, alias);
@@ -58,17 +79,8 @@ public final class LogMetrics {
       return alias();
     }
 
-    public BeanQuery query() {
-      return BeanQuery.builder()
-          .domainName(DOMAIN_NAME)
-          .property("type", "LogCleanerManager")
-          .property("logDirectory", "*")
-          .property("name", metricName)
-          .build();
-    }
-
     public List<Gauge> fetch(MBeanClient mBeanClient) {
-      return mBeanClient.beans(query()).stream()
+      return mBeanClient.beans(ALL.get(this)).stream()
           .map(Gauge::new)
           .collect(Collectors.toUnmodifiableList());
     }
@@ -108,6 +120,28 @@ public final class LogMetrics {
     NUM_LOG_SEGMENTS("NumLogSegments"),
     SIZE("Size");
 
+    private static final Map<Log, BeanQuery> ALL =
+        Arrays.stream(Log.values())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    m ->
+                        BeanQuery.builder()
+                            .domainName(DOMAIN_NAME)
+                            .property("type", LOG_TYPE)
+                            .property("topic", "*")
+                            .property("partition", "*")
+                            .property("name", m.metricName)
+                            // Due to a Kafka bug. This log metrics might come with an `is-future`
+                            // property
+                            // with it.
+                            // And the property is never removed even if the folder migration is
+                            // done.
+                            // We use the BeanQuery property list pattern to work around this issue.
+                            // See https://github.com/apache/kafka/pull/12979
+                            .usePropertyListPattern()
+                            .build()));
+
     public static Log ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(Log.class, alias);
     }
@@ -140,24 +174,8 @@ public final class LogMetrics {
           .collect(Collectors.toUnmodifiableList());
     }
 
-    public BeanQuery query() {
-      return BeanQuery.builder()
-          .domainName(DOMAIN_NAME)
-          .property("type", LOG_TYPE)
-          .property("topic", "*")
-          .property("partition", "*")
-          .property("name", metricName)
-          // Due to a Kafka bug. This log metrics might come with an `is-future` property
-          // with it.
-          // And the property is never removed even if the folder migration is done.
-          // We use the BeanQuery property list pattern to work around this issue.
-          // See https://github.com/apache/kafka/pull/12979
-          .usePropertyListPattern()
-          .build();
-    }
-
     public List<Gauge> fetch(MBeanClient mBeanClient) {
-      return mBeanClient.beans(query()).stream()
+      return mBeanClient.beans(ALL.get(this)).stream()
           .map(Gauge::new)
           .collect(Collectors.toUnmodifiableList());
     }

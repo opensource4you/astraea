@@ -35,16 +35,42 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.broker.ClusterMetrics;
+import org.astraea.common.metrics.broker.ControllerMetrics;
+import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.broker.NetworkMetrics;
+import org.astraea.common.metrics.broker.ServerMetrics;
+import org.astraea.common.metrics.client.admin.AdminMetrics;
+import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
+import org.astraea.common.metrics.client.producer.ProducerMetrics;
+import org.astraea.common.metrics.connector.ConnectorMetrics;
+import org.astraea.common.metrics.platform.HostMetrics;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
 
 public interface MetricFetcher extends AutoCloseable {
+
+  Collection<BeanQuery> QUERIES =
+      Stream.of(
+              LogMetrics.QUERIES.stream(),
+              ServerMetrics.QUERIES.stream(),
+              NetworkMetrics.QUERIES.stream(),
+              ClusterMetrics.QUERIES.stream(),
+              ControllerMetrics.QUERIES.stream(),
+              AdminMetrics.QUERIES.stream(),
+              ConsumerMetrics.QUERIES.stream(),
+              ProducerMetrics.QUERIES.stream(),
+              ConnectorMetrics.QUERIES.stream(),
+              HostMetrics.QUERIES.stream())
+          .flatMap(s -> s)
+          .collect(Collectors.toUnmodifiableList());
 
   static Builder builder() {
     return new Builder();
@@ -246,7 +272,10 @@ public interface MetricFetcher extends AutoCloseable {
       lock.readLock().lock();
       Collection<BeanObject> beans;
       try {
-        beans = clients.get(identity.id).beans(BeanQuery.all(), e -> {});
+        beans =
+            QUERIES.stream()
+                .flatMap(q -> clients.get(identity.id).beans(q, e -> {}).stream())
+                .collect(Collectors.toUnmodifiableList());
       } finally {
         lock.readLock().unlock();
       }
