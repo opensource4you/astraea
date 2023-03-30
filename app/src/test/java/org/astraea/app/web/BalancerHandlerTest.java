@@ -147,7 +147,7 @@ public class BalancerHandlerTest {
           .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
       var sizeMigration =
           report.migrationCosts.stream()
-              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .filter(x -> x.name.equals(BalancerHandler.TO_SYNC_BYTES))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
@@ -175,7 +175,7 @@ public class BalancerHandlerTest {
           "Only allowed topics been altered");
       var sizeMigration =
           report.migrationCosts.stream()
-              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .filter(x -> x.name.equals(BalancerHandler.TO_SYNC_BYTES))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
@@ -357,16 +357,13 @@ public class BalancerHandlerTest {
               sizeLimit);
       Assertions.assertEquals(2, request.moveCosts.size());
       var report = submitPlanGeneration(handler, request).plan;
-      Assertions.assertEquals(4, report.migrationCosts.size());
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
-              case BalancerHandler.MOVED_SIZE:
+              case BalancerHandler.TO_SYNC_BYTES:
+              case BalancerHandler.TO_FETCH_BYTES:
                 Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream()
-                            .map(Math::abs)
-                            .mapToLong(Double::intValue)
-                            .sum()
+                    migrationCost.brokerCosts.values().stream().mapToLong(Double::intValue).sum()
                         <= DataSize.of(sizeLimit).bytes());
                 break;
               case BalancerHandler.CHANGED_LEADERS:
