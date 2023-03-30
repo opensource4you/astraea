@@ -81,7 +81,7 @@ class BalancerHandler implements Handler, AutoCloseable {
                                     b -> MBeanClient.jndi(b.host(), jmxPortMapper.apply(b.id())))));
     this.metricStore =
         MetricStore.builder()
-            .beanExpiration(Duration.ofSeconds(1))
+            .beanExpiration(Duration.ofSeconds(90))
             .localReceiver(clientSupplier)
             .sensorsSupplier(
                 () ->
