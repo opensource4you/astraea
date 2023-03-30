@@ -54,17 +54,18 @@ public class BackupTest {
           .run()
           .toCompletableFuture()
           .join();
-      Utils.sleep(Duration.ofSeconds(1));
+      Utils.sleep(Duration.ofSeconds(2));
 
       var clusterInfo = admin.clusterInfo(Set.of(topic1, topic2)).toCompletableFuture().join();
       admin.deleteTopics(Set.of(topic1, topic2)).toCompletableFuture().join();
-      Utils.sleep(Duration.ofSeconds(1));
+      Utils.sleep(Duration.ofSeconds(2));
 
       var backup = new Backup();
       backup.restoreDistribution(clusterInfo, SERVICE.bootstrapServers());
+      Utils.sleep(Duration.ofSeconds(2));
       var restoredClusterInfo =
           admin.clusterInfo(Set.of(topic1, topic2)).toCompletableFuture().join();
-      Utils.sleep(Duration.ofSeconds(1));
+      Utils.sleep(Duration.ofSeconds(2));
 
       Assertions.assertEquals(clusterInfo.replicas(), restoredClusterInfo.replicas());
     }
