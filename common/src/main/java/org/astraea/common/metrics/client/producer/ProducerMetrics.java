@@ -19,6 +19,7 @@ package org.astraea.common.metrics.client.producer;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.astraea.common.Utils;
 import org.astraea.common.metrics.AppInfo;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
@@ -26,15 +27,41 @@ import org.astraea.common.metrics.client.HasNodeMetrics;
 
 public final class ProducerMetrics {
 
+  public static final BeanQuery APP_INFO_QUERY =
+      BeanQuery.builder()
+          .domainName("kafka.producer")
+          .property("type", "app-info")
+          .property("client-id", "*")
+          .build();
+
+  public static final BeanQuery NODE_QUERY =
+      BeanQuery.builder()
+          .domainName("kafka.producer")
+          .property("type", "producer-node-metrics")
+          .property("node-id", "*")
+          .property("client-id", "*")
+          .build();
+
+  public static final BeanQuery TOPIC_QUERY =
+      BeanQuery.builder()
+          .domainName("kafka.producer")
+          .property("type", "producer-topic-metrics")
+          .property("client-id", "*")
+          .property("topic", "*")
+          .build();
+
+  public static final BeanQuery PRODUCER_QUERY =
+      BeanQuery.builder()
+          .domainName("kafka.producer")
+          .property("type", "producer-metrics")
+          .property("client-id", "*")
+          .build();
+
+  public static final Collection<BeanQuery> QUERIES =
+      Utils.constants(ProducerMetrics.class, name -> name.endsWith("QUERY"), BeanQuery.class);
+
   public static List<AppInfo> appInfo(MBeanClient client) {
-    return client
-        .beans(
-            BeanQuery.builder()
-                .domainName("kafka.producer")
-                .property("type", "app-info")
-                .property("client-id", "*")
-                .build())
-        .stream()
+    return client.beans(APP_INFO_QUERY).stream()
         .map(b -> (AppInfo) () -> b)
         .collect(Collectors.toList());
   }
@@ -45,16 +72,8 @@ public final class ProducerMetrics {
    * @param mBeanClient to query metrics
    * @return key is broker id, and value is associated to broker metrics recorded by all producers
    */
-  public static Collection<HasNodeMetrics> nodes(MBeanClient mBeanClient) {
-    return mBeanClient
-        .beans(
-            BeanQuery.builder()
-                .domainName("kafka.producer")
-                .property("type", "producer-node-metrics")
-                .property("node-id", "*")
-                .property("client-id", "*")
-                .build())
-        .stream()
+  public static Collection<HasNodeMetrics> node(MBeanClient mBeanClient) {
+    return mBeanClient.beans(NODE_QUERY).stream()
         .map(b -> (HasNodeMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
@@ -65,29 +84,14 @@ public final class ProducerMetrics {
    * @param mBeanClient to query beans
    * @return key is client id used by producer, and value is topic metrics traced by each producer
    */
-  public static Collection<HasProducerTopicMetrics> topics(MBeanClient mBeanClient) {
-    return mBeanClient
-        .beans(
-            BeanQuery.builder()
-                .domainName("kafka.producer")
-                .property("type", "producer-topic-metrics")
-                .property("client-id", "*")
-                .property("topic", "*")
-                .build())
-        .stream()
+  public static Collection<HasProducerTopicMetrics> topic(MBeanClient mBeanClient) {
+    return mBeanClient.beans(TOPIC_QUERY).stream()
         .map(b -> (HasProducerTopicMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public static Collection<HasProducerMetrics> of(MBeanClient mBeanClient) {
-    return mBeanClient
-        .beans(
-            BeanQuery.builder()
-                .domainName("kafka.producer")
-                .property("type", "producer-metrics")
-                .property("client-id", "*")
-                .build())
-        .stream()
+  public static Collection<HasProducerMetrics> producer(MBeanClient mBeanClient) {
+    return mBeanClient.beans(PRODUCER_QUERY).stream()
         .map(b -> (HasProducerMetrics) () -> b)
         .collect(Collectors.toUnmodifiableList());
   }

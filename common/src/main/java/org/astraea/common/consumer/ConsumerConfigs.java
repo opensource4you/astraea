@@ -67,7 +67,8 @@ public final class ConsumerConfigs {
   public static final String ALLOW_AUTO_CREATE_TOPICS_CONFIG = "allow.auto.create.topics";
 
   public static final Set<String> ALL_CONFIGS =
-      new TreeSet<>(Utils.constants(ConsumerConfigs.class, name -> name.endsWith("CONFIG")));
+      new TreeSet<>(
+          Utils.constants(ConsumerConfigs.class, name -> name.endsWith("CONFIG"), String.class));
 
   // ---------------------------------[Values]---------------------------------//
   public static final String AUTO_OFFSET_RESET_LATEST = "latest";

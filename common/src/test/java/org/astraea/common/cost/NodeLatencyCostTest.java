@@ -90,7 +90,7 @@ public class NodeLatencyCostTest {
                           ClusterBean.of(
                               Map.of(
                                   -1,
-                                  ProducerMetrics.nodes(MBeanClient.local()).stream()
+                                  ProducerMetrics.node(MBeanClient.local()).stream()
                                       .map(b -> (HasBeanObject) b)
                                       .collect(Collectors.toUnmodifiableList()))))
                       .value()

@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 import org.apache.kafka.common.TopicPartition;
@@ -93,15 +94,17 @@ public class AssignorTest {
     var randomAssignor = new RandomAssignor();
     randomAssignor.configure(
         Map.of(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG, SERVICE.bootstrapServers()));
-    Assertions.assertEquals(Optional.empty(), randomAssignor.jmxPortGetter.apply(0));
+    Assertions.assertThrows(
+        NoSuchElementException.class, () -> randomAssignor.jmxPortGetter.apply(0));
     randomAssignor.configure(
         Map.of(
+            "jmx.port",
+            "8000",
             "broker.1000.jmx.port",
             "12345",
             ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
             SERVICE.bootstrapServers()));
-    Assertions.assertEquals(Optional.of(12345), randomAssignor.jmxPortGetter.apply(1000));
-    Assertions.assertNotEquals(Optional.of(12345), randomAssignor.jmxPortGetter.apply(0));
+    Assertions.assertEquals(12345, randomAssignor.jmxPortGetter.apply(1000));
 
     var random2 = new RandomAssignor();
     random2.configure(
@@ -112,10 +115,10 @@ public class AssignorTest {
             "8888",
             ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
             SERVICE.bootstrapServers()));
-    Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(0));
-    Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(1));
-    Assertions.assertEquals(Optional.of(8000), random2.jmxPortGetter.apply(2));
-    Assertions.assertEquals(Optional.of(8888), random2.jmxPortGetter.apply(1002));
+    Assertions.assertEquals(8000, random2.jmxPortGetter.apply(0));
+    Assertions.assertEquals(8000, random2.jmxPortGetter.apply(1));
+    Assertions.assertEquals(8000, random2.jmxPortGetter.apply(2));
+    Assertions.assertEquals(8888, random2.jmxPortGetter.apply(1002));
   }
 
   private static ByteBuffer convert(String value) {
@@ -131,6 +134,8 @@ public class AssignorTest {
             "8000",
             "broker.1001.jmx.port",
             "8100",
+            "jmx.port",
+            SERVICE.jmxServiceURL().getPort(),
             ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
             SERVICE.bootstrapServers()));
     var nodes =

@@ -64,7 +64,7 @@ public class NodeMetricsCostTest {
                   .toCompletableFuture()
                   .join(),
               ClusterBean.of(
-                  ProducerMetrics.nodes(MBeanClient.local()).stream()
+                  ProducerMetrics.node(MBeanClient.local()).stream()
                       .collect(Collectors.groupingBy(HasNodeMetrics::brokerId))));
       Assertions.assertEquals(3, cost.value().size());
       // only 1 node has latency metrics, so all costs are equal
@@ -86,7 +86,7 @@ public class NodeMetricsCostTest {
                   .toCompletableFuture()
                   .join(),
               ClusterBean.of(
-                  ProducerMetrics.nodes(MBeanClient.local()).stream()
+                  ProducerMetrics.node(MBeanClient.local()).stream()
                       .collect(Collectors.groupingBy(HasNodeMetrics::brokerId))));
       Assertions.assertEquals(3, cost2.value().size());
       // only 2 node has latency metrics. The other cost is equal to "max cost"

@@ -41,7 +41,7 @@ public class AdminMetricsTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
-      var metrics = AdminMetrics.nodes(MBeanClient.local());
+      var metrics = AdminMetrics.node(MBeanClient.local());
       Assertions.assertNotEquals(1, metrics.size());
       Assertions.assertTrue(
           metrics.stream()
@@ -73,7 +73,7 @@ public class AdminMetricsTest {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       var metrics =
-          AdminMetrics.of(MBeanClient.local()).stream()
+          AdminMetrics.admin(MBeanClient.local()).stream()
               .filter(m -> m.clientId().equals(admin.clientId()))
               .findFirst()
               .get();

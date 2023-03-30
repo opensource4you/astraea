@@ -17,13 +17,16 @@
 package org.astraea.common.metrics.collector;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -33,12 +36,16 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.consumer.Consumer;
+import org.astraea.common.consumer.ConsumerConfigs;
+import org.astraea.common.consumer.Deserializer;
+import org.astraea.common.consumer.Record;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 
-public interface MetricsStore extends AutoCloseable {
+public interface MetricStore extends AutoCloseable {
 
   static Builder builder() {
     return new Builder();
@@ -55,13 +62,46 @@ public interface MetricsStore extends AutoCloseable {
    */
   Set<Integer> identities();
 
+  /**
+   * @return the last used sensors
+   */
+  Map<MetricSensor, BiConsumer<Integer, Exception>> sensors();
+
   @Override
   void close();
 
   interface Receiver extends AutoCloseable {
 
-    static MetricsFetcher.Sender local() {
+    static MetricFetcher.Sender local() {
       return LocalSenderReceiver.of();
+    }
+
+    static Receiver topic(String bootstrapServer) {
+      String METRIC_TOPIC = "__metrics";
+      var consumer =
+          Consumer.forTopics(Set.of(METRIC_TOPIC))
+              .bootstrapServers(bootstrapServer)
+              .config(
+                  ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                  ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+              .keyDeserializer(Deserializer.INTEGER)
+              .valueDeserializer(Deserializer.BEAN_OBJECT)
+              .build();
+      return new Receiver() {
+        @Override
+        public Map<Integer, Collection<BeanObject>> receive(Duration timeout) {
+          return consumer.poll(timeout).stream()
+              .collect(
+                  Collectors.groupingBy(
+                      Record::key,
+                      Collectors.mapping(Record::value, Collectors.toCollection(ArrayList::new))));
+        }
+
+        @Override
+        public void close() {
+          consumer.close();
+        }
+      };
     }
 
     Map<Integer, Collection<BeanObject>> receive(Duration timeout);
@@ -73,7 +113,7 @@ public interface MetricsStore extends AutoCloseable {
   class Builder {
 
     // default impl returns all input metrics
-    private Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier =
+    private Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier =
         () ->
             Map.of(
                 (MetricSensor)
@@ -86,9 +126,9 @@ public interface MetricsStore extends AutoCloseable {
     private Receiver receiver;
     private Duration beanExpiration = Duration.ofSeconds(10);
 
-    public Builder sensorSupplier(
-        Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier) {
-      this.sensorSupplier = sensorSupplier;
+    public Builder sensorsSupplier(
+        Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier) {
+      this.sensorsSupplier = sensorsSupplier;
       return this;
     }
 
@@ -101,9 +141,10 @@ public interface MetricsStore extends AutoCloseable {
      * Using an embedded fetcher build the receiver. The fetcher will keep fetching beans
      * background, and it pushes all beans to store internally.
      */
-    public Builder localReceiver(Supplier<Map<Integer, MBeanClient>> clientSupplier) {
+    public Builder localReceiver(
+        Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier) {
       var cache = LocalSenderReceiver.of();
-      var fetcher = MetricsFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
+      var fetcher = MetricFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
       return receiver(
           new Receiver() {
             @Override
@@ -118,20 +159,24 @@ public interface MetricsStore extends AutoCloseable {
           });
     }
 
+    public Builder topicReceiver(String bootstrapServer) {
+      return receiver(Receiver.topic(bootstrapServer));
+    }
+
     public Builder beanExpiration(Duration beanExpiration) {
       this.beanExpiration = beanExpiration;
       return this;
     }
 
-    public MetricsStore build() {
-      return new MetricsStoreImpl(
-          Objects.requireNonNull(sensorSupplier, "sensorSupplier can't be null"),
+    public MetricStore build() {
+      return new MetricStoreImpl(
+          Objects.requireNonNull(sensorsSupplier, "sensorsSupplier can't be null"),
           Objects.requireNonNull(receiver, "receiver can't be null"),
           Objects.requireNonNull(beanExpiration, "beanExpiration can't be null"));
     }
   }
 
-  class MetricsStoreImpl implements MetricsStore {
+  class MetricStoreImpl implements MetricStore {
 
     private final Map<Integer, Collection<HasBeanObject>> beans = new ConcurrentHashMap<>();
 
@@ -142,13 +187,15 @@ public interface MetricsStore extends AutoCloseable {
     private final ExecutorService executor;
 
     // cache the latest cluster to be shared between all threads.
-    private volatile ClusterBean latest = ClusterBean.EMPTY;
+    private volatile ClusterBean lastClusterBean = ClusterBean.EMPTY;
 
     // trace the identities of returned metrics
-    private volatile Set<Integer> identities = Set.of();
+    private final Set<Integer> identities = new ConcurrentSkipListSet<>();
 
-    private MetricsStoreImpl(
-        Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorSupplier,
+    private volatile Map<MetricSensor, BiConsumer<Integer, Exception>> lastSensors = Map.of();
+
+    private MetricStoreImpl(
+        Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier,
         Receiver receiver,
         Duration beanExpiration) {
       this.receiver = receiver;
@@ -178,23 +225,22 @@ public interface MetricsStore extends AutoCloseable {
             while (!closed.get()) {
               try {
                 var allBeans = receiver.receive(Duration.ofSeconds(3));
-                identities = allBeans.keySet();
+                identities.addAll(allBeans.keySet());
+                lastSensors = sensorsSupplier.get();
                 allBeans.forEach(
                     (id, bs) -> {
                       var client = MBeanClient.of(bs);
                       var clusterBean = clusterBean();
-                      sensorSupplier
-                          .get()
-                          .forEach(
-                              (sensor, errorHandler) -> {
-                                try {
-                                  beans
-                                      .computeIfAbsent(id, ignored -> new ConcurrentLinkedQueue<>())
-                                      .addAll(sensor.fetch(client, clusterBean));
-                                } catch (Exception e) {
-                                  errorHandler.accept(id, e);
-                                }
-                              });
+                      lastSensors.forEach(
+                          (sensor, errorHandler) -> {
+                            try {
+                              beans
+                                  .computeIfAbsent(id, ignored -> new ConcurrentLinkedQueue<>())
+                                  .addAll(sensor.fetch(client, clusterBean));
+                            } catch (Exception e) {
+                              errorHandler.accept(id, e);
+                            }
+                          });
                     });
                 // generate new cluster bean
                 if (!allBeans.isEmpty()) updateClusterBean();
@@ -210,12 +256,17 @@ public interface MetricsStore extends AutoCloseable {
 
     @Override
     public ClusterBean clusterBean() {
-      return latest;
+      return lastClusterBean;
     }
 
     @Override
     public Set<Integer> identities() {
-      return identities;
+      return Set.copyOf(identities);
+    }
+
+    @Override
+    public Map<MetricSensor, BiConsumer<Integer, Exception>> sensors() {
+      return Map.copyOf(lastSensors);
     }
 
     @Override
@@ -227,7 +278,7 @@ public interface MetricsStore extends AutoCloseable {
     }
 
     private void updateClusterBean() {
-      latest =
+      lastClusterBean =
           ClusterBean.of(
               beans.entrySet().stream()
                   .filter(entry -> !entry.getValue().isEmpty())

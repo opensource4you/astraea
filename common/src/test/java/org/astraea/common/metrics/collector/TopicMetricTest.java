@@ -17,37 +17,43 @@
 package org.astraea.common.metrics.collector;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import org.astraea.common.Utils;
-import org.astraea.common.metrics.MBeanClient;
+import java.util.concurrent.ExecutionException;
+import org.astraea.common.admin.Admin;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-public class LocalMetricsTest {
+public class TopicMetricTest {
+  static final Service SERVICE = Service.builder().numberOfWorkers(0).build();
 
-  private static final Service SERVICE =
-      Service.builder().numberOfWorkers(1).numberOfBrokers(1).build();
+  @BeforeAll
+  static void createTopic() {
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      admin.creator().topic("__1_broker_metrics").run().toCompletableFuture().get();
+    } catch (ExecutionException | InterruptedException e) {
+      Assertions.fail("Topic creation error");
+    }
+  }
 
   @AfterAll
-  static void closeService() {
+  static void close() {
     SERVICE.close();
   }
 
   @Test
   void test() {
-    try (var store =
-        MetricStore.builder()
-            .beanExpiration(Duration.ofSeconds(1))
-            .localReceiver(() -> CompletableFuture.completedStage(Map.of(-1, MBeanClient.local())))
-            .build()) {
-      Utils.sleep(Duration.ofSeconds(3));
-      Assertions.assertNotEquals(0, store.clusterBean().all().size());
-      Assertions.assertNotEquals(
-          0, store.clusterBean().all().values().stream().mapToInt(Collection::size).sum());
+    try (var receiver = MetricStore.Receiver.topic(SERVICE.bootstrapServers())) {
+      Assertions.assertEquals(Map.of(), receiver.receive(Duration.ofSeconds(1)));
+
+      try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+        var ids = admin.consumerGroupIds().toCompletableFuture().get();
+        Assertions.assertEquals(1, ids.size());
+      } catch (InterruptedException | ExecutionException e) {
+        Assertions.fail("Admin group id fetching error");
+      }
     }
   }
 }

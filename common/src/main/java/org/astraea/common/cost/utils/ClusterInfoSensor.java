@@ -40,7 +40,7 @@ public class ClusterInfoSensor implements MetricSensor {
   @Override
   public List<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean) {
     return Stream.of(
-            List.of(ServerMetrics.KafkaServer.clusterId(client)),
+            List.of(ServerMetrics.KafkaServer.CLUSTER_ID.fetch(client)),
             LogMetrics.Log.SIZE.fetch(client),
             ClusterMetrics.Partition.REPLICAS_COUNT.fetch(client))
         .flatMap(Collection::stream)

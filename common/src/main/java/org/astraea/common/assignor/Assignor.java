@@ -16,11 +16,13 @@
  */
 package org.astraea.common.assignor;
 
-import java.net.InetSocketAddress;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -38,19 +40,22 @@ import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.cost.HasPartitionCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.MetricsStore;
+import org.astraea.common.metrics.collector.MetricStore;
 import org.astraea.common.partitioner.PartitionerUtils;
 
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
 public abstract class Assignor implements ConsumerPartitionAssignor, Configurable {
   public static final String COST_PREFIX = "assignor.cost";
   public static final String JMX_PORT = "jmx.port";
-  Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
+  Function<Integer, Integer> jmxPortGetter =
+      (id) -> {
+        throw new NoSuchElementException("must define either broker.x.jmx.port or jmx.port");
+      };
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
   // TODO: metric collector may be configured by user in the future.
   // TODO: need to track the performance when using the assignor in large scale consumers, see
   // https://github.com/skiptests/astraea/pull/1162#discussion_r1036285677
-  protected MetricsStore metricStore = null;
+  protected MetricStore metricStore = null;
 
   protected Admin admin = null;
 
@@ -143,33 +148,31 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
         costFunctions.isEmpty()
             ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
             : HasPartitionCost.of(costFunctions);
-    this.jmxPortGetter = id -> Optional.ofNullable(customJMXPort.get(id)).or(() -> defaultJMXPort);
-    Supplier<Map<Integer, MBeanClient>> clientSupplier =
-        () -> {
-          var map =
-              new HashMap<>(
-                  admin.brokers().toCompletableFuture().join().stream()
-                      .flatMap(
+    this.jmxPortGetter =
+        id ->
+            Optional.ofNullable(customJMXPort.get(id))
+                .or(() -> defaultJMXPort)
+                .orElseThrow(
+                    () -> new NoSuchElementException("failed to get jmx port for broker: " + id));
+    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+        () ->
+            admin
+                .brokers()
+                .thenApply(
+                    brokers -> {
+                      var map = new HashMap<Integer, MBeanClient>();
+                      brokers.forEach(
                           b ->
-                              jmxPortGetter.apply(b.id()).stream()
-                                  .map(
-                                      port ->
-                                          Map.entry(
-                                              b.id(),
-                                              InetSocketAddress.createUnresolved(b.host(), port))))
-                      .collect(
-                          Collectors.toUnmodifiableMap(
-                              Map.Entry::getKey,
-                              e ->
-                                  MBeanClient.jndi(
-                                      e.getValue().getHostName(), e.getValue().getPort()))));
-          map.put(-1, MBeanClient.local());
-          return map;
-        };
+                              map.put(
+                                  b.id(), MBeanClient.jndi(b.host(), jmxPortGetter.apply(b.id()))));
+                      // add local client to fetch consumer metrics
+                      map.put(-1, MBeanClient.local());
+                      return Collections.unmodifiableMap(map);
+                    });
     metricStore =
-        MetricsStore.builder()
+        MetricStore.builder()
             .localReceiver(clientSupplier)
-            .sensorSupplier(
+            .sensorsSupplier(
                 () ->
                     this.costFunction
                         .metricSensor()

@@ -29,18 +29,18 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class MetricsStoreTest {
+public class MetricStoreTest {
 
   @Test
   void testReceiveAndClose() {
     var bean = new BeanObject(Utils.randomString(), Map.of(), Map.of());
     var queue = new LinkedBlockingQueue<Map<Integer, Collection<BeanObject>>>();
     queue.add(Map.of(1000, List.of(bean)));
-    var receiver = Mockito.mock(MetricsStore.Receiver.class);
+    var receiver = Mockito.mock(MetricStore.Receiver.class);
     Mockito.when(receiver.receive(Mockito.any()))
         .thenAnswer(invocation -> Utils.packException(queue::take));
     try (var store =
-        MetricsStore.builder().receiver(receiver).beanExpiration(Duration.ofSeconds(100)).build()) {
+        MetricStore.builder().receiver(receiver).beanExpiration(Duration.ofSeconds(100)).build()) {
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(1, store.clusterBean().all().size());
       Assertions.assertEquals(Set.of(1000), store.clusterBean().all().keySet());
@@ -54,7 +54,7 @@ public class MetricsStoreTest {
 
   @Test
   void testNullCheck() {
-    var builder = MetricsStore.builder();
+    var builder = MetricStore.builder();
     Assertions.assertThrows(NullPointerException.class, builder::build);
     builder.receiver(timeout -> Map.of());
     var store = builder.build();
@@ -67,7 +67,7 @@ public class MetricsStoreTest {
     queue.add(Map.of(1000, List.of(new BeanObject(Utils.randomString(), Map.of(), Map.of()))));
     var count = new AtomicInteger(0);
     try (var store =
-        MetricsStore.builder()
+        MetricStore.builder()
             .receiver(
                 timeout -> {
                   count.incrementAndGet();
