@@ -246,4 +246,15 @@ class ClusterInfoSensorTest {
     Assertions.assertEquals(1, info.nodes().size());
     Assertions.assertEquals(id, info.clusterId());
   }
+
+  @Test
+  void testPartialMetricsException() {
+    // The ClusterBean states there is a topic-0, but no relevant log size metrics found.
+    Assertions.assertThrows(
+        IllegalStateException.class,
+        () ->
+            ClusterInfoSensor.metricViewCluster(
+                ClusterBean.of(
+                    Map.of(1, List.of(MetricFactory.ofPartitionMetric("topic", 0, 0))))));
+  }
 }
