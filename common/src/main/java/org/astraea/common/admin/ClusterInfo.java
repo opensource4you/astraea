@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.DataSize;
-import org.astraea.common.cost.BrokerDiskSpaceCost.BrokerPath;
 
 public interface ClusterInfo {
   static ClusterInfo empty() {
@@ -90,94 +89,6 @@ public interface ClusterInfo {
         .parallel()
         .collect(
             Collectors.toMap(Function.identity(), n -> DataSize.Byte.of(cost.getOrDefault(n, 0L))));
-  }
-
-  static boolean brokerDiskUsageSizeOverflow(
-      ClusterInfo before, ClusterInfo after, Map<Integer, DataSize> brokerMoveCostLimit) {
-    for (var id :
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
-            .parallel()
-            .collect(Collectors.toSet())) {
-
-      var beforeSize = (Long) before.replicaStream(id).map(Replica::size).mapToLong(y -> y).sum();
-      var addedSize =
-          (Long)
-              after
-                  .replicaStream(id)
-                  .filter(r -> before.replicaStream(id).noneMatch(r::equals))
-                  .map(Replica::size)
-                  .mapToLong(y -> y)
-                  .sum();
-      if ((beforeSize + addedSize)
-          > brokerMoveCostLimit.getOrDefault(id, DataSize.Byte.of(Long.MAX_VALUE)).bytes())
-        return true;
-    }
-    return false;
-  }
-
-  static boolean brokerPathDiskUsageSizeOverflow(
-      ClusterInfo before, ClusterInfo after, Map<BrokerPath, DataSize> diskMoveCostLimit) {
-    for (var brokerPaths :
-        Stream.concat(
-                before.brokerFolders().entrySet().stream(),
-                after.brokerFolders().entrySet().stream())
-            .collect(Collectors.toSet())) {
-      for (var path : brokerPaths.getValue()) {
-        var brokerPath = BrokerPath.of(brokerPaths.getKey(), path);
-        var beforeSize =
-            before
-                .replicaStream(brokerPaths.getKey())
-                .filter(r -> r.path().equals(path))
-                .mapToLong(Replica::size)
-                .sum();
-        var addedSize =
-            (Long)
-                after
-                    .replicaStream(brokerPaths.getKey())
-                    .filter(r -> before.replicaStream(brokerPaths.getKey()).noneMatch(r::equals))
-                    .map(Replica::size)
-                    .mapToLong(y -> y)
-                    .sum();
-        if ((beforeSize + addedSize)
-            > diskMoveCostLimit.getOrDefault(brokerPath, DataSize.Byte.of(Long.MAX_VALUE)).bytes())
-          return true;
-      }
-    }
-    return false;
-  }
-
-  static boolean changedRecordSizeOverflow(
-      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate, long limit) {
-    var totalRemovedSize = 0L;
-    var totalAddedSize = 0L;
-    for (var id :
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
-            .parallel()
-            .collect(Collectors.toSet())) {
-      var removed =
-          (int)
-              before
-                  .replicaStream(id)
-                  .filter(predicate)
-                  .filter(r -> !after.replicas(r.topicPartition()).contains(r))
-                  .mapToLong(Replica::size)
-                  .sum();
-      var added =
-          (int)
-              after
-                  .replicaStream(id)
-                  .filter(predicate)
-                  .filter(r -> !before.replicas(r.topicPartition()).contains(r))
-                  .mapToLong(Replica::size)
-                  .sum();
-      totalRemovedSize = totalRemovedSize + removed;
-      totalAddedSize = totalAddedSize + added;
-      // if migrate cost overflow, leave early and return true
-      if (totalRemovedSize > limit || totalAddedSize > limit) return true;
-    }
-    return Math.max(totalRemovedSize, totalAddedSize) > limit;
   }
 
   static Map<Integer, Integer> changedReplicaNumber(

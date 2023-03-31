@@ -39,9 +39,9 @@ public class BrokerDiskSpaceCost implements HasMoveCost {
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    if (ClusterInfo.brokerDiskUsageSizeOverflow(before, after, brokerMoveCostLimit))
+    if (CostUtils.brokerDiskUsageSizeOverflow(before, after, brokerMoveCostLimit))
       return () -> true;
-    if (ClusterInfo.brokerPathDiskUsageSizeOverflow(before, after, diskMoveCostLimit))
+    if (CostUtils.brokerPathDiskUsageSizeOverflow(before, after, diskMoveCostLimit))
       return () -> true;
     return () -> false;
   }

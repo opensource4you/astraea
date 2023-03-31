@@ -58,7 +58,7 @@ public class RecordSizeCost
             .map(DataSize::bytes)
             .orElse(Long.MAX_VALUE);
     var overflow =
-        ClusterInfo.changedRecordSizeOverflow(before, after, ignored -> true, maxMigratedSize);
+        CostUtils.changedRecordSizeOverflow(before, after, ignored -> true, maxMigratedSize);
     return () -> overflow;
   }
 

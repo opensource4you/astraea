@@ -61,7 +61,7 @@ public class ReplicaLeaderSizeCost
     var maxMigratedLeaderSize =
         config.string(COST_LIMIT_KEY).map(DataSize::of).map(DataSize::bytes).orElse(Long.MAX_VALUE);
     var overflow =
-        ClusterInfo.changedRecordSizeOverflow(
+        CostUtils.changedRecordSizeOverflow(
             before, after, Replica::isLeader, maxMigratedLeaderSize);
     return () -> overflow;
   }
