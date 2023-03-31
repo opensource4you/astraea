@@ -16,9 +16,7 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -44,32 +42,43 @@ public interface HasPartitionCost extends CostFunction {
     return new HasPartitionCost() {
       @Override
       public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-        var result = new HashMap<TopicPartition, PartitionCost.CostInfo>();
-        var cost = new HashMap<TopicPartition, Double>();
-        var incompatible = new HashMap<TopicPartition, Set<TopicPartition>>();
+        var partitionCost =
+            costAndWeight.keySet().stream()
+                .map(f -> Map.entry(f, f.partitionCost(clusterInfo, clusterBean)))
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        costAndWeight.forEach(
-            (function, weight) ->
-                function
-                    .partitionCost(clusterInfo, clusterBean)
-                    .value()
-                    .forEach(
-                        (tp, info) -> {
-                          cost.compute(
-                              tp,
-                              (ignore, prevCost) ->
-                                  prevCost == null
-                                      ? info.cost() * weight
-                                      : prevCost + info.cost() * weight);
-                          var set = incompatible.getOrDefault(tp, new HashSet<>());
-                          set.addAll(info.incompatible());
-                          incompatible.put(tp, set);
-                        }));
+        return new PartitionCost() {
+          @Override
+          public Map<TopicPartition, Double> value() {
+            var aggregatedCost = new HashMap<TopicPartition, Double>();
+            partitionCost.forEach(
+                (f, cost) ->
+                    cost.value()
+                        .forEach(
+                            (tp, v) ->
+                                aggregatedCost.compute(
+                                    tp,
+                                    (ignore, previous) ->
+                                        previous == null
+                                            ? v * costAndWeight.get(f)
+                                            : v * costAndWeight.get(f) + previous)));
+            return aggregatedCost;
+          }
 
-        cost.forEach(
-            (tp, c) -> result.put(tp, new PartitionCost.CostInfo(c, incompatible.get(tp))));
-
-        return () -> Collections.unmodifiableMap(result);
+          @Override
+          public Map<TopicPartition, Set<TopicPartition>> incompatibility() {
+            var incompatibleSet =
+                partitionCost.values().stream()
+                    .map(PartitionCost::incompatibility)
+                    .flatMap(m -> m.entrySet().stream())
+                    .collect(
+                        Collectors.groupingBy(
+                            Map.Entry::getKey,
+                            Collectors.flatMapping(
+                                e -> e.getValue().stream(), Collectors.toUnmodifiableSet())));
+            return incompatibleSet;
+          }
+        };
       }
 
       @Override

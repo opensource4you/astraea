@@ -18,7 +18,6 @@ package org.astraea.common.cost;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
@@ -108,13 +107,11 @@ public class ReplicaLeaderSizeCost
                 Collectors.toMap(
                     Replica::topicPartition,
                     r ->
-                        new PartitionCost.CostInfo(
-                            (double)
-                                clusterInfo
-                                    .replicaLeader(r.topicPartition())
-                                    .map(Replica::size)
-                                    .orElseThrow(),
-                            Set.of())));
+                        (double)
+                            clusterInfo
+                                .replicaLeader(r.topicPartition())
+                                .map(Replica::size)
+                                .orElseThrow()));
     return () -> result;
   }
 

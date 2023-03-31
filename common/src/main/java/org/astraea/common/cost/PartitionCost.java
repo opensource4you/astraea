@@ -30,23 +30,12 @@ public interface PartitionCost {
   /**
    * @return Topic-partition and its cost.
    */
-  Map<TopicPartition, CostInfo> value();
+  Map<TopicPartition, Double> value();
 
-  class CostInfo {
-    private double cost;
-    private Set<TopicPartition> incompatible;
-
-    CostInfo(double cost, Set<TopicPartition> incompatiblePartitions) {
-      this.cost = cost;
-      this.incompatible = incompatiblePartitions;
-    }
-
-    public double cost() {
-      return cost;
-    }
-
-    public Set<TopicPartition> incompatible() {
-      return incompatible;
-    }
+  /**
+   * @return The feedback on determining which partitions cannot be put together.
+   */
+  default Map<TopicPartition, Set<TopicPartition>> incompatibility() {
+    return Map.of();
   }
 }

@@ -17,7 +17,6 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
@@ -73,9 +72,7 @@ public class RecordSizeCost
                     Collectors.mapping(r -> (double) r.size(), Collectors.reducing(0D, Math::max))))
             .entrySet()
             .stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey, e -> new PartitionCost.CostInfo(e.getValue(), Set.of())));
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return () -> result;
   }
 
