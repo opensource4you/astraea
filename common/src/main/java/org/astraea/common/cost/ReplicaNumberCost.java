@@ -47,7 +47,7 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = ClusterInfo.replicaNumToMigrate(before, after);
+    var moveCost = ClusterInfo.replicaNumChanged(before, after);
     var maxMigratedReplicas =
         config.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =

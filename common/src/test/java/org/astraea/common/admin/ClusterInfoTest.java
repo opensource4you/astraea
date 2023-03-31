@@ -227,7 +227,7 @@ public class ClusterInfoTest {
     var beforeClusterInfo = ClusterInfoTest.of(before);
     var afterClusterInfo = ClusterInfoTest.of(after);
     var changedReplicaLeaderCount =
-        ClusterInfo.replicaLeaderToMigrate(beforeClusterInfo, afterClusterInfo);
+        ClusterInfo.replicaLeaderChanged(beforeClusterInfo, afterClusterInfo);
     Assertions.assertEquals(3, changedReplicaLeaderCount.size());
     Assertions.assertTrue(changedReplicaLeaderCount.containsKey(0));
     Assertions.assertTrue(changedReplicaLeaderCount.containsKey(1));
@@ -350,7 +350,7 @@ public class ClusterInfoTest {
                 .build());
     var beforeClusterInfo = ClusterInfoTest.of(before);
     var afterClusterInfo = ClusterInfoTest.of(after);
-    var changedReplicaCount = ClusterInfo.replicaNumToMigrate(beforeClusterInfo, afterClusterInfo);
+    var changedReplicaCount = ClusterInfo.replicaNumChanged(beforeClusterInfo, afterClusterInfo);
     Assertions.assertEquals(3, changedReplicaCount.size(), changedReplicaCount.toString());
     Assertions.assertTrue(changedReplicaCount.containsKey(0));
     Assertions.assertTrue(changedReplicaCount.containsKey(1));

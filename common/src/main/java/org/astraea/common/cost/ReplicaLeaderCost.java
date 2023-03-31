@@ -79,7 +79,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = ClusterInfo.replicaNumToMigrate(before, after);
+    var moveCost = ClusterInfo.replicaLeaderChanged(before, after);
     var maxMigratedLeader =
         config.string(MAX_MIGRATE_LEADER_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =

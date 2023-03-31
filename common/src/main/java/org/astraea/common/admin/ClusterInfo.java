@@ -45,8 +45,8 @@ public interface ClusterInfo {
   static List<MigrationCost> migrationCosts(ClusterInfo before, ClusterInfo after) {
     var migrateInBytes = recordSizeToSync(before, after);
     var migrateOutBytes = recordSizeToFetch(before, after);
-    var migrateReplicaNum = replicaNumToMigrate(before, after);
-    var migrateReplicaLeader = replicaLeaderToMigrate(before, after);
+    var migrateReplicaNum = replicaNumChanged(before, after);
+    var migrateReplicaLeader = replicaLeaderChanged(before, after);
     return List.of(
         new MigrationCost(RecordSizeCost.TO_SYNC_BYTES, migrateInBytes),
         new MigrationCost(RecordSizeCost.TO_FETCH_BYTES, migrateOutBytes),
@@ -62,11 +62,11 @@ public interface ClusterInfo {
     return changedRecordSize(before, after, false);
   }
 
-  static Map<Integer, Long> replicaNumToMigrate(ClusterInfo before, ClusterInfo after) {
+  static Map<Integer, Long> replicaNumChanged(ClusterInfo before, ClusterInfo after) {
     return changedReplicaNumber(before, after, ignore -> true);
   }
 
-  static Map<Integer, Long> replicaLeaderToMigrate(ClusterInfo before, ClusterInfo after) {
+  static Map<Integer, Long> replicaLeaderChanged(ClusterInfo before, ClusterInfo after) {
     return changedReplicaNumber(before, after, Replica::isLeader);
   }
 
