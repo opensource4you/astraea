@@ -82,10 +82,8 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
 
       @Override
       public Map<TopicPartition, Set<TopicPartition>> incompatibility() {
-        // Impl feedback logic
-
-        // Use null instead of incompatible partitions temporary
-        return null;
+        // TODO: Impl feedback logic, use Map.of() instead of incompatible partitions temporary
+        return Map.of();
       }
     };
   }
