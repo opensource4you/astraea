@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
 
@@ -80,22 +79,12 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = ClusterInfo.changedReplicaNumber(before, after, Replica::isLeader);
+    var moveCost = ClusterInfo.replicaNumToMigrate(before, after);
     var maxMigratedLeader =
         config.string(MAX_MIGRATE_LEADER_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedLeader < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
-    return new MoveCost() {
-      @Override
-      public boolean overflow() {
-        return overflow;
-      }
-
-      @Override
-      public List<MigrationCost> migrationCost() {
-        return List.of(new MigrationCost(CHANGED_LEADERS, moveCost));
-      }
-    };
+    return () -> overflow;
   }
 
   @Override

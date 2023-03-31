@@ -16,7 +16,11 @@
  */
 package org.astraea.common.metrics.broker;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -28,8 +32,24 @@ public final class ClusterMetrics {
 
   public static final String DOMAIN_NAME = "kafka.cluster";
 
+  public static final Collection<BeanQuery> QUERIES = List.copyOf(Partition.ALL.values());
+
   public enum Partition implements EnumInfo {
     REPLICAS_COUNT("ReplicasCount");
+
+    private static final Map<Partition, BeanQuery> ALL =
+        Arrays.stream(Partition.values())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    m ->
+                        BeanQuery.builder()
+                            .domainName(DOMAIN_NAME)
+                            .property("type", "Partition")
+                            .property("topic", "*")
+                            .property("partition", "*")
+                            .property("name", m.metricName())
+                            .build()));
 
     private final String metricName;
 
@@ -56,16 +76,7 @@ public final class ClusterMetrics {
     }
 
     public List<PartitionMetric> fetch(MBeanClient client) {
-      return client
-          .beans(
-              BeanQuery.builder()
-                  .domainName(DOMAIN_NAME)
-                  .property("type", "Partition")
-                  .property("topic", "*")
-                  .property("partition", "*")
-                  .property("name", metricName())
-                  .build())
-          .stream()
+      return client.beans(ALL.get(this)).stream()
           .map(PartitionMetric::new)
           .collect(Collectors.toUnmodifiableList());
     }

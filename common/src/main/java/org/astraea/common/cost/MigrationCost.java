@@ -24,7 +24,7 @@ public class MigrationCost {
 
   public final Map<Integer, Long> brokerCosts;
 
-  MigrationCost(String name, Map<Integer, Long> brokerCosts) {
+  public MigrationCost(String name, Map<Integer, Long> brokerCosts) {
     this.name = name;
     this.brokerCosts = brokerCosts;
   }

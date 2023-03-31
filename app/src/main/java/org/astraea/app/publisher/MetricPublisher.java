@@ -18,39 +18,19 @@ package org.astraea.app.publisher;
 
 import com.beust.jcommander.Parameter;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.DelayQueue;
-import java.util.concurrent.Delayed;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.StringMapField;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.BeanQuery;
+import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.MBeanRegister;
-import org.astraea.common.metrics.Sensor;
-import org.astraea.common.metrics.stats.Rate;
+import org.astraea.common.metrics.collector.MetricFetcher;
 
 /** Keep fetching all kinds of metrics and publish to inner topics. */
 public class MetricPublisher {
-  public static final String DOMAIN_NAME = "org.astraea";
-  public static final String TYPE_PROPERTY = "type";
-
-  public static final String TYPE_VALUE = "publisher";
-
-  public static final String NAME_PROPERTY = "name";
-  public static final String RATE_PROPERTY = "rate";
 
   public static String internalTopicName(String id) {
     return "__" + id + "_broker_metrics";
@@ -63,184 +43,33 @@ public class MetricPublisher {
 
   // Valid for testing
   static void execute(Arguments arguments) {
-    // self-defined queue of ID and target mbean clients to fetch
-    var targetClients = new DelayQueue<DelayedIdClient>();
-    // queue of fetched beans
-    var beanQueue = new ArrayBlockingQueue<IdBean>(2000);
-    var fetchRateSensor = Sensor.builder().addStat(RATE_PROPERTY, Rate.of()).build();
-    var close = new AtomicBoolean(false);
-    MBeanRegister.local()
-        .domainName(DOMAIN_NAME)
-        .property(TYPE_PROPERTY, TYPE_VALUE)
-        .property(NAME_PROPERTY, "BeanFetch")
-        .attribute(RATE_PROPERTY, Double.class, () -> fetchRateSensor.measure(RATE_PROPERTY))
-        .description("MBeans fetch-rate since publisher start up. (beans/second)")
-        .register();
-
-    var JMXFetcherThreads =
-        jmxFetcherThreads(
-            3, targetClients, arguments.period, beanQueue, fetchRateSensor, close::get);
-    var publisherThreads =
-        publisherThreads(
-            2, arguments.bootstrapServers(), beanQueue, () -> close.get() && beanQueue.isEmpty());
-    var periodicJobPool = Executors.newScheduledThreadPool(1);
-    var threadPool = Executors.newFixedThreadPool(3 + 2);
     var admin = Admin.of(arguments.bootstrapServers());
-
-    // Periodically update MBeanClient. (MBeanClients may change when broker added into cluster)
-    var periodicUpdate =
-        periodicJobPool.scheduleAtFixedRate(
-            () ->
-                admin
-                    .nodeInfos()
-                    .thenAccept(
-                        nodes -> {
-                          // TODO: Real elements in queue may not consistent with `inQueue` object.
-                          // Other threads (JMXFetcherThreads) may add element to this queue (as
-                          // they complete the fetch). This may result in duplicate targets in the
-                          // DelayQueue (`targetClients`). Discussion:
-                          // https://github.com/skiptests/astraea/pull/1481#discussion_r1112972154
-                          var inQueue =
-                              targetClients.stream()
-                                  .map(target -> target.id)
-                                  .collect(Collectors.toUnmodifiableSet());
-                          nodes.stream()
-                              .filter(node -> !inQueue.contains(String.valueOf(node.id())))
-                              .forEach(
-                                  node ->
-                                      targetClients.put(
-                                          new DelayedIdClient(
-                                              arguments.period,
-                                              String.valueOf(node.id()),
-                                              MBeanClient.jndi(
-                                                  node.host(),
-                                                  arguments.idToJmxPort().apply(node.id())))));
-                        }),
-            0,
-            5,
-            TimeUnit.MINUTES);
-
-    // All JMXFetchers keep fetching on targets
-    JMXFetcherThreads.forEach(threadPool::execute);
-    // All publishers keep publish mbeans
-    publisherThreads.forEach(threadPool::execute);
-
-    // Run until the given time-to-live passed
-    try {
-      Thread.sleep(arguments.ttl.toMillis());
-    } catch (InterruptedException ie) {
-      ie.printStackTrace();
+    var topicSender = MetricFetcher.Sender.topic(arguments.bootstrapServers());
+    try (var metricFetcher =
+        MetricFetcher.builder()
+            .clientSupplier(
+                () ->
+                    admin
+                        .nodeInfos()
+                        .thenApply(
+                            nodes ->
+                                nodes.stream()
+                                    .collect(
+                                        Collectors.toUnmodifiableMap(
+                                            NodeInfo::id,
+                                            node ->
+                                                MBeanClient.jndi(
+                                                    node.host(),
+                                                    arguments.idToJmxPort().apply(node.id()))))))
+            .fetchBeanDelay(arguments.period)
+            .fetchMetadataDelay(Duration.ofMinutes(5))
+            .threads(3)
+            .sender(topicSender)
+            .build()) {
+      Utils.sleep(arguments.ttl);
     } finally {
-      close.set(true);
-      periodicUpdate.cancel(false);
-      periodicJobPool.shutdown();
-      threadPool.shutdown();
-      Utils.swallowException(() -> periodicJobPool.awaitTermination(1, TimeUnit.MINUTES));
-      Utils.swallowException(() -> threadPool.awaitTermination(1, TimeUnit.MINUTES));
-      targetClients.forEach(idClient -> idClient.mBeanClient.close());
-
       admin.close();
-    }
-  }
-
-  private static List<Runnable> jmxFetcherThreads(
-      int threads,
-      DelayQueue<DelayedIdClient> clients,
-      Duration duration,
-      BlockingQueue<IdBean> beanQueue,
-      Sensor<Double> fetchRateSensor,
-      Supplier<Boolean> closed) {
-    return IntStream.range(0, threads)
-        .mapToObj(
-            i ->
-                (Runnable)
-                    () -> {
-                      while (!closed.get()) {
-                        try {
-                          var delayedClient = clients.poll(5, TimeUnit.SECONDS);
-                          if (delayedClient != null) {
-                            for (var bean : delayedClient.mBeanClient.beans(BeanQuery.all())) {
-                              beanQueue.put(new IdBean(delayedClient.id, bean));
-                              fetchRateSensor.record(1.0);
-                            }
-                            clients.put(
-                                new DelayedIdClient(
-                                    duration, delayedClient.id, delayedClient.mBeanClient));
-                          }
-                        } catch (InterruptedException ie) {
-                          // Interrupted while polling delay-queue, end this thread
-                          ie.printStackTrace();
-                          return;
-                        }
-                      }
-                    })
-        .collect(Collectors.toList());
-  }
-
-  private static List<Runnable> publisherThreads(
-      int threads, String bootstrap, BlockingQueue<IdBean> beanQueue, Supplier<Boolean> closed) {
-    return IntStream.range(0, threads)
-        .mapToObj(
-            i ->
-                (Runnable)
-                    () -> {
-                      try (var publisher = JMXPublisher.create(bootstrap)) {
-                        while (!closed.get()) {
-                          try {
-                            var idBean = beanQueue.poll(5, TimeUnit.SECONDS);
-                            if (idBean != null) {
-                              publisher.publish(idBean.id(), idBean.bean());
-                            }
-                          } catch (InterruptedException ie) {
-                            // Interrupted while polling delay-queue, end this thread
-                            ie.printStackTrace();
-                            return;
-                          }
-                        }
-                      }
-                    })
-        .collect(Collectors.toList());
-  }
-
-  static class DelayedIdClient implements Delayed {
-    private final long timeout;
-
-    private final String id;
-    private final MBeanClient mBeanClient;
-
-    public DelayedIdClient(Duration duration, String id, MBeanClient mBeanClient) {
-      this.timeout = System.nanoTime() + duration.toNanos();
-      this.id = id;
-      this.mBeanClient = mBeanClient;
-    }
-
-    @Override
-    public long getDelay(TimeUnit timeUnit) {
-      return timeUnit.convert(timeout - System.nanoTime(), TimeUnit.NANOSECONDS);
-    }
-
-    @Override
-    public int compareTo(Delayed delayed) {
-      return Long.compare(
-          this.getDelay(TimeUnit.NANOSECONDS), delayed.getDelay(TimeUnit.NANOSECONDS));
-    }
-  }
-
-  private static class IdBean {
-    private final String id;
-    private final BeanObject bean;
-
-    public IdBean(String id, BeanObject bean) {
-      this.id = id;
-      this.bean = bean;
-    }
-
-    public String id() {
-      return this.id;
-    }
-
-    public BeanObject bean() {
-      return bean;
+      topicSender.close();
     }
   }
 

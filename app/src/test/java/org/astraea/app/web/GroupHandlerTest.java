@@ -128,7 +128,7 @@ public class GroupHandlerTest {
           var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
         producer.send(Record.builder().topic(topicName0).key(new byte[2]).build());
         producer.flush();
-        Assertions.assertEquals(1, consumer0.poll(1, Duration.ofSeconds(10)).size());
+        Assertions.assertEquals(1, consumer0.poll(Duration.ofSeconds(10)).size());
         Assertions.assertEquals(0, consumer1.poll(Duration.ofSeconds(2)).size());
 
         Utils.sleep(Duration.ofSeconds(3));

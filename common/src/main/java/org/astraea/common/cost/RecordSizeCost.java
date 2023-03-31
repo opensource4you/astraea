@@ -16,7 +16,6 @@
  */
 package org.astraea.common.cost;
 
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
@@ -31,6 +30,8 @@ public class RecordSizeCost
   private final Configuration config;
   public static final String MAX_MIGRATE_SIZE_KEY = "max.migrated.size";
   public static final String MOVED_SIZE = "moved size (bytes)";
+  public static final String TO_SYNC_BYTES = "record size to sync (bytes)";
+  public static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
 
   public RecordSizeCost() {
     this.config = Configuration.of(Map.of());
@@ -53,7 +54,6 @@ public class RecordSizeCost
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = ClusterInfo.changedRecordSize(before, after, ignored -> true);
     var maxMigratedSize =
         config
             .string(MAX_MIGRATE_SIZE_KEY)
@@ -61,18 +61,8 @@ public class RecordSizeCost
             .map(DataSize::bytes)
             .orElse(Long.MAX_VALUE);
     var overflow =
-        maxMigratedSize < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
-    return new MoveCost() {
-      @Override
-      public boolean overflow() {
-        return overflow;
-      }
-
-      @Override
-      public List<MigrationCost> migrationCost() {
-        return List.of(new MigrationCost(MOVED_SIZE, moveCost));
-      }
-    };
+        ClusterInfo.changedRecordSizeOverflow(before, after, ignored -> true, maxMigratedSize);
+    return () -> overflow;
   }
 
   @Override

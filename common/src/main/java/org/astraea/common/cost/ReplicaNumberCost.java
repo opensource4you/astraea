@@ -16,7 +16,6 @@
  */
 package org.astraea.common.cost;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -48,22 +47,12 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = ClusterInfo.changedReplicaNumber(before, after, ignored -> true);
+    var moveCost = ClusterInfo.replicaNumToMigrate(before, after);
     var maxMigratedReplicas =
         config.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
         maxMigratedReplicas < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
-    return new MoveCost() {
-      @Override
-      public boolean overflow() {
-        return overflow;
-      }
-
-      @Override
-      public List<MigrationCost> migrationCost() {
-        return List.of(new MigrationCost(CHANGED_REPLICAS, moveCost));
-      }
-    };
+    return () -> overflow;
   }
 
   @Override
