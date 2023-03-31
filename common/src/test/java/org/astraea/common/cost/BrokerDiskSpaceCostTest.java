@@ -145,13 +145,13 @@ class BrokerDiskSpaceCostTest {
     var pathConfig =
         Configuration.of(
             Map.of(
-                BrokerDiskSpaceCost.DISK_COST_LIMIT_KEY,
+                BrokerDiskSpaceCost.BROKER_PATH_COST_LIMIT_KEY,
                 "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:1000MB"));
     var pathOverflowConfig =
         Configuration.of(
             Map.of(
-                BrokerDiskSpaceCost.DISK_COST_LIMIT_KEY,
-                "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:1100MB"));
+                BrokerDiskSpaceCost.BROKER_PATH_COST_LIMIT_KEY,
+                "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:900MB"));
     // set broker limit no overflow
     var cf0 = new BrokerDiskSpaceCost(brokerConfig);
     var moveCost0 = cf0.moveCost(beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY);

@@ -18,106 +18,37 @@ package org.astraea.common.cost;
 
 import java.util.Arrays;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.Objects;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
-import org.astraea.common.admin.BrokerPath;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Replica;
 
 public class BrokerDiskSpaceCost implements HasMoveCost {
 
-  public static final String BROKER_COST_LIMIT_KEY = "max.broker.disk.space";
-  public static final String DISK_COST_LIMIT_KEY = "max.disk.space";
-  private final Configuration configuration;
+  public static final String BROKER_COST_LIMIT_KEY = "max.broker.total.disk.space";
+  public static final String BROKER_PATH_COST_LIMIT_KEY = "max.broker.path.disk.space";
+  private final Map<Integer, DataSize> brokerMoveCostLimit;
+  private final Map<BrokerPath, DataSize> diskMoveCostLimit;
 
   public BrokerDiskSpaceCost(Configuration configuration) {
-    this.configuration = configuration;
+    this.diskMoveCostLimit = diskMoveCostLimit(configuration);
+    this.brokerMoveCostLimit = brokerMoveCostLimit(configuration);
   }
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var brokerCostLimit = brokerMoveCostLimit();
-    var moveCost =
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
-            .distinct()
-            .parallel()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Function.identity(),
-                    id -> {
-                      var beforeSize =
-                          (Long)
-                              before.replicaStream(id).map(Replica::size).mapToLong(y -> y).sum();
-                      var addedSize =
-                          (Long)
-                              after
-                                  .replicaStream(id)
-                                  .filter(r -> before.replicaStream(id).noneMatch(r::equals))
-                                  .map(Replica::size)
-                                  .mapToLong(y -> y)
-                                  .sum();
-                      return beforeSize + addedSize;
-                    }));
-
-    var brokerOverflow =
-        brokerCostLimit.entrySet().stream()
-            .anyMatch(
-                brokerLimit ->
-                    moveCost.getOrDefault(brokerLimit.getKey(), 0L)
-                        > brokerLimit.getValue().bytes());
-    if (brokerOverflow) return () -> brokerOverflow;
-
-    var diskMoveCostLimit = diskMoveCostLimit();
-    var pathCost =
-        Stream.concat(
-                before.brokerFolders().entrySet().stream(),
-                after.brokerFolders().entrySet().stream())
-            .distinct()
-            .flatMap(
-                brokerPath ->
-                    brokerPath.getValue().stream()
-                        .map(
-                            path -> {
-                              var beforeSize =
-                                  before
-                                      .replicaStream(brokerPath.getKey())
-                                      .filter(r -> r.path().equals(path))
-                                      .mapToLong(Replica::size)
-                                      .sum();
-                              var addedSize =
-                                  (Long)
-                                      after
-                                          .replicaStream(brokerPath.getKey())
-                                          .filter(
-                                              r ->
-                                                  before
-                                                      .replicaStream(brokerPath.getKey())
-                                                      .noneMatch(r::equals))
-                                          .map(Replica::size)
-                                          .mapToLong(y -> y)
-                                          .sum();
-                              return Map.entry(
-                                  BrokerPath.of(brokerPath.getKey(), path), beforeSize + addedSize);
-                            }))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var overflow =
-        pathCost.entrySet().stream()
-            .anyMatch(
-                costLimit ->
-                    diskMoveCostLimit.getOrDefault(costLimit.getKey(), DataSize.ZERO).bytes()
-                        > costLimit.getValue());
-    return () -> overflow;
+    if (ClusterInfo.brokerDiskUsageSizeOverflow(before, after, brokerMoveCostLimit))
+      return () -> true;
+    if (ClusterInfo.brokerPathDiskUsageSizeOverflow(before, after, diskMoveCostLimit))
+      return () -> true;
+    return () -> false;
   }
 
-  private Map<BrokerPath, DataSize> diskMoveCostLimit() {
-    return this.configuration
-        .string(DISK_COST_LIMIT_KEY)
+  private Map<BrokerPath, DataSize> diskMoveCostLimit(Configuration configuration) {
+    return configuration
+        .string(BROKER_PATH_COST_LIMIT_KEY)
         .map(
             s ->
                 Arrays.stream(s.split(","))
@@ -133,8 +64,8 @@ public class BrokerDiskSpaceCost implements HasMoveCost {
         .orElse(Map.of());
   }
 
-  private Map<Integer, DataSize> brokerMoveCostLimit() {
-    return this.configuration
+  private Map<Integer, DataSize> brokerMoveCostLimit(Configuration configuration) {
+    return configuration
         .string(BROKER_COST_LIMIT_KEY)
         .map(
             s ->
@@ -147,5 +78,41 @@ public class BrokerDiskSpaceCost implements HasMoveCost {
                         })
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
         .orElse(Map.of());
+  }
+
+  public static class BrokerPath {
+
+    private final int broker;
+    private final String path;
+
+    public static BrokerPath of(int broker, String path) {
+      return new BrokerPath(broker, path);
+    }
+
+    public BrokerPath(int broker, String path) {
+      this.broker = broker;
+      this.path = path;
+    }
+
+    public int broker() {
+      return broker;
+    }
+
+    public String path() {
+      return path;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      BrokerPath that = (BrokerPath) o;
+      return broker == that.broker && Objects.equals(path, that.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(broker, path);
+    }
   }
 }
