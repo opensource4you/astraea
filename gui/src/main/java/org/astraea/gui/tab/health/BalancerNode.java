@@ -102,12 +102,10 @@ class BalancerNode {
 
     process.accept(
         "changed replicas",
-        ClusterInfo.changedReplicaNumber(
-            plan.initialClusterInfo(), plan.proposal(), ignored -> true));
+        ClusterInfo.replicaNumToMigrate(plan.initialClusterInfo(), plan.proposal()));
     process.accept(
         "changed leaders",
-        ClusterInfo.changedReplicaNumber(
-            plan.initialClusterInfo(), plan.proposal(), Replica::isLeader));
+        ClusterInfo.replicaLeaderToMigrate(plan.initialClusterInfo(), plan.proposal()));
     process.accept(
         "record size to fetch",
         ClusterInfo.recordSizeToSync(plan.initialClusterInfo(), plan.proposal()));
