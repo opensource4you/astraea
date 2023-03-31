@@ -33,13 +33,44 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.broker.ClusterMetrics;
+import org.astraea.common.metrics.broker.ControllerMetrics;
+import org.astraea.common.metrics.broker.LogMetrics;
+import org.astraea.common.metrics.broker.NetworkMetrics;
+import org.astraea.common.metrics.broker.ServerMetrics;
+import org.astraea.common.metrics.client.admin.AdminMetrics;
+import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
+import org.astraea.common.metrics.client.producer.ProducerMetrics;
+import org.astraea.common.metrics.connector.ConnectorMetrics;
+import org.astraea.common.metrics.platform.HostMetrics;
+import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
+import org.astraea.common.producer.Serializer;
 
-public interface MetricsFetcher extends AutoCloseable {
+public interface MetricFetcher extends AutoCloseable {
+
+  Collection<BeanQuery> QUERIES =
+      Stream.of(
+              LogMetrics.QUERIES.stream(),
+              ServerMetrics.QUERIES.stream(),
+              NetworkMetrics.QUERIES.stream(),
+              ClusterMetrics.QUERIES.stream(),
+              ControllerMetrics.QUERIES.stream(),
+              AdminMetrics.QUERIES.stream(),
+              ConsumerMetrics.QUERIES.stream(),
+              ProducerMetrics.QUERIES.stream(),
+              ConnectorMetrics.QUERIES.stream(),
+              HostMetrics.QUERIES.stream())
+          .flatMap(s -> s)
+          .collect(Collectors.toUnmodifiableList());
 
   static Builder builder() {
     return new Builder();
@@ -62,6 +93,41 @@ public interface MetricsFetcher extends AutoCloseable {
 
     static Sender local() {
       return LocalSenderReceiver.of();
+    }
+
+    static Sender topic(String bootstrapServer) {
+      var producer =
+          Producer.builder()
+              .bootstrapServers(bootstrapServer)
+              .keySerializer(Serializer.INTEGER)
+              .valueSerializer(Serializer.STRING)
+              .build();
+      String METRIC_TOPIC = "__metrics";
+      return new Sender() {
+        @Override
+        public CompletionStage<Void> send(int id, Collection<BeanObject> beans) {
+          var records =
+              beans.stream()
+                  .map(
+                      bean ->
+                          Record.builder()
+                              .topic(METRIC_TOPIC)
+                              .key(id)
+                              .value(bean.toString())
+                              .build())
+                  .collect(Collectors.toUnmodifiableList());
+          return FutureUtils.sequence(
+                  producer.send(records).stream()
+                      .map(CompletionStage::toCompletableFuture)
+                      .collect(Collectors.toUnmodifiableList()))
+              .thenAccept(ignored -> {});
+        }
+
+        @Override
+        public void close() {
+          producer.close();
+        }
+      };
     }
 
     CompletionStage<Void> send(int id, Collection<BeanObject> beans);
@@ -107,8 +173,8 @@ public interface MetricsFetcher extends AutoCloseable {
       return this;
     }
 
-    public MetricsFetcher build() {
-      return new MetricsFetcherImpl(
+    public MetricFetcher build() {
+      return new MetricFetcherImpl(
           threads,
           Objects.requireNonNull(fetchBeanDelay, "fetchBeanDelay can't be null"),
           Objects.requireNonNull(fetchMetadataDelay, "fetchMetadataDelay can't be null"),
@@ -117,7 +183,7 @@ public interface MetricsFetcher extends AutoCloseable {
     }
   }
 
-  class MetricsFetcherImpl implements MetricsFetcher {
+  class MetricFetcherImpl implements MetricFetcher {
     private volatile Map<Integer, MBeanClient> clients = new HashMap<>();
 
     private final Map<Integer, Collection<BeanObject>> latest = new ConcurrentHashMap<>();
@@ -136,7 +202,7 @@ public interface MetricsFetcher extends AutoCloseable {
 
     private final Duration fetchBeanDelay;
 
-    private MetricsFetcherImpl(
+    private MetricFetcherImpl(
         int threads,
         Duration fetchBeanDelay,
         Duration fetchMetadataDelay,
@@ -206,7 +272,10 @@ public interface MetricsFetcher extends AutoCloseable {
       lock.readLock().lock();
       Collection<BeanObject> beans;
       try {
-        beans = clients.get(identity.id).beans(BeanQuery.all(), e -> {});
+        beans =
+            QUERIES.stream()
+                .flatMap(q -> clients.get(identity.id).beans(q, e -> {}).stream())
+                .collect(Collectors.toUnmodifiableList());
       } finally {
         lock.readLock().unlock();
       }

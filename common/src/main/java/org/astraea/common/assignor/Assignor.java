@@ -40,7 +40,7 @@ import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.cost.HasPartitionCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.MetricsStore;
+import org.astraea.common.metrics.collector.MetricStore;
 import org.astraea.common.partitioner.PartitionerUtils;
 
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
@@ -55,7 +55,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   // TODO: metric collector may be configured by user in the future.
   // TODO: need to track the performance when using the assignor in large scale consumers, see
   // https://github.com/skiptests/astraea/pull/1162#discussion_r1036285677
-  protected MetricsStore metricStore = null;
+  protected MetricStore metricStore = null;
 
   protected Admin admin = null;
 
@@ -170,7 +170,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                       return Collections.unmodifiableMap(map);
                     });
     metricStore =
-        MetricsStore.builder()
+        MetricStore.builder()
             .localReceiver(clientSupplier)
             .sensorsSupplier(
                 () ->

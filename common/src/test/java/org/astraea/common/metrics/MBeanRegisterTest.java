@@ -35,7 +35,7 @@ class MBeanRegisterTest {
         .attribute("incoming-byte-rate", Double.class, () -> 10D)
         .register();
 
-    var metrics = ProducerMetrics.nodes(MBeanClient.local());
+    var metrics = ProducerMetrics.node(MBeanClient.local());
     Assertions.assertEquals(1, metrics.size());
     Assertions.assertEquals(10D, metrics.iterator().next().incomingByteRate());
   }

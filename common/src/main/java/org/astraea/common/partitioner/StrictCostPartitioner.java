@@ -35,7 +35,7 @@ import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.HasBrokerCost;
 import org.astraea.common.cost.NodeLatencyCost;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.MetricsStore;
+import org.astraea.common.metrics.collector.MetricStore;
 
 /**
  * this partitioner scores the nodes by multiples cost functions. Each function evaluate the target
@@ -57,7 +57,7 @@ public class StrictCostPartitioner extends Partitioner {
   static final String JMX_PORT = "jmx.port";
   static final String ROUND_ROBIN_LEASE_KEY = "round.robin.lease";
   // visible for testing
-  MetricsStore metricsStore = null;
+  MetricStore metricStore = null;
 
   private Duration roundRobinLease = Duration.ofSeconds(4);
   HasBrokerCost costFunction = new NodeLatencyCost();
@@ -78,7 +78,7 @@ public class StrictCostPartitioner extends Partitioner {
 
     roundRobinKeeper.tryToUpdate(
         clusterInfo,
-        () -> costToScore(costFunction.brokerCost(clusterInfo, metricsStore.clusterBean())));
+        () -> costToScore(costFunction.brokerCost(clusterInfo, metricStore.clusterBean())));
 
     var target = roundRobinKeeper.next();
 
@@ -147,8 +147,8 @@ public class StrictCostPartitioner extends Partitioner {
                     });
 
     // put local mbean client first
-    metricsStore =
-        MetricsStore.builder()
+    metricStore =
+        MetricStore.builder()
             .localReceiver(clientSupplier)
             .sensorsSupplier(
                 () ->
@@ -162,7 +162,7 @@ public class StrictCostPartitioner extends Partitioner {
 
   @Override
   public void close() {
-    metricsStore.close();
+    metricStore.close();
     super.close();
   }
 }

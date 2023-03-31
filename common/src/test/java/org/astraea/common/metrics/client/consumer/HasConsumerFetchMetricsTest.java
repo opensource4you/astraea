@@ -63,7 +63,7 @@ public class HasConsumerFetchMetricsTest {
             .build()) {
       Assertions.assertEquals(10, consumer.poll(Duration.ofSeconds(5)).size());
       consumer.commitOffsets(Duration.ofSeconds(2));
-      var metrics = ConsumerMetrics.fetches(MBeanClient.local());
+      var metrics = ConsumerMetrics.fetch(MBeanClient.local());
       Assertions.assertEquals(1, metrics.size());
       var m = metrics.iterator().next();
       Assertions.assertNotNull(m.clientId());

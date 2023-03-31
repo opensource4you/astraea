@@ -16,12 +16,19 @@
  */
 package org.astraea.common.metrics.broker;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
 
 public class NetworkMetrics {
+  public static final Collection<BeanQuery> QUERIES = List.copyOf(Request.ALL.values());
 
   public enum Request implements EnumInfo {
     PRODUCE("Produce"),
@@ -84,6 +91,19 @@ public class NetworkMetrics {
     LIST_TRANSACTIONS("ListTransactions"),
     ALLOCATE_PRODUCER_IDS("AllocateProducerIds");
 
+    private static final Map<Request, BeanQuery> ALL =
+        Arrays.stream(Request.values())
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Function.identity(),
+                    m ->
+                        BeanQuery.builder()
+                            .domainName("kafka.network")
+                            .property("type", "RequestMetrics")
+                            .property("request", m.metricName())
+                            .property("name", "TotalTimeMs")
+                            .build()));
+
     public static Request ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(Request.class, alias);
     }
@@ -108,15 +128,8 @@ public class NetworkMetrics {
       return alias();
     }
 
-    public Histogram totalTimeMs(MBeanClient mBeanClient) {
-      return new Histogram(
-          mBeanClient.bean(
-              BeanQuery.builder()
-                  .domainName("kafka.network")
-                  .property("type", "RequestMetrics")
-                  .property("request", this.metricName())
-                  .property("name", "TotalTimeMs")
-                  .build()));
+    public Histogram fetch(MBeanClient mBeanClient) {
+      return new Histogram(mBeanClient.bean(ALL.get(this)));
     }
 
     public static class Histogram implements HasHistogram {

@@ -50,7 +50,7 @@ import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricSensor;
-import org.astraea.common.metrics.collector.MetricsStore;
+import org.astraea.common.metrics.collector.MetricStore;
 
 class BalancerHandler implements Handler, AutoCloseable {
 
@@ -63,7 +63,7 @@ class BalancerHandler implements Handler, AutoCloseable {
 
   private final Collection<MetricSensor> sensors = new ConcurrentLinkedQueue<>();
 
-  private final MetricsStore metricsStore;
+  private final MetricStore metricStore;
 
   BalancerHandler(Admin admin, Function<Integer, Integer> jmxPortMapper) {
     this.admin = admin;
@@ -79,9 +79,9 @@ class BalancerHandler implements Handler, AutoCloseable {
                                 Collectors.toUnmodifiableMap(
                                     NodeInfo::id,
                                     b -> MBeanClient.jndi(b.host(), jmxPortMapper.apply(b.id())))));
-    this.metricsStore =
-        MetricsStore.builder()
-            .beanExpiration(Duration.ofSeconds(1))
+    this.metricStore =
+        MetricStore.builder()
+            .beanExpiration(Duration.ofSeconds(90))
             .localReceiver(clientSupplier)
             .sensorsSupplier(
                 () ->
@@ -126,7 +126,7 @@ class BalancerHandler implements Handler, AutoCloseable {
               .setTaskId(taskId)
               .setBalancer(balancer)
               .setAlgorithmConfig(request.algorithmConfig)
-              .setClusterBeanSource(metricsStore::clusterBean)
+              .setClusterBeanSource(metricStore::clusterBean)
               .checkNoOngoingMigration(true)
               .generate();
       task.whenComplete(
@@ -259,18 +259,16 @@ class BalancerHandler implements Handler, AutoCloseable {
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
             new MigrationCost(
-                MOVED_SIZE,
-                ClusterInfo.changedRecordSize(
-                        solution.initialClusterInfo(), solution.proposal(), ignored -> true)
+                TO_SYNC_BYTES,
+                ClusterInfo.recordSizeToSync(solution.initialClusterInfo(), solution.proposal())
                     .entrySet()
                     .stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
             new MigrationCost(
-                MOVED_LEADER_SIZE,
-                ClusterInfo.changedRecordSize(
-                        solution.initialClusterInfo(), solution.proposal(), Replica::isLeader)
+                TO_FETCH_BYTES,
+                ClusterInfo.recordSizeToFetch(solution.initialClusterInfo(), solution.proposal())
                     .entrySet()
                     .stream()
                     .collect(
@@ -427,8 +425,8 @@ class BalancerHandler implements Handler, AutoCloseable {
   // visible for testing
   static final String CHANGED_REPLICAS = "changed replicas";
   static final String CHANGED_LEADERS = "changed leaders";
-  static final String MOVED_SIZE = "moved size (bytes)";
-  static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
+  static final String TO_SYNC_BYTES = "record size to sync (bytes)";
+  static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
 
   static class MigrationCost {
     final String name;
@@ -517,6 +515,6 @@ class BalancerHandler implements Handler, AutoCloseable {
   // handle manually
   @Override
   public void close() {
-    metricsStore.close();
+    metricStore.close();
   }
 }

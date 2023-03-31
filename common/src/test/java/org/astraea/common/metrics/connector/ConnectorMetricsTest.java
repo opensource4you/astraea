@@ -73,7 +73,7 @@ public class ConnectorMetricsTest {
           Assertions.assertDoesNotThrow(m::assignedTasks);
         });
 
-    var m2 = ConnectorMetrics.of(MBeanClient.local());
+    var m2 = ConnectorMetrics.connector(MBeanClient.local());
     Assertions.assertNotEquals(0, m2.size());
     m2.forEach(
         m -> {
