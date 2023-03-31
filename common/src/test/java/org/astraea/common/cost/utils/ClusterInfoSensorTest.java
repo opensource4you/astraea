@@ -16,8 +16,6 @@
  */
 package org.astraea.common.cost.utils;
 
-import java.net.InetSocketAddress;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,11 +29,11 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricFactory;
 import org.astraea.common.metrics.broker.ClusterMetrics;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
-import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
@@ -75,68 +73,52 @@ class ClusterInfoSensorTest {
             .forEach(i -> i.toCompletableFuture().join());
       }
 
-      try (var mc =
-          MetricCollector.local()
-              .addMetricSensor(sensor)
-              .registerJmx(
-                  aBroker.id(),
-                  new InetSocketAddress(
-                      SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort()))
-              .interval(Duration.ofSeconds(1))
-              .build()) {
+      var cb = ClusterBean.of(Map.of(aBroker.id(), MBeanClient.local()), sensor);
 
-        Utils.sleep(Duration.ofSeconds(2));
+      // assert contains that metrics
+      cb.all()
+          .forEach(
+              (broker, metrics) ->
+                  Assertions.assertTrue(
+                      metrics.stream().anyMatch(x -> x instanceof LogMetrics.Log.Gauge)));
+      cb.all()
+          .forEach(
+              (broker, metrics) ->
+                  Assertions.assertTrue(
+                      metrics.stream().anyMatch(x -> x instanceof ClusterMetrics.PartitionMetric)));
 
-        var cb = mc.clusterBean();
-        // assert contains that metrics
-        mc.clusterBean()
-            .all()
-            .forEach(
-                (broker, metrics) ->
-                    Assertions.assertTrue(
-                        metrics.stream().anyMatch(x -> x instanceof LogMetrics.Log.Gauge)));
-        mc.clusterBean()
-            .all()
-            .forEach(
-                (broker, metrics) ->
-                    Assertions.assertTrue(
-                        metrics.stream()
-                            .anyMatch(x -> x instanceof ClusterMetrics.PartitionMetric)));
-
-        var info = ClusterInfoSensor.metricViewCluster(cb);
-        // compare topic
-        Assertions.assertTrue(info.topicNames().contains(topic));
-        // compare topic partition
-        Assertions.assertTrue(
-            info.topicPartitions()
-                .containsAll(
-                    Set.of(
-                        TopicPartition.of(topic, 0),
-                        TopicPartition.of(topic, 1),
-                        TopicPartition.of(topic, 2))));
-        // compare broker id
-        Assertions.assertTrue(
-            info.replicaStream().allMatch(r -> r.nodeInfo().id() == aBroker.id()));
-        // compare replica size
-        var realCluster = admin.clusterInfo(Set.of(topic)).toCompletableFuture().join();
-        Assertions.assertTrue(
-            info.replicaStream()
-                .allMatch(
-                    metricReplica -> {
-                      var realReplica =
-                          realCluster
-                              .replicaStream()
-                              .filter(
-                                  x ->
-                                      x.topicPartitionReplica()
-                                          .equals(metricReplica.topicPartitionReplica()))
-                              .findFirst()
-                              .orElseThrow();
-                      return realReplica.size() == metricReplica.size();
-                    }));
-        // compare cluster id
-        Assertions.assertEquals(realCluster.clusterId(), info.clusterId());
-      }
+      var info = ClusterInfoSensor.metricViewCluster(cb);
+      // compare topic
+      Assertions.assertTrue(info.topicNames().contains(topic));
+      // compare topic partition
+      Assertions.assertTrue(
+          info.topicPartitions()
+              .containsAll(
+                  Set.of(
+                      TopicPartition.of(topic, 0),
+                      TopicPartition.of(topic, 1),
+                      TopicPartition.of(topic, 2))));
+      // compare broker id
+      Assertions.assertTrue(info.replicaStream().allMatch(r -> r.nodeInfo().id() == aBroker.id()));
+      // compare replica size
+      var realCluster = admin.clusterInfo(Set.of(topic)).toCompletableFuture().join();
+      Assertions.assertTrue(
+          info.replicaStream()
+              .allMatch(
+                  metricReplica -> {
+                    var realReplica =
+                        realCluster
+                            .replicaStream()
+                            .filter(
+                                x ->
+                                    x.topicPartitionReplica()
+                                        .equals(metricReplica.topicPartitionReplica()))
+                            .findFirst()
+                            .orElseThrow();
+                    return realReplica.size() == metricReplica.size();
+                  }));
+      // compare cluster id
+      Assertions.assertEquals(realCluster.clusterId(), info.clusterId());
     }
   }
 
@@ -256,7 +238,7 @@ class ClusterInfoSensorTest {
                                 "type",
                                 "KafkaServer",
                                 "name",
-                                ServerMetrics.KafkaServer.CLUSTER_ID),
+                                ServerMetrics.KafkaServer.CLUSTER_ID.metricName()),
                             Map.of("Value", id))))));
 
     var info = ClusterInfoSensor.metricViewCluster(cb);

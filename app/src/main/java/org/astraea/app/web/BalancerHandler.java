@@ -16,7 +16,6 @@
  */
 package org.astraea.app.web;
 
-import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
@@ -29,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -36,7 +36,6 @@ import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
@@ -49,10 +48,11 @@ import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.json.TypeRef;
-import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricSensor;
+import org.astraea.common.metrics.collector.MetricStore;
 
-class BalancerHandler implements Handler {
+class BalancerHandler implements Handler, AutoCloseable {
 
   private final Admin admin;
   private final BalancerConsole balancerConsole;
@@ -60,16 +60,36 @@ class BalancerHandler implements Handler {
   private final Map<String, CompletionStage<Balancer.Plan>> planGenerations =
       new ConcurrentHashMap<>();
   private final Map<String, CompletionStage<Void>> planExecutions = new ConcurrentHashMap<>();
-  private final Function<Integer, Optional<Integer>> jmxPortMapper;
 
-  BalancerHandler(Admin admin) {
-    this(admin, (ignore) -> Optional.empty());
-  }
+  private final Collection<MetricSensor> sensors = new ConcurrentLinkedQueue<>();
 
-  BalancerHandler(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
+  private final MetricStore metricStore;
+
+  BalancerHandler(Admin admin, Function<Integer, Integer> jmxPortMapper) {
     this.admin = admin;
-    this.jmxPortMapper = jmxPortMapper;
     this.balancerConsole = BalancerConsole.create(admin);
+    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+        () ->
+            admin
+                .brokers()
+                .thenApply(
+                    brokers ->
+                        brokers.stream()
+                            .collect(
+                                Collectors.toUnmodifiableMap(
+                                    NodeInfo::id,
+                                    b -> MBeanClient.jndi(b.host(), jmxPortMapper.apply(b.id())))));
+    this.metricStore =
+        MetricStore.builder()
+            .beanExpiration(Duration.ofSeconds(90))
+            .localReceiver(clientSupplier)
+            .sensorsSupplier(
+                () ->
+                    sensors.stream()
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                Function.identity(), ignored -> (id, ee) -> {})))
+            .build();
   }
 
   @Override
@@ -97,46 +117,26 @@ class BalancerHandler implements Handler {
         Utils.construct(request.balancerClasspath, Balancer.class, request.balancerConfig);
     synchronized (this) {
       var taskId = UUID.randomUUID().toString();
-      MetricCollector metricCollector = null;
-      try {
-        var collectorBuilder = MetricCollector.local().interval(Duration.ofSeconds(1));
+      request.algorithmConfig.clusterCostFunction().metricSensor().ifPresent(sensors::add);
+      request.algorithmConfig.moveCostFunction().metricSensor().ifPresent(sensors::add);
 
-        request
-            .algorithmConfig
-            .clusterCostFunction()
-            .metricSensor()
-            .ifPresent(collectorBuilder::addMetricSensor);
-        request
-            .algorithmConfig
-            .moveCostFunction()
-            .metricSensor()
-            .ifPresent(collectorBuilder::addMetricSensor);
-        freshJmxAddresses().forEach(collectorBuilder::registerJmx);
-        metricCollector = collectorBuilder.build();
-        final var mc = metricCollector;
-
-        var task =
-            balancerConsole
-                .launchRebalancePlanGeneration()
-                .setTaskId(taskId)
-                .setBalancer(balancer)
-                .setAlgorithmConfig(request.algorithmConfig)
-                .setClusterBeanSource(mc::clusterBean)
-                .checkNoOngoingMigration(true)
-                .generate();
-        task.whenComplete(
-            (result, error) -> {
-              if (error != null)
-                new RuntimeException("Failed to generate balance plan: " + taskId, error)
-                    .printStackTrace();
-            });
-        task.whenComplete((result, error) -> mc.close());
-        taskMetadata.put(taskId, request);
-        planGenerations.put(taskId, task);
-      } catch (RuntimeException e) {
-        if (metricCollector != null) metricCollector.close();
-        throw e;
-      }
+      var task =
+          balancerConsole
+              .launchRebalancePlanGeneration()
+              .setTaskId(taskId)
+              .setBalancer(balancer)
+              .setAlgorithmConfig(request.algorithmConfig)
+              .setClusterBeanSource(metricStore::clusterBean)
+              .checkNoOngoingMigration(true)
+              .generate();
+      task.whenComplete(
+          (result, error) -> {
+            if (error != null)
+              new RuntimeException("Failed to generate balance plan: " + taskId, error)
+                  .printStackTrace();
+          });
+      taskMetadata.put(taskId, request);
+      planGenerations.put(taskId, task);
       return CompletableFuture.completedFuture(new PostPlanResponse(taskId));
     }
   }
@@ -259,18 +259,16 @@ class BalancerHandler implements Handler {
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
             new MigrationCost(
-                MOVED_SIZE,
-                ClusterInfo.changedRecordSize(
-                        solution.initialClusterInfo(), solution.proposal(), ignored -> true)
+                TO_SYNC_BYTES,
+                ClusterInfo.recordSizeToSync(solution.initialClusterInfo(), solution.proposal())
                     .entrySet()
                     .stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
             new MigrationCost(
-                MOVED_LEADER_SIZE,
-                ClusterInfo.changedRecordSize(
-                        solution.initialClusterInfo(), solution.proposal(), Replica::isLeader)
+                TO_FETCH_BYTES,
+                ClusterInfo.recordSizeToFetch(solution.initialClusterInfo(), solution.proposal())
                     .entrySet()
                     .stream()
                     .collect(
@@ -279,50 +277,6 @@ class BalancerHandler implements Handler {
         .filter(
             m -> !m.brokerCosts.isEmpty() && m.brokerCosts.values().stream().anyMatch(v -> v != 0))
         .collect(Collectors.toList());
-  }
-
-  private Balancer.Plan metricContext(
-      Collection<MetricSensor> metricSensors,
-      Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
-    // TODO: use a global metric collector when we are ready to enable long-run metric sampling
-    //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
-    try (var collector =
-        MetricCollector.local()
-            .registerJmxs(freshJmxAddresses())
-            .addMetricSensors(metricSensors)
-            .interval(Duration.ofSeconds(1))
-            .build()) {
-      return execution.apply(collector::clusterBean);
-    }
-  }
-
-  // visible for test
-  Map<Integer, InetSocketAddress> freshJmxAddresses() {
-    var brokers = admin.brokers().toCompletableFuture().join();
-    var jmxAddresses =
-        brokers.stream()
-            .map(broker -> Map.entry(broker, jmxPortMapper.apply(broker.id())))
-            .filter(entry -> entry.getValue().isPresent())
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    e -> e.getKey().id(),
-                    e ->
-                        InetSocketAddress.createUnresolved(
-                            e.getKey().host(), e.getValue().orElseThrow())));
-
-    // JMX is disabled
-    if (jmxAddresses.size() == 0) return Map.of();
-
-    // JMX is partially enabled, forbidden this use case since it is probably a bad idea
-    if (brokers.size() != jmxAddresses.size())
-      throw new IllegalArgumentException(
-          "Some brokers has no JMX port specified in the web service argument: "
-              + brokers.stream()
-                  .map(NodeInfo::id)
-                  .filter(id -> !jmxAddresses.containsKey(id))
-                  .collect(Collectors.toUnmodifiableSet()));
-
-    return jmxAddresses;
   }
 
   // visible for test
@@ -471,8 +425,8 @@ class BalancerHandler implements Handler {
   // visible for testing
   static final String CHANGED_REPLICAS = "changed replicas";
   static final String CHANGED_LEADERS = "changed leaders";
-  static final String MOVED_SIZE = "moved size (bytes)";
-  static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
+  static final String TO_SYNC_BYTES = "record size to sync (bytes)";
+  static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
 
   static class MigrationCost {
     final String name;
@@ -552,5 +506,15 @@ class BalancerHandler implements Handler {
       this.function = function;
       this.timeout = timeout;
     }
+  }
+
+  // metricsStore creates many threads so we have to close it
+  // in production, the web service will terminate all threads automatically.
+  // in testing, all threads is still running even though the test get completed. hence, the test
+  // case must close the
+  // handle manually
+  @Override
+  public void close() {
+    metricStore.close();
   }
 }

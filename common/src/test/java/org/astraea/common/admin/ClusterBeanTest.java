@@ -341,4 +341,14 @@ class ClusterBeanTest {
         cb.brokerTopicMetrics(BrokerTopic.of(1, fakeTopics.get(0)), JvmMemory.class)
             .collect(Collectors.toSet()));
   }
+
+  @Test
+  void testMaskedClusterBean() {
+    FakeJVMBean fakeBean = () -> new BeanObject("", Map.of(), Map.of());
+    var clusterBean = ClusterBean.of(Map.of(1, Set.of(fakeBean), 2, Set.of(fakeBean)));
+    Assertions.assertEquals(2, clusterBean.all().size());
+
+    var maskedClusterBean = ClusterBean.masked(clusterBean, node -> node != 2);
+    Assertions.assertEquals(1, maskedClusterBean.all().size());
+  }
 }

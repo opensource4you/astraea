@@ -36,7 +36,8 @@ class SingleStepBalancerTest {
 
     Assertions.assertEquals(
         SingleStepBalancer.ALL_CONFIGS.size(),
-        Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG")).size(),
+        Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG"), String.class)
+            .size(),
         "No duplicate element");
   }
 }

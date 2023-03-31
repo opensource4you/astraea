@@ -79,7 +79,7 @@ public class ServerMetricsTest {
 
   @Test
   void testKafkaServerOtherMetrics() {
-    MetricsTestUtil.validate(ServerMetrics.KafkaServer.clusterId(MBeanClient.local()));
+    MetricsTestUtil.validate(ServerMetrics.KafkaServer.CLUSTER_ID.fetch(MBeanClient.local()));
   }
 
   @Test
@@ -225,7 +225,7 @@ public class ServerMetricsTest {
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .bootstrapServers(SERVICE.bootstrapServers())
             .build()) {
-      var records = consumer.poll(1, Duration.ofSeconds(5));
+      var records = consumer.poll(Duration.ofSeconds(5));
       Assertions.assertEquals(1, records.size());
     }
     var meters = topic.fetch(MBeanClient.local());
