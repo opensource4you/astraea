@@ -156,9 +156,90 @@ public class Exporter extends SinkConnector {
 
     private final LongAdder bufferSize = new LongAdder();
 
-    private final Object putLock = new Object();
+    private static final Object putLock = new Object();
 
     private long bufferSizeLimit;
+
+    static RecordWriter createRecordWriter(
+        FileSystem fs, String path, String topicName, TopicPartition tp, long offset) {
+      var fileName = String.valueOf(offset);
+      return RecordWriter.builder(
+              fs.write(String.join("/", path, topicName, String.valueOf(tp.partition()), fileName)))
+          .build();
+    }
+
+    /**
+     * Remove writers that have not appended any records in the past <code>interval</code>
+     * milliseconds.
+     *
+     * @param writers a map of <code>TopicPartition</code> to <code>RecordWriter</code> objects
+     * @param interval the time interval in milliseconds
+     * @return the timestamp value of the oldest record appended in writers.
+     */
+    static long removeOldWriters(HashMap<TopicPartition, RecordWriter> writers, long interval) {
+      var itr = writers.values().iterator();
+      var currentTime = System.currentTimeMillis();
+      long longestWriteTime = currentTime;
+      while (itr.hasNext()) {
+        var writer = itr.next();
+        if (currentTime - writer.latestAppendTimestamp() > interval) {
+          writer.close();
+          itr.remove();
+        } else {
+          longestWriteTime = Math.min(longestWriteTime, writer.latestAppendTimestamp());
+        }
+      }
+      return longestWriteTime;
+    }
+
+    /**
+     * Writes a list {@link Record} objects to the specified {@link RecordWriter} objects. If a
+     * writer for the specified {@link TopicPartition} does not exist, it is created using the given
+     * {@link FileSystem}, path. topic name, partition, and offset.
+     *
+     * @param fs the {@link FileSystem} object used for writing records
+     * @param path the path in the {@link FileSystem} where records will be written
+     * @param topicName the name of the topic being written
+     * @param size the maximum size of a writer's output file
+     * @param interval the maximum milliseconds of a writer can be idle
+     * @param longestWriteTime the timestamp value of the oldest record appended in writers
+     * @param recordsQueue a {@link Supplier} that returns a list of {@link Record} objects to be
+     *     written
+     * @param writers a {@link HashMap} that maps a {@link TopicPartition} to a {@link RecordWriter}
+     *     object
+     * @return the new longestWriteTime get from {@link Task#removeOldWriters(HashMap, long)} if any
+     *     writer be closed
+     */
+    static long writeRecords(
+        FileSystem fs,
+        String path,
+        String topicName,
+        DataSize size,
+        long interval,
+        long longestWriteTime,
+        Supplier<List<Record<byte[], byte[]>>> recordsQueue,
+        HashMap<TopicPartition, RecordWriter> writers) {
+
+      var records = recordsQueue.get();
+      var newLongestWriteTime = longestWriteTime;
+      if (System.currentTimeMillis() - longestWriteTime > interval) {
+        newLongestWriteTime = removeOldWriters(writers, interval);
+      }
+
+      records.forEach(
+          record -> {
+            var writer =
+                writers.computeIfAbsent(
+                    record.topicPartition(),
+                    tp -> createRecordWriter(fs, path, topicName, tp, record.offset()));
+            writer.append(record);
+            if (writer.size().greaterThan(size)) {
+              writers.remove(record.topicPartition()).close();
+            }
+          });
+
+      return newLongestWriteTime;
+    }
 
     static Runnable createWriter(
         FileSystem fs,
@@ -174,50 +255,45 @@ public class Exporter extends SinkConnector {
 
         try {
           while (!closed.get()) {
-            var records = recordsQueue.get();
-            var currentTime = System.currentTimeMillis();
-
-            if (currentTime - longestWriteTime > interval) {
-              longestWriteTime = currentTime;
-              var itr = writers.values().iterator();
-              while (itr.hasNext()) {
-                var writer = itr.next();
-                if (currentTime - writer.latestAppendTimestamp() > interval) {
-                  writer.close();
-                  itr.remove();
-                } else {
-                  longestWriteTime = Math.min(longestWriteTime, writer.latestAppendTimestamp());
-                }
-              }
-            }
-
-            records.forEach(
-                record -> {
-                  var writer =
-                      writers.computeIfAbsent(
-                          record.topicPartition(),
-                          ignored -> {
-                            var fileName = String.valueOf(record.offset());
-                            return RecordWriter.builder(
-                                    fs.write(
-                                        String.join(
-                                            "/",
-                                            path,
-                                            topicName,
-                                            String.valueOf(record.partition()),
-                                            fileName)))
-                                .build();
-                          });
-                  writer.append(record);
-                  if (writer.size().greaterThan(size)) {
-                    writers.remove(record.topicPartition()).close();
-                  }
-                });
+            longestWriteTime =
+                Math.min(
+                    longestWriteTime,
+                    writeRecords(
+                        fs,
+                        path,
+                        topicName,
+                        size,
+                        interval,
+                        longestWriteTime,
+                        recordsQueue,
+                        writers));
           }
         } finally {
           writers.forEach((tp, writer) -> writer.close());
         }
       };
+    }
+
+    /**
+     * Retrieves a list of records from the buffer and empties the records queue.
+     *
+     * @return a {@link List} of records retrieved from the buffer
+     */
+    private static List<Record<byte[], byte[]>> getRecordsFromBuffer(
+        BlockingQueue<Record<byte[], byte[]>> recordsQueue, LongAdder bufferSize) {
+      var list = new ArrayList<Record<byte[], byte[]>>(recordsQueue.size());
+      recordsQueue.drainTo(list);
+      if (list.size() > 0) {
+        var drainedSize =
+            list.stream()
+                .mapToInt(record -> record.serializedKeySize() + record.serializedValueSize())
+                .sum();
+        bufferSize.add(-drainedSize);
+        synchronized (putLock) {
+          putLock.notify();
+        }
+      }
+      return list;
     }
 
     @Override
@@ -253,25 +329,7 @@ public class Exporter extends SinkConnector {
                   this.closed::get,
                   () ->
                       Utils.packException(
-                          () -> {
-                            var list =
-                                new ArrayList<Record<byte[], byte[]>>(this.recordsQueue.size());
-                            this.recordsQueue.drainTo(list);
-                            if (list.size() > 0) {
-                              var drainedSize =
-                                  list.stream()
-                                      .mapToInt(
-                                          record ->
-                                              record.serializedKeySize()
-                                                  + record.serializedValueSize())
-                                      .sum();
-                              this.bufferSize.add(-drainedSize);
-                              synchronized (putLock) {
-                                putLock.notify();
-                              }
-                            }
-                            return list;
-                          })));
+                          () -> getRecordsFromBuffer(this.recordsQueue, this.bufferSize))));
     }
 
     @Override
