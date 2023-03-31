@@ -47,7 +47,7 @@ class GreedyBalancerTest {
 
     Assertions.assertEquals(
         GreedyBalancer.ALL_CONFIGS.size(),
-        Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")).size(),
+        Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG"), String.class).size(),
         "No duplicate element");
   }
 

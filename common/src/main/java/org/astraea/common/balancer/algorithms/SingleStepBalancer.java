@@ -34,7 +34,8 @@ public class SingleStepBalancer implements Balancer {
   public static final String SHUFFLE_TWEAKER_MAX_STEP_CONFIG = "shuffle.tweaker.max.step";
   public static final String ITERATION_CONFIG = "iteration";
   public static final Set<String> ALL_CONFIGS =
-      new TreeSet<>(Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG")));
+      new TreeSet<>(
+          Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG"), String.class));
 
   private final int minStep;
   private final int maxStep;

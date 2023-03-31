@@ -30,14 +30,14 @@ public interface Report {
   static long recordsConsumedTotal() {
     var client = MBeanClient.local();
     return (long)
-        ConsumerMetrics.fetches(client).stream()
+        ConsumerMetrics.fetch(client).stream()
             .mapToDouble(HasConsumerFetchMetrics::recordsConsumedTotal)
             .sum();
   }
 
   static List<Report> consumers() {
 
-    return ConsumerMetrics.fetches(MBeanClient.local()).stream()
+    return ConsumerMetrics.fetch(MBeanClient.local()).stream()
         .map(
             m ->
                 new Report() {
@@ -70,12 +70,28 @@ public interface Report {
                   public String clientId() {
                     return m.clientId();
                   }
+
+                  @Override
+                  public Optional<Double> e2eLatency() {
+                    return Optional.ofNullable(
+                            MBeanClient.local()
+                                .bean(
+                                    BeanQuery.builder()
+                                        .domainName(ConsumerThread.DOMAIN_NAME)
+                                        .property(
+                                            ConsumerThread.TYPE_PROPERTY, ConsumerThread.TYPE_VALUE)
+                                        .property(ConsumerThread.ID_PROPERTY, m.clientId())
+                                        .build())
+                                .attributes()
+                                .get(ConsumerThread.EXP_WEIGHT_BY_TIME_PROPERTY))
+                        .map(v -> (double) v);
+                  }
                 })
         .collect(Collectors.toList());
   }
 
   static List<Report> producers() {
-    return ProducerMetrics.of(MBeanClient.local()).stream()
+    return ProducerMetrics.producer(MBeanClient.local()).stream()
         .map(
             m ->
                 new Report() {

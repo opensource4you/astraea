@@ -94,8 +94,6 @@ public abstract class NetworkCost implements HasClusterCost {
     // calculation result to speed things up
     final var cachedCalculation =
         calculationCache.computeIfAbsent(clusterBean, CachedCalculation::new);
-    final var ingressRate = cachedCalculation.partitionIngressRate;
-    final var egressRate = cachedCalculation.partitionEgressRate;
 
     // Evaluate the score of the balancer-tweaked cluster(clusterInfo)
     var brokerIngressRate =
@@ -307,7 +305,16 @@ public abstract class NetworkCost implements HasClusterCost {
     private final Map<TopicPartition, Long> partitionEgressRate;
 
     private CachedCalculation(ClusterBean sourceMetric) {
-      final var metricViewCluster = ClusterInfoSensor.metricViewCluster(sourceMetric);
+      ClusterInfo metricViewCluster;
+      try {
+        metricViewCluster = ClusterInfoSensor.metricViewCluster(sourceMetric);
+      } catch (IllegalStateException e) {
+        // ClusterInfoSensor#metricViewCluster throws IllegalStateException when the given metrics
+        // contain conflict information(for example there is a partition at one broker, but its size
+        // metrics is not present in the given metrics. This might happen due to metric truncation.
+        throw new NoSufficientMetricsException(
+            NetworkCost.this, Duration.ofSeconds(1), "There ClusterBean is not ready yet", e);
+      }
       this.partitionIngressRate =
           estimateRate(metricViewCluster, sourceMetric, ServerMetrics.Topic.BYTES_IN_PER_SEC);
       this.partitionEgressRate =

@@ -79,7 +79,7 @@ public class ServerMetricsTest {
 
   @Test
   void testKafkaServerOtherMetrics() {
-    MetricsTestUtil.validate(ServerMetrics.KafkaServer.clusterId(MBeanClient.local()));
+    MetricsTestUtil.validate(ServerMetrics.KafkaServer.CLUSTER_ID.fetch(MBeanClient.local()));
   }
 
   @Test
