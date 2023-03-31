@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
+import java.util.Set;
 import org.astraea.common.admin.TopicPartition;
 
 /**
@@ -29,5 +30,23 @@ public interface PartitionCost {
   /**
    * @return Topic-partition and its cost.
    */
-  Map<TopicPartition, Double> value();
+  Map<TopicPartition, CostInfo> value();
+
+  class CostInfo {
+    private double cost;
+    private Set<TopicPartition> incompatible;
+
+    CostInfo(double cost, Set<TopicPartition> incompatiblePartitions) {
+      this.cost = cost;
+      this.incompatible = incompatiblePartitions;
+    }
+
+    public double cost() {
+      return cost;
+    }
+
+    public Set<TopicPartition> incompatible() {
+      return incompatible;
+    }
+  }
 }

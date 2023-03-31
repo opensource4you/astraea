@@ -18,6 +18,7 @@ package org.astraea.common.cost;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.TopicPartition;
@@ -36,7 +37,8 @@ public class HasPartitionCostTest {
 
           @Override
           public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-            return () -> Map.of(TopicPartition.of("a", 1), 1D);
+            return () ->
+                Map.of(TopicPartition.of("a", 1), new PartitionCost.CostInfo(1D, Set.of()));
           }
 
           @Override
