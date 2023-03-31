@@ -69,10 +69,8 @@ public class RecordSizeCost
             .collect(
                 Collectors.groupingBy(
                     Replica::topicPartition,
-                    Collectors.mapping(r -> (double) r.size(), Collectors.reducing(0D, Math::max))))
-            .entrySet()
-            .stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                    Collectors.mapping(
+                        r -> (double) r.size(), Collectors.reducing(0D, Math::max))));
     return () -> result;
   }
 
