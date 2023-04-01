@@ -279,7 +279,7 @@ public class Exporter extends SinkConnector {
      *
      * @return a {@link List} of records retrieved from the buffer
      */
-    private static List<Record<byte[], byte[]>> getRecordsFromBuffer(
+    static List<Record<byte[], byte[]>> getRecordsFromBuffer(
         BlockingQueue<Record<byte[], byte[]>> recordsQueue, LongAdder bufferSize) {
       var list = new ArrayList<Record<byte[], byte[]>>(recordsQueue.size());
       recordsQueue.drainTo(list);

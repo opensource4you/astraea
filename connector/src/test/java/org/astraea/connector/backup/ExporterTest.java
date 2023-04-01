@@ -20,19 +20,27 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
+import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.RecordReader;
+import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.connector.Config;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.connector.Value;
+import org.astraea.common.consumer.Record;
 import org.astraea.common.producer.Producer;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
@@ -685,6 +693,167 @@ public class ExporterTest {
                 }
               });
       task.close();
+    }
+  }
+
+  @Test
+  void testGetRecordsFromBuffer() {
+    var topicName = Utils.randomString(10);
+    var queue = new LinkedBlockingQueue<Record<byte[], byte[]>>();
+    var bufferSize = new LongAdder();
+    bufferSize.reset();
+    var records =
+        List.of(
+            RecordBuilder.of()
+                .topic(topicName)
+                .key("test".getBytes())
+                .value("test0".getBytes())
+                .partition(0)
+                .offset(0)
+                .timestamp(System.currentTimeMillis())
+                .build(),
+            RecordBuilder.of()
+                .topic(topicName)
+                .key("test".getBytes())
+                .value("test1".getBytes())
+                .partition(1)
+                .offset(0)
+                .timestamp(System.currentTimeMillis())
+                .build());
+
+    records.forEach(
+        record -> {
+          queue.offer(record);
+          bufferSize.add(record.serializedKeySize() + record.serializedValueSize());
+        });
+
+    var list = Exporter.Task.getRecordsFromBuffer(queue, bufferSize);
+
+    Assertions.assertEquals(records, list);
+  }
+
+  /** The purpose of this test is also to remove old writers */
+  @Test
+  void testCreateRecordWriter() {
+    try (var server = HdfsServer.local()) {
+      var path = "/test";
+      var topicName = Utils.randomString(10);
+      var tp = TopicPartition.of(topicName, 0);
+      long offset = 123;
+      var configs =
+          Map.of(
+              "fs.schema",
+              "hdfs",
+              "topics",
+              topicName,
+              "fs.hdfs.hostname",
+              String.valueOf(server.hostname()),
+              "fs.hdfs.port",
+              String.valueOf(server.port()),
+              "fs.hdfs.user",
+              String.valueOf(server.user()),
+              "path",
+              path,
+              "size",
+              "100MB",
+              "tasks.max",
+              "1",
+              "roll.duration",
+              "300ms");
+
+      var fs = FileSystem.of("hdfs", Configuration.of(configs));
+
+      var writers = new HashMap<TopicPartition, RecordWriter>();
+
+      RecordWriter recordWriter = Exporter.Task.createRecordWriter(fs, path, topicName, tp, offset);
+
+      Assertions.assertNotNull(recordWriter);
+
+      writers.put(tp, recordWriter);
+
+      recordWriter.append(
+          RecordBuilder.of()
+              .topic(topicName)
+              .key("test".getBytes())
+              .value("test0".getBytes())
+              .partition(0)
+              .offset(0)
+              .timestamp(System.currentTimeMillis())
+              .build());
+
+      Exporter.Task.removeOldWriters(writers, 1000);
+
+      // the writer should not be closed before sleep.
+      Assertions.assertNotEquals(0, writers.size());
+
+      Utils.sleep(Duration.ofMillis(1500));
+
+      Exporter.Task.removeOldWriters(writers, 1000);
+
+      Assertions.assertEquals(0, writers.size());
+    }
+  }
+
+  @Test
+  void testWriteRecords() {
+    try (var server = HdfsServer.local()) {
+      var topicName = Utils.randomString(10);
+      var path = "/test";
+      var configs =
+          Map.of(
+              "fs.schema",
+              "hdfs",
+              "topics",
+              topicName,
+              "fs.hdfs.hostname",
+              String.valueOf(server.hostname()),
+              "fs.hdfs.port",
+              String.valueOf(server.port()),
+              "fs.hdfs.user",
+              String.valueOf(server.user()),
+              "path",
+              path,
+              "size",
+              "100MB",
+              "tasks.max",
+              "1",
+              "roll.duration",
+              "300ms");
+
+      var fs = FileSystem.of("hdfs", Configuration.of(configs));
+
+      var writers = new HashMap<TopicPartition, RecordWriter>();
+
+      BlockingQueue<Record<byte[], byte[]>> queue = new LinkedBlockingQueue<>();
+
+      LongAdder bufferSize = new LongAdder();
+
+      queue.add(
+          RecordBuilder.of()
+              .topic(topicName)
+              .key("test".getBytes())
+              .value("test0".getBytes())
+              .partition(0)
+              .offset(0)
+              .timestamp(System.currentTimeMillis())
+              .build());
+
+      Assertions.assertNotEquals(0, queue.size());
+
+      // this function will drain out all records from the blocking queue and return a new longest writeTime.
+      var newLongestWriteTime =
+          Exporter.Task.writeRecords(
+              fs,
+              path,
+              topicName,
+              DataSize.of("1KB"),
+              1000,
+              0,
+              () -> Exporter.Task.getRecordsFromBuffer(queue, bufferSize),
+              writers);
+
+      Assertions.assertNotEquals(0, newLongestWriteTime);
+      Assertions.assertEquals(0, queue.size());
     }
   }
 }
