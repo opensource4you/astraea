@@ -330,45 +330,6 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
     }
 
     @JsonProperty
-    public Map<Integer, String> brokerIngress() {
-      return clusterInfo
-          .replicaStream()
-          .collect(
-              Collectors.groupingBy(
-                  x -> x.nodeInfo().id(),
-                  Collectors.mapping(
-                      x -> topicPartitionDataRates.get(x.topicPartition()).byteRate(),
-                      Collectors.summingDouble(x -> x))))
-          .entrySet()
-          .stream()
-          .collect(
-              Collectors.toUnmodifiableMap(
-                  Map.Entry::getKey,
-                  x -> DataRate.Byte.of(x.getValue().longValue()).perSecond().toString()));
-    }
-
-    @JsonProperty
-    public Map<Integer, String> brokerEgress() {
-      return clusterInfo
-          .replicaStream()
-          .filter(Replica::isLeader)
-          .collect(
-              Collectors.groupingBy(
-                  x -> x.nodeInfo().id(),
-                  Collectors.mapping(
-                      x ->
-                          topicPartitionDataRates.get(x.topicPartition()).byteRate()
-                              * topicConsumerFanout.get(x.topic()),
-                      Collectors.summingDouble(x -> x))))
-          .entrySet()
-          .stream()
-          .collect(
-              Collectors.toUnmodifiableMap(
-                  Map.Entry::getKey,
-                  x -> DataRate.Byte.of(x.getValue().longValue()).perSecond().toString()));
-    }
-
-    @JsonProperty
     public List<Map<String, String>> perfCommands() {
       class PerfClient {
         long consumeRate = 0;
@@ -435,8 +396,10 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                                     .replicaStream(topic)
                                     .map(Replica::topicPartition)
                                     .distinct())
-                        .map(
+                        .flatMap(
                             tp -> {
+                              // backbone partition bandwidth is unknown before performance start.
+                              if (!topicPartitionDataRates.containsKey(tp)) return Stream.of();
                               var bytes =
                                   topicPartitionDataRates
                                       .get(tp)
@@ -446,7 +409,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                               // TopicPartitionDataRateMapField support only integer measurement
                               // and no space allowed. So we can't just toString the DataRate
                               // object :(
-                              return String.format("%s:%sByte/second", tp, bytes);
+                              return Stream.of(String.format("%s:%sByte/second", tp, bytes));
                             })
                         .collect(Collectors.joining(","));
                 var throughput = String.format("%dByte/second", (long) produceRate.byteRate());
