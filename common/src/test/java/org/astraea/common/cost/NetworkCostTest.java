@@ -32,7 +32,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -47,7 +46,6 @@ import org.astraea.common.metrics.MetricFactory;
 import org.astraea.common.metrics.MetricSeriesBuilder;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
-import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -85,7 +83,7 @@ class NetworkCostTest {
             Map.entry(TopicPartition.of("Pipeline-0"), 144000000L));
     Assertions.assertEquals(
         expected,
-        new NetworkIngressCost()
+        new NetworkIngressCost(Configuration.EMPTY)
             .estimateRate(t.clusterInfo(), t.clusterBean(), ServerMetrics.Topic.BYTES_IN_PER_SEC));
   }
 
@@ -112,10 +110,14 @@ class NetworkCostTest {
 
   static Stream<Arguments> testcases() {
     return Stream.of(
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(2, 100, 0xfeedbabe)),
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(3, 100, 0xabcdef01)),
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(10, 200, 0xcafebabe)),
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(15, 300, 0xfee1dead)),
+        Arguments.of(
+            new NetworkIngressCost(Configuration.EMPTY), new LargeTestCase(2, 100, 0xfeedbabe)),
+        Arguments.of(
+            new NetworkIngressCost(Configuration.EMPTY), new LargeTestCase(3, 100, 0xabcdef01)),
+        Arguments.of(
+            new NetworkIngressCost(Configuration.EMPTY), new LargeTestCase(10, 200, 0xcafebabe)),
+        Arguments.of(
+            new NetworkIngressCost(Configuration.EMPTY), new LargeTestCase(15, 300, 0xfee1dead)),
         Arguments.of(new NetworkEgressCost(), new LargeTestCase(5, 100, 0xfa11fa11)),
         Arguments.of(new NetworkEgressCost(), new LargeTestCase(6, 100, 0xf001f001)),
         Arguments.of(new NetworkEgressCost(), new LargeTestCase(8, 200, 0xba1aba1a)),
@@ -149,7 +151,7 @@ class NetworkCostTest {
     var costFunction =
         HasClusterCost.of(
             Map.of(
-                new NetworkIngressCost(), 1.0,
+                new NetworkIngressCost(Configuration.EMPTY), 1.0,
                 new NetworkEgressCost(), 1.0));
     testOptimization(costFunction, testCase);
   }
@@ -233,7 +235,8 @@ class NetworkCostTest {
         (expectedIngress1 - expectedIngress3) / Math.max(ingressSum, egressSum);
     double expectedEgressScore =
         (expectedEgress3 - expectedEgress2) / Math.max(ingressSum, egressSum);
-    double ingressScore = new NetworkIngressCost().clusterCost(cluster, beans).value();
+    double ingressScore =
+        new NetworkIngressCost(Configuration.EMPTY).clusterCost(cluster, beans).value();
     double egressScore = new NetworkEgressCost().clusterCost(cluster, beans).value();
     Assertions.assertTrue(
         around.apply(expectedIngressScore).test(ingressScore),
@@ -293,18 +296,19 @@ class NetworkCostTest {
                             .build(),
                         noise(5566))));
     Assertions.assertDoesNotThrow(
-        () -> new NetworkIngressCost().clusterCost(cluster, beans),
+        () -> new NetworkIngressCost(Configuration.EMPTY).clusterCost(cluster, beans),
         "Metric sampled but no load value, treat as zero load");
     Assertions.assertDoesNotThrow(
         () -> new NetworkEgressCost().clusterCost(cluster, beans),
         "Metric sampled but no load value, treat as zero load");
-    Assertions.assertEquals(0, new NetworkIngressCost().clusterCost(cluster, beans).value());
+    Assertions.assertEquals(
+        0, new NetworkIngressCost(Configuration.EMPTY).clusterCost(cluster, beans).value());
     Assertions.assertEquals(0, new NetworkEgressCost().clusterCost(cluster, beans).value());
 
     Assertions.assertThrows(
         NoSufficientMetricsException.class,
         () ->
-            new NetworkIngressCost()
+            new NetworkIngressCost(Configuration.EMPTY)
                 .clusterCost(
                     cluster, ClusterBean.of(Map.of(1, List.of(), 2, List.of(), 3, List.of()))),
         "Should raise a exception since we don't know if first sample is performed or not");
@@ -329,7 +333,8 @@ class NetworkCostTest {
     var largeShuffle =
         new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 31), (x) -> true);
     var costFunction =
-        HasClusterCost.of(Map.of(new NetworkIngressCost(), 1.0, new NetworkEgressCost(), 1.0));
+        HasClusterCost.of(
+            Map.of(new NetworkIngressCost(Configuration.EMPTY), 1.0, new NetworkEgressCost(), 1.0));
     var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);
 
     Function<ShuffleTweaker, Double> experiment =
@@ -396,7 +401,8 @@ class NetworkCostTest {
     var node = scaledCluster.node(4321);
 
     var costI =
-        (NetworkCost.NetworkClusterCost) new NetworkIngressCost().clusterCost(scaledCluster, beans);
+        (NetworkCost.NetworkClusterCost)
+            new NetworkIngressCost(Configuration.EMPTY).clusterCost(scaledCluster, beans);
     Assertions.assertEquals(2, costI.brokerRate.size());
     Assertions.assertEquals(0L, costI.brokerRate.get(node.id()));
     var costE =
@@ -406,25 +412,8 @@ class NetworkCostTest {
   }
 
   @Test
-  void testNoMetricCheck() {
-    var ingressCost = new NetworkIngressCost();
-    var collectorBuilder = MetricCollector.local().interval(Duration.ofMillis(100));
-    ingressCost.metricSensor().ifPresent(collectorBuilder::addMetricSensor);
-    try (var collector = collectorBuilder.build()) {
-
-      // sample metrics for a while.
-      Utils.sleep(Duration.ofMillis(500));
-
-      var emptyCluster = ClusterInfoBuilder.builder().addNode(Set.of(1, 2, 3)).build();
-      Assertions.assertDoesNotThrow(
-          () -> ingressCost.clusterCost(emptyCluster, collector.clusterBean()),
-          "Should not raise an exception");
-    }
-  }
-
-  @Test
   void testPartitionCost() {
-    var ingressCost = new NetworkIngressCost();
+    var ingressCost = new NetworkIngressCost(Configuration.EMPTY);
 
     // create topic `test` and 9 partitions, the size of each partition is ( partition id +1 ) *
     // 10KB

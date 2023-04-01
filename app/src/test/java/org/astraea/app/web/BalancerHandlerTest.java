@@ -111,7 +111,7 @@ public class BalancerHandlerTest {
   void testReport() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       // make sure all replicas have
       admin
           .clusterInfo(Set.copyOf(topics))
@@ -147,7 +147,7 @@ public class BalancerHandlerTest {
           .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
       var sizeMigration =
           report.migrationCosts.stream()
-              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .filter(x -> x.name.equals(BalancerHandler.TO_SYNC_BYTES))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
@@ -160,7 +160,7 @@ public class BalancerHandlerTest {
   void testTopics() {
     var topicNames = createAndProduceTopic(5);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       // For all 5 topics, we only allow the first two topics can be altered.
       // We apply this limitation to test if the BalancerHandler.TOPICS_KEY works correctly.
       var allowedTopics = List.copyOf(topicNames).subList(0, 2);
@@ -175,7 +175,7 @@ public class BalancerHandlerTest {
           "Only allowed topics been altered");
       var sizeMigration =
           report.migrationCosts.stream()
-              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .filter(x -> x.name.equals(BalancerHandler.TO_SYNC_BYTES))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
@@ -343,7 +343,7 @@ public class BalancerHandlerTest {
   void testMoveCost(String leaderLimit, String sizeLimit) {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.moveCosts =
           Set.of(
@@ -357,16 +357,13 @@ public class BalancerHandlerTest {
               sizeLimit);
       Assertions.assertEquals(2, request.moveCosts.size());
       var report = submitPlanGeneration(handler, request).plan;
-      Assertions.assertEquals(4, report.migrationCosts.size());
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
-              case BalancerHandler.MOVED_SIZE:
+              case BalancerHandler.TO_SYNC_BYTES:
+              case BalancerHandler.TO_FETCH_BYTES:
                 Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream()
-                            .map(Math::abs)
-                            .mapToLong(Double::intValue)
-                            .sum()
+                    migrationCost.brokerCosts.values().stream().mapToLong(Double::intValue).sum()
                         <= DataSize.of(sizeLimit).bytes());
                 break;
               case BalancerHandler.CHANGED_LEADERS:
@@ -387,7 +384,7 @@ public class BalancerHandlerTest {
   void testNoReport() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(1));
       var post =
@@ -435,7 +432,7 @@ public class BalancerHandlerTest {
     // arrange
     createAndProduceTopic(3, 10, (short) 2, false);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.balancerConfig = Map.of("iteration", "100");
       var progress = submitPlanGeneration(handler, request);
@@ -464,7 +461,7 @@ public class BalancerHandlerTest {
   void testBadPut() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
 
       // no id offered
       Assertions.assertThrows(
@@ -485,7 +482,7 @@ public class BalancerHandlerTest {
   void testSubmitRebalancePlanThreadSafe() {
     var topic = Utils.randomString();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       admin.creator().topic(topic).numberOfPartitions(30).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       admin
@@ -533,7 +530,7 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testRebalanceDetectOngoing() {
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var theTopic = Utils.randomString();
       admin.creator().topic(theTopic).numberOfPartitions(1).run().toCompletableFuture().join();
       try (var producer = Producer.of(SERVICE.bootstrapServers())) {
@@ -565,7 +562,7 @@ public class BalancerHandlerTest {
                       clusterInfo
                           .replicaStream()
                           .noneMatch(r -> r.isFuture() || r.isRemoving() || r.isAdding()),
-                  Duration.ofSeconds(10),
+                  Duration.ofSeconds(20),
                   2)
               .toCompletableFuture()
               .join());
@@ -617,7 +614,7 @@ public class BalancerHandlerTest {
         .thenAnswer((invoke) -> CompletableFuture.completedFuture(List.of()));
     Mockito.when(admin.topicNames(Mockito.anyBoolean()))
         .thenAnswer((invoke) -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
-    try (var handler = new BalancerHandler(admin)) {
+    try (var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       Mockito.when(admin.clusterInfo(Mockito.any()))
           .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasFuture));
       var task0 =
@@ -664,7 +661,7 @@ public class BalancerHandlerTest {
   void testPutSanityCheck() {
     var topic = createAndProduceTopic(1).iterator().next();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.topics = Set.of(topic);
       var theProgress = submitPlanGeneration(handler, request);
@@ -703,7 +700,7 @@ public class BalancerHandlerTest {
   void testLookupRebalanceProgress() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var progress = submitPlanGeneration(handler, new BalancerPostRequest());
       Assertions.assertEquals(Searched, progress.phase);
 
@@ -757,7 +754,7 @@ public class BalancerHandlerTest {
   void testLookupBadExecutionProgress() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
@@ -811,7 +808,7 @@ public class BalancerHandlerTest {
   void testBadLookupRequest() {
     createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       Assertions.assertEquals(
           404, handler.get(Channel.ofTarget("no such plan")).toCompletableFuture().join().code());
 
@@ -828,7 +825,7 @@ public class BalancerHandlerTest {
   void testPutIdempotent() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.topics = topics;
       var progress = submitPlanGeneration(handler, request);
@@ -861,7 +858,7 @@ public class BalancerHandlerTest {
   void testCustomBalancer() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var balancer = SpyBalancer.class.getName();
       var balancerConfig =
           Map.of(
@@ -982,9 +979,7 @@ public class BalancerHandlerTest {
     createAndProduceTopic(5);
     var costFunction = Collections.singleton(costWeight(TimeoutCost.class.getName(), 1));
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler =
-            new BalancerHandler(
-                admin, (ignore) -> Optional.of(SERVICE.jmxServiceURL().getPort()))) {
+        var handler = new BalancerHandler(admin, (ignore) -> SERVICE.jmxServiceURL().getPort())) {
       var channel = httpRequest(Map.of(TIMEOUT_KEY, "10", CLUSTER_COSTS_KEY, costFunction));
       var post =
           (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().join();
@@ -1003,9 +998,7 @@ public class BalancerHandlerTest {
   void testCostWithSensor() {
     var topics = createAndProduceTopic(3);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler =
-            new BalancerHandler(
-                admin, (ignore) -> Optional.of(SERVICE.jmxServiceURL().getPort())); ) {
+        var handler = new BalancerHandler(admin, (ignore) -> SERVICE.jmxServiceURL().getPort())) {
       var invoked = new AtomicBoolean();
       SensorAndCost.callback.set(
           (clusterBean) -> {
@@ -1160,24 +1153,10 @@ public class BalancerHandlerTest {
   }
 
   @Test
-  void testFreshJmxAddress() {
-    try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var noJmx = new BalancerHandler(admin, (id) -> Optional.empty());
-        var withJmx = new BalancerHandler(admin, (id) -> Optional.of(5566));
-        var partialJmx =
-            new BalancerHandler(admin, (id) -> Optional.ofNullable(id != 0 ? 1000 : null))) {
-
-      Assertions.assertEquals(0, noJmx.freshJmxAddresses().size());
-      Assertions.assertEquals(3, withJmx.freshJmxAddresses().size());
-      Assertions.assertThrows(IllegalArgumentException.class, partialJmx::freshJmxAddresses);
-    }
-  }
-
-  @Test
   void testExecutorConfig() {
     var topic = createAndProduceTopic(1).iterator().next();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin)) {
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.topics = Set.of(topic);
       var theProgress = submitPlanGeneration(handler, request);

@@ -14,44 +14,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.broker;
+package org.astraea.common.metrics;
 
-import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.MetricsTestUtil;
+import java.util.HashSet;
+import java.util.Map;
+import org.astraea.common.metrics.collector.MetricFetcher;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
-public class NetworkMetricsTest {
-
-  private static final Service SERVICE = Service.builder().numberOfBrokers(1).build();
-
-  @BeforeAll
-  static void createBroker() {
-    // call broker-related method to initialize broker cluster
-    Assertions.assertNotEquals(0, SERVICE.dataFolders().size());
-  }
+class BeanQueryIntegratedTest {
+  private static final Service SERVICE =
+      Service.builder().numberOfWorkers(1).numberOfBrokers(1).build();
 
   @AfterAll
   static void closeService() {
     SERVICE.close();
   }
 
-  @ParameterizedTest()
-  @EnumSource(value = NetworkMetrics.Request.class)
-  void testRequestTotalTimeMs(NetworkMetrics.Request request) {
-    var histogram = request.fetch(MBeanClient.local());
-    MetricsTestUtil.validate(histogram);
-  }
-
   @Test
-  void testAllEnumNameUnique() {
-    Assertions.assertTrue(
-        MetricsTestUtil.metricDistinct(
-            NetworkMetrics.Request.values(), NetworkMetrics.Request::metricName));
+  void testAllBuiltInQueries() {
+    try (var client = MBeanClient.of(SERVICE.jmxServiceURL())) {
+      var exist = new HashSet<Map<String, String>>();
+      MetricFetcher.QUERIES.forEach(
+          q ->
+              client
+                  .beans(q)
+                  .forEach(
+                      bean -> {
+                        Assertions.assertFalse(exist.contains(bean.properties()));
+                        exist.add(bean.properties());
+                      }));
+    }
   }
 }

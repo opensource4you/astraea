@@ -21,18 +21,21 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.MBeanRegister;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 public class StrictCostPartitionerPerfTest {
 
@@ -77,6 +80,11 @@ public class StrictCostPartitionerPerfTest {
                     .nodeInfo(node2)
                     .path("/tmp/aa")
                     .buildLeader()));
+    var admin = Mockito.mock(Admin.class);
+    Mockito.when(admin.brokers())
+        .thenReturn(CompletableFuture.completedStage(clusterInfo.brokers()));
+    Mockito.when(admin.clusterInfo(Mockito.anySet()))
+        .thenReturn(CompletableFuture.completedStage(clusterInfo));
 
     var node0Latency = createMetric(0);
     var node1Latency = createMetric(1);
@@ -85,6 +93,7 @@ public class StrictCostPartitionerPerfTest {
     var key = "key".getBytes(StandardCharsets.UTF_8);
     var value = "value".getBytes(StandardCharsets.UTF_8);
     try (var partitioner = new StrictCostPartitioner()) {
+      partitioner.admin = admin;
       partitioner.configure(Configuration.of(Map.of("round.robin.lease", "2s")));
 
       Supplier<Map<Integer, List<Integer>>> resultSupplier =

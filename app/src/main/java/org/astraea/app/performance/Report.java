@@ -30,14 +30,14 @@ public interface Report {
   static long recordsConsumedTotal() {
     var client = MBeanClient.local();
     return (long)
-        ConsumerMetrics.fetches(client).stream()
+        ConsumerMetrics.fetch(client).stream()
             .mapToDouble(HasConsumerFetchMetrics::recordsConsumedTotal)
             .sum();
   }
 
   static List<Report> consumers() {
 
-    return ConsumerMetrics.fetches(MBeanClient.local()).stream()
+    return ConsumerMetrics.fetch(MBeanClient.local()).stream()
         .map(
             m ->
                 new Report() {
@@ -91,7 +91,7 @@ public interface Report {
   }
 
   static List<Report> producers() {
-    return ProducerMetrics.of(MBeanClient.local()).stream()
+    return ProducerMetrics.producer(MBeanClient.local()).stream()
         .map(
             m ->
                 new Report() {

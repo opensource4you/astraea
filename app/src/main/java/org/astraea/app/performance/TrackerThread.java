@@ -70,7 +70,7 @@ public interface TrackerThread extends AbstractThread {
       System.out.printf(
           "  error rate: %.1f records/second%n",
           sumOfAttribute(
-              ProducerMetrics.topics(mBeanClient), HasProducerTopicMetrics::recordErrorRate));
+              ProducerMetrics.topic(mBeanClient), HasProducerTopicMetrics::recordErrorRate));
       reports.stream()
           .mapToLong(Report::maxLatency)
           .max()
@@ -131,7 +131,7 @@ public interface TrackerThread extends AbstractThread {
           .mapToDouble(r -> r.e2eLatency().orElse(Double.NaN))
           .average()
           .ifPresent(i -> System.out.printf("  end-to-end average latency: %.3f ms%n", i));
-      var metrics = ConsumerMetrics.coordinators(mBeanClient);
+      var metrics = ConsumerMetrics.coordinator(mBeanClient);
       metrics.stream()
           .mapToDouble(HasConsumerCoordinatorMetrics::rebalanceLatencyMax)
           .max()

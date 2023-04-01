@@ -63,7 +63,7 @@ public class HasConsumerCoordinatorMetricsTest {
             .build()) {
       Assertions.assertEquals(10, consumer.poll(Duration.ofSeconds(5)).size());
       consumer.commitOffsets(Duration.ofSeconds(2));
-      var metrics = ConsumerMetrics.coordinators(MBeanClient.local());
+      var metrics = ConsumerMetrics.coordinator(MBeanClient.local());
       Assertions.assertEquals(1, metrics.size());
       var m = metrics.iterator().next();
       Assertions.assertNotNull(m.clientId());

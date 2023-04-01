@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.web;
+package org.astraea.app.backup;
 
 import java.time.Duration;
-import java.util.Map;
+import java.util.Set;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.it.Service;
@@ -25,8 +25,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class BeanHandlerTest {
-
+public class BackupTest {
   private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
 
   @AfterAll
@@ -35,28 +34,40 @@ public class BeanHandlerTest {
   }
 
   @Test
-  void testBeans() {
-    var topic = Utils.randomString(10);
+  void testRestoreDistribution() {
+    var topic1 = Utils.randomString();
+    var topic2 = Utils.randomString();
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
+      admin
+          .creator()
+          .topic(topic1)
+          .numberOfPartitions(3)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .join();
+      admin
+          .creator()
+          .topic(topic2)
+          .numberOfPartitions(3)
+          .numberOfReplicas((short) 3)
+          .run()
+          .toCompletableFuture()
+          .join();
       Utils.sleep(Duration.ofSeconds(2));
-      var handler = new BeanHandler(admin, name -> SERVICE.jmxServiceURL().getPort());
-      var response =
-          Assertions.assertInstanceOf(
-              BeanHandler.NodeBeans.class, handler.get(Channel.EMPTY).toCompletableFuture().join());
-      Assertions.assertNotEquals(0, response.nodeBeans.size());
 
-      var response1 =
-          Assertions.assertInstanceOf(
-              BeanHandler.NodeBeans.class,
-              handler.get(Channel.ofTarget("kafka.server")).toCompletableFuture().join());
-      Assertions.assertNotEquals(0, response1.nodeBeans.size());
+      var clusterInfo = admin.clusterInfo(Set.of(topic1, topic2)).toCompletableFuture().join();
+      admin.deleteTopics(Set.of(topic1, topic2)).toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
 
-      var response2 =
-          Assertions.assertInstanceOf(
-              BeanHandler.NodeBeans.class,
-              handler.get(Channel.ofQueries(Map.of("topic", topic))).toCompletableFuture().join());
-      Assertions.assertNotEquals(0, response2.nodeBeans.size());
+      var backup = new Backup();
+      backup.restoreDistribution(clusterInfo, SERVICE.bootstrapServers());
+      Utils.sleep(Duration.ofSeconds(2));
+      var restoredClusterInfo =
+          admin.clusterInfo(Set.of(topic1, topic2)).toCompletableFuture().join();
+      Utils.sleep(Duration.ofSeconds(2));
+
+      Assertions.assertEquals(clusterInfo.replicas(), restoredClusterInfo.replicas());
     }
   }
 }

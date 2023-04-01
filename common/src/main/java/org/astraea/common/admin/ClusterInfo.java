@@ -39,23 +39,89 @@ public interface ClusterInfo {
 
   // ---------------------[helpers]---------------------//
 
-  static Map<Integer, DataSize> changedRecordSize(
-      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate) {
-    return Stream.concat(before.nodes().stream(), after.nodes().stream())
+  static Map<Integer, DataSize> recordSizeToFetch(ClusterInfo before, ClusterInfo after) {
+    return changedRecordSize(before, after, true);
+  }
+
+  static Map<Integer, DataSize> recordSizeToSync(ClusterInfo before, ClusterInfo after) {
+    return changedRecordSize(before, after, false);
+  }
+
+  /**
+   * @param before the ClusterInfo before migrated replicas
+   * @param after the ClusterInfo after migrated replicas
+   * @param migrateOut if data log need fetch from replica leader, set this true
+   * @return the data size to migrated by all brokers
+   */
+  private static Map<Integer, DataSize> changedRecordSize(
+      ClusterInfo before, ClusterInfo after, boolean migrateOut) {
+    final ClusterInfo sourceClusterInfo;
+    final ClusterInfo destClusterInfo;
+    if (migrateOut) {
+      sourceClusterInfo = after;
+      destClusterInfo = before;
+    } else {
+      sourceClusterInfo = before;
+      destClusterInfo = after;
+    }
+    var changePartitions =
+        ClusterInfo.findNonFulfilledAllocation(sourceClusterInfo, destClusterInfo);
+    var cost =
+        changePartitions.stream()
+            .flatMap(
+                p ->
+                    destClusterInfo.replicas(p).stream()
+                        .filter(r -> !sourceClusterInfo.replicas(p).contains(r)))
+            .map(
+                r -> {
+                  if (migrateOut)
+                    return destClusterInfo.replicaLeader(r.topicPartition()).orElse(r);
+                  return r;
+                })
+            .collect(
+                Collectors.groupingBy(
+                    r -> r.nodeInfo().id(),
+                    Collectors.mapping(
+                        Function.identity(), Collectors.summingLong(Replica::size))));
+    return Stream.concat(destClusterInfo.nodes().stream(), sourceClusterInfo.nodes().stream())
         .map(NodeInfo::id)
         .distinct()
         .parallel()
         .collect(
-            Collectors.toUnmodifiableMap(
-                Function.identity(),
-                id ->
-                    DataSize.Byte.of(
-                        after.replicaStream(id).filter(predicate).mapToLong(Replica::size).sum()
-                            - before
-                                .replicaStream(id)
-                                .filter(predicate)
-                                .mapToLong(Replica::size)
-                                .sum())));
+            Collectors.toMap(Function.identity(), n -> DataSize.Byte.of(cost.getOrDefault(n, 0L))));
+  }
+
+  static boolean changedRecordSizeOverflow(
+      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate, long limit) {
+    var totalRemovedSize = 0L;
+    var totalAddedSize = 0L;
+    for (var id :
+        Stream.concat(before.nodes().stream(), after.nodes().stream())
+            .map(NodeInfo::id)
+            .parallel()
+            .collect(Collectors.toSet())) {
+      var removed =
+          (int)
+              before
+                  .replicaStream(id)
+                  .filter(predicate)
+                  .filter(r -> !after.replicas(r.topicPartition()).contains(r))
+                  .mapToLong(Replica::size)
+                  .sum();
+      var added =
+          (int)
+              after
+                  .replicaStream(id)
+                  .filter(predicate)
+                  .filter(r -> !before.replicas(r.topicPartition()).contains(r))
+                  .mapToLong(Replica::size)
+                  .sum();
+      totalRemovedSize = totalRemovedSize + removed;
+      totalAddedSize = totalAddedSize + added;
+      // if migrate cost overflow, leave early and return true
+      if (totalRemovedSize > limit || totalAddedSize > limit) return true;
+    }
+    return Math.max(totalRemovedSize, totalAddedSize) > limit;
   }
 
   static Map<Integer, Integer> changedReplicaNumber(

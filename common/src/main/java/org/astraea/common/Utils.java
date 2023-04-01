@@ -375,12 +375,13 @@ public final class Utils {
     throw new RuntimeException(attribute + " is not existent in " + object.getClass().getName());
   }
 
-  public static List<String> constants(Class<?> clz, Predicate<String> variableNameFilter) {
+  public static <T> List<T> constants(
+      Class<?> clz, Predicate<String> variableNameFilter, Class<T> cast) {
     return Arrays.stream(clz.getFields())
         .filter(field -> variableNameFilter.test(field.getName()))
         .map(field -> packException(() -> field.get(null)))
-        .filter(obj -> obj instanceof String)
-        .map(obj -> (String) obj)
+        .filter(cast::isInstance)
+        .map(cast::cast)
         .collect(Collectors.toCollection(LinkedList::new));
   }
 

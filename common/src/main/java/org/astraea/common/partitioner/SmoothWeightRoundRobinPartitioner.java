@@ -16,11 +16,15 @@
  */
 package org.astraea.common.partitioner;
 
-import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -29,8 +33,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.NeutralIntegratedCost;
-import org.astraea.common.metrics.collector.LocalMetricCollector;
-import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.collector.MetricStore;
 
 public class SmoothWeightRoundRobinPartitioner extends Partitioner {
   private static final int ROUND_ROBIN_LENGTH = 400;
@@ -39,15 +43,15 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
   private final ConcurrentLinkedDeque<Integer> unusedPartitions = new ConcurrentLinkedDeque<>();
 
   private final NeutralIntegratedCost neutralIntegratedCost = new NeutralIntegratedCost();
-  private final MetricCollector metricCollector =
-      MetricCollector.local()
-          .interval(Duration.ofMillis(1500))
-          .addMetricSensor(neutralIntegratedCost.metricSensor().get())
-          .build();
+
+  MetricStore metricStore = null;
 
   private SmoothWeightCal<Integer> smoothWeightCal;
   private RoundRobinKeeper roundRobinKeeper;
-  private Function<Integer, Optional<Integer>> jmxPortGetter = (id) -> Optional.empty();
+  Function<Integer, Integer> jmxPortGetter =
+      (id) -> {
+        throw new NoSuchElementException("must define either broker.x.jmx.port or jmx.port");
+      };
 
   @Override
   public int partition(String topic, byte[] key, byte[] value, ClusterInfo clusterInfo) {
@@ -59,11 +63,10 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
     if (partitionLeaders.size() == 1) return partitionLeaders.get(0).partition();
 
     var targetPartition = unusedPartitions.poll();
-    refreshPartitionMetaData(clusterInfo, topic);
     Supplier<Map<Integer, Double>> supplier =
         () ->
             // fetch the latest beans for each node
-            neutralIntegratedCost.brokerCost(clusterInfo, metricCollector.clusterBean()).value();
+            neutralIntegratedCost.brokerCost(clusterInfo, metricStore.clusterBean()).value();
 
     smoothWeightCal.refresh(supplier);
 
@@ -83,7 +86,7 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
 
   @Override
   public void close() {
-    metricCollector.close();
+    metricStore.close();
   }
 
   @Override
@@ -103,37 +106,49 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
       Optional<Integer> jmxPortDefault,
       Map<Integer, Integer> customJmxPort,
       Duration roundRobinLease) {
-    this.jmxPortGetter = id -> Optional.ofNullable(customJmxPort.get(id)).or(() -> jmxPortDefault);
+    this.jmxPortGetter =
+        id ->
+            Optional.ofNullable(customJmxPort.get(id))
+                .or(() -> jmxPortDefault)
+                .orElseThrow(
+                    () -> new NoSuchElementException("failed to get jmx port for broker: " + id));
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
     this.smoothWeightCal =
         new SmoothWeightCal<>(
             customJmxPort.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, ignore -> 1.0)));
+
+    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+        () ->
+            admin
+                .brokers()
+                .thenApply(
+                    brokers -> {
+                      var map = new HashMap<Integer, MBeanClient>();
+                      brokers.forEach(
+                          b ->
+                              map.put(
+                                  b.id(), MBeanClient.jndi(b.host(), jmxPortGetter.apply(b.id()))));
+                      // add local client to fetch consumer metrics
+                      map.put(-1, MBeanClient.local());
+                      return Collections.unmodifiableMap(map);
+                    });
+
+    // put local mbean client first
+    metricStore =
+        MetricStore.builder()
+            .localReceiver(clientSupplier)
+            .sensorsSupplier(
+                () ->
+                    this.neutralIntegratedCost
+                        .metricSensor()
+                        .map(s -> Map.of(s, (BiConsumer<Integer, Exception>) (integer, e) -> {}))
+                        .orElse(Map.of()))
+            .build();
   }
 
   @Override
   public void onNewBatch(String topic, int prevPartition, ClusterInfo clusterInfo) {
     unusedPartitions.add(prevPartition);
-  }
-
-  private void refreshPartitionMetaData(ClusterInfo clusterInfo, String topic) {
-    if (this.metricCollector instanceof LocalMetricCollector) {
-      var localCollector = (LocalMetricCollector) this.metricCollector;
-      clusterInfo.availableReplicas(topic).stream()
-          .filter(p -> !localCollector.identities().contains(p.nodeInfo().id()))
-          .forEach(
-              node -> {
-                if (!localCollector.identities().contains(node.nodeInfo().id())) {
-                  jmxPortGetter
-                      .apply(node.nodeInfo().id())
-                      .ifPresent(
-                          port ->
-                              localCollector.registerJmx(
-                                  node.nodeInfo().id(),
-                                  InetSocketAddress.createUnresolved(
-                                      node.nodeInfo().host(), port)));
-                }
-              });
-    }
   }
 }

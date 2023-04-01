@@ -16,7 +16,6 @@
  */
 package org.astraea.app.web;
 
-import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
@@ -37,7 +36,6 @@ import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
@@ -51,9 +49,8 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.common.metrics.collector.MetricSensor;
-import org.astraea.common.metrics.collector.MetricsStore;
+import org.astraea.common.metrics.collector.MetricStore;
 
 class BalancerHandler implements Handler, AutoCloseable {
 
@@ -63,33 +60,30 @@ class BalancerHandler implements Handler, AutoCloseable {
   private final Map<String, CompletionStage<Balancer.Plan>> planGenerations =
       new ConcurrentHashMap<>();
   private final Map<String, CompletionStage<Void>> planExecutions = new ConcurrentHashMap<>();
-  private final Function<Integer, Optional<Integer>> jmxPortMapper;
 
   private final Collection<MetricSensor> sensors = new ConcurrentLinkedQueue<>();
 
-  private final MetricsStore metricsStore;
+  private final MetricStore metricStore;
 
-  BalancerHandler(Admin admin) {
-    this(admin, (ignore) -> Optional.empty());
-  }
-
-  BalancerHandler(Admin admin, Function<Integer, Optional<Integer>> jmxPortMapper) {
+  BalancerHandler(Admin admin, Function<Integer, Integer> jmxPortMapper) {
     this.admin = admin;
-    this.jmxPortMapper = jmxPortMapper;
     this.balancerConsole = BalancerConsole.create(admin);
-    this.metricsStore =
-        MetricsStore.builder()
-            .beanExpiration(Duration.ofSeconds(1))
-            .localReceiver(
-                () ->
-                    freshJmxAddresses().entrySet().stream()
-                        .collect(
-                            Collectors.toUnmodifiableMap(
-                                Map.Entry::getKey,
-                                e ->
-                                    MBeanClient.jndi(
-                                        e.getValue().getHostName(), e.getValue().getPort()))))
-            .sensorSupplier(
+    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+        () ->
+            admin
+                .brokers()
+                .thenApply(
+                    brokers ->
+                        brokers.stream()
+                            .collect(
+                                Collectors.toUnmodifiableMap(
+                                    NodeInfo::id,
+                                    b -> MBeanClient.jndi(b.host(), jmxPortMapper.apply(b.id())))));
+    this.metricStore =
+        MetricStore.builder()
+            .beanExpiration(Duration.ofSeconds(90))
+            .localReceiver(clientSupplier)
+            .sensorsSupplier(
                 () ->
                     sensors.stream()
                         .collect(
@@ -132,7 +126,7 @@ class BalancerHandler implements Handler, AutoCloseable {
               .setTaskId(taskId)
               .setBalancer(balancer)
               .setAlgorithmConfig(request.algorithmConfig)
-              .setClusterBeanSource(metricsStore::clusterBean)
+              .setClusterBeanSource(metricStore::clusterBean)
               .checkNoOngoingMigration(true)
               .generate();
       task.whenComplete(
@@ -265,18 +259,16 @@ class BalancerHandler implements Handler, AutoCloseable {
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
             new MigrationCost(
-                MOVED_SIZE,
-                ClusterInfo.changedRecordSize(
-                        solution.initialClusterInfo(), solution.proposal(), ignored -> true)
+                TO_SYNC_BYTES,
+                ClusterInfo.recordSizeToSync(solution.initialClusterInfo(), solution.proposal())
                     .entrySet()
                     .stream()
                     .collect(
                         Collectors.toMap(
                             e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
             new MigrationCost(
-                MOVED_LEADER_SIZE,
-                ClusterInfo.changedRecordSize(
-                        solution.initialClusterInfo(), solution.proposal(), Replica::isLeader)
+                TO_FETCH_BYTES,
+                ClusterInfo.recordSizeToFetch(solution.initialClusterInfo(), solution.proposal())
                     .entrySet()
                     .stream()
                     .collect(
@@ -285,48 +277,6 @@ class BalancerHandler implements Handler, AutoCloseable {
         .filter(
             m -> !m.brokerCosts.isEmpty() && m.brokerCosts.values().stream().anyMatch(v -> v != 0))
         .collect(Collectors.toList());
-  }
-
-  private Balancer.Plan metricContext(
-      Collection<MetricSensor> metricSensors,
-      Function<Supplier<ClusterBean>, Balancer.Plan> execution) {
-    // TODO: use a global metric collector when we are ready to enable long-run metric sampling
-    //  https://github.com/skiptests/astraea/pull/955#discussion_r1026491162
-    try (var collector =
-        MetricCollector.local()
-            .registerJmxs(freshJmxAddresses())
-            .addMetricSensors(metricSensors)
-            .interval(Duration.ofSeconds(1))
-            .build()) {
-      return execution.apply(collector::clusterBean);
-    }
-  }
-
-  // visible for test
-  Map<Integer, InetSocketAddress> freshJmxAddresses() {
-    var brokers = admin.brokers().toCompletableFuture().join();
-    var jmxAddresses =
-        brokers.stream()
-            .flatMap(
-                broker -> jmxPortMapper.apply(broker.id()).map(p -> Map.entry(broker, p)).stream())
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    e -> e.getKey().id(),
-                    e -> InetSocketAddress.createUnresolved(e.getKey().host(), e.getValue())));
-
-    // JMX is disabled
-    if (jmxAddresses.size() == 0) return Map.of();
-
-    // JMX is partially enabled, forbidden this use case since it is probably a bad idea
-    if (brokers.size() != jmxAddresses.size())
-      throw new IllegalArgumentException(
-          "Some brokers has no JMX port specified in the web service argument: "
-              + brokers.stream()
-                  .map(NodeInfo::id)
-                  .filter(id -> !jmxAddresses.containsKey(id))
-                  .collect(Collectors.toUnmodifiableSet()));
-
-    return jmxAddresses;
   }
 
   // visible for test
@@ -475,8 +425,8 @@ class BalancerHandler implements Handler, AutoCloseable {
   // visible for testing
   static final String CHANGED_REPLICAS = "changed replicas";
   static final String CHANGED_LEADERS = "changed leaders";
-  static final String MOVED_SIZE = "moved size (bytes)";
-  static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
+  static final String TO_SYNC_BYTES = "record size to sync (bytes)";
+  static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
 
   static class MigrationCost {
     final String name;
@@ -565,6 +515,6 @@ class BalancerHandler implements Handler, AutoCloseable {
   // handle manually
   @Override
   public void close() {
-    metricsStore.close();
+    metricStore.close();
   }
 }

@@ -14,30 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.balancer.algorithms;
+package org.astraea.app.argument;
 
-import org.astraea.common.Utils;
+import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class SingleStepBalancerTest {
+class IntegerMapFieldTest {
 
   @Test
-  void testConfig() {
-    Assertions.assertTrue(
-        SingleStepBalancer.ALL_CONFIGS.contains("shuffle.tweaker.min.step"),
-        "Config exists for backward compatability reason");
-    Assertions.assertTrue(
-        SingleStepBalancer.ALL_CONFIGS.contains("shuffle.tweaker.max.step"),
-        "Config exists for backward compatability reason");
-    Assertions.assertTrue(
-        SingleStepBalancer.ALL_CONFIGS.contains("iteration"),
-        "Config exists for backward compatability reason");
-
-    Assertions.assertEquals(
-        SingleStepBalancer.ALL_CONFIGS.size(),
-        Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG"), String.class)
-            .size(),
-        "No duplicate element");
+  void testConvert() {
+    var field = new IntegerMapField();
+    var map = Map.ofEntries(Map.entry(1024, 5566), Map.entry(2405, 1245), Map.entry(9042, 2145));
+    Assertions.assertEquals(map, field.convert("1024=5566,2405=1245,9042=2145"));
   }
 }
