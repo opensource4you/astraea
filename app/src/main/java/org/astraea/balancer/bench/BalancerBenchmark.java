@@ -108,6 +108,8 @@ public final class BalancerBenchmark {
 
   public interface CostProfilingResult {
 
+    Optional<Balancer.Plan> plan();
+
     ClusterCost initial();
 
     Map<Long, ClusterCost> costTimeSeries();
