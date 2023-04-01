@@ -727,7 +727,9 @@ public class ExporterTest {
           bufferSize.add(record.serializedKeySize() + record.serializedValueSize());
         });
 
-    var list = Exporter.Task.getRecordsFromBuffer(queue, bufferSize);
+    var task = new Exporter.Task();
+
+    var list = task.getRecordsFromBuffer(queue, bufferSize);
 
     Assertions.assertEquals(records, list);
   }
@@ -828,6 +830,8 @@ public class ExporterTest {
 
       LongAdder bufferSize = new LongAdder();
 
+      var task = new Exporter.Task();
+
       queue.add(
           RecordBuilder.of()
               .topic(topicName)
@@ -850,7 +854,7 @@ public class ExporterTest {
               DataSize.of("1KB"),
               1000,
               0,
-              () -> Exporter.Task.getRecordsFromBuffer(queue, bufferSize),
+              () -> task.getRecordsFromBuffer(queue, bufferSize),
               writers);
 
       Assertions.assertNotEquals(0, newLongestWriteTime);

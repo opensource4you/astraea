@@ -156,7 +156,7 @@ public class Exporter extends SinkConnector {
 
     private final LongAdder bufferSize = new LongAdder();
 
-    private static final Object putLock = new Object();
+    private final Object putLock = new Object();
 
     private long bufferSizeLimit;
 
@@ -279,7 +279,7 @@ public class Exporter extends SinkConnector {
      *
      * @return a {@link List} of records retrieved from the buffer
      */
-    static List<Record<byte[], byte[]>> getRecordsFromBuffer(
+    List<Record<byte[], byte[]>> getRecordsFromBuffer(
         BlockingQueue<Record<byte[], byte[]>> recordsQueue, LongAdder bufferSize) {
       var list = new ArrayList<Record<byte[], byte[]>>(recordsQueue.size());
       recordsQueue.drainTo(list);
