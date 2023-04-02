@@ -362,8 +362,7 @@ public class ClusterInfoTest {
   }
 
   @Test
-  void testChangedRecordSizeOverflow() {
-    var limit = 1600;
+  void testChangedRecordSize() {
     var moveInResult = ClusterInfo.recordSizeToSync(beforeClusterInfo(), afterClusterInfo());
     Assertions.assertEquals(3, moveInResult.size());
     Assertions.assertEquals(0, moveInResult.get(0).bytes());
@@ -375,15 +374,6 @@ public class ClusterInfoTest {
     Assertions.assertEquals(100 + 500, moveOutResult.get(0).bytes());
     Assertions.assertEquals(0, moveOutResult.get(1).bytes());
     Assertions.assertEquals(1000, moveOutResult.get(2).bytes());
-
-    var totalResult =
-        ClusterInfo.changedRecordSizeOverflow(
-            beforeClusterInfo(), afterClusterInfo(), ignored -> true, limit);
-    var overflowResult =
-        ClusterInfo.changedRecordSizeOverflow(
-            beforeClusterInfo(), afterClusterInfo(), ignored -> true, limit - 100);
-    Assertions.assertFalse(totalResult);
-    Assertions.assertTrue(overflowResult);
   }
 
   /*

@@ -80,7 +80,7 @@ public class BrokerDiskSpaceCost implements HasMoveCost {
         .orElse(Map.of());
   }
 
-  public static class BrokerPath {
+  static class BrokerPath {
 
     private final int broker;
     private final String path;
