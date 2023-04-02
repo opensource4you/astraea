@@ -16,7 +16,13 @@
  */
 package org.astraea.common.cost;
 
+import static org.astraea.common.admin.ClusterInfo.recordSizeToFetch;
+import static org.astraea.common.admin.ClusterInfo.recordSizeToSync;
+import static org.astraea.common.admin.ClusterInfo.replicaLeaderChanged;
+import static org.astraea.common.admin.ClusterInfo.replicaNumChanged;
+
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
@@ -62,6 +68,18 @@ public interface HasMoveCost extends CostFunction {
             + "]";
       }
     };
+  }
+
+  static List<MigrationCost> migrationCosts(ClusterInfo before, ClusterInfo after) {
+    var migrateInBytes = recordSizeToSync(before, after);
+    var migrateOutBytes = recordSizeToFetch(before, after);
+    var migrateReplicaNum = replicaNumChanged(before, after);
+    var migrateReplicaLeader = replicaLeaderChanged(before, after);
+    return List.of(
+        new MigrationCost(RecordSizeCost.TO_SYNC_BYTES, migrateInBytes),
+        new MigrationCost(RecordSizeCost.TO_FETCH_BYTES, migrateOutBytes),
+        new MigrationCost(ReplicaNumberCost.CHANGED_REPLICAS, migrateReplicaNum),
+        new MigrationCost(ReplicaLeaderCost.CHANGED_LEADERS, migrateReplicaLeader));
   }
 
   /**

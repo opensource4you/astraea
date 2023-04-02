@@ -30,10 +30,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.common.cost.MigrationCost;
-import org.astraea.common.cost.RecordSizeCost;
-import org.astraea.common.cost.ReplicaLeaderCost;
-import org.astraea.common.cost.ReplicaNumberCost;
 
 public interface ClusterInfo {
   static ClusterInfo empty() {
@@ -41,18 +37,6 @@ public interface ClusterInfo {
   }
 
   // ---------------------[helpers]---------------------//
-
-  static List<MigrationCost> migrationCosts(ClusterInfo before, ClusterInfo after) {
-    var migrateInBytes = recordSizeToSync(before, after);
-    var migrateOutBytes = recordSizeToFetch(before, after);
-    var migrateReplicaNum = replicaNumChanged(before, after);
-    var migrateReplicaLeader = replicaLeaderChanged(before, after);
-    return List.of(
-        new MigrationCost(RecordSizeCost.TO_SYNC_BYTES, migrateInBytes),
-        new MigrationCost(RecordSizeCost.TO_FETCH_BYTES, migrateOutBytes),
-        new MigrationCost(ReplicaNumberCost.CHANGED_REPLICAS, migrateReplicaNum),
-        new MigrationCost(ReplicaLeaderCost.CHANGED_LEADERS, migrateReplicaLeader));
-  }
 
   static Map<Integer, Long> recordSizeToFetch(ClusterInfo before, ClusterInfo after) {
     return changedRecordSize(before, after, true);

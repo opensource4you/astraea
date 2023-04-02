@@ -226,7 +226,7 @@ class BalancerHandler implements Handler, AutoCloseable {
                         solution ->
                             new PlanReport(
                                 changes.apply(solution),
-                                ClusterInfo.migrationCosts(contextCluster, solution.proposal())))
+                                HasMoveCost.migrationCosts(contextCluster, solution.proposal())))
                     .orElse(null);
     var phase = balancerConsole.taskPhase(taskId).orElseThrow();
     return new PlanExecutionProgress(
