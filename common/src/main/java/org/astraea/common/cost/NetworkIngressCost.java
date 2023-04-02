@@ -18,7 +18,9 @@ package org.astraea.common.cost;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -30,15 +32,19 @@ import org.astraea.common.metrics.broker.ServerMetrics;
  * {@link NetworkCost} for further detail.
  */
 public class NetworkIngressCost extends NetworkCost implements HasPartitionCost {
-  public NetworkIngressCost() {
+  private final Configuration config;
+  private static final String UPPER_BOUND = "upper.bound";
+  private static final String TRAFFIC_INTERVAL = "traffic.interval";
+
+  public NetworkIngressCost(Configuration config) {
     super(BandwidthType.Ingress);
+    this.config = config;
   }
 
   @Override
   public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     noMetricCheck(clusterBean);
 
-    var partitionLocation = new HashMap<TopicPartition, Integer>();
     var partitionCost =
         estimateRate(clusterInfo, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC)
             .entrySet()
@@ -68,7 +74,18 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
             .flatMap(cost -> cost.entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    return () -> result;
+    return new PartitionCost() {
+      @Override
+      public Map<TopicPartition, Double> value() {
+        return result;
+      }
+
+      @Override
+      public Map<TopicPartition, Set<TopicPartition>> incompatibility() {
+        // TODO: Impl feedback logic, use Map.of() instead of incompatible partitions temporary
+        return Map.of();
+      }
+    };
   }
 
   @Override

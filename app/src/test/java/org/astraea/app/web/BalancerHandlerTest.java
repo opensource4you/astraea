@@ -617,12 +617,12 @@ public class BalancerHandlerTest {
             .build();
     var admin = Mockito.mock(Admin.class);
     Mockito.when(admin.brokers())
-        .thenAnswer((invoke) -> CompletableFuture.completedFuture(List.of()));
+        .thenAnswer(invoke -> CompletableFuture.completedFuture(List.of()));
     Mockito.when(admin.topicNames(Mockito.anyBoolean()))
-        .thenAnswer((invoke) -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
+        .thenAnswer(invoke -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
+    Mockito.when(admin.clusterInfo(Mockito.any()))
+        .thenAnswer(invoke -> CompletableFuture.completedFuture(clusterHasFuture));
     try (var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
-      Mockito.when(admin.clusterInfo(Mockito.any()))
-          .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasFuture));
       var task0 =
           (BalancerHandler.PostPlanResponse)
               handler.post(defaultPostPlan).toCompletableFuture().join();

@@ -44,7 +44,7 @@
 
     java -jar astraea-gui-[VERSION]-all.jar
 
-- 請將`[VERSION]`替換為建構完成後所顯示之版本號（例如：_java -jar astraea-gui-0.2.0-all.jar_）
+- 請將`[VERSION]`替換為建構完成後所顯示之版本號（例如：_java -jar astraea-gui-0.3.0-all.jar_）
 #### 透過 docker 運行專案測試 ####
 
 運行docker container

@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
+import java.util.Set;
 import org.astraea.common.admin.TopicPartition;
 
 /**
@@ -30,4 +31,17 @@ public interface PartitionCost {
    * @return Topic-partition and its cost.
    */
   Map<TopicPartition, Double> value();
+
+  /**
+   * Because assigning some partitions to the same consumer has an effect on throughput and latency
+   * (such as when assigning partitions with significantly different traffic to the same consumer).
+   *
+   * <p>This method provides the feedback is used to determine which partitions should not be
+   * assigned together to avoid the effect of the consumer's throughput and latency.
+   *
+   * @return The feedback on determining which partitions cannot be put together.
+   */
+  default Map<TopicPartition, Set<TopicPartition>> incompatibility() {
+    return Map.of();
+  }
 }
