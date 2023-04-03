@@ -309,7 +309,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
               if (!mismatchPartitions.isEmpty())
                 throw new IllegalStateException(
                     "The cluster state has been changed significantly. "
-                        + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
+                        + "The following topic/partitions have different replica list: "
                         + mismatchPartitions);
             });
   }
