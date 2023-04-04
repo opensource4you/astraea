@@ -139,6 +139,12 @@ class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
           var executionStop = System.nanoTime();
 
           return new BalancerBenchmark.CostProfilingResult() {
+
+            @Override
+            public Optional<Balancer.Plan> plan() {
+              return plan;
+            }
+
             @Override
             public ClusterCost initial() {
               return initial;
