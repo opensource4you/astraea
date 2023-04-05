@@ -47,11 +47,15 @@ import org.astraea.common.admin.Replica;
 public class ShuffleTweaker {
 
   private final Supplier<Integer> numberOfShuffle;
-  private final MovementConstraint constraint;
+  private final Predicate<String> allowedTopics;
 
-  public ShuffleTweaker(Supplier<Integer> numberOfShuffle, MovementConstraint constraint) {
+  public ShuffleTweaker(Supplier<Integer> numberOfShuffle, Predicate<String> allowedTopics) {
     this.numberOfShuffle = numberOfShuffle;
-    this.constraint = constraint;
+    this.allowedTopics = allowedTopics;
+  }
+
+  public static Builder builder() {
+    return new Builder();
   }
 
   public Stream<ClusterInfo> generate(ClusterInfo baseAllocation) {
@@ -71,7 +75,7 @@ public class ShuffleTweaker {
           final var shuffleCount = numberOfShuffle.get();
           final var partitionOrder =
               baseAllocation.topicPartitions().stream()
-                  .filter(tp -> constraint.allowedTopics.test(tp.topic()))
+                  .filter(tp -> this.allowedTopics.test(tp.topic()))
                   .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
                   .sorted(Map.Entry.comparingByValue())
                   .map(Map.Entry::getKey)
@@ -198,6 +202,28 @@ public class ShuffleTweaker {
     @Override
     public String toString() {
       return alias();
+    }
+  }
+
+  public static class Builder {
+
+    private Supplier<Integer> numberOfShuffle = () -> ThreadLocalRandom.current().nextInt(1, 5);
+    private Predicate<String> allowedTopics = (name) -> true;
+
+    private Builder() {}
+
+    public Builder setNumberOfShuffle(Supplier<Integer> numberOfShuffle) {
+      this.numberOfShuffle = numberOfShuffle;
+      return this;
+    }
+
+    public Builder setAllowedTopics(Predicate<String> allowedTopics) {
+      this.allowedTopics = allowedTopics;
+      return this;
+    }
+
+    public ShuffleTweaker build() {
+      return new ShuffleTweaker(numberOfShuffle, allowedTopics);
     }
   }
 }

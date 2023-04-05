@@ -16,8 +16,6 @@
  */
 package org.astraea.common.balancer.tweakers;
 
-import static org.astraea.common.balancer.tweakers.ShuffleTweaker.MovementConstraint;
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -44,8 +42,9 @@ class ShuffleTweakerTest {
   @Test
   void testRun() {
     final var shuffleTweaker =
-        new ShuffleTweaker(
-            () -> ThreadLocalRandom.current().nextInt(1, 10), MovementConstraint.DEFAULT);
+        ShuffleTweaker.builder()
+            .setNumberOfShuffle(() -> ThreadLocalRandom.current().nextInt(1, 10))
+            .build();
     final var fakeCluster = FakeClusterInfo.of(100, 10, 10, 3);
     final var stream = shuffleTweaker.generate(fakeCluster);
     final var iterator = stream.iterator();
@@ -59,7 +58,7 @@ class ShuffleTweakerTest {
   @ValueSource(ints = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31})
   void testMovement(int shuffle) {
     final var fakeCluster = FakeClusterInfo.of(30, 30, 20, 5);
-    final var shuffleTweaker = new ShuffleTweaker(() -> shuffle, MovementConstraint.DEFAULT);
+    final var shuffleTweaker = ShuffleTweaker.builder().setNumberOfShuffle(() -> shuffle).build();
 
     shuffleTweaker
         .generate(fakeCluster)
@@ -81,7 +80,7 @@ class ShuffleTweakerTest {
   @Test
   void testNoNodes() {
     final var fakeCluster = FakeClusterInfo.of(0, 0, 0, 0);
-    final var shuffleTweaker = new ShuffleTweaker(() -> 3, MovementConstraint.DEFAULT);
+    final var shuffleTweaker = ShuffleTweaker.builder().setNumberOfShuffle(() -> 3).build();
 
     Assertions.assertEquals(
         0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
@@ -90,7 +89,7 @@ class ShuffleTweakerTest {
   @Test
   void testOneNode() {
     final var fakeCluster = FakeClusterInfo.of(1, 1, 1, 1, 1);
-    final var shuffleTweaker = new ShuffleTweaker(() -> 3, MovementConstraint.DEFAULT);
+    final var shuffleTweaker = ShuffleTweaker.builder().setNumberOfShuffle(() -> 3).build();
 
     Assertions.assertEquals(
         0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
@@ -99,7 +98,7 @@ class ShuffleTweakerTest {
   @Test
   void testNoTopic() {
     final var fakeCluster = FakeClusterInfo.of(3, 0, 0, 0);
-    final var shuffleTweaker = new ShuffleTweaker(() -> 3, MovementConstraint.DEFAULT);
+    final var shuffleTweaker = ShuffleTweaker.builder().setNumberOfShuffle(() -> 3).build();
 
     Assertions.assertEquals(
         0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
@@ -108,8 +107,9 @@ class ShuffleTweakerTest {
   @Test
   void parallelStreamWorks() {
     final var shuffleTweaker =
-        new ShuffleTweaker(
-            () -> ThreadLocalRandom.current().nextInt(1, 10), MovementConstraint.DEFAULT);
+        ShuffleTweaker.builder()
+            .setNumberOfShuffle(() -> ThreadLocalRandom.current().nextInt(1, 10))
+            .build();
     final var fakeCluster = FakeClusterInfo.of(10, 20, 10, 3);
 
     // generator can do parallel without error.
@@ -121,8 +121,9 @@ class ShuffleTweakerTest {
   @Disabled
   void parallelPerformanceTests() throws InterruptedException {
     final var shuffleTweaker =
-        new ShuffleTweaker(
-            () -> ThreadLocalRandom.current().nextInt(1, 10), MovementConstraint.DEFAULT);
+        ShuffleTweaker.builder()
+            .setNumberOfShuffle(() -> ThreadLocalRandom.current().nextInt(1, 10))
+            .build();
     final var fakeCluster = FakeClusterInfo.of(50, 500, 30, 2);
     final var counter = new LongAdder();
     final var forkJoinPool = new ForkJoinPool(ForkJoinPool.getCommonPoolParallelism());
@@ -153,7 +154,7 @@ class ShuffleTweakerTest {
 
   @Test
   void testEligiblePartition() {
-    var shuffleTweaker = new ShuffleTweaker(() -> 100, MovementConstraint.DEFAULT);
+    final var shuffleTweaker = ShuffleTweaker.builder().setNumberOfShuffle(() -> 100).build();
     var dataDir =
         Map.of(
             0, Set.of("/a", "/b", "c"),
