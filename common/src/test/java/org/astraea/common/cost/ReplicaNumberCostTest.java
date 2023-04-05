@@ -66,7 +66,7 @@ class ReplicaNumberCostTest {
             .build();
     Assertions.assertEquals(0, cost.clusterCost(singleNodeCluster, ClusterBean.EMPTY).value());
 
-    // (all > 2, 0, 0, 0, 0, 0)
+    // (all >= 2, 0, 0, 0, 0, 0)
     var expandedCluster =
         ClusterInfoBuilder.builder(BASE_1)
             .addTopic("topic", ThreadLocalRandom.current().nextInt(2, 100), (short) 1)
