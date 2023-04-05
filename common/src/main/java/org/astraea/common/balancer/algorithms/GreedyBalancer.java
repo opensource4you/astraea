@@ -25,10 +25,12 @@ import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.BalancerCapabilities;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.metrics.MBeanRegister;
@@ -131,6 +133,13 @@ public class GreedyBalancer implements Balancer {
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(Integer.MAX_VALUE);
+    final var allowedTopics =
+        config
+            .balancerConfig()
+            .string(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX)
+            .map(Pattern::compile)
+            .map(Pattern::asMatchPredicate)
+            .orElse((ignore) -> true);
 
     final var currentClusterInfo = config.clusterInfo();
     final var clusterBean = config.clusterBean();
@@ -138,7 +147,7 @@ public class GreedyBalancer implements Balancer {
         new ShuffleTweaker(
             () -> ThreadLocalRandom.current().nextInt(minStep, maxStep),
             ShuffleTweaker.MovementConstraint.builder()
-                .useAllowedTopicFilter(config.topicFilter())
+                .useAllowedTopicFilter(allowedTopics)
                 .build());
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();

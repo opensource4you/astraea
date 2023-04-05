@@ -858,8 +858,6 @@ public class BalancerHandlerTest {
         Assertions.assertTrue(config.clusterCostFunction().toString().contains("DecreasingCost"));
         Assertions.assertTrue(config.clusterCostFunction().toString().contains("weight 1"));
         Assertions.assertEquals(TIMEOUT_DEFAULT, postRequest.algorithmConfig.timeout().toSeconds());
-        Assertions.assertTrue(
-            clusterInfo.topicNames().stream().allMatch(t -> config.topicFilter().test(t)));
       }
       {
         // use custom filter/timeout/balancer config/cost function
@@ -881,10 +879,6 @@ public class BalancerHandlerTest {
         Assertions.assertEquals(
             1.0, config.clusterCostFunction().clusterCost(clusterInfo, ClusterBean.EMPTY).value());
         Assertions.assertEquals(32, postRequest.algorithmConfig.timeout().toSeconds());
-        Assertions.assertTrue(config.topicFilter().test(randomTopic0));
-        Assertions.assertTrue(config.topicFilter().test(randomTopic1));
-        Assertions.assertTrue(
-            clusterInfo.topicNames().stream().noneMatch(t -> config.topicFilter().test(t)));
       }
       {
         // malformed content

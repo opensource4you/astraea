@@ -69,11 +69,6 @@ public interface AlgorithmConfig {
   Predicate<MoveCost> movementConstraint();
 
   /**
-   * @return a {@link Predicate} that can indicate which topic is eligible for rebalance.
-   */
-  Predicate<String> topicFilter();
-
-  /**
    * @return the configuration of this balancer run
    */
   Configuration balancerConfig();
@@ -101,7 +96,6 @@ public interface AlgorithmConfig {
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
     private Predicate<MoveCost> movementConstraint = moveCost -> !moveCost.overflow();
-    private Predicate<String> topicFilter = ignore -> true;
     private Map<String, String> balancerConfig = new HashMap<>();
 
     private ClusterInfo clusterInfo;
@@ -115,7 +109,6 @@ public interface AlgorithmConfig {
         this.moveCostFunction = config.moveCostFunction();
         this.clusterConstraint = config.clusterConstraint();
         this.movementConstraint = config.movementConstraint();
-        this.topicFilter = config.topicFilter();
         this.balancerConfig.putAll(config.balancerConfig().raw());
         this.clusterInfo = config.clusterInfo();
         this.clusterBean = config.clusterBean();
@@ -170,18 +163,6 @@ public interface AlgorithmConfig {
      */
     public Builder clusterConstraint(BiPredicate<ClusterCost, ClusterCost> clusterConstraint) {
       this.clusterConstraint = clusterConstraint;
-      return this;
-    }
-
-    /**
-     * Specify the topics that are eligible for rebalance.
-     *
-     * @param topicFilter the {@link Predicate} what can indicate which topic is eligible for
-     *     rebalance.
-     * @return this
-     */
-    public Builder topicFilter(Predicate<String> topicFilter) {
-      this.topicFilter = topicFilter;
       return this;
     }
 
@@ -262,11 +243,6 @@ public interface AlgorithmConfig {
         @Override
         public Predicate<MoveCost> movementConstraint() {
           return movementConstraint;
-        }
-
-        @Override
-        public Predicate<String> topicFilter() {
-          return topicFilter;
         }
 
         @Override

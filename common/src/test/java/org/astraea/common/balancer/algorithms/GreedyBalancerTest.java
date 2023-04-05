@@ -24,6 +24,7 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.AlgorithmConfig;
+import org.astraea.common.balancer.BalancerCapabilityTestSuite;
 import org.astraea.common.balancer.FakeClusterInfo;
 import org.astraea.common.cost.DecreasingCost;
 import org.astraea.common.metrics.BeanQuery;
@@ -89,5 +90,10 @@ class GreedyBalancerTest {
                 Assertions.assertTrue(1.0 > (double) bean.attributes().get("MinCost"));
               });
     }
+  }
+
+  @Test
+  void testBalancerAllowedTopicRegex() {
+    BalancerCapabilityTestSuite.testBalancerAllowedTopicRegex(new GreedyBalancer());
   }
 }

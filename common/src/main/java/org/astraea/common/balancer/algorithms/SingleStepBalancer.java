@@ -21,9 +21,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 import org.astraea.common.Utils;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.BalancerCapabilities;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 
 /** This algorithm proposes rebalance plan by tweaking the log allocation once. */
@@ -59,6 +61,13 @@ public class SingleStepBalancer implements Balancer {
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(Integer.MAX_VALUE);
+    final var allowedTopics =
+        config
+            .balancerConfig()
+            .string(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX)
+            .map(Pattern::compile)
+            .map(Pattern::asMatchPredicate)
+            .orElse((ignore) -> true);
 
     final var currentClusterInfo = config.clusterInfo();
     final var clusterBean = config.clusterBean();
@@ -66,7 +75,7 @@ public class SingleStepBalancer implements Balancer {
         new ShuffleTweaker(
             () -> ThreadLocalRandom.current().nextInt(minStep, maxStep),
             ShuffleTweaker.MovementConstraint.builder()
-                .useAllowedTopicFilter(config.topicFilter())
+                .useAllowedTopicFilter(allowedTopics)
                 .build());
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();

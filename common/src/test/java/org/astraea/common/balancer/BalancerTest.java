@@ -122,7 +122,8 @@ class BalancerTest {
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(10))
                       .clusterCost(new ReplicaLeaderCost())
-                      .topicFilter(topic -> topic.equals(topicName))
+                      .config(
+                          BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, "(" + topicName + ")")
                       .build())
               .orElseThrow();
       new StraightPlanExecutor(Configuration.EMPTY)
@@ -174,7 +175,8 @@ class BalancerTest {
                       .clusterInfo(clusterInfo)
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(3))
-                      .topicFilter(t -> t.equals(theTopic))
+                      .config(
+                          BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, "(" + theTopic + ")")
                       .clusterCost(randomScore)
                       .build())
               .get()

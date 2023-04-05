@@ -27,6 +27,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
 import org.astraea.common.Configuration;
@@ -36,6 +37,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.BalancerCapabilities;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
@@ -213,7 +215,7 @@ class BalancerNode {
             .thenCompose(context.admin()::clusterInfo)
             .thenApply(
                 clusterInfo -> {
-                  var patterns =
+                  var pattern =
                       argument
                           .texts()
                           .get(TOPIC_NAME_KEY)
@@ -221,8 +223,9 @@ class BalancerNode {
                               ss ->
                                   Arrays.stream(ss.split(","))
                                       .map(Utils::wildcardToPattern)
-                                      .collect(Collectors.toList()))
-                          .orElse(List.of());
+                                      .map(Pattern::pattern)
+                                      .collect(Collectors.joining("|", "(", ")")))
+                          .orElse(".*");
                   logger.log("searching better assignments ... ");
                   return Map.entry(
                       clusterInfo,
@@ -241,11 +244,8 @@ class BalancerNode {
                                           List.of(
                                               new ReplicaLeaderSizeCost(),
                                               new ReplicaLeaderCost())))
-                                  .topicFilter(
-                                      topic ->
-                                          patterns.isEmpty()
-                                              || patterns.stream()
-                                                  .anyMatch(p -> p.matcher(topic).matches()))
+                                  .config(
+                                      BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, pattern)
                                   .build()));
                 })
             .thenApply(

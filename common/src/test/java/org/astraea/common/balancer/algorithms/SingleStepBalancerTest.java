@@ -17,6 +17,7 @@
 package org.astraea.common.balancer.algorithms;
 
 import org.astraea.common.Utils;
+import org.astraea.common.balancer.BalancerCapabilityTestSuite;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -39,5 +40,10 @@ class SingleStepBalancerTest {
         Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG"), String.class)
             .size(),
         "No duplicate element");
+  }
+
+  @Test
+  void testBalancerAllowedTopicRegex() {
+    BalancerCapabilityTestSuite.testBalancerAllowedTopicRegex(new SingleStepBalancer());
   }
 }
