@@ -31,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
@@ -42,7 +41,6 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.BalancerCapabilities;
 import org.astraea.common.balancer.BalancerConsole;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
@@ -304,11 +302,6 @@ class BalancerHandler implements Handler, AutoCloseable {
             .clusterCost(balancerPostRequest.clusterCost())
             .moveCost(balancerPostRequest.moveCost())
             .timeout(balancerPostRequest.timeout)
-            // TODO: update documentation, state of this field
-            // TODO: update the doc & get rid of the topicFilter field on the WebAPI
-            .config(
-                BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX,
-                topics.stream().map(Pattern::quote).collect(Collectors.joining("|", "(", ")")))
             .configs(balancerPostRequest.balancerConfig)
             .build(),
         currentClusterInfo);

@@ -16,12 +16,19 @@
  */
 package org.astraea.common.balancer;
 
+/**
+ * * A collection of official balancer capabilities. Noted that all these capabilities are optional,
+ * the concrete balancer implementation might not support it. All the capability names must start
+ * with a "balancer." prefix, and when the implementation sees an unsupported capability, it should
+ * raise an exception.
+ */
 public class BalancerCapabilities {
+  // TODO: Add tests for the above requirement described in javadoc.
 
   /**
    * A regular expression indicates which topics are eligible for rebalancing. When specified,
    * topics that don't match this expression cannot be altered and must stay at their original
    * position.
    */
-  public static final String BALANCER_ALLOWED_TOPIC_REGEX = "balancer.allowed.topic.regex";
+  public static final String BALANCER_ALLOWED_TOPIC_REGEX = "balancer.allowed.topics.regex";
 }
