@@ -21,7 +21,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
-import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
@@ -37,33 +36,30 @@ public class SingleStepBalancer implements Balancer {
       new TreeSet<>(
           Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG"), String.class));
 
-  private final int minStep;
-  private final int maxStep;
-  private final int iteration;
-
-  public SingleStepBalancer(Configuration config) {
-    minStep =
+  @Override
+  public Optional<Plan> offer(AlgorithmConfig config) {
+    final var minStep =
         config
+            .balancerConfig()
             .string(SHUFFLE_TWEAKER_MIN_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(1);
-    maxStep =
+    final var maxStep =
         config
+            .balancerConfig()
             .string(SHUFFLE_TWEAKER_MAX_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(30);
-    iteration =
+    final var iteration =
         config
+            .balancerConfig()
             .string(ITERATION_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(Integer.MAX_VALUE);
-  }
 
-  @Override
-  public Optional<Plan> offer(AlgorithmConfig config) {
     final var currentClusterInfo = config.clusterInfo();
     final var clusterBean = config.clusterBean();
     final var allocationTweaker =

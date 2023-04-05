@@ -303,6 +303,7 @@ class BalancerHandler implements Handler, AutoCloseable {
             .moveCost(balancerPostRequest.moveCost())
             .timeout(balancerPostRequest.timeout)
             .topicFilter(topics::contains)
+            .configs(balancerPostRequest.balancerConfig)
             .build(),
         currentClusterInfo);
   }

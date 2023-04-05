@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
-import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
@@ -105,36 +104,34 @@ public class GreedyBalancer implements Balancer {
       new TreeSet<>(
           Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG"), String.class));
 
-  private final int minStep;
-  private final int maxStep;
-  private final int iteration;
   private final AtomicInteger run = new AtomicInteger();
 
-  public GreedyBalancer(Configuration config) {
-    minStep =
+  @Override
+  public Optional<Plan> offer(AlgorithmConfig config) {
+    final var minStep =
         config
+            .balancerConfig()
             .string(SHUFFLE_TWEAKER_MIN_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(1);
-    maxStep =
+    final var maxStep =
         config
+            .balancerConfig()
             .string(SHUFFLE_TWEAKER_MAX_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             // Use 5 as the maximum step in each trial, this number provide a good balance between
             // exploration and processing resource.
             .orElse(5);
-    iteration =
+    final var iteration =
         config
+            .balancerConfig()
             .string(ITERATION_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(Integer.MAX_VALUE);
-  }
 
-  @Override
-  public Optional<Plan> offer(AlgorithmConfig config) {
     final var currentClusterInfo = config.clusterInfo();
     final var clusterBean = config.clusterBean();
     final var allocationTweaker =

@@ -95,8 +95,8 @@ public interface Balancer {
       return balancerClass;
     }
 
-    public Balancer create(Configuration config) {
-      return Utils.construct(theClass(), config);
+    public Balancer create() {
+      return Utils.construct(theClass(), Configuration.EMPTY);
     }
 
     @Override

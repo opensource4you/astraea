@@ -267,36 +267,28 @@ public class BalancerHandlerTest {
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
                   AlgorithmConfig.builder()
-                      .clusterInfo(
-                          admin
-                              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                              .toCompletableFuture()
-                              .join())
+                      .clusterInfo(currentClusterInfo)
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> after.value() <= before.value())
                       .moveCost(moveCostFunction)
                       .build());
-
       Assertions.assertNotEquals(Optional.empty(), Best);
 
       // test loop limit
       Assertions.assertThrows(
           Exception.class,
           () ->
-              Utils.construct(SingleStepBalancer.class, Configuration.of(Map.of("iteration", "0")))
+              Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
                   .offer(
                       AlgorithmConfig.builder()
-                          .clusterInfo(
-                              admin
-                                  .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                                  .toCompletableFuture()
-                                  .join())
+                          .clusterInfo(currentClusterInfo)
                           .clusterBean(ClusterBean.EMPTY)
                           .timeout(Duration.ofSeconds(3))
                           .clusterCost(clusterCostFunction)
                           .clusterConstraint((before, after) -> true)
+                          .config("iteration", "0")
                           .moveCost(moveCostFunction)
                           .build()));
 
@@ -324,11 +316,7 @@ public class BalancerHandlerTest {
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
               .offer(
                   AlgorithmConfig.builder()
-                      .clusterInfo(
-                          admin
-                              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-                              .toCompletableFuture()
-                              .join())
+                      .clusterInfo(currentClusterInfo)
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
@@ -841,43 +829,6 @@ public class BalancerHandlerTest {
   }
 
   @Test
-  @Timeout(value = 60)
-  void testCustomBalancer() {
-    var topics = createAndProduceTopic(3);
-    try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
-      var balancer = SpyBalancer.class.getName();
-      var balancerConfig =
-          Map.of(
-              "key0", "value0",
-              "key1", "value1",
-              "key2", "value2");
-
-      var newInvoked = new AtomicBoolean(false);
-      var offerInvoked = new AtomicBoolean(false);
-      SpyBalancer.offerCallbacks.add(() -> offerInvoked.set(true));
-      SpyBalancer.newCallbacks.add(
-          (config) -> {
-            Assertions.assertEquals("value0", config.requireString("key0"));
-            Assertions.assertEquals("value1", config.requireString("key1"));
-            Assertions.assertEquals("value2", config.requireString("key2"));
-            newInvoked.set(true);
-          });
-
-      var request = new BalancerHandler.BalancerPostRequest();
-      request.balancer = balancer;
-      request.balancerConfig = balancerConfig;
-      request.topics = topics;
-
-      var progress = submitPlanGeneration(handler, request);
-
-      Assertions.assertEquals(Searched, progress.phase, "Plan is here");
-      Assertions.assertTrue(newInvoked.get(), "The customized balancer is created");
-      Assertions.assertTrue(offerInvoked.get(), "The customized balancer is used");
-    }
-  }
-
-  @Test
   void testParsePostRequest() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       // create a topic to avoid empty cluster
@@ -1173,6 +1124,38 @@ public class BalancerHandlerTest {
     }
   }
 
+  @Test
+  void testBalancerConfig() {
+    createAndProduceTopic(1);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
+      var request = new BalancerPostRequest();
+      request.balancer = SpyBalancer.class.getName();
+      request.balancerConfig =
+          Map.ofEntries(
+              Map.entry("key0", "value0"),
+              Map.entry("key1", "value1"),
+              Map.entry("key2", "value2"));
+
+      // register callback to retrieve the config detail
+      var acceptedConfig = new AtomicReference<AlgorithmConfig>();
+      SpyBalancer.offerCallbacks.add(acceptedConfig::set);
+
+      // submit plan
+      var theProgress = submitPlanGeneration(handler, request);
+      Assertions.assertEquals(Searched, theProgress.phase);
+
+      // ensure the configs are there
+      Assertions.assertEquals(
+          Map.ofEntries(
+              Map.entry("key0", "value0"),
+              Map.entry("key1", "value1"),
+              Map.entry("key2", "value2")),
+          acceptedConfig.get().balancerConfig().raw(),
+          "The specified config has been propagated to the balancer");
+    }
+  }
+
   /** Submit the plan and wait until it generated. */
   private BalancerHandler.PlanExecutionProgress submitPlanGeneration(
       BalancerHandler handler, BalancerPostRequest request) {
@@ -1278,19 +1261,12 @@ public class BalancerHandlerTest {
 
   public static class SpyBalancer extends SingleStepBalancer {
 
-    public static List<Consumer<Configuration>> newCallbacks =
+    public static List<Consumer<AlgorithmConfig>> offerCallbacks =
         Collections.synchronizedList(new ArrayList<>());
-    public static List<Runnable> offerCallbacks = Collections.synchronizedList(new ArrayList<>());
-
-    public SpyBalancer(Configuration config) {
-      super(config);
-      newCallbacks.forEach(c -> c.accept(config));
-      newCallbacks.clear();
-    }
 
     @Override
     public Optional<Plan> offer(AlgorithmConfig config) {
-      offerCallbacks.forEach(Runnable::run);
+      offerCallbacks.forEach(c -> c.accept(config));
       offerCallbacks.clear();
       return super.offer(config);
     }
