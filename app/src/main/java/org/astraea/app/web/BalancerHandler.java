@@ -282,14 +282,6 @@ class BalancerHandler implements Handler, AutoCloseable {
   // visible for test
   static PostRequestWrapper parsePostRequestWrapper(
       BalancerPostRequest balancerPostRequest, ClusterInfo currentClusterInfo) {
-    var topics =
-        balancerPostRequest.topics.isEmpty()
-            ? currentClusterInfo.topicNames()
-            : balancerPostRequest.topics;
-
-    if (topics.isEmpty())
-      throw new IllegalArgumentException(
-          "Illegal topic filter, empty topic specified so nothing can be rebalance. ");
     if (balancerPostRequest.timeout.isZero() || balancerPostRequest.timeout.isNegative())
       throw new IllegalArgumentException(
           "Illegal timeout, value should be positive integer: "
@@ -314,7 +306,6 @@ class BalancerHandler implements Handler, AutoCloseable {
     Map<String, String> balancerConfig = Map.of();
     Map<String, String> costConfig = Map.of();
     Duration timeout = Duration.ofSeconds(3);
-    Set<String> topics = Set.of();
     List<CostWeight> clusterCosts = List.of();
     Set<String> moveCosts =
         Set.of(

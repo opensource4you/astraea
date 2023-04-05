@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -60,6 +61,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.AlgorithmConfig;
+import org.astraea.common.balancer.BalancerCapabilities;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
@@ -165,8 +167,14 @@ public class BalancerHandlerTest {
       // We apply this limitation to test if the BalancerHandler.TOPICS_KEY works correctly.
       var allowedTopics = List.copyOf(topicNames).subList(0, 2);
       var request = new BalancerPostRequest();
-      request.balancerConfig = Map.of("iteration", "30");
-      request.topics = Set.copyOf(allowedTopics);
+      request.balancerConfig =
+          Map.of(
+              "iteration",
+              "30",
+              BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX,
+              allowedTopics.stream()
+                  .map(Pattern::quote)
+                  .collect(Collectors.joining("|", "(", ")")));
       request.moveCosts = Set.of("org.astraea.common.cost.RecordSizeCost");
       request.costConfig = Map.of(RecordSizeCost.class.getName(), "10GB");
       var report = submitPlanGeneration(handler, request).plan;
@@ -532,7 +540,8 @@ public class BalancerHandlerTest {
 
       // request a plan
       var request = new BalancerHandler.BalancerPostRequest();
-      request.topics = Set.of(theTopic);
+      request.balancerConfig =
+          Map.of(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, Pattern.quote(theTopic));
       var theReport = submitPlanGeneration(handler, request);
       Assertions.assertEquals(Searched, theReport.phase, "Plan is ready");
 
@@ -638,7 +647,8 @@ public class BalancerHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
-      request.topics = Set.of(topic);
+      request.balancerConfig =
+          Map.of(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, Pattern.quote(topic));
       var theProgress = submitPlanGeneration(handler, request);
 
       // pick a partition and alter its placement
@@ -802,7 +812,10 @@ public class BalancerHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
-      request.topics = topics;
+      request.balancerConfig =
+          Map.of(
+              BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX,
+              topics.stream().map(Pattern::quote).collect(Collectors.joining("|", "(", ")")));
       var progress = submitPlanGeneration(handler, request);
 
       Assertions.assertDoesNotThrow(
@@ -865,7 +878,6 @@ public class BalancerHandlerTest {
         var randomTopic1 = Utils.randomString();
         var request = new BalancerPostRequest();
         request.timeout = Duration.ofSeconds(32);
-        request.topics = Set.of(randomTopic0, randomTopic1);
         request.balancerConfig = Map.of("KEY", "VALUE");
         request.clusterCosts = List.of(costWeight(DecreasingCost.class.getName(), 1));
 
@@ -882,12 +894,6 @@ public class BalancerHandlerTest {
       }
       {
         // malformed content
-        var balancerRequest = new BalancerPostRequest();
-        Assertions.assertThrows(
-            IllegalArgumentException.class,
-            () -> BalancerHandler.parsePostRequestWrapper(balancerRequest, clusterInfo),
-            "Empty topic filter, nothing to rebalance");
-
         var balancerRequest3 = new BalancerPostRequest();
         Assertions.assertThrows(
             IllegalArgumentException.class,
@@ -950,7 +956,10 @@ public class BalancerHandlerTest {
       var request = new BalancerHandler.BalancerPostRequest();
       request.timeout = Duration.ofSeconds(15);
       request.clusterCosts = function;
-      request.topics = topics;
+      request.balancerConfig =
+          Map.of(
+              BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX,
+              topics.stream().map(Pattern::quote).collect(Collectors.joining("|", "(", ")")));
       var progress = submitPlanGeneration(handler, request);
 
       Assertions.assertEquals(Searched, progress.phase);
@@ -1090,7 +1099,7 @@ public class BalancerHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
-      request.topics = Set.of(topic);
+      request.balancerConfig = Map.of(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, topic);
       var theProgress = submitPlanGeneration(handler, request);
 
       var value0 = Utils.randomString();
@@ -1323,8 +1332,10 @@ public class BalancerHandlerTest {
   void testJsonToBalancerPostRequest() {
     var json =
         "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\""
-            + ", \"topics\":[\"aa\"]"
             + ", \"clusterCosts\":[{\"cost\":\"aaa\"}],"
+            + "\"balancerConfig\":{"
+            + "    \"balancer.allowed.topics.regex\": \"regex.....\""
+            + "  },"
             + "\"moveCosts\":["
             + "    \"org.astraea.common.cost.RecordSizeCost\","
             + "    \"org.astraea.common.cost.ReplicaLeaderCost\""
@@ -1343,7 +1354,8 @@ public class BalancerHandlerTest {
         "org.astraea.common.balancer.algorithms.GreedyBalancer", request.balancer);
     Assertions.assertNotNull(request.balancerConfig);
     Assertions.assertNotNull(request.timeout);
-    Assertions.assertEquals(Set.of("aa"), request.topics);
+    Assertions.assertEquals(
+        Map.of("balancer.allowed.topics.regex", "regex....."), request.balancerConfig);
 
     Assertions.assertEquals(1, request.clusterCosts.size());
     Assertions.assertEquals("aaa", request.clusterCosts.get(0).cost);
