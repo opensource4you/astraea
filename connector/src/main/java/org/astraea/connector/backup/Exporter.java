@@ -160,8 +160,13 @@ public class Exporter extends SinkConnector {
 
     private long bufferSizeLimit;
 
-    static RecordWriter createRecordWriter(
-        FileSystem fs, String path, String topicName, TopicPartition tp, long offset) {
+    private FileSystem fs;
+    private String topicName;
+    private String path;
+    private DataSize size;
+    private long interval;
+
+    RecordWriter createRecordWriter(TopicPartition tp, long offset) {
       var fileName = String.valueOf(offset);
       return RecordWriter.builder(
               fs.write(String.join("/", path, topicName, String.valueOf(tp.partition()), fileName)))
@@ -176,7 +181,7 @@ public class Exporter extends SinkConnector {
      * @param interval the time interval in milliseconds
      * @return the timestamp value of the oldest record appended in writers.
      */
-    static long removeOldWriters(HashMap<TopicPartition, RecordWriter> writers, long interval) {
+    long removeOldWriters(HashMap<TopicPartition, RecordWriter> writers, long interval) {
       var itr = writers.values().iterator();
       var currentTime = System.currentTimeMillis();
       long longestWriteTime = currentTime;
@@ -197,11 +202,6 @@ public class Exporter extends SinkConnector {
      * writer for the specified {@link TopicPartition} does not exist, it is created using the given
      * {@link FileSystem}, path. topic name, partition, and offset.
      *
-     * @param fs the {@link FileSystem} object used for writing records
-     * @param path the path in the {@link FileSystem} where records will be written
-     * @param topicName the name of the topic being written
-     * @param size the maximum size of a writer's output file
-     * @param interval the maximum milliseconds of a writer can be idle
      * @param longestWriteTime the timestamp value of the oldest record appended in writers
      * @param recordsQueue a {@link Supplier} that returns a list of {@link Record} objects to be
      *     written
@@ -210,45 +210,32 @@ public class Exporter extends SinkConnector {
      * @return the new longestWriteTime get from {@link Task#removeOldWriters(HashMap, long)} if any
      *     writer be closed
      */
-    static long writeRecords(
-        FileSystem fs,
-        String path,
-        String topicName,
-        DataSize size,
-        long interval,
+    long writeRecords(
         long longestWriteTime,
         Supplier<List<Record<byte[], byte[]>>> recordsQueue,
         HashMap<TopicPartition, RecordWriter> writers) {
 
       var records = recordsQueue.get();
-      var newLongestWriteTime = longestWriteTime;
       if (System.currentTimeMillis() - longestWriteTime > interval) {
-        newLongestWriteTime = removeOldWriters(writers, interval);
+        longestWriteTime = removeOldWriters(writers, interval);
       }
 
       records.forEach(
           record -> {
             var writer =
                 writers.computeIfAbsent(
-                    record.topicPartition(),
-                    tp -> createRecordWriter(fs, path, topicName, tp, record.offset()));
+                    record.topicPartition(), tp -> createRecordWriter(tp, record.offset()));
             writer.append(record);
             if (writer.size().greaterThan(size)) {
               writers.remove(record.topicPartition()).close();
             }
           });
 
-      return newLongestWriteTime;
+      return longestWriteTime;
     }
 
-    static Runnable createWriter(
-        FileSystem fs,
-        String path,
-        String topicName,
-        long interval,
-        DataSize size,
-        Supplier<Boolean> closed,
-        Supplier<List<Record<byte[], byte[]>>> recordsQueue) {
+    Runnable createWriter(
+        Supplier<Boolean> closed, Supplier<List<Record<byte[], byte[]>>> recordsQueue) {
       return () -> {
         var writers = new HashMap<TopicPartition, RecordWriter>();
         var longestWriteTime = System.currentTimeMillis();
@@ -256,17 +243,7 @@ public class Exporter extends SinkConnector {
         try {
           while (!closed.get()) {
             longestWriteTime =
-                Math.min(
-                    longestWriteTime,
-                    writeRecords(
-                        fs,
-                        path,
-                        topicName,
-                        size,
-                        interval,
-                        longestWriteTime,
-                        recordsQueue,
-                        writers));
+                Math.min(longestWriteTime, writeRecords(longestWriteTime, recordsQueue, writers));
           }
         } finally {
           writers.forEach((tp, writer) -> writer.close());
@@ -298,12 +275,12 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void init(Configuration configuration) {
-      var topicName = configuration.requireString(TOPICS_KEY);
-      var path = configuration.requireString(PATH_KEY.name());
-      var size =
+      this.topicName = configuration.requireString(TOPICS_KEY);
+      this.path = configuration.requireString(PATH_KEY.name());
+      this.size =
           DataSize.of(
               configuration.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString()));
-      var interval =
+      this.interval =
           Utils.toDuration(
                   configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()))
               .toMillis();
@@ -317,15 +294,10 @@ public class Exporter extends SinkConnector {
                       .orElse(BUFFER_SIZE_KEY.defaultValue().toString()))
               .bytes();
 
-      var fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
+      this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture =
           CompletableFuture.runAsync(
               createWriter(
-                  fs,
-                  path,
-                  topicName,
-                  interval,
-                  size,
                   this.closed::get,
                   () ->
                       Utils.packException(
@@ -363,6 +335,15 @@ public class Exporter extends SinkConnector {
 
     boolean isWriterDone() {
       return writerFuture.isDone();
+    }
+
+    // the following methods are intended for tests.
+    void fs(FileSystem fs) {
+      this.fs = fs;
+    }
+
+    void size(String size) {
+      this.size = DataSize.of(size);
     }
   }
 }

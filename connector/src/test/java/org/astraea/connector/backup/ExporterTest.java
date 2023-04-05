@@ -31,7 +31,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
-import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.RecordReader;
@@ -763,11 +762,12 @@ public class ExporterTest {
               "roll.duration",
               "300ms");
 
-      var fs = FileSystem.of("hdfs", Configuration.of(configs));
-
       var writers = new HashMap<TopicPartition, RecordWriter>();
 
-      RecordWriter recordWriter = Exporter.Task.createRecordWriter(fs, path, topicName, tp, offset);
+      var task = new Exporter.Task();
+      task.fs(FileSystem.of("hdfs", Configuration.of(configs)));
+
+      RecordWriter recordWriter = task.createRecordWriter(tp, offset);
 
       Assertions.assertNotNull(recordWriter);
 
@@ -783,14 +783,14 @@ public class ExporterTest {
               .timestamp(System.currentTimeMillis())
               .build());
 
-      Exporter.Task.removeOldWriters(writers, 1000);
+      task.removeOldWriters(writers, 1000);
 
       // the writer should not be closed before sleep.
       Assertions.assertNotEquals(0, writers.size());
 
       Utils.sleep(Duration.ofMillis(1500));
 
-      Exporter.Task.removeOldWriters(writers, 1000);
+      task.removeOldWriters(writers, 1000);
 
       Assertions.assertEquals(0, writers.size());
     }
@@ -822,8 +822,6 @@ public class ExporterTest {
               "roll.duration",
               "300ms");
 
-      var fs = FileSystem.of("hdfs", Configuration.of(configs));
-
       var writers = new HashMap<TopicPartition, RecordWriter>();
 
       BlockingQueue<Record<byte[], byte[]>> queue = new LinkedBlockingQueue<>();
@@ -831,6 +829,8 @@ public class ExporterTest {
       LongAdder bufferSize = new LongAdder();
 
       var task = new Exporter.Task();
+      task.fs(FileSystem.of("hdfs", Configuration.of(configs)));
+      task.size("100MB");
 
       queue.add(
           RecordBuilder.of()
@@ -847,15 +847,7 @@ public class ExporterTest {
       // this function will drain out all records from the blocking queue and return a new longest
       // writeTime.
       var newLongestWriteTime =
-          Exporter.Task.writeRecords(
-              fs,
-              path,
-              topicName,
-              DataSize.of("1KB"),
-              1000,
-              0,
-              () -> task.getRecordsFromBuffer(queue, bufferSize),
-              writers);
+          task.writeRecords(0, () -> task.getRecordsFromBuffer(queue, bufferSize), writers);
 
       Assertions.assertNotEquals(0, newLongestWriteTime);
       Assertions.assertEquals(0, queue.size());
