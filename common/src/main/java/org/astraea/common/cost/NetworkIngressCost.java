@@ -16,11 +16,15 @@
  */
 package org.astraea.common.cost;
 
-import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
+import org.astraea.common.DataRate;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -35,55 +39,71 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
   private final Configuration config;
   private static final String UPPER_BOUND = "upper.bound";
   private static final String TRAFFIC_INTERVAL = "traffic.interval";
+  private int upper = 30;
+  private int interval = 10;
 
   public NetworkIngressCost(Configuration config) {
     super(BandwidthType.Ingress);
     this.config = config;
+    config.integer(UPPER_BOUND).ifPresent(v -> upper = v);
+    config.integer(TRAFFIC_INTERVAL).ifPresent(v -> interval = v);
   }
 
   @Override
   public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     noMetricCheck(clusterBean);
 
-    var partitionCost =
+    var partitionTraffic =
         estimateRate(clusterInfo, clusterBean, ServerMetrics.Topic.BYTES_IN_PER_SEC)
             .entrySet()
             .stream()
             .collect(Collectors.toMap(Map.Entry::getKey, e -> (double) e.getValue()));
+    var partitionTrafficPerBroker = wrappedByNode(partitionTraffic, clusterInfo);
 
-    var partitionPerBroker = new HashMap<Integer, Map<TopicPartition, Double>>();
-
-    clusterInfo.nodes().forEach(node -> partitionPerBroker.put(node.id(), new HashMap<>()));
-
-    clusterInfo
-        .replicaStream()
-        .filter(Replica::isLeader)
-        .filter(Replica::isOnline)
-        .forEach(
-            replica -> {
-              var tp = replica.topicPartition();
-              var id = replica.nodeInfo().id();
-              partitionPerBroker.get(id).put(tp, partitionCost.get(tp));
-            });
-
-    var result =
-        partitionPerBroker.values().stream()
+    var partitionCost =
+        partitionTrafficPerBroker.values().stream()
             .map(
                 topicPartitionDoubleMap ->
                     Normalizer.proportion().normalize(topicPartitionDoubleMap))
             .flatMap(cost -> cost.entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var partitionCostPerBroker = wrappedByNode(partitionCost, clusterInfo);
 
     return new PartitionCost() {
       @Override
       public Map<TopicPartition, Double> value() {
-        return result;
+        return partitionCost;
       }
 
       @Override
       public Map<TopicPartition, Set<TopicPartition>> incompatibility() {
+        Map<TopicPartition, Set<TopicPartition>> incompatible =
+            partitionCost.keySet().stream()
+                .map(tp -> Map.entry(tp, new HashSet<TopicPartition>()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        partitionCostPerBroker.forEach(
+            (brokerId, partitionCost) -> {
+              var partitionTraffic = partitionTrafficPerBroker.get(brokerId);
+              var trafficInterval = trafficToCostInterval(partitionTraffic, partitionCost);
+              var partitionSet =
+                  partitionCost.entrySet().stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              e -> convertRange(trafficInterval, e.getValue()),
+                              Collectors.mapping(
+                                  Map.Entry::getKey, Collectors.toUnmodifiableSet())));
+
+              partitionCost.forEach(
+                  (tp, cost) -> {
+                    for (var intervals : partitionSet.entrySet()) {
+                      if (!intervals.getValue().contains(tp))
+                        incompatible.get(tp).addAll(intervals.getValue());
+                    }
+                  });
+            });
         // TODO: Impl feedback logic, use Map.of() instead of incompatible partitions temporary
-        return Map.of();
+        return incompatible;
       }
     };
   }
@@ -91,5 +111,62 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
   @Override
   public String toString() {
     return this.getClass().getSimpleName();
+  }
+
+  // --------------------[helper]--------------------
+
+  double convertRange(List<Double> interval, double value) {
+    for (var v : interval) {
+      if (value < v) return v;
+    }
+    return 1;
+  }
+
+  protected List<Double> trafficToCostInterval(
+      Map<TopicPartition, Double> partitionTraffic, Map<TopicPartition, Double> partitionCost) {
+    var upperBound =
+        convertTrafficToCost(
+            partitionTraffic, partitionCost, DataRate.MiB.of(upper).perSecond().byteRate());
+    var trafficInterval =
+        convertTrafficToCost(
+            partitionTraffic, partitionCost, DataRate.MiB.of(interval).perSecond().byteRate());
+    var count = (int) Math.ceil(upperBound / trafficInterval);
+    return IntStream.range(0, count)
+        .mapToDouble(
+            i -> {
+              var traffic = trafficInterval * (i + 1);
+              return Math.min(traffic, upperBound);
+            })
+        .boxed()
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  protected double convertTrafficToCost(
+      Map<TopicPartition, Double> partitionTraffic,
+      Map<TopicPartition, Double> partitionCost,
+      double traffic) {
+    var trafficCost =
+        partitionTraffic.entrySet().stream()
+            .filter(e -> e.getValue() > 0.0)
+            .findFirst()
+            .map(e -> Map.entry(e.getValue(), partitionCost.get(e.getKey())))
+            .orElseThrow(
+                () ->
+                    new NoSuchElementException(
+                        "There is no available traffic, please confirm if the MBean has been retrieved"));
+    return traffic / trafficCost.getKey() * trafficCost.getValue();
+  }
+
+  Map<Integer, Map<TopicPartition, Double>> wrappedByNode(
+      Map<TopicPartition, Double> partitions, ClusterInfo clusterInfo) {
+    return clusterInfo
+        .replicaStream()
+        .filter(Replica::isLeader)
+        .filter(Replica::isOnline)
+        .collect(
+            Collectors.groupingBy(
+                replica -> replica.nodeInfo().id(),
+                Collectors.toMap(
+                    Replica::topicPartition, r -> partitions.get(r.topicPartition()))));
   }
 }
