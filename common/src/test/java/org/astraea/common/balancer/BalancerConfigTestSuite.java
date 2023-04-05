@@ -31,10 +31,8 @@ import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.junit.jupiter.api.Assertions;
 
-/**
- * A collection of helper methods that aid in verifying the implementation of balancer capabilities.
- */
-public class BalancerCapabilityTestSuite {
+/** A collection of helper methods that aid in verifying the implementation of balancer configs. */
+public class BalancerConfigTestSuite {
 
   public static void testBalancerAllowedTopicRegex(Balancer balancer) {
     final var cluster = cluster(10, 10, 10, (short) 5);
@@ -94,7 +92,7 @@ public class BalancerCapabilityTestSuite {
                   .clusterInfo(cluster)
                   .clusterCost(decreasingCost())
                   .timeout(Duration.ofSeconds(2))
-                  .config(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, regexRaw)
+                  .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, regexRaw)
                   .build());
       AssertionsHelper.assertOnlyAllowedMovement(
           cluster, plan.orElseThrow().proposal(), regex, testName);
@@ -114,7 +112,7 @@ public class BalancerCapabilityTestSuite {
                   .clusterInfo(cluster)
                   .clusterCost(decreasingCost())
                   .timeout(Duration.ofSeconds(2))
-                  .config(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, regexRaw)
+                  .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, regexRaw)
                   .build());
       AssertionsHelper.assertNoMovement(cluster, plan.orElseThrow().proposal(), testName);
     }
@@ -128,7 +126,7 @@ public class BalancerCapabilityTestSuite {
                   .clusterInfo(cluster)
                   .clusterCost(decreasingCost())
                   .timeout(Duration.ofSeconds(2))
-                  .config(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, regexRaw)
+                  .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, regexRaw)
                   .build());
       AssertionsHelper.assertNoMovement(cluster, plan.orElseThrow().proposal(), testName);
     }

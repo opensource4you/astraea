@@ -61,7 +61,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.AlgorithmConfig;
-import org.astraea.common.balancer.BalancerCapabilities;
+import org.astraea.common.balancer.BalancerConfigs;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
@@ -508,7 +508,7 @@ public class BalancerHandlerTest {
       // request a plan
       var request = new BalancerHandler.BalancerPostRequest();
       request.balancerConfig =
-          Map.of(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, Pattern.quote(theTopic));
+          Map.of(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, Pattern.quote(theTopic));
       var theReport = submitPlanGeneration(handler, request);
       Assertions.assertEquals(Searched, theReport.phase, "Plan is ready");
 
@@ -615,7 +615,7 @@ public class BalancerHandlerTest {
         var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.balancerConfig =
-          Map.of(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, Pattern.quote(topic));
+          Map.of(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, Pattern.quote(topic));
       var theProgress = submitPlanGeneration(handler, request);
 
       // pick a partition and alter its placement
@@ -781,7 +781,7 @@ public class BalancerHandlerTest {
       var request = new BalancerHandler.BalancerPostRequest();
       request.balancerConfig =
           Map.of(
-              BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX,
+              BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX,
               topics.stream().map(Pattern::quote).collect(Collectors.joining("|", "(", ")")));
       var progress = submitPlanGeneration(handler, request);
 
@@ -925,7 +925,7 @@ public class BalancerHandlerTest {
       request.clusterCosts = function;
       request.balancerConfig =
           Map.of(
-              BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX,
+              BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX,
               topics.stream().map(Pattern::quote).collect(Collectors.joining("|", "(", ")")));
       var progress = submitPlanGeneration(handler, request);
 
@@ -1066,7 +1066,7 @@ public class BalancerHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
-      request.balancerConfig = Map.of(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, topic);
+      request.balancerConfig = Map.of(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, topic);
       var theProgress = submitPlanGeneration(handler, request);
 
       var value0 = Utils.randomString();

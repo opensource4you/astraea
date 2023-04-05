@@ -37,7 +37,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.BalancerCapabilities;
+import org.astraea.common.balancer.BalancerConfigs;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
@@ -244,8 +244,7 @@ class BalancerNode {
                                           List.of(
                                               new ReplicaLeaderSizeCost(),
                                               new ReplicaLeaderCost())))
-                                  .config(
-                                      BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, pattern)
+                                  .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, pattern)
                                   .build()));
                 })
             .thenApply(

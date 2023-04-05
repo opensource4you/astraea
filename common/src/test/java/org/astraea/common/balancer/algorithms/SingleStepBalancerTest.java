@@ -17,7 +17,7 @@
 package org.astraea.common.balancer.algorithms;
 
 import org.astraea.common.Utils;
-import org.astraea.common.balancer.BalancerCapabilityTestSuite;
+import org.astraea.common.balancer.BalancerConfigTestSuite;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +44,6 @@ class SingleStepBalancerTest {
 
   @Test
   void testBalancerAllowedTopicRegex() {
-    BalancerCapabilityTestSuite.testBalancerAllowedTopicRegex(new SingleStepBalancer());
+    BalancerConfigTestSuite.testBalancerAllowedTopicRegex(new SingleStepBalancer());
   }
 }

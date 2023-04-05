@@ -30,7 +30,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.BalancerCapabilities;
+import org.astraea.common.balancer.BalancerConfigs;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.metrics.MBeanRegister;
@@ -136,7 +136,7 @@ public class GreedyBalancer implements Balancer {
     final var allowedTopics =
         config
             .balancerConfig()
-            .string(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX)
+            .string(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX)
             .map(Pattern::compile)
             .map(Pattern::asMatchPredicate)
             .orElse((ignore) -> true);
