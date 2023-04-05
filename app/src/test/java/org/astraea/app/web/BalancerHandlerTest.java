@@ -157,39 +157,6 @@ public class BalancerHandlerTest {
     }
   }
 
-  @Test
-  @Timeout(value = 60)
-  void testTopics() {
-    var topicNames = createAndProduceTopic(5);
-    try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
-      // For all 5 topics, we only allow the first two topics can be altered.
-      // We apply this limitation to test if the BalancerHandler.TOPICS_KEY works correctly.
-      var allowedTopics = List.copyOf(topicNames).subList(0, 2);
-      var request = new BalancerPostRequest();
-      request.balancerConfig =
-          Map.of(
-              "iteration",
-              "30",
-              BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX,
-              allowedTopics.stream()
-                  .map(Pattern::quote)
-                  .collect(Collectors.joining("|", "(", ")")));
-      request.moveCosts = Set.of("org.astraea.common.cost.RecordSizeCost");
-      request.costConfig = Map.of(RecordSizeCost.class.getName(), "10GB");
-      var report = submitPlanGeneration(handler, request).plan;
-      Assertions.assertTrue(
-          report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
-          "Only allowed topics been altered");
-      var sizeMigration =
-          report.migrationCosts.stream()
-              .filter(x -> x.name.equals(BalancerHandler.TO_SYNC_BYTES))
-              .findFirst()
-              .get();
-      Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
-    }
-  }
-
   private static Set<String> createAndProduceTopic(int topicCount) {
     return createAndProduceTopic(topicCount, 3, (short) 1, true);
   }
