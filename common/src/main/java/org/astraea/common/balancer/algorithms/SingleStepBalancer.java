@@ -64,8 +64,7 @@ public class SingleStepBalancer implements Balancer {
     final var allowedTopics =
         config
             .balancerConfig()
-            .string(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX)
-            .map(Pattern::compile)
+            .regexString(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX)
             .map(Pattern::asMatchPredicate)
             .orElse((ignore) -> true);
 
