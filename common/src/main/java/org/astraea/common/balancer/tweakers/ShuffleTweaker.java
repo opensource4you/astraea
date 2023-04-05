@@ -47,11 +47,11 @@ import org.astraea.common.admin.Replica;
 public class ShuffleTweaker {
 
   private final Supplier<Integer> numberOfShuffle;
-  private final Predicate<String> topicFilter;
+  private final MovementConstraint constraint;
 
-  public ShuffleTweaker(Supplier<Integer> numberOfShuffle, Predicate<String> topicFilter) {
+  public ShuffleTweaker(Supplier<Integer> numberOfShuffle, MovementConstraint constraint) {
     this.numberOfShuffle = numberOfShuffle;
-    this.topicFilter = topicFilter;
+    this.constraint = constraint;
   }
 
   public Stream<ClusterInfo> generate(ClusterInfo baseAllocation) {
@@ -71,7 +71,7 @@ public class ShuffleTweaker {
           final var shuffleCount = numberOfShuffle.get();
           final var partitionOrder =
               baseAllocation.topicPartitions().stream()
-                  .filter(tp -> topicFilter.test(tp.topic()))
+                  .filter(tp -> constraint.allowedTopics.test(tp.topic()))
                   .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
                   .sorted(Map.Entry.comparingByValue())
                   .map(Map.Entry::getKey)
@@ -146,6 +146,33 @@ public class ShuffleTweaker {
             // no leader
             r -> r.stream().noneMatch(Replica::isLeader))
         .noneMatch(p -> p.test(replicas));
+  }
+
+  public static class MovementConstraint {
+    public static final MovementConstraint DEFAULT = MovementConstraint.builder().build();
+
+    public final Predicate<String> allowedTopics;
+
+    MovementConstraint(Predicate<String> allowedTopics) {
+      this.allowedTopics = allowedTopics;
+    }
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public static class Builder {
+      private Predicate<String> allowedTopics = (i) -> true;
+
+      public Builder useAllowedTopicFilter(Predicate<String> allowedTopics) {
+        this.allowedTopics = allowedTopics;
+        return this;
+      }
+
+      public MovementConstraint build() {
+        return new MovementConstraint(allowedTopics);
+      }
+    }
   }
 
   enum Operation implements EnumInfo {

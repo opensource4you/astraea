@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -40,7 +39,6 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
-import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MetricFactory;
 import org.astraea.common.metrics.MetricSeriesBuilder;
@@ -49,13 +47,11 @@ import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 class NetworkCostTest {
 
@@ -319,73 +315,6 @@ class NetworkCostTest {
                 .clusterCost(
                     cluster, ClusterBean.of(Map.of(1, List.of(), 2, List.of(), 3, List.of()))),
         "Should raise a exception since we don't know if first sample is performed or not");
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {0xfee1dead, 1, 100, 500, -5566, 0xcafebabe, 0x5566, 0x996, 0xABCDEF})
-  @Disabled
-  void testExpectedImprovement(int seed) {
-    var testCase = new LargeTestCase(6, 100, seed);
-    var clusterInfo = testCase.clusterInfo();
-    var clusterBean = testCase.clusterBean();
-    var smallShuffle =
-        new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 6), (x) -> true);
-    var largeShuffle =
-        new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 31), (x) -> true);
-    var costFunction =
-        HasClusterCost.of(
-            Map.of(new NetworkIngressCost(Configuration.EMPTY), 1.0, new NetworkEgressCost(), 1.0));
-    var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);
-
-    Function<ShuffleTweaker, Double> experiment =
-        (tweaker) -> {
-          return IntStream.range(0, 10)
-              .mapToDouble(
-                  (ignore) -> {
-                    var end = System.currentTimeMillis() + Duration.ofMillis(1000).toMillis();
-                    var timeUp = (Supplier<Boolean>) () -> (System.currentTimeMillis() > end);
-                    var counting = 0;
-                    var next = clusterInfo;
-                    while (!timeUp.get()) {
-                      next =
-                          tweaker
-                              .generate(next)
-                              .parallel()
-                              .limit(30)
-                              .takeWhile(i -> !timeUp.get())
-                              .map(
-                                  cluster ->
-                                      Map.entry(
-                                          cluster,
-                                          costFunction.clusterCost(cluster, clusterBean).value()))
-                              .filter(e -> originalCost.value() > e.getValue())
-                              .min(Map.Entry.comparingByValue())
-                              .map(Map.Entry::getKey)
-                              .orElse(next);
-                      counting++;
-                    }
-                    var a = originalCost.value();
-                    var b = costFunction.clusterCost(next, clusterBean).value();
-                    System.out.println(counting);
-                    return a - b;
-                  })
-              .average()
-              .orElseThrow();
-        };
-
-    long s0 = System.currentTimeMillis();
-    double small = experiment.apply(smallShuffle);
-    long s1 = System.currentTimeMillis();
-    double large = experiment.apply(largeShuffle);
-    long s2 = System.currentTimeMillis();
-
-    double largeTime = (s2 - s1) / 1000.0;
-    double smallTime = (s1 - s0) / 1000.0;
-    System.out.println("[Use seed " + seed + "]");
-    System.out.println(small + " (takes " + largeTime + "s)");
-    System.out.println(large + " (takes " + smallTime + "s)");
-    System.out.println("Small step is better: " + (small > large));
-    System.out.println();
   }
 
   @Test
