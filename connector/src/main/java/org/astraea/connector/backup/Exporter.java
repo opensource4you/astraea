@@ -26,7 +26,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -152,19 +151,19 @@ public class Exporter extends SinkConnector {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
+    final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
 
-    private final LongAdder bufferSize = new LongAdder();
+    final LongAdder bufferSize = new LongAdder();
 
     private final Object putLock = new Object();
 
     private long bufferSizeLimit;
 
-    private FileSystem fs;
-    private String topicName;
-    private String path;
-    private DataSize size;
-    private long interval;
+    FileSystem fs;
+    String topicName;
+    String path;
+    DataSize size;
+    long interval;
 
     RecordWriter createRecordWriter(TopicPartition tp, long offset) {
       var fileName = String.valueOf(offset);
@@ -178,10 +177,9 @@ public class Exporter extends SinkConnector {
      * milliseconds.
      *
      * @param writers a map of <code>TopicPartition</code> to <code>RecordWriter</code> objects
-     * @param interval the time interval in milliseconds
      * @return the timestamp value of the oldest record appended in writers.
      */
-    long removeOldWriters(HashMap<TopicPartition, RecordWriter> writers, long interval) {
+    long removeOldWriters(HashMap<TopicPartition, RecordWriter> writers) {
       var itr = writers.values().iterator();
       var currentTime = System.currentTimeMillis();
       long longestWriteTime = currentTime;
@@ -203,21 +201,16 @@ public class Exporter extends SinkConnector {
      * {@link FileSystem}, path. topic name, partition, and offset.
      *
      * @param longestWriteTime the timestamp value of the oldest record appended in writers
-     * @param recordsQueue a {@link Supplier} that returns a list of {@link Record} objects to be
-     *     written
      * @param writers a {@link HashMap} that maps a {@link TopicPartition} to a {@link RecordWriter}
      *     object
-     * @return the new longestWriteTime get from {@link Task#removeOldWriters(HashMap, long)} if any
+     * @return the new longestWriteTime get from {@link Task#removeOldWriters(HashMap)} if any
      *     writer be closed
      */
-    long writeRecords(
-        long longestWriteTime,
-        Supplier<List<Record<byte[], byte[]>>> recordsQueue,
-        HashMap<TopicPartition, RecordWriter> writers) {
+    long writeRecords(HashMap<TopicPartition, RecordWriter> writers, long longestWriteTime) {
 
-      var records = recordsQueue.get();
+      var records = recordsFromBuffer();
       if (System.currentTimeMillis() - longestWriteTime > interval) {
-        longestWriteTime = removeOldWriters(writers, interval);
+        longestWriteTime = removeOldWriters(writers);
       }
 
       records.forEach(
@@ -230,20 +223,17 @@ public class Exporter extends SinkConnector {
               writers.remove(record.topicPartition()).close();
             }
           });
-
       return longestWriteTime;
     }
 
-    Runnable createWriter(
-        Supplier<Boolean> closed, Supplier<List<Record<byte[], byte[]>>> recordsQueue) {
+    Runnable createWriter() {
       return () -> {
         var writers = new HashMap<TopicPartition, RecordWriter>();
         var longestWriteTime = System.currentTimeMillis();
 
         try {
           while (!closed.get()) {
-            longestWriteTime =
-                Math.min(longestWriteTime, writeRecords(longestWriteTime, recordsQueue, writers));
+            longestWriteTime = Math.min(longestWriteTime, writeRecords(writers, longestWriteTime));
           }
         } finally {
           writers.forEach((tp, writer) -> writer.close());
@@ -256,8 +246,7 @@ public class Exporter extends SinkConnector {
      *
      * @return a {@link List} of records retrieved from the buffer
      */
-    List<Record<byte[], byte[]>> getRecordsFromBuffer(
-        BlockingQueue<Record<byte[], byte[]>> recordsQueue, LongAdder bufferSize) {
+    List<Record<byte[], byte[]>> recordsFromBuffer() {
       var list = new ArrayList<Record<byte[], byte[]>>(recordsQueue.size());
       recordsQueue.drainTo(list);
       if (list.size() > 0) {
@@ -295,13 +284,7 @@ public class Exporter extends SinkConnector {
               .bytes();
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
-      this.writerFuture =
-          CompletableFuture.runAsync(
-              createWriter(
-                  this.closed::get,
-                  () ->
-                      Utils.packException(
-                          () -> getRecordsFromBuffer(this.recordsQueue, this.bufferSize))));
+      this.writerFuture = CompletableFuture.runAsync(createWriter());
     }
 
     @Override
@@ -335,15 +318,6 @@ public class Exporter extends SinkConnector {
 
     boolean isWriterDone() {
       return writerFuture.isDone();
-    }
-
-    // the following methods are intended for tests.
-    void fs(FileSystem fs) {
-      this.fs = fs;
-    }
-
-    void size(String size) {
-      this.size = DataSize.of(size);
     }
   }
 }
