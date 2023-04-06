@@ -39,8 +39,8 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
   private final Configuration config;
   private static final String UPPER_BOUND = "upper.bound";
   private static final String TRAFFIC_INTERVAL = "traffic.interval";
-  private long DEFAULT_UPPER_BOUND_BYTES = DataSize.MB.of(30).bytes();
-  private long DEFAULT_TRAFFIC_INTERVAL_BYTES = DataSize.MB.of(10).bytes();
+  private final DataSize DEFAULT_UPPER_BOUND_BYTES = DataSize.MB.of(30);
+  private final DataSize DEFAULT_TRAFFIC_INTERVAL_BYTES = DataSize.MB.of(10);
 
   public NetworkIngressCost(Configuration config) {
     super(BandwidthType.Ingress);
@@ -172,7 +172,7 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
   private double convertTrafficToCost(
       Map<TopicPartition, Double> partitionTraffic,
       Map<TopicPartition, Double> partitionCost,
-      double traffic) {
+      DataSize traffic) {
     var trafficCost =
         partitionTraffic.entrySet().stream()
             .filter(e -> e.getValue() > 0.0)
@@ -182,7 +182,7 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
                 () ->
                     new NoSuchElementException(
                         "There is no available traffic, please confirm if the MBean has been retrieved"));
-    return traffic / trafficCost.getKey() * trafficCost.getValue();
+    return traffic.bytes() / trafficCost.getKey() * trafficCost.getValue();
   }
 
   /**

@@ -103,8 +103,8 @@ public interface Configuration {
    * @param key the key whose associated value is to be returned
    * @return Long value. If there is no key, return Optional.Empty
    */
-  default Optional<Long> dataSize(String key) {
-    return string(key).map(DataSize::of).map(DataSize::bytes);
+  default Optional<DataSize> dataSize(String key) {
+    return string(key).map(DataSize::of);
   }
 
   default int requireInteger(String key) {
