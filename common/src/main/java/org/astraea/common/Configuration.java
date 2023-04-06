@@ -99,6 +99,14 @@ public interface Configuration {
     return string(key).map(Utils::toDuration);
   }
 
+  /**
+   * @param key the key whose associated value is to be returned
+   * @return Long value. If there is no key, return Optional.Empty
+   */
+  default Optional<Long> dataSize(String key) {
+    return string(key).map(DataSize::of).map(DataSize::bytes);
+  }
+
   default int requireInteger(String key) {
     return integer(key).orElseThrow(() -> new NoSuchElementException(key + " is nonexistent"));
   }

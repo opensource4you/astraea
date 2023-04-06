@@ -60,4 +60,16 @@ public class ConfigurationTest {
     Assertions.assertEquals(Utils.toDuration("3s"), response.orElseThrow());
     Assertions.assertTrue(empty.isEmpty());
   }
+
+  @Test
+  void testDataSize() {
+    var config = Configuration.of(Map.of("upper.bound", "30MiB", "traffic.interval", "5MB"));
+    var upper = config.dataSize("upper.bound");
+    var interval = config.dataSize("traffic.interval");
+    var empty = config.dataSize("kekw");
+
+    Assertions.assertEquals(DataRate.MiB.of(30).perSecond().dataSize().bytes(), upper.get());
+    Assertions.assertEquals(DataRate.MB.of(5).perSecond().dataSize().bytes(), interval.get());
+    Assertions.assertTrue(empty.isEmpty());
+  }
 }

@@ -24,7 +24,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
-import org.astraea.common.DataRate;
+import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
@@ -39,14 +39,12 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
   private final Configuration config;
   private static final String UPPER_BOUND = "upper.bound";
   private static final String TRAFFIC_INTERVAL = "traffic.interval";
-  private int upper = 30;
-  private int interval = 10;
+  private long DEFAULT_UPPER_BOUND_BYTES = DataSize.MB.of(30).bytes();
+  private long DEFAULT_TRAFFIC_INTERVAL_BYTES = DataSize.MB.of(10).bytes();
 
   public NetworkIngressCost(Configuration config) {
     super(BandwidthType.Ingress);
     this.config = config;
-    config.integer(UPPER_BOUND).ifPresent(v -> upper = v);
-    config.integer(TRAFFIC_INTERVAL).ifPresent(v -> interval = v);
   }
 
   @Override
@@ -102,7 +100,7 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
                     }
                   });
             });
-        // TODO: Impl feedback logic, use Map.of() instead of incompatible partitions temporary
+
         return incompatible;
       }
     };
@@ -119,21 +117,28 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
     for (var v : interval) {
       if (value < v) return v;
     }
-    return 1;
+    return Double.MAX_VALUE;
   }
 
   protected List<Double> trafficToCostInterval(
       Map<TopicPartition, Double> partitionTraffic, Map<TopicPartition, Double> partitionCost) {
     var upperBound =
         convertTrafficToCost(
-            partitionTraffic, partitionCost, DataRate.MiB.of(upper).perSecond().byteRate());
+            partitionTraffic,
+            partitionCost,
+            config.dataSize(UPPER_BOUND).orElse(DEFAULT_UPPER_BOUND_BYTES));
     var trafficInterval =
         convertTrafficToCost(
-            partitionTraffic, partitionCost, DataRate.MiB.of(interval).perSecond().byteRate());
+            partitionTraffic,
+            partitionCost,
+            config.dataSize(TRAFFIC_INTERVAL).orElse(DEFAULT_TRAFFIC_INTERVAL_BYTES));
     var count = (int) Math.ceil(upperBound / trafficInterval);
-    return IntStream.range(0, count)
+    var largerThanUpperBound = 1;
+
+    return IntStream.range(0, count + largerThanUpperBound)
         .mapToDouble(
             i -> {
+              if (i == count) return Double.MAX_VALUE;
               var traffic = trafficInterval * (i + 1);
               return Math.min(traffic, upperBound);
             })
