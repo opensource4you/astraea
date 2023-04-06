@@ -147,7 +147,7 @@ public interface Serializer<T> {
               + 1 // [internal]
               + 4 // [nums of topicPartitions]
               + 4 * 4; // [nums * partitions]
-      var buffer = ByteBuffer.allocate(topicSize);
+      var buffer = ByteBuffer.allocate(topicSize * 10);
       ByteUtils.putLengthString(buffer, data.name());
       buffer.putInt(data.config().raw().size());
       data.config()

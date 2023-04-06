@@ -16,6 +16,12 @@
  */
 package org.astraea.common.cost;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -42,6 +48,7 @@ import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.ClusterBeanSerializer;
 import org.astraea.common.metrics.MetricFactory;
 import org.astraea.common.metrics.MetricSeriesBuilder;
 import org.astraea.common.metrics.broker.LogMetrics;
@@ -634,5 +641,26 @@ class NetworkCostTest {
             "name", LogMetrics.Log.SIZE.metricName());
     var attributes = Map.<String, Object>of("Value", size);
     return new LogMetrics.Log.Gauge(new BeanObject(domainName, properties, attributes));
+  }
+
+  @Test
+  void testSerialization() {
+    var testcase = new LargeTestCase(10, 10, 0);
+    var beanFile = Path.of("/tmp/bean-file.bin");
+    try (OutputStream stream = new FileOutputStream(beanFile.toString())) {
+      System.out.println("Do serialize");
+      ClusterBeanSerializer.serialize(testcase.clusterBean, stream);
+      System.out.println("Do serialize done");
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
+    try (InputStream stream = new FileInputStream(beanFile.toString())) {
+      System.out.println("Do deserialize");
+      ClusterBean deserialize = ClusterBeanSerializer.deserialize(stream);
+      System.out.println("Do deserialize done");
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

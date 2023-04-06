@@ -16,6 +16,7 @@
  */
 package org.astraea.common.cost.utils;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -61,6 +62,7 @@ public class ClusterInfoSensor implements MetricSensor {
             .filter(id -> id != -1)
             .map(id -> NodeInfo.of(id, "", -1))
             .collect(Collectors.toUnmodifiableMap(NodeInfo::id, x -> x));
+    long l = System.nanoTime();
     var replicas =
         clusterBean.brokerTopics().stream()
             .filter(bt -> bt.broker() != -1)
@@ -114,6 +116,9 @@ public class ClusterInfoSensor implements MetricSensor {
                   return partitions.values().stream();
                 })
             .collect(Collectors.toUnmodifiableList());
+    long t = System.nanoTime();
+    System.out.println(
+        "ClusterInfoSensor#metricClusterView " + Duration.ofNanos(t - l).toMillis() + "ms");
     var clusterId =
         clusterBean.all().entrySet().stream()
             .filter(e -> e.getKey() != -1)
