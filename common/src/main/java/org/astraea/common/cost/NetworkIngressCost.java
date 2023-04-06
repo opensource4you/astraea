@@ -88,7 +88,7 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
                   partitionCost.entrySet().stream()
                       .collect(
                           Collectors.groupingBy(
-                              e -> convertRange(trafficInterval, e.getValue()),
+                              e -> intervalOrder(trafficInterval, e.getValue()),
                               Collectors.mapping(
                                   Map.Entry::getKey, Collectors.toUnmodifiableSet())));
 
@@ -113,14 +113,29 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
 
   // --------------------[helper]--------------------
 
-  double convertRange(List<Double> interval, double value) {
+  /**
+   * assign partition to the number by traffic interval
+   *
+   * @param interval traffic interval
+   * @param value the partition cost
+   * @return the number that partition belongs
+   */
+  private double intervalOrder(List<Double> interval, double value) {
     for (var v : interval) {
       if (value < v) return v;
     }
     return Double.MAX_VALUE;
   }
 
-  protected List<Double> trafficToCostInterval(
+  /**
+   * Obtain the cost for each interval to classify partitions into corresponding intervals for later
+   * incompatibility.
+   *
+   * @param partitionTraffic the traffic of partition in the same node
+   * @param partitionCost the cost of partition in the same node
+   * @return the interval costs
+   */
+  private List<Double> trafficToCostInterval(
       Map<TopicPartition, Double> partitionTraffic, Map<TopicPartition, Double> partitionCost) {
     var upperBound =
         convertTrafficToCost(
@@ -146,7 +161,15 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
         .collect(Collectors.toUnmodifiableList());
   }
 
-  protected double convertTrafficToCost(
+  /**
+   * Converting partition traffic within the same node into costs
+   *
+   * @param partitionTraffic partition traffic in the same node
+   * @param partitionCost partition cost in the same node
+   * @param traffic the traffic would be converted
+   * @return the cost derived from traffic conversion
+   */
+  private double convertTrafficToCost(
       Map<TopicPartition, Double> partitionTraffic,
       Map<TopicPartition, Double> partitionCost,
       double traffic) {
@@ -162,7 +185,14 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
     return traffic / trafficCost.getKey() * trafficCost.getValue();
   }
 
-  Map<Integer, Map<TopicPartition, Double>> wrappedByNode(
+  /**
+   * Group partitions of the same node together
+   *
+   * @param partitions all partitions in the cluster
+   * @param clusterInfo clusterInfo
+   * @return A Map with brokerId as the key and partitions as the value
+   */
+  private Map<Integer, Map<TopicPartition, Double>> wrappedByNode(
       Map<TopicPartition, Double> partitions, ClusterInfo clusterInfo) {
     return clusterInfo
         .replicaStream()
