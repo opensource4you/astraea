@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.performance;
+package org.astraea.common.producer;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
@@ -28,26 +28,26 @@ import java.util.stream.LongStream;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class DataSupplierTest {
+public class RecordGeneratorTest {
   @Test
   void testKeySize() {
     var dataSupplier =
-        DataGenerator.supplier(
-            1,
-            0,
-            0,
-            List.of(1L),
-            () -> 1L,
-            () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
-            List.of(2L),
-            () -> 2L,
-            () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
-            Map.of(),
-            DataRate.KiB.of(200).perSecond());
+        RecordGenerator.builder()
+            .batchSize(1)
+            .keyRange(List.of(1L))
+            .keyDistribution(() -> 1L)
+            .keySizeDistribution(() -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue())
+            .valueRange(List.of(2L))
+            .valueDistribution(() -> 2L)
+            .valueSizeDistribution(
+                () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue())
+            .throughput(tp -> DataRate.KiB.of(200).perSecond())
+            .build();
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
     Assertions.assertFalse(data1.isEmpty());
@@ -60,21 +60,20 @@ public class DataSupplierTest {
   @Test
   void testFixedValueSize() {
     var dataSupplier =
-        DataGenerator.supplier(
-            1,
-            0,
-            0,
-            List.of(1L),
-            () -> 1L,
-            () -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue(),
-            List.of(2L),
-            () -> 2L,
-            () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue(),
-            Map.of(),
-            DataRate.KiB.of(100).perSecond());
+        RecordGenerator.builder()
+            .batchSize(1)
+            .keyRange(List.of(1L))
+            .keyDistribution(() -> 1L)
+            .keySizeDistribution(() -> DataSize.Byte.of(20).measurement(DataUnit.Byte).longValue())
+            .valueRange(List.of(2L))
+            .valueDistribution(() -> 2L)
+            .valueSizeDistribution(
+                () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue())
+            .throughput(tp -> DataRate.KiB.of(100).perSecond())
+            .build();
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data.isEmpty());
+    Assertions.assertFalse(data.isEmpty());
     // initial value size is 100KB and the distributed is fixed to zero, so the final size is 102400
     Assertions.assertEquals(102400, data.get(0).value().length);
   }
@@ -85,18 +84,16 @@ public class DataSupplierTest {
 
     // Round-robin on 2 keys. Round-robin key size between 100Byte and 101Byte
     var dataSupplier =
-        DataGenerator.supplier(
-            1,
-            0,
-            0,
-            List.of(0L, 1L),
-            () -> counter.getAndIncrement() % 2,
-            () -> 1 + ThreadLocalRandom.current().nextLong(2),
-            List.of(10L),
-            () -> 10L,
-            () -> 10L,
-            Map.of(),
-            DataRate.KiB.of(200).perSecond());
+        RecordGenerator.builder()
+            .batchSize(1)
+            .keyRange(List.of(0L, 1L))
+            .keyDistribution(() -> counter.getAndIncrement() % 2)
+            .keySizeDistribution(() -> 1 + ThreadLocalRandom.current().nextLong(2))
+            .valueRange(List.of(10L))
+            .valueDistribution(() -> 10L)
+            .valueSizeDistribution(() -> 10L)
+            .throughput(tp -> DataRate.KiB.of(200).perSecond())
+            .build();
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
     Assertions.assertFalse(data1.isEmpty());
@@ -113,18 +110,16 @@ public class DataSupplierTest {
 
     // Round-robin on 2 keys. Fixed key size to 100 bytes.
     dataSupplier =
-        DataGenerator.supplier(
-            1,
-            0,
-            0,
-            List.of(0L, 1L),
-            () -> counter.getAndIncrement() % 2,
-            () -> 100L,
-            List.of(10L),
-            () -> 10L,
-            () -> 10L,
-            Map.of(),
-            DataRate.KiB.of(200).perSecond());
+        RecordGenerator.builder()
+            .batchSize(1)
+            .keyRange(List.of(0L, 1L))
+            .keyDistribution(() -> counter.getAndIncrement() % 2)
+            .keySizeDistribution(() -> 100L)
+            .valueRange(List.of(10L))
+            .valueDistribution(() -> 10L)
+            .valueSizeDistribution(() -> 10L)
+            .throughput(ignored -> DataRate.KiB.of(200).perSecond())
+            .build();
     data1 = dataSupplier.apply(tp);
     Assertions.assertFalse(data1.isEmpty());
     data2 = dataSupplier.apply(tp);
@@ -141,19 +136,16 @@ public class DataSupplierTest {
 
     // Round-robin on 2 values. Round-robin value size between 100Byte and 101Byte
     var dataSupplier =
-        DataGenerator.supplier(
-            1,
-            0,
-            0,
-            List.of(10L),
-            () -> 10L,
-            () -> 10L,
-            List.of(0L, 1L),
-            () -> counter.getAndIncrement() % 2,
-            () -> ThreadLocalRandom.current().nextLong(2),
-            Map.of(),
-            DataRate.KiB.of(100).perSecond());
-
+        RecordGenerator.builder()
+            .batchSize(1)
+            .keyRange(List.of(10L))
+            .keyDistribution(() -> 10L)
+            .keySizeDistribution(() -> 100L)
+            .valueRange(List.of(0L, 1L))
+            .valueDistribution(() -> counter.getAndIncrement() % 2)
+            .valueSizeDistribution(() -> ThreadLocalRandom.current().nextLong(2))
+            .throughput(ignored -> DataRate.KiB.of(100).perSecond())
+            .build();
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
     Assertions.assertFalse(data1.isEmpty());
@@ -170,22 +162,20 @@ public class DataSupplierTest {
 
     // Round-robin on 2 values. Fixed value size.
     dataSupplier =
-        DataGenerator.supplier(
-            1,
-            0,
-            0,
-            List.of(10L),
-            () -> 10L,
-            () -> 10L,
-            List.of(0L, 1L),
-            () -> counter.getAndIncrement() % 2,
-            () -> 100L,
-            Map.of(),
-            DataRate.KiB.of(100).perSecond());
+        RecordGenerator.builder()
+            .batchSize(1)
+            .keyRange(List.of(10L))
+            .keyDistribution(() -> 10L)
+            .keySizeDistribution(() -> 100L)
+            .valueRange(List.of(0L, 1L))
+            .valueDistribution(() -> counter.getAndIncrement() % 2)
+            .valueSizeDistribution(() -> 100L)
+            .throughput(ignored -> DataRate.KiB.of(100).perSecond())
+            .build();
     data1 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data1.isEmpty());
+    Assertions.assertFalse(data1.isEmpty());
     data2 = dataSupplier.apply(tp);
-    Assertions.assertTrue(!data2.isEmpty());
+    Assertions.assertFalse(data2.isEmpty());
     // Same size but different content
     Assertions.assertEquals(100, data1.get(0).value().length);
     Assertions.assertEquals(100, data2.get(0).value().length);
@@ -194,37 +184,30 @@ public class DataSupplierTest {
 
   @Test
   void testThrottle() {
-    var durationInSeconds = new AtomicLong(1);
-    var throttler =
-        new DataGenerator.Throttler(DataRate.KiB.of(150).perSecond()) {
-          @Override
-          long durationInSeconds() {
-            return durationInSeconds.get();
-          }
-        };
+    var throttler = RecordGenerator.throttler(DataRate.KiB.of(150).perSecond());
+    Utils.sleep(Duration.ofSeconds(1));
     // total: 100KB, limit: 150KB -> no throttle
     Assertions.assertFalse(
-        throttler.throttled(DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue()));
+        throttler.apply(DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue()));
+    Utils.sleep(Duration.ofSeconds(1));
     // total: 200KB, limit: 150KB -> throttled
     Assertions.assertTrue(
-        throttler.throttled(DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue()));
+        throttler.apply(DataSize.KiB.of(400).measurement(DataUnit.Byte).longValue()));
   }
 
   @Test
   void testNoKey() {
     var dataSupplier =
-        DataGenerator.supplier(
-            1,
-            0,
-            0,
-            List.of(10L),
-            () -> 10L,
-            () -> 0L,
-            List.of(10L),
-            () -> 10L,
-            () -> 10L,
-            Map.of(),
-            DataRate.KiB.of(200).perSecond());
+        RecordGenerator.builder()
+            .batchSize(1)
+            .keyRange(List.of(10L))
+            .keyDistribution(() -> 10L)
+            .keySizeDistribution(() -> 0L)
+            .valueRange(List.of(10L))
+            .valueDistribution(() -> 10L)
+            .valueSizeDistribution(() -> 10L)
+            .throughput(ignored -> DataRate.KiB.of(200).perSecond())
+            .build();
 
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
@@ -235,18 +218,16 @@ public class DataSupplierTest {
   @Test
   void testNoValue() {
     var dataSupplier =
-        DataGenerator.supplier(
-            1,
-            0,
-            0,
-            List.of(10L),
-            () -> 10L,
-            () -> 10L,
-            List.of(10L),
-            () -> 10L,
-            () -> 0L,
-            Map.of(),
-            DataRate.KiB.of(200).perSecond());
+        RecordGenerator.builder()
+            .batchSize(1)
+            .keyRange(List.of(10L))
+            .keyDistribution(() -> 10L)
+            .keySizeDistribution(() -> 0L)
+            .valueRange(List.of(10L))
+            .valueDistribution(() -> 10L)
+            .valueSizeDistribution(() -> 0L)
+            .throughput(ignored -> DataRate.KiB.of(200).perSecond())
+            .build();
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
     Assertions.assertFalse(data.isEmpty());
@@ -256,18 +237,16 @@ public class DataSupplierTest {
   @Test
   void testBatch() {
     var dataSupplier =
-        DataGenerator.supplier(
-            3,
-            0,
-            0,
-            List.of(1L),
-            () -> 1L,
-            () -> 1L,
-            List.of(1L),
-            () -> 1L,
-            () -> 1L,
-            Map.of(),
-            DataRate.KiB.of(100).perSecond());
+        RecordGenerator.builder()
+            .batchSize(3)
+            .keyRange(List.of(1L))
+            .keyDistribution(() -> 1L)
+            .keySizeDistribution(() -> 1L)
+            .valueRange(List.of(1L))
+            .valueDistribution(() -> 1L)
+            .valueSizeDistribution(() -> 1L)
+            .throughput(ignored -> DataRate.KiB.of(100).perSecond())
+            .build();
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
     Assertions.assertEquals(3, data.size());
@@ -282,33 +261,36 @@ public class DataSupplierTest {
     var valueRandom0 = new Random(valueContentSeed);
     var keyRandom1 = new Random(keyContentSeed);
     var valueRandom1 = new Random(valueContentSeed);
-
     var gen0 =
-        DataGenerator.supplier(
-            10,
-            keyContentSeed,
-            valueContentSeed,
-            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
-            () -> Math.abs(keyRandom0.nextLong() % size),
-            () -> 32L,
-            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
-            () -> Math.abs(valueRandom0.nextLong() % size),
-            () -> 256L,
-            Map.of(),
-            DataRate.MB.of(1).perSecond());
+        RecordGenerator.builder()
+            .batchSize(10)
+            .keyTableSeed(keyContentSeed)
+            .keyRange(
+                LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
+            .keyDistribution(() -> Math.abs(keyRandom0.nextLong() % size))
+            .keySizeDistribution(() -> 32L)
+            .valueTableSeed(valueContentSeed)
+            .valueRange(
+                LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
+            .valueDistribution(() -> Math.abs(valueRandom0.nextLong() % size))
+            .valueSizeDistribution(() -> 256L)
+            .throughput(ignored -> DataRate.MB.of(1).perSecond())
+            .build();
     var gen1 =
-        DataGenerator.supplier(
-            10,
-            keyContentSeed,
-            valueContentSeed,
-            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
-            () -> Math.abs(keyRandom1.nextLong() % size),
-            () -> 32L,
-            LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()),
-            () -> Math.abs(valueRandom1.nextLong() % size),
-            () -> 256L,
-            Map.of(),
-            DataRate.MB.of(1).perSecond());
+        RecordGenerator.builder()
+            .batchSize(10)
+            .keyTableSeed(keyContentSeed)
+            .keyRange(
+                LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
+            .keyDistribution(() -> Math.abs(keyRandom1.nextLong() % size))
+            .keySizeDistribution(() -> 32L)
+            .valueTableSeed(valueContentSeed)
+            .valueRange(
+                LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
+            .valueDistribution(() -> Math.abs(valueRandom1.nextLong() % size))
+            .valueSizeDistribution(() -> 256L)
+            .throughput(ignored -> DataRate.MB.of(1).perSecond())
+            .build();
 
     var tp = TopicPartition.of("A", -1);
     var series0 =
