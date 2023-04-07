@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.LongStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
@@ -85,25 +84,15 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
 
       @Override
       public Map<TopicPartition, Set<TopicPartition>> incompatibility() {
-        var numberOfInterval =
-            (int) Math.ceil((double) upperBound.bytes() / trafficInterval.bytes());
-        var largerThanUpperBound = 1;
-        var intervals =
-            LongStream.range(0, numberOfInterval + largerThanUpperBound)
-                .map(
-                    i -> {
-                      if (i == numberOfInterval) return Long.MAX_VALUE;
-                      return (i + 1) * trafficInterval.bytes();
-                    })
-                .boxed()
-                .collect(Collectors.toUnmodifiableList());
-        var keyMapper =
-            (Function<Double, Long>)
+        var higherThanUpper = 1;
+        var hashMapper =
+            (Function<Double, Double>)
                 (traffic) -> {
-                  for (var v : intervals) {
-                    if (traffic < v) return v;
-                  }
-                  throw new IllegalStateException("Illegal traffic: " + traffic);
+                  if (traffic < upperBound.bytes())
+                    return Math.ceil(traffic / trafficInterval.bytes());
+                  else
+                    return Math.ceil((double) upperBound.bytes() / trafficInterval.bytes())
+                        + higherThanUpper;
                 };
 
         var incompatible =
@@ -114,7 +103,7 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
                           v.entrySet().stream()
                               .collect(
                                   Collectors.groupingBy(
-                                      entry -> keyMapper.apply(entry.getValue()),
+                                      entry -> hashMapper.apply(entry.getValue()),
                                       Collectors.mapping(
                                           Map.Entry::getKey, Collectors.toUnmodifiableSet())));
 
