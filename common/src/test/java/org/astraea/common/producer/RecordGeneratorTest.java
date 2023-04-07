@@ -154,9 +154,9 @@ public class RecordGeneratorTest {
     var data3 = dataSupplier.apply(tp);
     Assertions.assertFalse(data3.isEmpty());
 
-    // The value of data1 and data2 should have size 0 bytes or 1 byte.
-    Assertions.assertTrue(data1.get(0).value().length <= 1);
-    Assertions.assertTrue(data2.get(0).value().length <= 1);
+    // The value of data1 and data2 should have size null or 1 byte.
+    Assertions.assertTrue(data1.get(0).value() == null || data1.get(0).value().length == 1);
+    Assertions.assertTrue(data2.get(0).value() == null || data2.get(0).value().length == 1);
     // Round-robin value distribution with 2 possible value.
     Assertions.assertEquals(data1.get(0).value(), data3.get(0).value());
 
@@ -231,7 +231,7 @@ public class RecordGeneratorTest {
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
     Assertions.assertFalse(data.isEmpty());
-    Assertions.assertEquals(0, data.get(0).value().length);
+    Assertions.assertNull(data.get(0).value());
   }
 
   @Test
@@ -307,5 +307,27 @@ public class RecordGeneratorTest {
         Assertions.assertArrayEquals(series0.get(i).get(j).value(), series1.get(i).get(j).value());
       }
     }
+  }
+
+  @Test
+  void testAllDefault() {
+    var generator = RecordGenerator.builder().build();
+    Assertions.assertNotEquals(0, generator.apply(TopicPartition.of("a", 0)).size());
+  }
+
+  @Test
+  void testEmptyKeyAndValue() {
+    var generator =
+        RecordGenerator.builder()
+            .keySizeDistribution(() -> 0L)
+            .valueSizeDistribution(() -> 0L)
+            .build();
+    var records = generator.apply(TopicPartition.of("t", 0));
+    Assertions.assertNotEquals(0, records.size());
+    records.forEach(
+        r -> {
+          Assertions.assertNull(r.key());
+          Assertions.assertNull(r.value());
+        });
   }
 }
