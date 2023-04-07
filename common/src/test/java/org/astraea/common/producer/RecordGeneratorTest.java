@@ -16,7 +16,6 @@
  */
 package org.astraea.common.producer;
 
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -28,7 +27,6 @@ import java.util.stream.LongStream;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
