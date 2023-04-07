@@ -44,7 +44,7 @@ public class RecordGeneratorTest {
             .valueDistribution(() -> 2L)
             .valueSizeDistribution(
                 () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue())
-            .throughput(tp -> DataRate.KiB.of(200).perSecond())
+            .throughput(tp -> DataRate.MB.of(200).perSecond())
             .build();
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
