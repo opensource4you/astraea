@@ -56,13 +56,12 @@ class EnumInfoTest {
     Assertions.assertEquals(MyTestEnum.BANANA, EnumInfo.ignoreCaseEnum(MyTestEnum.class, "Banana"));
   }
 
-  public static final Set<Class<?>> EXCLUSION_CLASS =
-      Set.of(BeanObjectOuterClass.BeanObject.Primitive.ValueCase.class);
+  public static final Set<String> EXCLUSION_PACKAGE = Set.of("org.astraea.common.generated");
 
   @ParameterizedTest
   @ArgumentsSource(EnumClassProvider.class)
   void testExtendEnumInfo(Class<?> cls) {
-    if (!EXCLUSION_CLASS.contains(cls)) {
+    if (EXCLUSION_PACKAGE.stream().noneMatch(prefix -> cls.getPackageName().startsWith(prefix))) {
       Assertions.assertTrue(
           EnumInfo.class.isAssignableFrom(cls), String.format("Fail class %s", cls));
     }
@@ -71,7 +70,7 @@ class EnumInfoTest {
   @ParameterizedTest
   @ArgumentsSource(EnumClassProvider.class)
   void testOfAlias(Class<?> cls) {
-    if (!EXCLUSION_CLASS.contains(cls)) {
+    if (EXCLUSION_PACKAGE.stream().noneMatch(prefix -> cls.getPackageName().startsWith(prefix))) {
       var method =
           Assertions.assertDoesNotThrow(
               () -> cls.getDeclaredMethod("ofAlias", String.class),
@@ -83,7 +82,7 @@ class EnumInfoTest {
   @ParameterizedTest
   @ArgumentsSource(EnumClassProvider.class)
   void testToString(Class<?> cls) {
-    if (!EXCLUSION_CLASS.contains(cls)) {
+    if (EXCLUSION_PACKAGE.stream().noneMatch(prefix -> cls.getPackageName().startsWith(prefix))) {
       var enumConstants = (EnumInfo[]) cls.getEnumConstants();
       Assertions.assertDoesNotThrow(() -> cls.getDeclaredMethod("toString"));
       Assertions.assertTrue(

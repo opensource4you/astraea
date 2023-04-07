@@ -58,4 +58,15 @@ public class BeanObjectSerializerTest {
     Assertions.assertEquals(properties, beanObj.properties());
     Assertions.assertEquals(attributes, beanObj.attributes());
   }
+
+  @Test
+  public void testUnsupportedType() {
+    var domain = "domain";
+    var properties = Map.of("name", "wrongType");
+    var attributes = Map.of("map", (Object) Map.of("k", "v"));
+    var bean = new BeanObject(domain, properties, attributes);
+    var serializer = new Serializer.BeanObjectSerializer();
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> serializer.serialize("ignore", List.of(), bean));
+  }
 }

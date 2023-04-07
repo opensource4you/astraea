@@ -28,7 +28,6 @@ import org.apache.kafka.common.serialization.FloatSerializer;
 import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.astraea.common.BeanObjectOuterClass;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -36,6 +35,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.backup.ByteUtils;
+import org.astraea.common.generated.BeanObjectOuterClass;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.BeanObject;
@@ -263,22 +263,26 @@ public interface Serializer<T> {
       return beanBuilder.build().toByteArray();
     }
 
-    private BeanObjectOuterClass.BeanObject.Primitive primitive(Object v) {
-      if (v instanceof Integer) {
+    private static BeanObjectOuterClass.BeanObject.Primitive primitive(Object v) {
+      if (v instanceof Integer)
         return BeanObjectOuterClass.BeanObject.Primitive.newBuilder().setInt((int) v).build();
-      } else if (v instanceof Long) {
+      else if (v instanceof Long)
         return BeanObjectOuterClass.BeanObject.Primitive.newBuilder().setLong((long) v).build();
-      } else if (v instanceof Float) {
+      else if (v instanceof Float)
         return BeanObjectOuterClass.BeanObject.Primitive.newBuilder().setFloat((float) v).build();
-      } else if (v instanceof Double) {
+      else if (v instanceof Double)
         return BeanObjectOuterClass.BeanObject.Primitive.newBuilder().setDouble((double) v).build();
-      } else if (v instanceof Boolean) {
+      else if (v instanceof Boolean)
         return BeanObjectOuterClass.BeanObject.Primitive.newBuilder()
             .setBoolean((boolean) v)
             .build();
-      } else {
+      else if (v instanceof String)
         return BeanObjectOuterClass.BeanObject.Primitive.newBuilder().setStr(v.toString()).build();
-      }
+      else
+        throw new IllegalArgumentException(
+            "Type "
+                + v.getClass()
+                + " is not supported. Please use Integer, Long, Float, Double, Boolean, String instead.");
     }
   }
 }

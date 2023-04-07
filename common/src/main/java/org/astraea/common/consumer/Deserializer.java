@@ -34,7 +34,6 @@ import org.apache.kafka.common.serialization.FloatDeserializer;
 import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.astraea.common.BeanObjectOuterClass;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -44,6 +43,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.ByteUtils;
+import org.astraea.common.generated.BeanObjectOuterClass;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.BeanObject;
@@ -293,24 +293,24 @@ public interface Deserializer<T> {
                       Map.Entry::getKey, e -> Objects.requireNonNull(toObject(e.getValue())))));
     }
 
-    private Object toObject(BeanObjectOuterClass.BeanObject.Primitive primitive) {
-      var oneOfCase = primitive.getValueCase();
+    private Object toObject(BeanObjectOuterClass.BeanObject.Primitive v) {
+      var oneOfCase = v.getValueCase();
       switch (oneOfCase) {
         case INT:
-          return primitive.getInt();
+          return v.getInt();
         case LONG:
-          return primitive.getLong();
+          return v.getLong();
         case FLOAT:
-          return primitive.getFloat();
+          return v.getFloat();
         case DOUBLE:
-          return primitive.getDouble();
+          return v.getDouble();
         case BOOLEAN:
-          return primitive.getBoolean();
+          return v.getBoolean();
         case STR:
-          return primitive.getStr();
+          return v.getStr();
         case VALUE_NOT_SET:
         default:
-          return null;
+          throw new IllegalArgumentException("The value is not set.");
       }
     }
   }

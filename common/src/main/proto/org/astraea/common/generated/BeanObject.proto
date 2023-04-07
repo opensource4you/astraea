@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package org.astraea.common;
+package org.astraea.common.generated;
 
 message BeanObject {
   string domain = 1;
