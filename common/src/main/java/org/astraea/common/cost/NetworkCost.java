@@ -328,27 +328,6 @@ public abstract class NetworkCost implements HasClusterCost {
     }
   }
 
-  /** Method to estimate the partition bandwidth */
-  enum EstimationMethod implements EnumInfo {
-    BROKER_TOPIC_ONE_MINUTE_RATE,
-    BROKER_TOPIC_FIVE_MINUTE_RATE,
-    BROKER_TOPIC_FIFTEEN_MINUTE_RATE;
-
-    static EstimationMethod ofAlias(String alias) {
-      return EnumInfo.ignoreCaseEnum(EstimationMethod.class, alias);
-    }
-
-    @Override
-    public String alias() {
-      return name();
-    }
-
-    @Override
-    public String toString() {
-      return alias();
-    }
-  }
-
   private class CachedCalculation {
     private final Map<TopicPartition, Long> partitionIngressRate;
     private final Map<TopicPartition, Long> partitionEgressRate;
