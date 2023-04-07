@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package org.astraea.common;
+
+message BeanObject {
+  string domain = 1;
+  map<string, string> properties = 2;
+  map<string, Primitive> attributes = 3;
+  message Primitive {
+    oneof value {
+      string str = 1;
+      int32 int = 2;
+      int64 long = 3;
+      float float = 4;
+      double double = 5;
+      bool boolean = 6;
+    }
+  }
+}
