@@ -526,18 +526,21 @@ class NetworkCostTest {
         Utils.construct(
             clz,
             Configuration.of(
-                Map.of(NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BrokerTopicOneMinuteRate")));
+                Map.of(
+                    NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BROKER_TOPIC_ONE_MINUTE_RATE")));
     var fiveCost =
         Utils.construct(
             clz,
             Configuration.of(
-                Map.of(NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BrokerTopicFiveMinuteRate")));
+                Map.of(
+                    NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BROKER_TOPIC_FIVE_MINUTE_RATE")));
     var fifteenCost =
         Utils.construct(
             clz,
             Configuration.of(
                 Map.of(
-                    NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BrokerTopicFifteenMinuteRate")));
+                    NetworkCost.NETWORK_COST_ESTIMATION_METHOD,
+                    "BROKER_TOPIC_FIFTEEN_MINUTE_RATE")));
 
     Assertions.assertEquals(
         one, oneCost.estimateRate(cluster, beans, metric).get(partition).doubleValue());
