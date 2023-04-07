@@ -333,7 +333,7 @@ public class PerfSourceTest {
     var task = new PerfSource.Task();
     task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")), MetadataStorage.EMPTY);
     Assertions.assertNotNull(task.recordGenerator);
-    Assertions.assertNotEquals(1, task.specifyPartitions.size());
+    Assertions.assertEquals(1, task.specifyPartitions.size());
   }
 
   @Test
@@ -355,7 +355,7 @@ public class PerfSourceTest {
     Assertions.assertEquals(1, keySizes.size());
     var valueSizes =
         records.stream().map(r -> r.value().length).collect(Collectors.toUnmodifiableSet());
-    Assertions.assertEquals(valueSizes, keySizes.size());
+    Assertions.assertEquals(1, valueSizes.size());
   }
 
   @Test

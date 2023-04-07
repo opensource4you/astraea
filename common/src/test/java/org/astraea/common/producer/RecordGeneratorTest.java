@@ -133,6 +133,7 @@ public class RecordGeneratorTest {
   @Test
   void testDistributedValueSize() {
     var counter = new AtomicLong(0);
+    var valueSizeCount = new AtomicLong(0);
 
     // Round-robin on 2 values. Round-robin value size between 100Byte and 101Byte
     var dataSupplier =
@@ -143,7 +144,7 @@ public class RecordGeneratorTest {
             .keySizeDistribution(() -> 100L)
             .valueRange(List.of(0L, 1L))
             .valueDistribution(() -> counter.getAndIncrement() % 2)
-            .valueSizeDistribution(() -> ThreadLocalRandom.current().nextLong(2))
+            .valueSizeDistribution(valueSizeCount::getAndIncrement)
             .throughput(ignored -> DataRate.KiB.of(100).perSecond())
             .build();
     var tp = TopicPartition.of("test-0");
@@ -185,12 +186,10 @@ public class RecordGeneratorTest {
   @Test
   void testThrottle() {
     var throttler = RecordGenerator.throttler(DataRate.KiB.of(150).perSecond());
-    Utils.sleep(Duration.ofSeconds(1));
     // total: 100KB, limit: 150KB -> no throttle
     Assertions.assertFalse(
         throttler.apply(DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue()));
-    Utils.sleep(Duration.ofSeconds(1));
-    // total: 200KB, limit: 150KB -> throttled
+    // total: 500KB, limit: 150KB -> throttled
     Assertions.assertTrue(
         throttler.apply(DataSize.KiB.of(400).measurement(DataUnit.Byte).longValue()));
   }
@@ -274,7 +273,7 @@ public class RecordGeneratorTest {
                 LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
             .valueDistribution(() -> Math.abs(valueRandom0.nextLong() % size))
             .valueSizeDistribution(() -> 256L)
-            .throughput(ignored -> DataRate.MB.of(1).perSecond())
+            .throughput(ignored -> DataRate.MB.of(1000).perSecond())
             .build();
     var gen1 =
         RecordGenerator.builder()
@@ -289,7 +288,7 @@ public class RecordGeneratorTest {
                 LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
             .valueDistribution(() -> Math.abs(valueRandom1.nextLong() % size))
             .valueSizeDistribution(() -> 256L)
-            .throughput(ignored -> DataRate.MB.of(1).perSecond())
+            .throughput(ignored -> DataRate.MB.of(1000).perSecond())
             .build();
 
     var tp = TopicPartition.of("A", -1);
