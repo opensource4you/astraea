@@ -85,7 +85,7 @@ public abstract class NetworkCost implements HasClusterCost {
         config
             .string(NETWORK_COST_ESTIMATION_METHOD)
             .map(EstimationMethod::ofAlias)
-            .orElse(EstimationMethod.BrokerTopicOneMinuteRate);
+            .orElse(EstimationMethod.BROKER_TOPIC_ONE_MINUTE_RATE);
   }
 
   void noMetricCheck(ClusterBean clusterBean) {
@@ -239,11 +239,11 @@ public abstract class NetworkCost implements HasClusterCost {
                           .map(
                               hasRate -> {
                                 switch (estimationMethod) {
-                                  case BrokerTopicOneMinuteRate:
+                                  case BROKER_TOPIC_ONE_MINUTE_RATE:
                                     return hasRate.oneMinuteRate();
-                                  case BrokerTopicFiveMinuteRate:
+                                  case BROKER_TOPIC_FIVE_MINUTE_RATE:
                                     return hasRate.fiveMinuteRate();
-                                  case BrokerTopicFifteenMinuteRate:
+                                  case BROKER_TOPIC_FIFTEEN_MINUTE_RATE:
                                     return hasRate.fifteenMinuteRate();
                                   default:
                                     throw new IllegalStateException(
@@ -330,9 +330,9 @@ public abstract class NetworkCost implements HasClusterCost {
 
   /** Method to estimate the partition bandwidth */
   enum EstimationMethod implements EnumInfo {
-    BrokerTopicOneMinuteRate,
-    BrokerTopicFiveMinuteRate,
-    BrokerTopicFifteenMinuteRate;
+    BROKER_TOPIC_ONE_MINUTE_RATE,
+    BROKER_TOPIC_FIVE_MINUTE_RATE,
+    BROKER_TOPIC_FIFTEEN_MINUTE_RATE;
 
     static EstimationMethod ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(EstimationMethod.class, alias);
