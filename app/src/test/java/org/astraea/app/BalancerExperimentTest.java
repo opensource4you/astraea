@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Scanner;
 import java.util.stream.Collectors;
 import org.astraea.balancer.bench.BalancerBenchmark;
 import org.astraea.common.Configuration;
@@ -35,6 +36,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
+import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.NetworkEgressCost;
 import org.astraea.common.cost.NetworkIngressCost;
@@ -49,10 +51,14 @@ import org.junit.jupiter.api.Test;
 
 public class BalancerExperimentTest {
 
-  public static final String fileName0 = "/tmp/cluster-file.bin";
-  public static final String fileName1 = "/tmp/bean-file.bin";
+  public static final String fileName0 = "/home/garyparrot/cluster-file.bin";
+  public static final String fileName1 = "/home/garyparrot/bean-file.bin";
   public static final String realCluster =
       "192.168.103.177:25655,192.168.103.178:25655,192.168.103.179:25655,192.168.103.180:25655,192.168.103.181:25655,192.168.103.182:25655";
+
+  public static void main(String[] args) {
+    new BalancerExperimentTest().testProfiling();
+  }
 
   @Disabled
   @Test
@@ -120,6 +126,21 @@ public class BalancerExperimentTest {
         e.printStackTrace();
       }
 
+      System.out.println("Run the plan? (yes/no)");
+      while (true) {
+        var scanner = new Scanner(System.in);
+        String next = scanner.next();
+        if(next.equals("yes")) {
+          System.out.println("Run the Plan");
+          new StraightPlanExecutor(Configuration.EMPTY)
+              .run(admin, result.plan().orElseThrow().proposal(), Duration.ofHours(1))
+              .toCompletableFuture()
+              .join();
+          return;
+        } else if(next.equals("no")) {
+          return;
+        }
+      }
     } catch (IOException e) {
       e.printStackTrace();
     }

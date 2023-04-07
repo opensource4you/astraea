@@ -16,6 +16,9 @@
  */
 package org.astraea.common.cost;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
