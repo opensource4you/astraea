@@ -14,29 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.broker;
+package org.astraea.common.cost;
 
-import java.util.concurrent.TimeUnit;
-import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.EnumInfo;
 
-public interface HasRate extends HasBeanObject {
-  default double meanRate() {
-    return (double) beanObject().attributes().getOrDefault("MeanRate", 0.0);
+/** Method to estimate the partition bandwidth */
+enum EstimationMethod implements EnumInfo {
+  BROKER_TOPIC_ONE_MINUTE_RATE,
+  BROKER_TOPIC_FIVE_MINUTE_RATE,
+  BROKER_TOPIC_FIFTEEN_MINUTE_RATE;
+
+  static EstimationMethod ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(EstimationMethod.class, alias);
   }
 
-  default double oneMinuteRate() {
-    return (double) beanObject().attributes().getOrDefault("OneMinuteRate", 0.0);
+  @Override
+  public String alias() {
+    return name();
   }
 
-  default double fiveMinuteRate() {
-    return (double) beanObject().attributes().getOrDefault("FiveMinuteRate", 0.0);
-  }
-
-  default double fifteenMinuteRate() {
-    return (double) beanObject().attributes().getOrDefault("FifteenMinuteRate", 0.0);
-  }
-
-  default TimeUnit rateUnit() {
-    return (TimeUnit) beanObject().attributes().get("RateUnit");
+  @Override
+  public String toString() {
+    return alias();
   }
 }
