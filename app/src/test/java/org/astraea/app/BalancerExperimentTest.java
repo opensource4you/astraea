@@ -51,8 +51,8 @@ import org.junit.jupiter.api.Test;
 
 public class BalancerExperimentTest {
 
-  public static final String fileName0 = "/home/garyparrot/cluster-file.bin";
-  public static final String fileName1 = "/home/garyparrot/bean-file.bin";
+  public static final String fileName0 = "/home/garyparrot/cluster-file2.bin";
+  public static final String fileName1 = "/home/garyparrot/bean-file2.bin";
   public static final String realCluster =
       "192.168.103.177:25655,192.168.103.178:25655,192.168.103.179:25655,192.168.103.180:25655,192.168.103.181:25655,192.168.103.182:25655";
 
@@ -78,8 +78,8 @@ public class BalancerExperimentTest {
       Map<HasClusterCost, Double> costMap =
           Map.of(
               new NetworkIngressCost(Configuration.EMPTY), 3.0,
-              new NetworkEgressCost(), 3.0,
-              new ReplicaNumberCost(), 1.0);
+              new NetworkEgressCost(Configuration.EMPTY), 3.0,
+              new ReplicaNumberCost(Configuration.EMPTY), 1.0);
       var costFunction = HasClusterCost.of(costMap);
       var balancer = new GreedyBalancer(Configuration.EMPTY);
 
@@ -155,8 +155,8 @@ public class BalancerExperimentTest {
       Map<HasClusterCost, Double> costMap =
           Map.of(
               new NetworkIngressCost(Configuration.EMPTY), 3.0,
-              new NetworkEgressCost(), 3.0,
-              new ReplicaNumberCost(), 1.0);
+              new NetworkEgressCost(Configuration.EMPTY), 3.0,
+              new ReplicaNumberCost(Configuration.EMPTY), 1.0);
 
       try (var metricStore =
           MetricStore.builder()
