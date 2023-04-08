@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -32,6 +31,7 @@ import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.DistributionType;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.metrics.stats.Rate;
 
 @FunctionalInterface
 public interface RecordGenerator extends Function<TopicPartition, List<Record<byte[], byte[]>>> {
@@ -138,13 +138,17 @@ public interface RecordGenerator extends Function<TopicPartition, List<Record<by
           () -> {
             var key = recordKeyTable.get(keyDistribution.get());
             // Intentionally replace key with zero length by null key. A key with zero length can
-            // lead
-            // to ambiguous behavior in an experiment.
+            // lead to ambiguous behavior in an experiment.
             // See https://github.com/skiptests/astraea/pull/1521#discussion_r1121801293 for further
             // details.
             return key != null && key.length > 0 ? key : null;
           };
-      Supplier<byte[]> valueSupplier = () -> recordValueTable.get(valueDistribution.get());
+      Supplier<byte[]> valueSupplier =
+          () -> {
+            var value = recordValueTable.get(valueDistribution.get());
+            // same behavior as key
+            return value != null && value.length > 0 ? value : null;
+          };
 
       var throttlers = new HashMap<TopicPartition, Function<Long, Boolean>>();
       return (tp) -> {
@@ -175,18 +179,11 @@ public interface RecordGenerator extends Function<TopicPartition, List<Record<by
   }
 
   static Function<Long, Boolean> throttler(DataRate max) {
-    final var start = System.currentTimeMillis();
-    final var throughput = Double.valueOf(max.byteRate()).longValue();
-    final var totalBytes = new AtomicLong();
+    final var throughput = max.byteRate();
+    final var rate = Rate.of();
     return payloadLength -> {
-      var duration = (System.currentTimeMillis() - start) / 1000;
-      if (duration <= 0) return false;
-      var current = totalBytes.addAndGet(payloadLength);
-      // too much -> slow down
-      if ((current / duration) > throughput) {
-        totalBytes.addAndGet(-payloadLength);
-        return true;
-      }
+      if (rate.measure() >= throughput) return true;
+      rate.record((double) payloadLength);
       return false;
     };
   }
