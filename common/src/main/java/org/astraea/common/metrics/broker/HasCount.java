@@ -20,6 +20,6 @@ import org.astraea.common.metrics.HasBeanObject;
 
 public interface HasCount extends HasBeanObject {
   default long count() {
-    return (long) beanObject().attributes().getOrDefault("Count", 0);
+    return (long) beanObject().attributes().get("Count");
   }
 }
