@@ -836,11 +836,8 @@ public class ExporterTest {
 
       Assertions.assertNotEquals(0, task.recordsQueue.size());
 
-      // this function will drain out all records from the blocking queue and return a new longest
-      // writeTime.
-      var newLongestWriteTime = task.writeRecords(writers, 0);
+      task.writeRecords(writers);
 
-      Assertions.assertNotEquals(0, newLongestWriteTime);
       Assertions.assertEquals(0, task.recordsQueue.size());
     }
   }

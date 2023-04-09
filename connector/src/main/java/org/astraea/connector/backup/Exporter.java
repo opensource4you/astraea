@@ -177,22 +177,17 @@ public class Exporter extends SinkConnector {
      * milliseconds.
      *
      * @param writers a map of <code>TopicPartition</code> to <code>RecordWriter</code> objects
-     * @return the timestamp value of the oldest record appended in writers.
      */
-    long removeOldWriters(HashMap<TopicPartition, RecordWriter> writers) {
+    void removeOldWriters(HashMap<TopicPartition, RecordWriter> writers) {
       var itr = writers.values().iterator();
       var currentTime = System.currentTimeMillis();
-      long longestWriteTime = currentTime;
       while (itr.hasNext()) {
         var writer = itr.next();
         if (currentTime - writer.latestAppendTimestamp() > interval) {
           writer.close();
           itr.remove();
-        } else {
-          longestWriteTime = Math.min(longestWriteTime, writer.latestAppendTimestamp());
         }
       }
-      return longestWriteTime;
     }
 
     /**
@@ -200,18 +195,14 @@ public class Exporter extends SinkConnector {
      * writer for the specified {@link TopicPartition} does not exist, it is created using the given
      * {@link FileSystem}, path. topic name, partition, and offset.
      *
-     * @param longestWriteTime the timestamp value of the oldest record appended in writers
      * @param writers a {@link HashMap} that maps a {@link TopicPartition} to a {@link RecordWriter}
      *     object
-     * @return the new longestWriteTime get from {@link Task#removeOldWriters(HashMap)} if any
-     *     writer be closed
      */
-    long writeRecords(HashMap<TopicPartition, RecordWriter> writers, long longestWriteTime) {
+    void writeRecords(HashMap<TopicPartition, RecordWriter> writers) {
 
       var records = recordsFromBuffer();
-      if (System.currentTimeMillis() - longestWriteTime > interval) {
-        longestWriteTime = removeOldWriters(writers);
-      }
+
+      removeOldWriters(writers);
 
       records.forEach(
           record -> {
@@ -223,17 +214,15 @@ public class Exporter extends SinkConnector {
               writers.remove(record.topicPartition()).close();
             }
           });
-      return longestWriteTime;
     }
 
     Runnable createWriter() {
       return () -> {
         var writers = new HashMap<TopicPartition, RecordWriter>();
-        var longestWriteTime = System.currentTimeMillis();
 
         try {
           while (!closed.get()) {
-            longestWriteTime = Math.min(longestWriteTime, writeRecords(writers, longestWriteTime));
+            writeRecords(writers);
           }
         } finally {
           writers.forEach((tp, writer) -> writer.close());
