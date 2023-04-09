@@ -25,8 +25,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
 import org.astraea.common.Configuration;
@@ -40,6 +40,7 @@ import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.cost.MigrationCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.cost.ReplicaNumberCost;
@@ -87,32 +88,22 @@ class BalancerNode {
   static List<Map<String, Object>> costResult(Balancer.Plan plan) {
     var map = new HashMap<Integer, LinkedHashMap<String, Object>>();
 
-    BiConsumer<String, Map<Integer, ?>> process =
-        (name, m) ->
-            m.forEach(
-                (id, count) ->
-                    map.computeIfAbsent(
-                            id,
-                            ignored -> {
-                              var r = new LinkedHashMap<String, Object>();
-                              r.put("id", id);
-                              return r;
-                            })
-                        .put(name, count));
+    Consumer<List<MigrationCost>> process =
+        (migrationCosts) ->
+            migrationCosts.forEach(
+                migrationCost ->
+                    migrationCost.brokerCosts.forEach(
+                        (id, count) ->
+                            map.computeIfAbsent(
+                                    id,
+                                    ignored -> {
+                                      var r = new LinkedHashMap<String, Object>();
+                                      r.put("id", id);
+                                      return r;
+                                    })
+                                .put(migrationCost.name, count)));
 
-    process.accept(
-        "changed replicas",
-        ClusterInfo.replicaNumChanged(plan.initialClusterInfo(), plan.proposal()));
-    process.accept(
-        "changed leaders",
-        ClusterInfo.replicaLeaderChanged(plan.initialClusterInfo(), plan.proposal()));
-    process.accept(
-        "record size to fetch",
-        ClusterInfo.recordSizeToSync(plan.initialClusterInfo(), plan.proposal()));
-    process.accept(
-        "record size to sync",
-        ClusterInfo.recordSizeToFetch(plan.initialClusterInfo(), plan.proposal()));
-
+    process.accept(HasMoveCost.migrationCosts(plan.initialClusterInfo(), plan.proposal()));
     return List.copyOf(map.values());
   }
 
