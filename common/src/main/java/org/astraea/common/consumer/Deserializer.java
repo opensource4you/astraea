@@ -20,8 +20,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,7 +33,6 @@ import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.astraea.common.Header;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Config;
 import org.astraea.common.admin.NodeInfo;
@@ -43,7 +40,6 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.ByteUtils;
-import org.astraea.common.generated.BeanObjectOuterClass;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.BeanObject;
@@ -92,11 +88,13 @@ public interface Deserializer<T> {
   Deserializer<Long> LONG = of(new LongDeserializer());
   Deserializer<Float> FLOAT = of(new FloatDeserializer());
   Deserializer<Double> DOUBLE = of(new DoubleDeserializer());
-  Deserializer<BeanObject> BEAN_OBJECT = new BeanDeserializer();
   Deserializer<NodeInfo> NODE_INFO = new NodeInfoDeserializer();
   Deserializer<Topic> TOPIC = new TopicDeserializer();
   Deserializer<Replica> REPLICA = new ReplicaDeserializer();
   Deserializer<ClusterInfo> CLUSTER_INFO = new ClusterInfoDeserializer();
+  Deserializer<BeanObject> BEAN_OBJECT =
+      (topic, headers, data) ->
+          org.astraea.common.serialization.Deserializer.BEAN_OBJECT.deserialize(data);
 
   /**
    * create Custom JsonDeserializer
@@ -276,42 +274,6 @@ public interface Deserializer<T> {
                   })
               .collect(Collectors.toList());
       return ClusterInfo.of(clusterId, nodes, topics, replicas);
-    }
-  }
-
-  class BeanObjectDeserializer implements Deserializer<BeanObject> {
-    @Override
-    public BeanObject deserialize(String topic, List<Header> headers, byte[] data) {
-      // Pack InvalidProtocolBufferException thrown by protoBuf
-      var outerBean = Utils.packException(() -> BeanObjectOuterClass.BeanObject.parseFrom(data));
-      return new BeanObject(
-          outerBean.getDomain(),
-          outerBean.getPropertiesMap(),
-          outerBean.getAttributesMap().entrySet().stream()
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      Map.Entry::getKey, e -> Objects.requireNonNull(toObject(e.getValue())))));
-    }
-
-    private Object toObject(BeanObjectOuterClass.BeanObject.Primitive v) {
-      var oneOfCase = v.getValueCase();
-      switch (oneOfCase) {
-        case INT:
-          return v.getInt();
-        case LONG:
-          return v.getLong();
-        case FLOAT:
-          return v.getFloat();
-        case DOUBLE:
-          return v.getDouble();
-        case BOOLEAN:
-          return v.getBoolean();
-        case STR:
-          return v.getStr();
-        case VALUE_NOT_SET:
-        default:
-          throw new IllegalArgumentException("The value is not set.");
-      }
     }
   }
 }

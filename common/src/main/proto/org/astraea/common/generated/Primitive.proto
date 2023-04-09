@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package org.astraea.common.generated;
+
+message Primitive {
+  oneof value {
+    string str = 1;
+    int32 int = 2;
+    int64 long = 3;
+    float float = 4;
+    double double = 5;
+    bool boolean = 6;
+  }
+}
