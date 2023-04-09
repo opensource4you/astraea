@@ -16,7 +16,6 @@
  */
 package org.astraea.common.producer;
 
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -28,7 +27,6 @@ import java.util.stream.LongStream;
 import org.astraea.common.DataRate;
 import org.astraea.common.DataSize;
 import org.astraea.common.DataUnit;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -46,7 +44,7 @@ public class RecordGeneratorTest {
             .valueDistribution(() -> 2L)
             .valueSizeDistribution(
                 () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue())
-            .throughput(tp -> DataRate.KiB.of(200).perSecond())
+            .throughput(tp -> DataRate.MB.of(200).perSecond())
             .build();
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
@@ -133,6 +131,7 @@ public class RecordGeneratorTest {
   @Test
   void testDistributedValueSize() {
     var counter = new AtomicLong(0);
+    var valueSizeCount = new AtomicLong(0);
 
     // Round-robin on 2 values. Round-robin value size between 100Byte and 101Byte
     var dataSupplier =
@@ -143,7 +142,7 @@ public class RecordGeneratorTest {
             .keySizeDistribution(() -> 100L)
             .valueRange(List.of(0L, 1L))
             .valueDistribution(() -> counter.getAndIncrement() % 2)
-            .valueSizeDistribution(() -> ThreadLocalRandom.current().nextLong(2))
+            .valueSizeDistribution(valueSizeCount::getAndIncrement)
             .throughput(ignored -> DataRate.KiB.of(100).perSecond())
             .build();
     var tp = TopicPartition.of("test-0");
@@ -154,9 +153,9 @@ public class RecordGeneratorTest {
     var data3 = dataSupplier.apply(tp);
     Assertions.assertFalse(data3.isEmpty());
 
-    // The value of data1 and data2 should have size 0 bytes or 1 byte.
-    Assertions.assertTrue(data1.get(0).value().length <= 1);
-    Assertions.assertTrue(data2.get(0).value().length <= 1);
+    // The value of data1 and data2 should have size null or 1 byte.
+    Assertions.assertTrue(data1.get(0).value() == null || data1.get(0).value().length == 1);
+    Assertions.assertTrue(data2.get(0).value() == null || data2.get(0).value().length == 1);
     // Round-robin value distribution with 2 possible value.
     Assertions.assertEquals(data1.get(0).value(), data3.get(0).value());
 
@@ -185,12 +184,10 @@ public class RecordGeneratorTest {
   @Test
   void testThrottle() {
     var throttler = RecordGenerator.throttler(DataRate.KiB.of(150).perSecond());
-    Utils.sleep(Duration.ofSeconds(1));
     // total: 100KB, limit: 150KB -> no throttle
     Assertions.assertFalse(
         throttler.apply(DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue()));
-    Utils.sleep(Duration.ofSeconds(1));
-    // total: 200KB, limit: 150KB -> throttled
+    // total: 500KB, limit: 150KB -> throttled
     Assertions.assertTrue(
         throttler.apply(DataSize.KiB.of(400).measurement(DataUnit.Byte).longValue()));
   }
@@ -231,7 +228,7 @@ public class RecordGeneratorTest {
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
     Assertions.assertFalse(data.isEmpty());
-    Assertions.assertEquals(0, data.get(0).value().length);
+    Assertions.assertNull(data.get(0).value());
   }
 
   @Test
@@ -274,7 +271,7 @@ public class RecordGeneratorTest {
                 LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
             .valueDistribution(() -> Math.abs(valueRandom0.nextLong() % size))
             .valueSizeDistribution(() -> 256L)
-            .throughput(ignored -> DataRate.MB.of(1).perSecond())
+            .throughput(ignored -> DataRate.MB.of(1000).perSecond())
             .build();
     var gen1 =
         RecordGenerator.builder()
@@ -289,7 +286,7 @@ public class RecordGeneratorTest {
                 LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
             .valueDistribution(() -> Math.abs(valueRandom1.nextLong() % size))
             .valueSizeDistribution(() -> 256L)
-            .throughput(ignored -> DataRate.MB.of(1).perSecond())
+            .throughput(ignored -> DataRate.MB.of(1000).perSecond())
             .build();
 
     var tp = TopicPartition.of("A", -1);
@@ -307,5 +304,27 @@ public class RecordGeneratorTest {
         Assertions.assertArrayEquals(series0.get(i).get(j).value(), series1.get(i).get(j).value());
       }
     }
+  }
+
+  @Test
+  void testAllDefault() {
+    var generator = RecordGenerator.builder().build();
+    Assertions.assertNotEquals(0, generator.apply(TopicPartition.of("a", 0)).size());
+  }
+
+  @Test
+  void testEmptyKeyAndValue() {
+    var generator =
+        RecordGenerator.builder()
+            .keySizeDistribution(() -> 0L)
+            .valueSizeDistribution(() -> 0L)
+            .build();
+    var records = generator.apply(TopicPartition.of("t", 0));
+    Assertions.assertNotEquals(0, records.size());
+    records.forEach(
+        r -> {
+          Assertions.assertNull(r.key());
+          Assertions.assertNull(r.value());
+        });
   }
 }

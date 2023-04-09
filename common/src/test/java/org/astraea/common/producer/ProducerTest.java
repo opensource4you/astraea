@@ -251,4 +251,28 @@ public class ProducerTest {
           .join();
     }
   }
+
+  @Test
+  void testNullKeyAndValue() {
+    var topic = Utils.randomString();
+    try (var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
+      producer.send(Record.builder().topic(topic).key((byte[]) null).value((byte[]) null).build());
+      producer.flush();
+    }
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(SERVICE.bootstrapServers())
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+            .build()) {
+      var records = consumer.poll(Duration.ofSeconds(5));
+      Assertions.assertEquals(1, records.size());
+      records.forEach(
+          r -> {
+            Assertions.assertNull(r.key());
+            Assertions.assertNull(r.value());
+          });
+    }
+  }
 }
