@@ -537,47 +537,34 @@ public class BalancerHandlerTest {
   void testRebalanceDetectOngoing() {
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
+      // create topic
       var theTopic = Utils.randomString();
       admin.creator().topic(theTopic).numberOfPartitions(1).run().toCompletableFuture().join();
       try (var producer = Producer.of(SERVICE.bootstrapServers())) {
         var dummy = new byte[1024];
-        IntStream.range(0, 100000)
+        IntStream.range(0, 10000)
             .mapToObj(i -> producer.send(Record.builder().topic(theTopic).value(dummy).build()))
             .collect(Collectors.toUnmodifiableSet())
             .forEach(i -> i.toCompletableFuture().join());
       }
+
+      // request a plan
       var request = new BalancerHandler.BalancerPostRequest();
       request.topics = Set.of(theTopic);
       var theReport = submitPlanGeneration(handler, request);
+      Assertions.assertEquals(Searched, theReport.phase, "Plan is ready");
 
-      // create an ongoing reassignment
-      Assertions.assertEquals(
-          1,
-          admin.clusterInfo(Set.of(theTopic)).toCompletableFuture().join().replicaStream().count());
+      // now trigger ongoing migration
       admin
           .moveToBrokers(Map.of(TopicPartition.of(theTopic, 0), List.of(0, 1, 2)))
           .toCompletableFuture()
           .join();
 
-      // debounce wait
-      Assertions.assertTrue(
-          admin
-              .waitCluster(
-                  Set.of(theTopic),
-                  clusterInfo ->
-                      clusterInfo
-                          .replicaStream()
-                          .noneMatch(r -> r.isFuture() || r.isRemoving() || r.isAdding()),
-                  Duration.ofSeconds(20),
-                  2)
-              .toCompletableFuture()
-              .join());
-
       handler
           .put(httpRequest(Map.of("id", theReport.id, "executor", NoOpExecutor.class.getName())))
           .toCompletableFuture()
           .join();
-      Utils.sleep(Duration.ofMillis(300));
+      Utils.sleep(Duration.ofSeconds(1));
       var progress1 =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,

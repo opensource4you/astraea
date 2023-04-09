@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.io.FileUtils;
@@ -55,30 +56,38 @@ class EnumInfoTest {
     Assertions.assertEquals(MyTestEnum.BANANA, EnumInfo.ignoreCaseEnum(MyTestEnum.class, "Banana"));
   }
 
+  public static final Set<String> EXCLUSION_PACKAGE = Set.of("org.astraea.common.generated");
+
   @ParameterizedTest
   @ArgumentsSource(EnumClassProvider.class)
   void testExtendEnumInfo(Class<?> cls) {
-    Assertions.assertTrue(
-        EnumInfo.class.isAssignableFrom(cls), String.format("Fail class %s", cls));
+    if (EXCLUSION_PACKAGE.stream().noneMatch(prefix -> cls.getPackageName().startsWith(prefix))) {
+      Assertions.assertTrue(
+          EnumInfo.class.isAssignableFrom(cls), String.format("Fail class %s", cls));
+    }
   }
 
   @ParameterizedTest
   @ArgumentsSource(EnumClassProvider.class)
   void testOfAlias(Class<?> cls) {
-    var method =
-        Assertions.assertDoesNotThrow(
-            () -> cls.getDeclaredMethod("ofAlias", String.class),
-            String.format("Fail class %s", cls));
-    Assertions.assertEquals(cls, method.getReturnType());
+    if (EXCLUSION_PACKAGE.stream().noneMatch(prefix -> cls.getPackageName().startsWith(prefix))) {
+      var method =
+          Assertions.assertDoesNotThrow(
+              () -> cls.getDeclaredMethod("ofAlias", String.class),
+              String.format("Fail class %s", cls));
+      Assertions.assertEquals(cls, method.getReturnType());
+    }
   }
 
   @ParameterizedTest
   @ArgumentsSource(EnumClassProvider.class)
   void testToString(Class<?> cls) {
-    var enumConstants = (EnumInfo[]) cls.getEnumConstants();
-    Assertions.assertDoesNotThrow(() -> cls.getDeclaredMethod("toString"));
-    Assertions.assertTrue(
-        Arrays.stream(enumConstants).allMatch(x -> x.toString().equals(x.alias())));
+    if (EXCLUSION_PACKAGE.stream().noneMatch(prefix -> cls.getPackageName().startsWith(prefix))) {
+      var enumConstants = (EnumInfo[]) cls.getEnumConstants();
+      Assertions.assertDoesNotThrow(() -> cls.getDeclaredMethod("toString"));
+      Assertions.assertTrue(
+          Arrays.stream(enumConstants).allMatch(x -> x.toString().equals(x.alias())));
+    }
   }
 
   enum MyTestEnum implements EnumInfo {

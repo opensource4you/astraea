@@ -16,13 +16,15 @@
  */
 package org.astraea.common.cost;
 
+import org.astraea.common.Configuration;
+
 /**
  * A cost function to evaluate cluster load balance score in terms of message egress data rate. See
  * {@link NetworkCost} for further detail.
  */
 public class NetworkEgressCost extends NetworkCost {
-  public NetworkEgressCost() {
-    super(BandwidthType.Egress);
+  public NetworkEgressCost(Configuration config) {
+    super(config, BandwidthType.Egress);
   }
 
   @Override
