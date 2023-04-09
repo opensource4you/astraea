@@ -21,19 +21,19 @@ import org.astraea.common.metrics.HasBeanObject;
 
 public interface HasRate extends HasBeanObject {
   default double meanRate() {
-    return (double) beanObject().attributes().getOrDefault("MeanRate", 0.0);
+    return (double) beanObject().attributes().get("MeanRate");
   }
 
   default double oneMinuteRate() {
-    return (double) beanObject().attributes().getOrDefault("OneMinuteRate", 0.0);
+    return (double) beanObject().attributes().get("OneMinuteRate");
   }
 
   default double fiveMinuteRate() {
-    return (double) beanObject().attributes().getOrDefault("FiveMinuteRate", 0.0);
+    return (double) beanObject().attributes().get("FiveMinuteRate");
   }
 
   default double fifteenMinuteRate() {
-    return (double) beanObject().attributes().getOrDefault("FifteenMinuteRate", 0.0);
+    return (double) beanObject().attributes().get("FifteenMinuteRate");
   }
 
   default TimeUnit rateUnit() {

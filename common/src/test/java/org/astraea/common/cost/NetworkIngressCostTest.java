@@ -25,7 +25,6 @@ import org.astraea.common.DataRate;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -57,13 +56,13 @@ public class NetworkIngressCostTest {
             Map.of(
                 1,
                 List.of(
-                    bandwidth(
+                    NetworkCostTest.bandwidth(
                         ServerMetrics.Topic.BYTES_IN_PER_SEC,
                         "a",
                         DataRate.MB.of(60).perSecond().byteRate())),
                 2,
                 List.of(
-                    bandwidth(
+                    NetworkCostTest.bandwidth(
                         ServerMetrics.Topic.BYTES_IN_PER_SEC,
                         "a",
                         DataRate.MB.of(60).perSecond().byteRate()))));
@@ -115,11 +114,11 @@ public class NetworkIngressCostTest {
             Map.of(
                 1,
                 List.of(
-                    bandwidth(
+                    NetworkCostTest.bandwidth(
                         ServerMetrics.Topic.BYTES_IN_PER_SEC,
                         "a",
                         DataRate.MB.of(100).perSecond().byteRate()),
-                    bandwidth(
+                    NetworkCostTest.bandwidth(
                         ServerMetrics.Topic.BYTES_IN_PER_SEC,
                         "b",
                         DataRate.MB.of(100).perSecond().byteRate()))));
@@ -133,14 +132,5 @@ public class NetworkIngressCostTest {
           if (tp.topic().equals("a") && tp.partition() == 0) Assertions.assertEquals(3, set.size());
           else Assertions.assertEquals(1, set.size());
         });
-  }
-
-  static ServerMetrics.Topic.Meter bandwidth(
-      ServerMetrics.Topic metric, String topic, double fifteenRate) {
-    var domainName = "kafka.server";
-    var properties =
-        Map.of("type", "BrokerTopicMetric", "topic", topic, "name", metric.metricName());
-    var attributes = Map.<String, Object>of("FifteenMinuteRate", fifteenRate);
-    return new ServerMetrics.Topic.Meter(new BeanObject(domainName, properties, attributes));
   }
 }
