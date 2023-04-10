@@ -17,12 +17,9 @@
 package org.astraea.common.consumer;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.header.Headers;
@@ -121,35 +118,6 @@ public interface Deserializer<T> {
       else {
         return jackson.fromJson(Deserializer.STRING.deserialize(topic, headers, data), typeRef);
       }
-    }
-  }
-
-  /**
-   * Deserialize byte arrays to string and then parse the string to `BeanObject`. It is inverse of
-   * BeanObject.toString().getBytes(). TODO: Should be replaced by protoBuf
-   */
-  class BeanDeserializer implements Deserializer<BeanObject> {
-    @Override
-    public BeanObject deserialize(String topic, List<Header> headers, byte[] data) {
-      var beanString = new String(data);
-      Pattern p =
-          Pattern.compile("\\[(?<domain>[^:]*):(?<properties>[^]]*)]\n\\{(?<attributes>[^}]*)}");
-      Matcher m = p.matcher(beanString);
-      if (!m.matches()) return null;
-      var domain = m.group("domain");
-      var propertiesPairs = m.group("properties").split("[, ]");
-      var attributesPairs = m.group("attributes").split("[, ]");
-      var properties =
-          Arrays.stream(propertiesPairs)
-              .map(kv -> kv.split("="))
-              .filter(kv -> kv.length >= 2)
-              .collect(Collectors.toUnmodifiableMap(kv -> kv[0], kv -> kv[1]));
-      var attributes =
-          Arrays.stream(attributesPairs)
-              .map(kv -> kv.split("="))
-              .filter(kv -> kv.length >= 2)
-              .collect(Collectors.toUnmodifiableMap(kv -> kv[0], kv -> (Object) kv[1]));
-      return new BeanObject(domain, properties, attributes);
     }
   }
 
