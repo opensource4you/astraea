@@ -18,7 +18,6 @@ package org.astraea.common.cost;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
@@ -190,7 +189,11 @@ public abstract class NetworkCost implements HasClusterCost {
     // reason to do this.
     double score = (summary.getMax() - summary.getMin()) / (maxRate);
 
-    return new NetworkClusterCost(score, brokerRate);
+    return new NetworkClusterCost(
+        score,
+        brokerRate,
+        cachedCalculation.partitionIngressRate,
+        cachedCalculation.partitionEgressRate);
   }
 
   @Override
@@ -350,16 +353,36 @@ public abstract class NetworkCost implements HasClusterCost {
           estimateRate(metricViewCluster, sourceMetric, ServerMetrics.Topic.BYTES_IN_PER_SEC);
       this.partitionEgressRate =
           estimateRate(metricViewCluster, sourceMetric, ServerMetrics.Topic.BYTES_OUT_PER_SEC);
+      // try (var stream = new FileOutputStream("/home/garyparrot/bandwidth.cvs")) {
+      //   metricViewCluster.topicPartitions().forEach(tp -> {
+      //     var ingress = partitionIngressRate.getOrDefault(tp, 0L);
+      //     var egress = partitionEgressRate.getOrDefault(tp, 0L);
+      //     try {
+      //       stream.write(String.format("%s %d %d%n", tp.toString(), ingress, egress).getBytes());
+      //     } catch (IOException e) {
+      //       throw new RuntimeException(e);
+      //     }
+      //   });
+      // } catch (IOException e) {
+      //   e.printStackTrace();
+      // }
+      // Runtime.getRuntime().exit(0);
     }
   }
 
-  static class NetworkClusterCost implements ClusterCost {
-    final double score;
-    final Map<Integer, Long> brokerRate;
+  public static class NetworkClusterCost implements ClusterCost {
+    public final double score;
+    public final Map<Integer, Long> brokerRate;
+    public final Map<TopicPartition, Long> partitionIngress;
+    public final Map<TopicPartition, Long> partitionEgress;
 
-    NetworkClusterCost(double score, Map<Integer, Long> brokerRate) {
+    NetworkClusterCost(double score, Map<Integer, Long> brokerRate,
+                       Map<TopicPartition, Long> partitionIngress,
+                       Map<TopicPartition, Long> partitionEgress) {
       this.score = score;
       this.brokerRate = brokerRate;
+      this.partitionIngress = partitionIngress;
+      this.partitionEgress = partitionEgress;
     }
 
     public double value() {

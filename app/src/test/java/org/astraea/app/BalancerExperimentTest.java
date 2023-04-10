@@ -36,6 +36,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
+import org.astraea.common.balancer.algorithms.NetworkBalancer;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.NetworkEgressCost;
@@ -51,8 +52,8 @@ import org.junit.jupiter.api.Test;
 
 public class BalancerExperimentTest {
 
-  public static final String fileName0 = "/home/garyparrot/cluster-file2.bin";
-  public static final String fileName1 = "/home/garyparrot/bean-file2.bin";
+  public static final String fileName0 = "/home/garyparrot/cluster-file3.bin";
+  public static final String fileName1 = "/home/garyparrot/bean-file3.bin";
   public static final String realCluster =
       "192.168.103.177:25655,192.168.103.178:25655,192.168.103.179:25655,192.168.103.180:25655,192.168.103.181:25655,192.168.103.182:25655";
 
@@ -67,8 +68,8 @@ public class BalancerExperimentTest {
     try (var admin = Admin.of(realCluster);
         var stream0 = new FileInputStream(fileName0);
         var stream1 = new FileInputStream(fileName1)) {
-      ClusterInfo clusterInfo0 =
-          admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
+      // ClusterInfo clusterInfo0 =
+      //     admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
       System.out.println("Serialize ClusterInfo");
       ClusterInfo clusterInfo = ClusterInfoSerializer.deserialize(stream0);
       System.out.println("Serialize ClusterBean");
@@ -78,17 +79,18 @@ public class BalancerExperimentTest {
       Map<HasClusterCost, Double> costMap =
           Map.of(
               new NetworkIngressCost(Configuration.EMPTY), 3.0,
-              new NetworkEgressCost(Configuration.EMPTY), 3.0,
-              new ReplicaNumberCost(Configuration.EMPTY), 1.0);
+              new NetworkEgressCost(Configuration.EMPTY), 3.0
+              // new ReplicaNumberCost(Configuration.EMPTY), 1.0
+          );
       var costFunction = HasClusterCost.of(costMap);
       var balancer = new GreedyBalancer(Configuration.EMPTY);
 
       var result =
           BalancerBenchmark.costProfiling()
-              .setClusterInfo(clusterInfo0)
+              .setClusterInfo(clusterInfo)
               .setClusterBean(clusterBean)
-              .setBalancer(balancer)
-              .setExecutionTimeout(Duration.ofSeconds(180))
+              .setBalancer(new NetworkBalancer())
+              .setExecutionTimeout(Duration.ofSeconds(60))
               .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(costFunction).build())
               .start()
               .toCompletableFuture()
@@ -125,6 +127,7 @@ public class BalancerExperimentTest {
       } catch (IOException e) {
         e.printStackTrace();
       }
+
 
       System.out.println("Run the plan? (yes/no)");
       while (true) {

@@ -27,6 +27,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.DoubleDeserializer;
@@ -36,6 +38,7 @@ import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Config;
 import org.astraea.common.admin.NodeInfo;
@@ -254,8 +257,71 @@ public interface Deserializer<T> {
                   i -> {
                     var nodeInfoData = new byte[buffer.getInt()];
                     buffer.get(nodeInfoData);
-                    return Deserializer.NODE_INFO.deserialize(topic, headers, nodeInfoData);
+                    var node = Deserializer.NODE_INFO.deserialize(topic, headers, nodeInfoData);
+
+                    return new Broker() {
+                      @Override
+                      public boolean isController() {
+                        return false;
+                      }
+
+                      @Override
+                      public Config config() {
+                        return null;
+                      }
+
+                      @Override
+                      public List<DataFolder> dataFolders() {
+                        return Stream.of(
+                            "/tmp/log-folder-0",
+                            "/tmp/log-folder-1",
+                            "/tmp/log-folder-2")
+                            .map(path -> new DataFolder() {
+                              @Override
+                              public String path() {
+                                return path;
+                              }
+
+                              @Override
+                              public Map<TopicPartition, Long> partitionSizes() {
+                                return null;
+                              }
+
+                              @Override
+                              public Map<TopicPartition, Long> orphanPartitionSizes() {
+                                return null;
+                              }
+                            })
+                            .collect(Collectors.toUnmodifiableList());
+                      }
+
+                      @Override
+                      public Set<TopicPartition> topicPartitions() {
+                        return null;
+                      }
+
+                      @Override
+                      public Set<TopicPartition> topicPartitionLeaders() {
+                        return null;
+                      }
+
+                      @Override
+                      public String host() {
+                        return node.host();
+                      }
+
+                      @Override
+                      public int port() {
+                        return node.port();
+                      }
+
+                      @Override
+                      public int id() {
+                        return node.id();
+                      }
+                    };
                   })
+              .map(broker -> (NodeInfo) broker)
               .collect(Collectors.toUnmodifiableList());
       var topics =
           IntStream.range(0, buffer.getInt())
