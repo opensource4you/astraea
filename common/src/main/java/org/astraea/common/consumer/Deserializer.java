@@ -29,6 +29,7 @@ import org.apache.kafka.common.serialization.FloatDeserializer;
 import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.astraea.common.ByteUtils;
 import org.astraea.common.Header;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Config;
@@ -36,7 +37,6 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.backup.ByteUtils;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.BeanObject;
@@ -89,9 +89,7 @@ public interface Deserializer<T> {
   Deserializer<Topic> TOPIC = new TopicDeserializer();
   Deserializer<Replica> REPLICA = new ReplicaDeserializer();
   Deserializer<ClusterInfo> CLUSTER_INFO = new ClusterInfoDeserializer();
-  Deserializer<BeanObject> BEAN_OBJECT =
-      (topic, headers, data) ->
-          org.astraea.common.serialization.Deserializer.BEAN_OBJECT.deserialize(data);
+  Deserializer<BeanObject> BEAN_OBJECT = (topic, headers, data) -> ByteUtils.readBeanObject(data);
 
   /**
    * create Custom JsonDeserializer

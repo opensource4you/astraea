@@ -14,13 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.backup;
+package org.astraea.common;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
-import org.astraea.common.Utils;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import org.astraea.common.generated.BeanObjectOuterClass;
+import org.astraea.common.generated.PrimitiveOuterClass;
+import org.astraea.common.metrics.BeanObject;
 
 public final class ByteUtils {
 
@@ -79,6 +84,36 @@ public final class ByteUtils {
   public static byte[] toBytes(boolean value) {
     if (value) return new byte[] {1};
     return new byte[] {0};
+  }
+
+  /** Serialize BeanObject by protocol buffer. */
+  public static byte[] toBytes(BeanObject value) {
+    var beanBuilder = BeanObjectOuterClass.BeanObject.newBuilder();
+    beanBuilder.setDomain(value.domainName());
+    beanBuilder.putAllProperties(value.properties());
+    value.attributes().forEach((key, val) -> beanBuilder.putAttributes(key, primitive(val)));
+    return beanBuilder.build().toByteArray();
+  }
+
+  /** Convert java primitive type to "one of" protocol buffer primitive type. */
+  static PrimitiveOuterClass.Primitive primitive(Object v) {
+    if (v instanceof Integer)
+      return PrimitiveOuterClass.Primitive.newBuilder().setInt((int) v).build();
+    else if (v instanceof Long)
+      return PrimitiveOuterClass.Primitive.newBuilder().setLong((long) v).build();
+    else if (v instanceof Float)
+      return PrimitiveOuterClass.Primitive.newBuilder().setFloat((float) v).build();
+    else if (v instanceof Double)
+      return PrimitiveOuterClass.Primitive.newBuilder().setDouble((double) v).build();
+    else if (v instanceof Boolean)
+      return PrimitiveOuterClass.Primitive.newBuilder().setBoolean((boolean) v).build();
+    else if (v instanceof String)
+      return PrimitiveOuterClass.Primitive.newBuilder().setStr(v.toString()).build();
+    else
+      throw new IllegalArgumentException(
+          "Type "
+              + v.getClass()
+              + " is not supported. Please use Integer, Long, Float, Double, Boolean, String instead.");
   }
 
   public static int readInt(ReadableByteChannel channel) {
@@ -144,6 +179,41 @@ public final class ByteUtils {
     var dst = new byte[size];
     buffer.get(dst);
     return dst;
+  }
+
+  /** Deserialize to BeanObject with protocol buffer */
+  public static BeanObject readBeanObject(byte[] bytes) {
+    // Pack InvalidProtocolBufferException thrown by protoBuf
+    var outerBean = Utils.packException(() -> BeanObjectOuterClass.BeanObject.parseFrom(bytes));
+    return new BeanObject(
+        outerBean.getDomain(),
+        outerBean.getPropertiesMap(),
+        outerBean.getAttributesMap().entrySet().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Map.Entry::getKey, e -> Objects.requireNonNull(toObject(e.getValue())))));
+  }
+
+  /** Retrieve field from "one of" field. */
+  static Object toObject(PrimitiveOuterClass.Primitive v) {
+    var oneOfCase = v.getValueCase();
+    switch (oneOfCase) {
+      case INT:
+        return v.getInt();
+      case LONG:
+        return v.getLong();
+      case FLOAT:
+        return v.getFloat();
+      case DOUBLE:
+        return v.getDouble();
+      case BOOLEAN:
+        return v.getBoolean();
+      case STR:
+        return v.getStr();
+      case VALUE_NOT_SET:
+      default:
+        throw new IllegalArgumentException("The value is not set.");
+    }
   }
 
   public static ByteBuffer of(short value) {

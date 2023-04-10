@@ -28,13 +28,13 @@ import org.apache.kafka.common.serialization.FloatSerializer;
 import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.astraea.common.ByteUtils;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
-import org.astraea.common.backup.ByteUtils;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.BeanObject;
@@ -83,9 +83,7 @@ public interface Serializer<T> {
   Serializer<Topic> TOPIC = new TopicSerializer();
   Serializer<Replica> REPLICA = new ReplicaSerializer();
   Serializer<ClusterInfo> CLUSTER_INFO = new ClusterInfoSerializer();
-  Serializer<BeanObject> BEAN_OBJECT =
-      (topic, headers, data) ->
-          org.astraea.common.serialization.Serializer.BEAN_OBJECT_SERIALIZER.serialize(data);
+  Serializer<BeanObject> BEAN_OBJECT = (topic, headers, data) -> ByteUtils.toBytes(data);
 
   /**
    * create Custom JsonSerializer
