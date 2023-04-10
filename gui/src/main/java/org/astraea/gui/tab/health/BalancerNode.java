@@ -103,7 +103,7 @@ class BalancerNode {
                                     })
                                 .put(migrationCost.name, count)));
 
-    process.accept(HasMoveCost.migrationCosts(plan.initialClusterInfo(), plan.proposal()));
+    process.accept(MigrationCost.migrationCosts(plan.initialClusterInfo(), plan.proposal()));
     return List.copyOf(map.values());
   }
 
