@@ -366,7 +366,7 @@ public abstract class NetworkCost implements HasClusterCost {
     @Override
     public String toString() {
       return brokerRate.values().stream()
-          .map(x -> DataRate.Byte.of(x).perSecond())
+          .map(DataRate.Byte::of)
           .map(DataRate::toString)
           .collect(Collectors.joining(", ", "{", "}"));
     }
