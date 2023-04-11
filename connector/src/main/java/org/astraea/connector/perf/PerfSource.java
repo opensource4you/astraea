@@ -189,7 +189,9 @@ public class PerfSource extends SourceConnector {
               .integer(BATCH_LENGTH_DEF.name())
               .orElse((Integer) BATCH_LENGTH_DEF.defaultValue());
       var keyTableSeed =
-          configuration.longInteger(KEY_TABLE_SEED.name()).orElse((Long) KEY_TABLE_SEED.defaultValue());
+          configuration
+              .longInteger(KEY_TABLE_SEED.name())
+              .orElse((Long) KEY_TABLE_SEED.defaultValue());
       var valueTableSeed =
           configuration
               .longInteger(VALUE_TABLE_SEED.name())
