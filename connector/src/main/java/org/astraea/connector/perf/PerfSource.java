@@ -85,6 +85,27 @@ public class PerfSource extends SourceConnector {
               "the max length of value. The distribution of length is defined by "
                   + VALUE_DISTRIBUTION_DEF.name())
           .build();
+  static Definition BATCH_LENGTH_DEF =
+      Definition.builder()
+          .name("batch.size")
+          .type(Definition.Type.INT)
+          .defaultValue(1)
+          .documentation("the max length of batching messages.")
+          .build();
+  static Definition KEY_TABLE_SEED =
+      Definition.builder()
+          .name("key.table.seed")
+          .type(Definition.Type.LONG)
+          .defaultValue(ThreadLocalRandom.current().nextLong())
+          .documentation("The random seed for internal record key candidate generation.")
+          .build();
+  static Definition VALUE_TABLE_SEED =
+      Definition.builder()
+          .name("value.table.seed")
+          .type(Definition.Type.LONG)
+          .defaultValue(ThreadLocalRandom.current().nextLong())
+          .documentation("The random seed for internal record value candidate generation.")
+          .build();
 
   private Configuration config;
 
@@ -127,7 +148,8 @@ public class PerfSource extends SourceConnector {
         KEY_LENGTH_DEF,
         KEY_DISTRIBUTION_DEF,
         VALUE_LENGTH_DEF,
-        VALUE_DISTRIBUTION_DEF);
+        VALUE_DISTRIBUTION_DEF,
+        BATCH_LENGTH_DEF);
   }
 
   public static class Task extends SourceTask {
@@ -162,30 +184,35 @@ public class PerfSource extends SourceConnector {
               configuration
                   .string(VALUE_DISTRIBUTION_DEF.name())
                   .orElse(VALUE_DISTRIBUTION_DEF.defaultValue().toString()));
+      var batchLength =
+          configuration
+              .integer(BATCH_LENGTH_DEF.name())
+              .orElse((Integer) BATCH_LENGTH_DEF.defaultValue());
+      var keyTableSeed =
+          configuration.longInteger(KEY_TABLE_SEED.name()).orElse((Long) KEY_TABLE_SEED.defaultValue());
+      var valueTableSeed =
+          configuration
+              .longInteger(VALUE_TABLE_SEED.name())
+              .orElse((Long) VALUE_TABLE_SEED.defaultValue());
+
       specifyPartitions =
           configuration.list(SourceConnector.TOPICS_KEY, ",").stream()
               .map(t -> TopicPartition.of(t, -1))
               .collect(Collectors.toUnmodifiableSet());
       recordGenerator =
           RecordGenerator.builder()
-              // TODO: make it configurable
-              .batchSize(1)
-              // TODO: make it configurable
-              .keyTableSeed(ThreadLocalRandom.current().nextLong())
+              .batchSize(batchLength)
+              .keyTableSeed(keyTableSeed)
               .keyRange(
                   LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
               .keyDistribution(keyDistribution.create(10000, configuration))
-              // TODO: make it configurable
-              .keySizeDistribution(
-                  DistributionType.UNIFORM.create((int) keyLength.bytes(), configuration))
-              // TODO: make it configurable
-              .valueTableSeed(ThreadLocalRandom.current().nextLong())
+              .keySizeDistribution(keyDistribution.create((int) keyLength.bytes(), configuration))
+              .valueTableSeed(valueTableSeed)
               .valueRange(
                   LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
               .valueDistribution(valueDistribution.create(10000, configuration))
-              // TODO: make it configurable
               .valueSizeDistribution(
-                  DistributionType.UNIFORM.create((int) valueLength.bytes(), configuration))
+                  valueDistribution.create((int) valueLength.bytes(), configuration))
               .throughput(tp -> throughput.dataRate(Duration.ofSeconds(1)))
               .build();
     }

@@ -91,6 +91,10 @@ public interface Configuration {
     return string(key).map(Integer::parseInt);
   }
 
+  default Optional<Long> longInteger(String key) {
+    return string(key).map(Long::parseLong);
+  }
+
   /**
    * @param key the key whose associated value is to be returned
    * @return duration value. If there is no key, return Optional.Empty
