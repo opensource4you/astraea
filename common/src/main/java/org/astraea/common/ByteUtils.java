@@ -177,8 +177,11 @@ public final class ByteUtils {
 
   // --------------------------------ProtoBuf Primitive----------------------------------------- //
 
-  /** Convert java primitive type to "one of" protocol buffer primitive type. */
-  static PrimitiveOuterClass.Primitive primitive(Object v) {
+  /**
+   * Convert java primitive type to "one of" protocol buffer primitive type. There are no "short"
+   * and "char" in Protocol Buffers. Use "int" and "String" instead.
+   */
+  private static PrimitiveOuterClass.Primitive primitive(Object v) {
     if (v instanceof Integer)
       return PrimitiveOuterClass.Primitive.newBuilder().setInt((int) v).build();
     else if (v instanceof Long)
@@ -199,7 +202,7 @@ public final class ByteUtils {
   }
 
   /** Retrieve field from "one of" field. */
-  static Object toObject(PrimitiveOuterClass.Primitive v) {
+  private static Object toObject(PrimitiveOuterClass.Primitive v) {
     var oneOfCase = v.getValueCase();
     switch (oneOfCase) {
       case INT:
