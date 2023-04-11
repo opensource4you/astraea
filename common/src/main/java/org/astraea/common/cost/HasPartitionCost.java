@@ -16,10 +16,10 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -42,19 +42,43 @@ public interface HasPartitionCost extends CostFunction {
     return new HasPartitionCost() {
       @Override
       public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
-        var result = new HashMap<TopicPartition, Double>();
-        costAndWeight.forEach(
-            (function, weight) ->
-                function
-                    .partitionCost(clusterInfo, clusterBean)
-                    .value()
-                    .forEach(
-                        (tp, v) ->
-                            result.compute(
-                                tp,
-                                (ignore, previous) ->
-                                    previous == null ? v * weight : v * weight + previous)));
-        return () -> Collections.unmodifiableMap(result);
+        var partitionCost =
+            costAndWeight.keySet().stream()
+                .map(f -> Map.entry(f, f.partitionCost(clusterInfo, clusterBean)))
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        return new PartitionCost() {
+          @Override
+          public Map<TopicPartition, Double> value() {
+            var aggregatedCost = new HashMap<TopicPartition, Double>();
+            partitionCost.forEach(
+                (f, cost) ->
+                    cost.value()
+                        .forEach(
+                            (tp, v) ->
+                                aggregatedCost.compute(
+                                    tp,
+                                    (ignore, previous) ->
+                                        previous == null
+                                            ? v * costAndWeight.get(f)
+                                            : v * costAndWeight.get(f) + previous)));
+            return aggregatedCost;
+          }
+
+          @Override
+          public Map<TopicPartition, Set<TopicPartition>> incompatibility() {
+            var incompatibleSet =
+                partitionCost.values().stream()
+                    .map(PartitionCost::incompatibility)
+                    .flatMap(m -> m.entrySet().stream())
+                    .collect(
+                        Collectors.groupingBy(
+                            Map.Entry::getKey,
+                            Collectors.flatMapping(
+                                e -> e.getValue().stream(), Collectors.toUnmodifiableSet())));
+            return incompatibleSet;
+          }
+        };
       }
 
       @Override

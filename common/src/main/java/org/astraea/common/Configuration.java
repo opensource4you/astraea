@@ -16,6 +16,7 @@
  */
 package org.astraea.common;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -88,6 +89,14 @@ public interface Configuration {
    */
   default Optional<Integer> integer(String key) {
     return string(key).map(Integer::parseInt);
+  }
+
+  /**
+   * @param key the key whose associated value is to be returned
+   * @return duration value. If there is no key, return Optional.Empty
+   */
+  default Optional<Duration> duration(String key) {
+    return string(key).map(Utils::toDuration);
   }
 
   default int requireInteger(String key) {

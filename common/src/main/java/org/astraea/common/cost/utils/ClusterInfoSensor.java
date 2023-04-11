@@ -40,13 +40,21 @@ public class ClusterInfoSensor implements MetricSensor {
   @Override
   public List<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean) {
     return Stream.of(
-            List.of(ServerMetrics.KafkaServer.clusterId(client)),
+            List.of(ServerMetrics.KafkaServer.CLUSTER_ID.fetch(client)),
             LogMetrics.Log.SIZE.fetch(client),
             ClusterMetrics.Partition.REPLICAS_COUNT.fetch(client))
         .flatMap(Collection::stream)
         .collect(Collectors.toUnmodifiableList());
   }
 
+  /**
+   * Create a {@link ClusterInfo} from the metrics of a given {@link ClusterBean}. The {@link
+   * ClusterInfo} might lack some information due to the incompetent metrics info.
+   *
+   * @param clusterBean the cluster bean.
+   * @throws IllegalStateException when there is some conflict information within the cluster bean
+   * @return a {@link ClusterInfo}.
+   */
   public static ClusterInfo metricViewCluster(ClusterBean clusterBean) {
     var nodes =
         clusterBean.brokerIds().stream()
@@ -82,7 +90,13 @@ public class ClusterInfoSensor implements MetricSensor {
                                             .max(
                                                 Comparator.comparingLong(
                                                     HasBeanObject::createdTimestamp))
-                                            .orElseThrow()
+                                            .orElseThrow(
+                                                () ->
+                                                    new IllegalStateException(
+                                                        "Partition "
+                                                            + tp
+                                                            + " detected, but its size metric doesn't exists. "
+                                                            + "Maybe the given cluster bean is partially sampled"))
                                             .value();
                                     var build =
                                         Replica.builder()

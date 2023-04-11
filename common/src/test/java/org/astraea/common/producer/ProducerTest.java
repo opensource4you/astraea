@@ -72,7 +72,7 @@ public class ProducerTest {
               .toCompletableFuture()
               .join();
       Assertions.assertEquals(topicName, metadata.topic());
-      Assertions.assertEquals(timestamp, metadata.timestamp());
+      Assertions.assertEquals(timestamp, metadata.timestamp().get());
     }
 
     try (var consumer =
@@ -188,7 +188,7 @@ public class ProducerTest {
                     ? ConsumerConfigs.ISOLATION_LEVEL_COMMITTED
                     : ConsumerConfigs.ISOLATION_LEVEL_UNCOMMITTED)
             .build()) {
-      Assertions.assertEquals(count, consumer.poll(count, Duration.ofSeconds(10)).size());
+      Assertions.assertEquals(count, consumer.poll(Duration.ofSeconds(10)).size());
     }
   }
 
@@ -249,6 +249,30 @@ public class ProducerTest {
           .send(Record.builder().topic(Utils.randomString()).key(new byte[10]).build())
           .toCompletableFuture()
           .join();
+    }
+  }
+
+  @Test
+  void testNullKeyAndValue() {
+    var topic = Utils.randomString();
+    try (var producer = Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).build()) {
+      producer.send(Record.builder().topic(topic).key((byte[]) null).value((byte[]) null).build());
+      producer.flush();
+    }
+    try (var consumer =
+        Consumer.forTopics(Set.of(topic))
+            .bootstrapServers(SERVICE.bootstrapServers())
+            .config(
+                ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
+                ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
+            .build()) {
+      var records = consumer.poll(Duration.ofSeconds(5));
+      Assertions.assertEquals(1, records.size());
+      records.forEach(
+          r -> {
+            Assertions.assertNull(r.key());
+            Assertions.assertNull(r.value());
+          });
     }
   }
 }

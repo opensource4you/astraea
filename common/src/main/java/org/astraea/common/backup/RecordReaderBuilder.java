@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.zip.GZIPInputStream;
 import org.astraea.common.Header;
@@ -63,17 +65,57 @@ public class RecordReaderBuilder {
                 headers.add(Header.of(headerKey, headerValue));
               }
 
-              return Record.builder()
-                  .topic(topic)
-                  .partition(partition)
-                  .offset(offset)
-                  .timestamp(timestamp)
-                  .key(key)
-                  .value(value)
-                  .serializedKeySize(key == null ? 0 : key.length)
-                  .serializedValueSize(value == null ? 0 : value.length)
-                  .headers(headers)
-                  .build();
+              return new Record<>() {
+                @Override
+                public String topic() {
+                  return topic;
+                }
+
+                @Override
+                public List<Header> headers() {
+                  return headers;
+                }
+
+                @Override
+                public byte[] key() {
+                  return key;
+                }
+
+                @Override
+                public byte[] value() {
+                  return value;
+                }
+
+                @Override
+                public long offset() {
+                  return offset;
+                }
+
+                @Override
+                public long timestamp() {
+                  return timestamp;
+                }
+
+                @Override
+                public int partition() {
+                  return partition;
+                }
+
+                @Override
+                public int serializedKeySize() {
+                  return key == null ? 0 : key.length;
+                }
+
+                @Override
+                public int serializedValueSize() {
+                  return value == null ? 0 : value.length;
+                }
+
+                @Override
+                public Optional<Integer> leaderEpoch() {
+                  return Optional.empty();
+                }
+              };
             }
           };
 

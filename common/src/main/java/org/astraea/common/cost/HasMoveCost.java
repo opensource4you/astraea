@@ -17,10 +17,8 @@
 package org.astraea.common.cost;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -39,58 +37,14 @@ public interface HasMoveCost extends CostFunction {
                 .map(Optional::get)
                 .collect(Collectors.toUnmodifiableList()));
     return new HasMoveCost() {
+
       @Override
       public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-        var costs =
+        var overflow =
             hasMoveCosts.stream()
                 .map(c -> c.moveCost(before, after, clusterBean))
-                .collect(Collectors.toList());
-
-        var movedReplicaLeaderSize =
-            costs.stream()
-                .flatMap(c -> c.movedReplicaLeaderSize().entrySet().stream())
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
-        var movedReplicaSize =
-            costs.stream()
-                .flatMap(c -> c.movedRecordSize().entrySet().stream())
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l.add(r.bytes())));
-        var changedReplicaCount =
-            costs.stream()
-                .flatMap(c -> c.changedReplicaCount().entrySet().stream())
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
-        var changedReplicaLeaderCount =
-            costs.stream()
-                .flatMap(c -> c.changedReplicaLeaderCount().entrySet().stream())
-                .collect(
-                    Collectors.toUnmodifiableMap(
-                        Map.Entry::getKey, Map.Entry::getValue, (l, r) -> l + r));
-        return new MoveCost() {
-          @Override
-          public Map<Integer, DataSize> movedReplicaLeaderSize() {
-            return movedReplicaLeaderSize;
-          }
-
-          @Override
-          public Map<Integer, DataSize> movedRecordSize() {
-            return movedReplicaSize;
-          }
-
-          @Override
-          public Map<Integer, Integer> changedReplicaCount() {
-            return changedReplicaCount;
-          }
-
-          @Override
-          public Map<Integer, Integer> changedReplicaLeaderCount() {
-            return changedReplicaLeaderCount;
-          }
-        };
+                .anyMatch(MoveCost::overflow);
+        return () -> overflow;
       }
 
       @Override

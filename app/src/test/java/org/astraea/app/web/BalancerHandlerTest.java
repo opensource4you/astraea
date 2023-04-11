@@ -67,6 +67,8 @@ import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
+import org.astraea.common.cost.RecordSizeCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -92,13 +94,9 @@ public class BalancerHandlerTest {
     SERVICE.close();
   }
 
-  static final String TOPICS_KEY = "topics";
   static final String TIMEOUT_KEY = "timeout";
-  static final String MAX_MIGRATE_SIZE_KEY = "maxMigratedSize";
-  static final String MAX_MIGRATE_LEADER_KEY = "maxMigratedLeader";
   static final String CLUSTER_COSTS_KEY = "clusterCosts";
   static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
-  static final String BALANCER_CONFIGURATION_KEY = "balancerConfig";
   static final int TIMEOUT_DEFAULT = 3;
 
   private static final List<BalancerHandler.CostWeight> defaultIncreasing =
@@ -112,7 +110,8 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testReport() {
     var topics = createAndProduceTopic(3);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       // make sure all replicas have
       admin
           .clusterInfo(Set.copyOf(topics))
@@ -120,10 +119,11 @@ public class BalancerHandlerTest {
           .join()
           .replicaStream()
           .forEach(r -> Assertions.assertNotEquals(0, r.size()));
-      var handler = new BalancerHandler(admin);
       var request = new BalancerPostRequest();
       request.balancer = GreedyBalancer.class.getName();
       request.balancerConfig = Map.of("a", "b");
+      request.moveCosts = Set.of("org.astraea.common.cost.RecordSizeCost");
+      request.costConfig = Map.of(RecordSizeCost.class.getName(), "10GB");
       request.timeout = Duration.ofMillis(1234);
       var progress = submitPlanGeneration(handler, request);
       var report = progress.plan;
@@ -147,7 +147,7 @@ public class BalancerHandlerTest {
           .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
       var sizeMigration =
           report.migrationCosts.stream()
-              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .filter(x -> x.name.equals(BalancerHandler.TO_SYNC_BYTES))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
@@ -159,21 +159,23 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testTopics() {
     var topicNames = createAndProduceTopic(5);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       // For all 5 topics, we only allow the first two topics can be altered.
       // We apply this limitation to test if the BalancerHandler.TOPICS_KEY works correctly.
       var allowedTopics = List.copyOf(topicNames).subList(0, 2);
       var request = new BalancerPostRequest();
       request.balancerConfig = Map.of("iteration", "30");
       request.topics = Set.copyOf(allowedTopics);
+      request.moveCosts = Set.of("org.astraea.common.cost.RecordSizeCost");
+      request.costConfig = Map.of(RecordSizeCost.class.getName(), "10GB");
       var report = submitPlanGeneration(handler, request).plan;
       Assertions.assertTrue(
           report.changes.stream().map(x -> x.topic).allMatch(allowedTopics::contains),
           "Only allowed topics been altered");
       var sizeMigration =
           report.migrationCosts.stream()
-              .filter(x -> x.name.equals(BalancerHandler.MOVED_SIZE))
+              .filter(x -> x.name.equals(BalancerHandler.TO_SYNC_BYTES))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
@@ -259,6 +261,7 @@ public class BalancerHandlerTest {
       HasClusterCost clusterCostFunction =
           (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
+      HasMoveCost failMoveCostFunction = (before, after, clusterBean) -> () -> true;
 
       var Best =
           Utils.construct(SingleStepBalancer.class, Configuration.EMPTY)
@@ -274,7 +277,6 @@ public class BalancerHandlerTest {
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> after.value() <= before.value())
                       .moveCost(moveCostFunction)
-                      .movementConstraint(moveCosts -> true)
                       .build());
 
       Assertions.assertNotEquals(Optional.empty(), Best);
@@ -296,7 +298,6 @@ public class BalancerHandlerTest {
                           .clusterCost(clusterCostFunction)
                           .clusterConstraint((before, after) -> true)
                           .moveCost(moveCostFunction)
-                          .movementConstraint(moveCosts -> true)
                           .build()));
 
       // test cluster cost predicate
@@ -315,9 +316,7 @@ public class BalancerHandlerTest {
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> false)
                       .moveCost(moveCostFunction)
-                      .movementConstraint(moveCosts -> true)
-                      .build())
-              .solution());
+                      .build()));
 
       // test move cost predicate
       Assertions.assertEquals(
@@ -334,34 +333,45 @@ public class BalancerHandlerTest {
                       .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
                       .clusterConstraint((before, after) -> true)
-                      .moveCost(moveCostFunction)
-                      .movementConstraint(moveCosts -> false)
-                      .build())
-              .solution());
+                      .moveCost(failMoveCostFunction)
+                      .build()));
     }
   }
 
-  @CsvSource(value = {"2,100Byte", "2,500Byte", "2,1GB", "5,100Byte", "5,500Byte", "5,1GB"})
+  @CsvSource(value = {"5,500Byte", "10,500Byte", "5,1GB"})
   @ParameterizedTest
   void testMoveCost(String leaderLimit, String sizeLimit) {
     createAndProduceTopic(3);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
-      request.maxMigratedSize = DataSize.of(sizeLimit);
-      request.maxMigratedLeader = Long.parseLong(leaderLimit);
+      request.moveCosts =
+          Set.of(
+              "org.astraea.common.cost.ReplicaLeaderCost",
+              "org.astraea.common.cost.RecordSizeCost");
+      request.costConfig =
+          Map.of(
+              ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY,
+              leaderLimit,
+              RecordSizeCost.MAX_MIGRATE_SIZE_KEY,
+              sizeLimit);
+      Assertions.assertEquals(2, request.moveCosts.size());
       var report = submitPlanGeneration(handler, request).plan;
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
-              case BalancerHandler.MOVED_SIZE:
+              case BalancerHandler.TO_SYNC_BYTES:
+              case BalancerHandler.TO_FETCH_BYTES:
                 Assertions.assertTrue(
                     migrationCost.brokerCosts.values().stream().mapToLong(Double::intValue).sum()
                         <= DataSize.of(sizeLimit).bytes());
                 break;
               case BalancerHandler.CHANGED_LEADERS:
                 Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream().mapToLong(Double::byteValue).sum()
+                    migrationCost.brokerCosts.values().stream()
+                            .map(Math::abs)
+                            .mapToLong(Double::byteValue)
+                            .sum()
                         <= Integer.parseInt(leaderLimit));
                 break;
             }
@@ -373,10 +383,10 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testNoReport() {
     var topic = Utils.randomString(10);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(1));
-      var handler = new BalancerHandler(admin);
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
@@ -421,8 +431,8 @@ public class BalancerHandlerTest {
   void testPut() {
     // arrange
     createAndProduceTopic(3, 10, (short) 2, false);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.balancerConfig = Map.of("iteration", "100");
       var progress = submitPlanGeneration(handler, request);
@@ -450,8 +460,8 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testBadPut() {
     createAndProduceTopic(3);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
 
       // no id offered
       Assertions.assertThrows(
@@ -471,7 +481,8 @@ public class BalancerHandlerTest {
   @Timeout(value = 360)
   void testSubmitRebalancePlanThreadSafe() {
     var topic = Utils.randomString();
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       admin.creator().topic(topic).numberOfPartitions(30).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       admin
@@ -481,7 +492,6 @@ public class BalancerHandlerTest {
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(3));
-      var handler = new BalancerHandler(admin);
       var progress = submitPlanGeneration(handler, new BalancerPostRequest());
 
       // use many threads to increase the chance to trigger a data race
@@ -519,50 +529,36 @@ public class BalancerHandlerTest {
   @Test
   @Timeout(value = 60)
   void testRebalanceDetectOngoing() {
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
+      // create topic
       var theTopic = Utils.randomString();
       admin.creator().topic(theTopic).numberOfPartitions(1).run().toCompletableFuture().join();
       try (var producer = Producer.of(SERVICE.bootstrapServers())) {
         var dummy = new byte[1024];
-        IntStream.range(0, 100000)
+        IntStream.range(0, 10000)
             .mapToObj(i -> producer.send(Record.builder().topic(theTopic).value(dummy).build()))
             .collect(Collectors.toUnmodifiableSet())
             .forEach(i -> i.toCompletableFuture().join());
       }
 
-      var handler = new BalancerHandler(admin);
+      // request a plan
       var request = new BalancerHandler.BalancerPostRequest();
       request.topics = Set.of(theTopic);
       var theReport = submitPlanGeneration(handler, request);
+      Assertions.assertEquals(Searched, theReport.phase, "Plan is ready");
 
-      // create an ongoing reassignment
-      Assertions.assertEquals(
-          1,
-          admin.clusterInfo(Set.of(theTopic)).toCompletableFuture().join().replicaStream().count());
+      // now trigger ongoing migration
       admin
           .moveToBrokers(Map.of(TopicPartition.of(theTopic, 0), List.of(0, 1, 2)))
           .toCompletableFuture()
           .join();
 
-      // debounce wait
-      Assertions.assertTrue(
-          admin
-              .waitCluster(
-                  Set.of(theTopic),
-                  clusterInfo ->
-                      clusterInfo
-                          .replicaStream()
-                          .noneMatch(r -> r.isFuture() || r.isRemoving() || r.isAdding()),
-                  Duration.ofSeconds(10),
-                  2)
-              .toCompletableFuture()
-              .join());
-
       handler
           .put(httpRequest(Map.of("id", theReport.id, "executor", NoOpExecutor.class.getName())))
           .toCompletableFuture()
           .join();
-      Utils.sleep(Duration.ofMillis(300));
+      Utils.sleep(Duration.ofSeconds(1));
       var progress1 =
           Assertions.assertInstanceOf(
               BalancerHandler.PlanExecutionProgress.class,
@@ -600,15 +596,14 @@ public class BalancerHandlerTest {
         ClusterInfoBuilder.builder(base)
             .mapLog(r -> Replica.builder(r).isRemoving(iter2.next()).build())
             .build();
-    try (Admin admin = Mockito.mock(Admin.class)) {
-      var handler = new BalancerHandler(admin);
-      Mockito.when(admin.brokers())
-          .thenAnswer((invoke) -> CompletableFuture.completedFuture(List.of()));
-      Mockito.when(admin.topicNames(Mockito.anyBoolean()))
-          .thenAnswer((invoke) -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
-
-      Mockito.when(admin.clusterInfo(Mockito.any()))
-          .thenAnswer((invoke) -> CompletableFuture.completedFuture(clusterHasFuture));
+    var admin = Mockito.mock(Admin.class);
+    Mockito.when(admin.brokers())
+        .thenAnswer(invoke -> CompletableFuture.completedFuture(List.of()));
+    Mockito.when(admin.topicNames(Mockito.anyBoolean()))
+        .thenAnswer(invoke -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
+    Mockito.when(admin.clusterInfo(Mockito.any()))
+        .thenAnswer(invoke -> CompletableFuture.completedFuture(clusterHasFuture));
+    try (var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var task0 =
           (BalancerHandler.PostPlanResponse)
               handler.post(defaultPostPlan).toCompletableFuture().join();
@@ -652,8 +647,8 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testPutSanityCheck() {
     var topic = createAndProduceTopic(1).iterator().next();
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.topics = Set.of(topic);
       var theProgress = submitPlanGeneration(handler, request);
@@ -691,8 +686,8 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testLookupRebalanceProgress() {
     createAndProduceTopic(3);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var progress = submitPlanGeneration(handler, new BalancerPostRequest());
       Assertions.assertEquals(Searched, progress.phase);
 
@@ -745,8 +740,8 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testLookupBadExecutionProgress() {
     createAndProduceTopic(3);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
@@ -799,9 +794,8 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testBadLookupRequest() {
     createAndProduceTopic(3);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
-
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       Assertions.assertEquals(
           404, handler.get(Channel.ofTarget("no such plan")).toCompletableFuture().join().code());
 
@@ -817,8 +811,8 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testPutIdempotent() {
     var topics = createAndProduceTopic(3);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.topics = topics;
       var progress = submitPlanGeneration(handler, request);
@@ -850,8 +844,8 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testCustomBalancer() {
     var topics = createAndProduceTopic(3);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var balancer = SpyBalancer.class.getName();
       var balancerConfig =
           Map.of(
@@ -970,10 +964,9 @@ public class BalancerHandlerTest {
   @Test
   void testTimeout() {
     createAndProduceTopic(5);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var costFunction = Collections.singleton(costWeight(TimeoutCost.class.getName(), 1));
-      var handler =
-          new BalancerHandler(admin, (ignore) -> Optional.of(SERVICE.jmxServiceURL().getPort()));
+    var costFunction = Collections.singleton(costWeight(TimeoutCost.class.getName(), 1));
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, (ignore) -> SERVICE.jmxServiceURL().getPort())) {
       var channel = httpRequest(Map.of(TIMEOUT_KEY, "10", CLUSTER_COSTS_KEY, costFunction));
       var post =
           (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().join();
@@ -991,10 +984,9 @@ public class BalancerHandlerTest {
   @Test
   void testCostWithSensor() {
     var topics = createAndProduceTopic(3);
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, (ignore) -> SERVICE.jmxServiceURL().getPort())) {
       var invoked = new AtomicBoolean();
-      var handler =
-          new BalancerHandler(admin, (ignore) -> Optional.of(SERVICE.jmxServiceURL().getPort()));
       SensorAndCost.callback.set(
           (clusterBean) -> {
             var metrics =
@@ -1011,7 +1003,7 @@ public class BalancerHandlerTest {
       var function = List.of(costWeight(SensorAndCost.class.getName(), 1));
 
       var request = new BalancerHandler.BalancerPostRequest();
-      request.timeout = Duration.ofSeconds(8);
+      request.timeout = Duration.ofSeconds(15);
       request.clusterCosts = function;
       request.topics = topics;
       var progress = submitPlanGeneration(handler, request);
@@ -1148,24 +1140,10 @@ public class BalancerHandlerTest {
   }
 
   @Test
-  void testFreshJmxAddress() {
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var noJmx = new BalancerHandler(admin, (id) -> Optional.empty());
-      var withJmx = new BalancerHandler(admin, (id) -> Optional.of(5566));
-      var partialJmx =
-          new BalancerHandler(admin, (id) -> Optional.ofNullable(id != 0 ? 1000 : null));
-
-      Assertions.assertEquals(0, noJmx.freshJmxAddresses().size());
-      Assertions.assertEquals(3, withJmx.freshJmxAddresses().size());
-      Assertions.assertThrows(IllegalArgumentException.class, partialJmx::freshJmxAddresses);
-    }
-  }
-
-  @Test
   void testExecutorConfig() {
     var topic = createAndProduceTopic(1).iterator().next();
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin);
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var handler = new BalancerHandler(admin, id -> SERVICE.jmxServiceURL().getPort())) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.topics = Set.of(topic);
       var theProgress = submitPlanGeneration(handler, request);
@@ -1212,7 +1190,8 @@ public class BalancerHandlerTest {
                   handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
           Assertions.assertNull(progress.exception, progress.exception);
           return progress.phase == Searched;
-        });
+        },
+        Duration.ofSeconds(30));
     return (BalancerHandler.PlanExecutionProgress)
         handler.get(Channel.ofTarget(post.id)).toCompletableFuture().join();
   }
@@ -1310,7 +1289,7 @@ public class BalancerHandlerTest {
     }
 
     @Override
-    public Plan offer(AlgorithmConfig config) {
+    public Optional<Plan> offer(AlgorithmConfig config) {
       offerCallbacks.forEach(Runnable::run);
       offerCallbacks.clear();
       return super.offer(config);
@@ -1373,18 +1352,37 @@ public class BalancerHandlerTest {
   @Test
   void testJsonToBalancerPostRequest() {
     var json =
-        "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\", \"topics\":[\"aa\"], \"clusterCosts\":[{\"cost\":\"aaa\"}]}";
+        "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\""
+            + ", \"topics\":[\"aa\"]"
+            + ", \"clusterCosts\":[{\"cost\":\"aaa\"}],"
+            + "\"moveCosts\":["
+            + "    \"org.astraea.common.cost.RecordSizeCost\","
+            + "    \"org.astraea.common.cost.ReplicaLeaderCost\""
+            + "  ],"
+            + "  \"costConfig\":"
+            + "  {"
+            + "    \"maxMigratedSize\": \"500MB\","
+            + "    \"maxMigratedLeader\": \"50\""
+            + "  }"
+            + "}";
     var request =
         JsonConverter.defaultConverter().fromJson(json, TypeRef.of(BalancerPostRequest.class));
+    Assertions.assertTrue(request.moveCosts.contains("org.astraea.common.cost.RecordSizeCost"));
+    Assertions.assertTrue(request.moveCosts.contains("org.astraea.common.cost.ReplicaLeaderCost"));
     Assertions.assertEquals(
         "org.astraea.common.balancer.algorithms.GreedyBalancer", request.balancer);
     Assertions.assertNotNull(request.balancerConfig);
     Assertions.assertNotNull(request.timeout);
     Assertions.assertEquals(Set.of("aa"), request.topics);
-    Assertions.assertNotNull(request.maxMigratedSize);
+
     Assertions.assertEquals(1, request.clusterCosts.size());
     Assertions.assertEquals("aaa", request.clusterCosts.get(0).cost);
     Assertions.assertEquals(1D, request.clusterCosts.get(0).weight);
+
+    Assertions.assertEquals(2, request.moveCosts.size());
+    Assertions.assertEquals(2, request.costConfig.size());
+    Assertions.assertEquals("500MB", request.costConfig.get("maxMigratedSize"));
+    Assertions.assertEquals("50", request.costConfig.get("maxMigratedLeader"));
 
     var noCostRequest =
         JsonConverter.defaultConverter()

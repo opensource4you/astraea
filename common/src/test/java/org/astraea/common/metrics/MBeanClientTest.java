@@ -35,12 +35,15 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
+import javax.management.AttributeNotFoundException;
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.InstanceNotFoundException;
+import javax.management.MBeanException;
 import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
+import javax.management.ReflectionException;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
@@ -150,9 +153,11 @@ class MBeanClientTest {
   }
 
   @Test
-  void testFetchSelectedAttributes() {
+  void testFetchSelectedAttributes()
+      throws ReflectionException, InstanceNotFoundException, IOException,
+          AttributeNotFoundException, MBeanException {
     // arrange
-    try (var client = (MBeanClient.AbstractMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
       List<String> selectedAttribute = List.of("HeapMemoryUsage");
@@ -223,14 +228,15 @@ class MBeanClientTest {
   @Test
   void testFetchNonExistsBeans() {
     // arrange
-    try (var client = (MBeanClient.AbstractMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Something").build();
 
       // act assert
       assertThrows(NoSuchElementException.class, () -> client.bean(beanQuery));
       assertThrows(
-          NoSuchElementException.class, () -> client.queryBean(beanQuery, Collections.emptyList()));
+          javax.management.InstanceNotFoundException.class,
+          () -> client.queryBean(beanQuery, Collections.emptyList()));
     }
   }
 
@@ -357,7 +363,7 @@ class MBeanClientTest {
   @Test
   void testListDomains() {
     // arrange
-    try (var client = (MBeanClient.AbstractMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
 
       // act
       List<String> domains = client.domains();
@@ -371,7 +377,7 @@ class MBeanClientTest {
   @Test
   void testHostAndPort() {
     // arrange
-    try (var client = (MBeanClient.AbstractMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
       assertEquals(jmxServer.getAddress().getHost(), client.host);
       assertEquals(jmxServer.getAddress().getPort(), client.port);
     }

@@ -19,9 +19,7 @@ package org.astraea.common.cost;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.BeanObject;
@@ -74,129 +72,6 @@ public class ReplicaLeaderCostTest {
     Assertions.assertTrue(brokerCost.get(10) > brokerCost.get(11));
     Assertions.assertEquals(brokerCost.get(12), 0);
     Assertions.assertEquals(clusterCost, 0.816496580927726);
-  }
-
-  @Test
-  void testMoveCost() {
-    var costFunction = new ReplicaLeaderCost();
-    var before =
-        List.of(
-            Replica.builder()
-                .topic("topic1")
-                .partition(0)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
-                .lag(-1)
-                .size(-1)
-                .isLeader(true)
-                .isSync(true)
-                .isFuture(false)
-                .isOffline(false)
-                .isPreferredLeader(false)
-                .path("")
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(0)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
-                .lag(-1)
-                .size(-1)
-                .isLeader(false)
-                .isSync(true)
-                .isFuture(false)
-                .isOffline(false)
-                .isPreferredLeader(false)
-                .path("")
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(1)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
-                .lag(-1)
-                .size(-1)
-                .isLeader(true)
-                .isSync(true)
-                .isFuture(false)
-                .isOffline(false)
-                .isPreferredLeader(false)
-                .path("")
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(1)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
-                .lag(-1)
-                .size(-1)
-                .isLeader(false)
-                .isSync(true)
-                .isFuture(false)
-                .isOffline(false)
-                .isPreferredLeader(false)
-                .path("")
-                .build());
-    var after =
-        List.of(
-            Replica.builder()
-                .topic("topic1")
-                .partition(0)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
-                .lag(-1)
-                .size(-1)
-                .isLeader(true)
-                .isSync(true)
-                .isFuture(false)
-                .isOffline(false)
-                .isPreferredLeader(false)
-                .path("")
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(0)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
-                .lag(-1)
-                .size(-1)
-                .isLeader(false)
-                .isSync(true)
-                .isFuture(false)
-                .isOffline(false)
-                .isPreferredLeader(false)
-                .path("")
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(1)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
-                .lag(-1)
-                .size(-1)
-                .isLeader(true)
-                .isSync(true)
-                .isFuture(false)
-                .isOffline(false)
-                .isPreferredLeader(false)
-                .path("")
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(1)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
-                .lag(-1)
-                .size(-1)
-                .isLeader(false)
-                .isSync(true)
-                .isFuture(false)
-                .isOffline(false)
-                .isPreferredLeader(false)
-                .path("")
-                .build());
-    var beforeClusterInfo = ClusterInfoTest.of(before);
-    var afterClusterInfo = ClusterInfoTest.of(after);
-    var moveCost = costFunction.moveCost(beforeClusterInfo, afterClusterInfo, ClusterBean.EMPTY);
-    Assertions.assertEquals(3, moveCost.changedReplicaLeaderCount().size());
-    Assertions.assertTrue(moveCost.changedReplicaLeaderCount().containsKey(0));
-    Assertions.assertTrue(moveCost.changedReplicaLeaderCount().containsKey(1));
-    Assertions.assertTrue(moveCost.changedReplicaLeaderCount().containsKey(2));
-    Assertions.assertEquals(-1, moveCost.changedReplicaLeaderCount().get(0));
-    Assertions.assertEquals(0, moveCost.changedReplicaLeaderCount().get(1));
-    Assertions.assertEquals(1, moveCost.changedReplicaLeaderCount().get(2));
   }
 
   private ServerMetrics.ReplicaManager.Gauge mockResult(String name, int count) {

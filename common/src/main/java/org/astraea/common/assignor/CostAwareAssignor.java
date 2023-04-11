@@ -40,6 +40,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 
@@ -83,7 +84,7 @@ public class CostAwareAssignor extends Assignor {
     // wait for clusterBean
     retry(clusterInfo);
 
-    var clusterBean = metricCollector.clusterBean();
+    var clusterBean = metricStore.clusterBean();
     var partitionCost = costFunction.partitionCost(clusterInfo, clusterBean).value();
     var costPerBroker = wrapCostBaseOnNode(clusterInfo, subscribedTopics, partitionCost);
     var intervalPerBroker = estimateIntervalTraffic(clusterInfo, clusterBean, costPerBroker);
@@ -98,7 +99,9 @@ public class CostAwareAssignor extends Assignor {
    */
   private void registerUnregisterNode(ClusterInfo clusterInfo) {
     var unregister = checkUnregister(clusterInfo.nodes());
-    if (!unregister.isEmpty()) registerJMX(unregister);
+    if (!unregister.isEmpty()) {
+      unregister.forEach((id, host) -> MBeanClient.jndi(host, jmxPortGetter.apply(id)));
+    }
   }
 
   /**
@@ -391,10 +394,11 @@ public class CostAwareAssignor extends Assignor {
   }
 
   private void retry(ClusterInfo clusterInfo) {
-    var timeoutMs = System.currentTimeMillis() + maxWaitBean.toMillis();
+    // temp
+    var timeoutMs = System.currentTimeMillis() + 20000;
     while (System.currentTimeMillis() < timeoutMs) {
       try {
-        var clusterBean = metricCollector.clusterBean();
+        var clusterBean = metricStore.clusterBean();
         var partitionCost = costFunction.partitionCost(clusterInfo, clusterBean);
         if (partitionCost.value().values().stream().noneMatch(v -> Double.isNaN(v))) return;
       } catch (NoSufficientMetricsException e) {

@@ -47,7 +47,7 @@ class GreedyBalancerTest {
 
     Assertions.assertEquals(
         GreedyBalancer.ALL_CONFIGS.size(),
-        Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")).size(),
+        Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG"), String.class).size(),
         "No duplicate element");
   }
 
@@ -73,7 +73,7 @@ class GreedyBalancerTest {
                             .executionId(id)
                             .clusterCost(cost)
                             .build());
-                Assertions.assertTrue(plan.solution().isPresent());
+                Assertions.assertTrue(plan.isPresent());
                 var bean =
                     Assertions.assertDoesNotThrow(
                         () ->

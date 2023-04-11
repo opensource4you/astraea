@@ -67,7 +67,8 @@ public final class ProducerConfigs {
   public static final String SECURITY_PROVIDERS_CONFIG = "security.providers";
 
   public static final Set<String> ALL_CONFIGS =
-      new TreeSet<>(Utils.constants(ProducerConfigs.class, name -> name.endsWith("CONFIG")));
+      new TreeSet<>(
+          Utils.constants(ProducerConfigs.class, name -> name.endsWith("CONFIG"), String.class));
 
   // ---------------------------------[values]---------------------------------//
   public static final String COMPRESSION_TYPE_NONE = "none";

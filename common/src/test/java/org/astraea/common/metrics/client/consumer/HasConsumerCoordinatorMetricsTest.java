@@ -61,9 +61,9 @@ public class HasConsumerCoordinatorMetricsTest {
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
-      Assertions.assertEquals(10, consumer.poll(10, Duration.ofSeconds(5)).size());
+      Assertions.assertEquals(10, consumer.poll(Duration.ofSeconds(5)).size());
       consumer.commitOffsets(Duration.ofSeconds(2));
-      var metrics = ConsumerMetrics.coordinators(MBeanClient.local());
+      var metrics = ConsumerMetrics.coordinator(MBeanClient.local());
       Assertions.assertEquals(1, metrics.size());
       var m = metrics.iterator().next();
       Assertions.assertNotNull(m.clientId());

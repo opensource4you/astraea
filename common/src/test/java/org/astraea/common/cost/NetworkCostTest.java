@@ -47,7 +47,6 @@ import org.astraea.common.metrics.MetricFactory;
 import org.astraea.common.metrics.MetricSeriesBuilder;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
-import org.astraea.common.metrics.collector.MetricCollector;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -56,6 +55,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -85,7 +85,7 @@ class NetworkCostTest {
             Map.entry(TopicPartition.of("Pipeline-0"), 144000000L));
     Assertions.assertEquals(
         expected,
-        new NetworkIngressCost()
+        new NetworkIngressCost(Configuration.EMPTY)
             .estimateRate(t.clusterInfo(), t.clusterBean(), ServerMetrics.Topic.BYTES_IN_PER_SEC));
   }
 
@@ -106,20 +106,28 @@ class NetworkCostTest {
             Map.entry(TopicPartition.of("Pipeline-0"), 455730337L));
     Assertions.assertEquals(
         expected,
-        new NetworkEgressCost()
+        new NetworkEgressCost(Configuration.EMPTY)
             .estimateRate(t.clusterInfo(), t.clusterBean(), ServerMetrics.Topic.BYTES_OUT_PER_SEC));
   }
 
   static Stream<Arguments> testcases() {
     return Stream.of(
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(2, 100, 0xfeedbabe)),
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(3, 100, 0xabcdef01)),
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(10, 200, 0xcafebabe)),
-        Arguments.of(new NetworkIngressCost(), new LargeTestCase(15, 300, 0xfee1dead)),
-        Arguments.of(new NetworkEgressCost(), new LargeTestCase(5, 100, 0xfa11fa11)),
-        Arguments.of(new NetworkEgressCost(), new LargeTestCase(6, 100, 0xf001f001)),
-        Arguments.of(new NetworkEgressCost(), new LargeTestCase(8, 200, 0xba1aba1a)),
-        Arguments.of(new NetworkEgressCost(), new LargeTestCase(14, 300, 0xdd0000bb)));
+        Arguments.of(
+            new NetworkIngressCost(Configuration.EMPTY), new LargeTestCase(2, 100, 0xfeedbabe)),
+        Arguments.of(
+            new NetworkIngressCost(Configuration.EMPTY), new LargeTestCase(3, 100, 0xabcdef01)),
+        Arguments.of(
+            new NetworkIngressCost(Configuration.EMPTY), new LargeTestCase(10, 200, 0xcafebabe)),
+        Arguments.of(
+            new NetworkIngressCost(Configuration.EMPTY), new LargeTestCase(15, 300, 0xfee1dead)),
+        Arguments.of(
+            new NetworkEgressCost(Configuration.EMPTY), new LargeTestCase(5, 100, 0xfa11fa11)),
+        Arguments.of(
+            new NetworkEgressCost(Configuration.EMPTY), new LargeTestCase(6, 100, 0xf001f001)),
+        Arguments.of(
+            new NetworkEgressCost(Configuration.EMPTY), new LargeTestCase(8, 200, 0xba1aba1a)),
+        Arguments.of(
+            new NetworkEgressCost(Configuration.EMPTY), new LargeTestCase(14, 300, 0xdd0000bb)));
   }
 
   @ParameterizedTest
@@ -136,12 +144,11 @@ class NetworkCostTest {
                     .clusterCost(costFunction)
                     .build());
 
-    Assertions.assertTrue(newPlan.solution().isPresent());
-    System.out.println("Initial cost: " + newPlan.initialClusterCost().value());
-    System.out.println("New cost: " + newPlan.solution().get().proposalClusterCost().value());
+    Assertions.assertTrue(newPlan.isPresent());
+    System.out.println("Initial cost: " + newPlan.get().initialClusterCost().value());
+    System.out.println("New cost: " + newPlan.get().proposalClusterCost().value());
     Assertions.assertTrue(
-        newPlan.initialClusterCost().value()
-            > newPlan.solution().get().proposalClusterCost().value());
+        newPlan.get().initialClusterCost().value() > newPlan.get().proposalClusterCost().value());
   }
 
   @Test
@@ -150,8 +157,8 @@ class NetworkCostTest {
     var costFunction =
         HasClusterCost.of(
             Map.of(
-                new NetworkIngressCost(), 1.0,
-                new NetworkEgressCost(), 1.0));
+                new NetworkIngressCost(Configuration.EMPTY), 1.0,
+                new NetworkEgressCost(Configuration.EMPTY), 1.0));
     testOptimization(costFunction, testCase);
   }
 
@@ -234,8 +241,10 @@ class NetworkCostTest {
         (expectedIngress1 - expectedIngress3) / Math.max(ingressSum, egressSum);
     double expectedEgressScore =
         (expectedEgress3 - expectedEgress2) / Math.max(ingressSum, egressSum);
-    double ingressScore = new NetworkIngressCost().clusterCost(cluster, beans).value();
-    double egressScore = new NetworkEgressCost().clusterCost(cluster, beans).value();
+    double ingressScore =
+        new NetworkIngressCost(Configuration.EMPTY).clusterCost(cluster, beans).value();
+    double egressScore =
+        new NetworkEgressCost(Configuration.EMPTY).clusterCost(cluster, beans).value();
     Assertions.assertTrue(
         around.apply(expectedIngressScore).test(ingressScore),
         "Ingress score should be " + expectedIngressScore + " but it is " + ingressScore);
@@ -294,25 +303,27 @@ class NetworkCostTest {
                             .build(),
                         noise(5566))));
     Assertions.assertDoesNotThrow(
-        () -> new NetworkIngressCost().clusterCost(cluster, beans),
+        () -> new NetworkIngressCost(Configuration.EMPTY).clusterCost(cluster, beans),
         "Metric sampled but no load value, treat as zero load");
     Assertions.assertDoesNotThrow(
-        () -> new NetworkEgressCost().clusterCost(cluster, beans),
+        () -> new NetworkEgressCost(Configuration.EMPTY).clusterCost(cluster, beans),
         "Metric sampled but no load value, treat as zero load");
-    Assertions.assertEquals(0, new NetworkIngressCost().clusterCost(cluster, beans).value());
-    Assertions.assertEquals(0, new NetworkEgressCost().clusterCost(cluster, beans).value());
+    Assertions.assertEquals(
+        0, new NetworkIngressCost(Configuration.EMPTY).clusterCost(cluster, beans).value());
+    Assertions.assertEquals(
+        0, new NetworkEgressCost(Configuration.EMPTY).clusterCost(cluster, beans).value());
 
     Assertions.assertThrows(
         NoSufficientMetricsException.class,
         () ->
-            new NetworkIngressCost()
+            new NetworkIngressCost(Configuration.EMPTY)
                 .clusterCost(
                     cluster, ClusterBean.of(Map.of(1, List.of(), 2, List.of(), 3, List.of()))),
         "Should raise a exception since we don't know if first sample is performed or not");
     Assertions.assertThrows(
         NoSufficientMetricsException.class,
         () ->
-            new NetworkEgressCost()
+            new NetworkEgressCost(Configuration.EMPTY)
                 .clusterCost(
                     cluster, ClusterBean.of(Map.of(1, List.of(), 2, List.of(), 3, List.of()))),
         "Should raise a exception since we don't know if first sample is performed or not");
@@ -330,7 +341,12 @@ class NetworkCostTest {
     var largeShuffle =
         new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 31), (x) -> true);
     var costFunction =
-        HasClusterCost.of(Map.of(new NetworkIngressCost(), 1.0, new NetworkEgressCost(), 1.0));
+        HasClusterCost.of(
+            Map.of(
+                new NetworkIngressCost(Configuration.EMPTY),
+                1.0,
+                new NetworkEgressCost(Configuration.EMPTY),
+                1.0));
     var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);
 
     Function<ShuffleTweaker, Double> experiment =
@@ -397,35 +413,20 @@ class NetworkCostTest {
     var node = scaledCluster.node(4321);
 
     var costI =
-        (NetworkCost.NetworkClusterCost) new NetworkIngressCost().clusterCost(scaledCluster, beans);
+        (NetworkCost.NetworkClusterCost)
+            new NetworkIngressCost(Configuration.EMPTY).clusterCost(scaledCluster, beans);
     Assertions.assertEquals(2, costI.brokerRate.size());
     Assertions.assertEquals(0L, costI.brokerRate.get(node.id()));
     var costE =
-        (NetworkCost.NetworkClusterCost) new NetworkEgressCost().clusterCost(scaledCluster, beans);
+        (NetworkCost.NetworkClusterCost)
+            new NetworkEgressCost(Configuration.EMPTY).clusterCost(scaledCluster, beans);
     Assertions.assertEquals(2, costE.brokerRate.size());
     Assertions.assertEquals(0L, costE.brokerRate.get(node.id()));
   }
 
   @Test
-  void testNoMetricCheck() {
-    var ingressCost = new NetworkIngressCost();
-    var collectorBuilder = MetricCollector.local().interval(Duration.ofMillis(100));
-    ingressCost.metricSensor().ifPresent(collectorBuilder::addMetricSensor);
-    try (var collector = collectorBuilder.build()) {
-
-      // sample metrics for a while.
-      Utils.sleep(Duration.ofMillis(500));
-
-      var emptyCluster = ClusterInfoBuilder.builder().addNode(Set.of(1, 2, 3)).build();
-      Assertions.assertDoesNotThrow(
-          () -> ingressCost.clusterCost(emptyCluster, collector.clusterBean()),
-          "Should not raise an exception");
-    }
-  }
-
-  @Test
   void testPartitionCost() {
-    var ingressCost = new NetworkIngressCost();
+    var ingressCost = new NetworkIngressCost(Configuration.EMPTY);
 
     // create topic `test` and 9 partitions, the size of each partition is ( partition id +1 ) *
     // 10KB
@@ -477,6 +478,76 @@ class NetworkCostTest {
     Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-6")), (double) 7 / 12);
     Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-7")), (double) 8 / 15);
     Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-8")), (double) 9 / 18);
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "BYTES_IN_PER_SEC, org.astraea.common.cost.NetworkIngressCost",
+    "BYTES_IN_PER_SEC, org.astraea.common.cost.NetworkEgressCost",
+    "BYTES_OUT_PER_SEC, org.astraea.common.cost.NetworkEgressCost",
+    "BYTES_OUT_PER_SEC, org.astraea.common.cost.NetworkEgressCost",
+  })
+  void testEstimationMethod(ServerMetrics.Topic metric, Class<? extends NetworkCost> clz) {
+    var cluster =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(1))
+            .addFolders(Map.of(1, Set.of("/folder")))
+            .addTopic("Topic", 1, (short) 1)
+            .mapLog(r -> Replica.builder(r).size(100).build())
+            .build();
+    var partition = TopicPartition.of("Topic", 0);
+
+    var domainName = "kafka.server";
+    var one = (double) ThreadLocalRandom.current().nextInt(1, 10000);
+    var five = (double) ThreadLocalRandom.current().nextInt(1, 10000);
+    var fifteen = (double) ThreadLocalRandom.current().nextInt(1, 10000);
+    var beans =
+        ClusterBean.of(
+            Map.of(
+                1,
+                List.of(
+                    MetricFactory.ofPartitionMetric(partition.topic(), partition.partition(), 1),
+                    new ServerMetrics.Topic.Meter(
+                        new BeanObject(
+                            domainName,
+                            Map.of(
+                                "type",
+                                "BrokerTopicMetrics",
+                                "topic",
+                                "Topic",
+                                "name",
+                                metric.alias()),
+                            Map.of(
+                                "OneMinuteRate", one,
+                                "FiveMinuteRate", five,
+                                "FifteenMinuteRate", fifteen))))));
+
+    var oneCost =
+        Utils.construct(
+            clz,
+            Configuration.of(
+                Map.of(
+                    NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BROKER_TOPIC_ONE_MINUTE_RATE")));
+    var fiveCost =
+        Utils.construct(
+            clz,
+            Configuration.of(
+                Map.of(
+                    NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BROKER_TOPIC_FIVE_MINUTE_RATE")));
+    var fifteenCost =
+        Utils.construct(
+            clz,
+            Configuration.of(
+                Map.of(
+                    NetworkCost.NETWORK_COST_ESTIMATION_METHOD,
+                    "BROKER_TOPIC_FIFTEEN_MINUTE_RATE")));
+
+    Assertions.assertEquals(
+        one, oneCost.estimateRate(cluster, beans, metric).get(partition).doubleValue());
+    Assertions.assertEquals(
+        five, fiveCost.estimateRate(cluster, beans, metric).get(partition).doubleValue());
+    Assertions.assertEquals(
+        fifteen, fifteenCost.estimateRate(cluster, beans, metric).get(partition).doubleValue());
   }
 
   interface TestCase {
@@ -555,6 +626,20 @@ class NetworkCostTest {
                           .builder()
                           .topic(topic)
                           .time(time.toEpochSecond(ZoneOffset.UTC))
+                          .oneMinuteRate(
+                              clusterInfo
+                                  .replicaStream(BrokerTopic.of(broker, topic))
+                                  .filter(Replica::isLeader)
+                                  .filter(Replica::isOnline)
+                                  .mapToDouble(r -> rate.get(r.topicPartition()))
+                                  .sum())
+                          .fiveMinuteRate(
+                              clusterInfo
+                                  .replicaStream(BrokerTopic.of(broker, topic))
+                                  .filter(Replica::isLeader)
+                                  .filter(Replica::isOnline)
+                                  .mapToDouble(r -> rate.get(r.topicPartition()))
+                                  .sum())
                           .fifteenMinuteRate(
                               clusterInfo
                                   .replicaStream(BrokerTopic.of(broker, topic))
@@ -569,6 +654,26 @@ class NetworkCostTest {
                           .builder()
                           .topic(topic)
                           .time(time.toEpochSecond(ZoneOffset.UTC))
+                          .oneMinuteRate(
+                              clusterInfo
+                                  .replicaStream(BrokerTopic.of(broker, topic))
+                                  .filter(Replica::isLeader)
+                                  .filter(Replica::isOnline)
+                                  .mapToDouble(
+                                      r ->
+                                          rate.get(r.topicPartition())
+                                              * consumerFanout.get(r.topicPartition()))
+                                  .sum())
+                          .fiveMinuteRate(
+                              clusterInfo
+                                  .replicaStream(BrokerTopic.of(broker, topic))
+                                  .filter(Replica::isLeader)
+                                  .filter(Replica::isOnline)
+                                  .mapToDouble(
+                                      r ->
+                                          rate.get(r.topicPartition())
+                                              * consumerFanout.get(r.topicPartition()))
+                                  .sum())
                           .fifteenMinuteRate(
                               clusterInfo
                                   .replicaStream(BrokerTopic.of(broker, topic))
@@ -627,12 +732,16 @@ class NetworkCostTest {
   }
 
   static ServerMetrics.Topic.Meter bandwidth(
-      ServerMetrics.Topic metric, String topic, double fifteenRate) {
+      ServerMetrics.Topic metric, String topic, double steadyStateRate) {
     if (metric == null) return noise(0);
     var domainName = "kafka.server";
     var properties =
-        Map.of("type", "BrokerTopicMetric", "topic", topic, "name", metric.metricName());
-    var attributes = Map.<String, Object>of("FifteenMinuteRate", fifteenRate);
+        Map.of("type", "BrokerTopicMetrics", "topic", topic, "name", metric.metricName());
+    var attributes =
+        Map.<String, Object>of(
+            "OneMinuteRate", steadyStateRate,
+            "FiveMinuteRate", steadyStateRate,
+            "FifteenMinuteRate", steadyStateRate);
     return new ServerMetrics.Topic.Meter(new BeanObject(domainName, properties, attributes));
   }
 

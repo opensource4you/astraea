@@ -58,7 +58,8 @@ public final class TopicConfigs {
       "follower.replication.throttled.replicas";
 
   public static final Set<String> ALL_CONFIGS =
-      new TreeSet<>(Utils.constants(TopicConfigs.class, name -> name.endsWith("CONFIG")));
+      new TreeSet<>(
+          Utils.constants(TopicConfigs.class, name -> name.endsWith("CONFIG"), String.class));
 
   // ---------------------------------[values]---------------------------------//
   public static final String CLEANUP_POLICY_COMPACT = "compact";

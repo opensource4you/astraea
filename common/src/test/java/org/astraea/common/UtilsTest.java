@@ -19,6 +19,7 @@ package org.astraea.common;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -26,6 +27,9 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.cost.CostFunction;
 import org.astraea.common.cost.HasBrokerCost;
+import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.cost.RecordSizeCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -260,5 +264,36 @@ public class UtilsTest {
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () -> Utils.costFunctions(config2.raw(), HasBrokerCost.class, config2));
+
+    // test moveCost
+    var cf =
+        Set.of(
+            "org.astraea.common.cost.RecordSizeCost", "org.astraea.common.cost.ReplicaLeaderCost");
+    var mConfig = Configuration.of(Map.of("maxMigratedSize", "50MB", "maxMigratedLeader", "5"));
+    var mAns = Utils.costFunctions(cf, HasMoveCost.class, mConfig);
+    Assertions.assertEquals(2, mAns.size());
+
+    // test configs
+    Assertions.assertEquals(
+        "50MB",
+        mAns.stream()
+            .filter(c -> c instanceof RecordSizeCost)
+            .map(c -> (RecordSizeCost) c)
+            .findFirst()
+            .get()
+            .config()
+            .string("maxMigratedSize")
+            .get());
+
+    Assertions.assertEquals(
+        "5",
+        mAns.stream()
+            .filter(c -> c instanceof ReplicaLeaderCost)
+            .map(c -> (ReplicaLeaderCost) c)
+            .findFirst()
+            .get()
+            .config()
+            .string("maxMigratedLeader")
+            .get());
   }
 }
