@@ -78,18 +78,29 @@ public class BalancerExperimentTest {
 
       Map<HasClusterCost, Double> costMap =
           Map.of(
-              new NetworkIngressCost(Configuration.EMPTY), 3.0,
-              new NetworkEgressCost(Configuration.EMPTY), 3.0
-              // new ReplicaNumberCost(Configuration.EMPTY), 1.0
-          );
+              new NetworkIngressCost(Configuration.EMPTY), 1.0,
+              new NetworkEgressCost(Configuration.EMPTY), 1.0,
+              new ReplicaNumberCost(Configuration.EMPTY), 1.05);
       var costFunction = HasClusterCost.of(costMap);
-      var balancer = new GreedyBalancer(Configuration.EMPTY);
 
-      var result =
+      var networkBest =
           BalancerBenchmark.costProfiling()
               .setClusterInfo(clusterInfo)
               .setClusterBean(clusterBean)
               .setBalancer(new NetworkBalancer())
+              .setExecutionTimeout(Duration.ofSeconds(60))
+              .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(costFunction).build())
+              .start()
+              .toCompletableFuture()
+              .join();
+      System.out.println("Network Readt: " + networkBest.plan().orElseThrow().proposalClusterCost());
+
+      var balancer = new GreedyBalancer(Configuration.EMPTY);
+      var result =
+          BalancerBenchmark.costProfiling()
+              .setClusterInfo(networkBest.plan().orElseThrow().proposal())
+              .setClusterBean(clusterBean)
+              .setBalancer(balancer)
               .setExecutionTimeout(Duration.ofSeconds(60))
               .setAlgorithmConfig(AlgorithmConfig.builder().clusterCost(costFunction).build())
               .start()
@@ -111,6 +122,9 @@ public class BalancerExperimentTest {
           "Final Cost: " + result.plan().map(Balancer.Plan::proposalClusterCost).orElse(null));
       var profilingFile = Utils.packException(() -> Files.createTempFile("profile-", ".csv"));
       System.out.println("Profiling File: " + profilingFile.toString());
+      System.out.println("Total affected partitions: " + ClusterInfo.findNonFulfilledAllocation(
+          clusterInfo,
+          result.plan().orElseThrow().proposal()).size());
       System.out.println();
       try (var stream = Files.newBufferedWriter(profilingFile)) {
         var start = result.costTimeSeries().keySet().stream().mapToLong(x -> x).min().orElseThrow();
