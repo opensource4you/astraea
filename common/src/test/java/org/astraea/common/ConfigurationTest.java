@@ -60,4 +60,10 @@ public class ConfigurationTest {
     Assertions.assertEquals(Utils.toDuration("3s"), response.orElseThrow());
     Assertions.assertTrue(empty.isEmpty());
   }
+
+  @Test
+  void testLong() {
+    var config = Configuration.of(Map.of("long.value", "2147483648"));
+    Assertions.assertEquals(2147483648L, config.longInteger("long.value").orElse(0L));
+  }
 }
