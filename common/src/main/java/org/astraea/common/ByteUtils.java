@@ -29,6 +29,8 @@ import org.astraea.common.metrics.BeanObject;
 
 public final class ByteUtils {
 
+  // ----------------------------------Java Primitive------------------------------------------- //
+
   public static byte[] toBytes(short value) {
     return new byte[] {(byte) (value >>> 8), (byte) value};
   }
@@ -93,27 +95,6 @@ public final class ByteUtils {
     beanBuilder.putAllProperties(value.properties());
     value.attributes().forEach((key, val) -> beanBuilder.putAttributes(key, primitive(val)));
     return beanBuilder.build().toByteArray();
-  }
-
-  /** Convert java primitive type to "one of" protocol buffer primitive type. */
-  static PrimitiveOuterClass.Primitive primitive(Object v) {
-    if (v instanceof Integer)
-      return PrimitiveOuterClass.Primitive.newBuilder().setInt((int) v).build();
-    else if (v instanceof Long)
-      return PrimitiveOuterClass.Primitive.newBuilder().setLong((long) v).build();
-    else if (v instanceof Float)
-      return PrimitiveOuterClass.Primitive.newBuilder().setFloat((float) v).build();
-    else if (v instanceof Double)
-      return PrimitiveOuterClass.Primitive.newBuilder().setDouble((double) v).build();
-    else if (v instanceof Boolean)
-      return PrimitiveOuterClass.Primitive.newBuilder().setBoolean((boolean) v).build();
-    else if (v instanceof String)
-      return PrimitiveOuterClass.Primitive.newBuilder().setStr(v.toString()).build();
-    else
-      throw new IllegalArgumentException(
-          "Type "
-              + v.getClass()
-              + " is not supported. Please use Integer, Long, Float, Double, Boolean, String instead.");
   }
 
   public static int readInt(ReadableByteChannel channel) {
@@ -194,6 +175,29 @@ public final class ByteUtils {
                     Map.Entry::getKey, e -> Objects.requireNonNull(toObject(e.getValue())))));
   }
 
+  // --------------------------------ProtoBuf Primitive----------------------------------------- //
+
+  /** Convert java primitive type to "one of" protocol buffer primitive type. */
+  static PrimitiveOuterClass.Primitive primitive(Object v) {
+    if (v instanceof Integer)
+      return PrimitiveOuterClass.Primitive.newBuilder().setInt((int) v).build();
+    else if (v instanceof Long)
+      return PrimitiveOuterClass.Primitive.newBuilder().setLong((long) v).build();
+    else if (v instanceof Float)
+      return PrimitiveOuterClass.Primitive.newBuilder().setFloat((float) v).build();
+    else if (v instanceof Double)
+      return PrimitiveOuterClass.Primitive.newBuilder().setDouble((double) v).build();
+    else if (v instanceof Boolean)
+      return PrimitiveOuterClass.Primitive.newBuilder().setBoolean((boolean) v).build();
+    else if (v instanceof String)
+      return PrimitiveOuterClass.Primitive.newBuilder().setStr(v.toString()).build();
+    else
+      throw new IllegalArgumentException(
+          "Type "
+              + v.getClass()
+              + " is not supported. Please use Integer, Long, Float, Double, Boolean, String instead.");
+  }
+
   /** Retrieve field from "one of" field. */
   static Object toObject(PrimitiveOuterClass.Primitive v) {
     var oneOfCase = v.getValueCase();
@@ -215,6 +219,8 @@ public final class ByteUtils {
         throw new IllegalArgumentException("The value is not set.");
     }
   }
+
+  // ------------------------------------ByteBuffer--------------------------------------------- //
 
   public static ByteBuffer of(short value) {
     var buf = ByteBuffer.allocate(Short.BYTES);
