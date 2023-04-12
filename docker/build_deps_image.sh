@@ -47,8 +47,6 @@ RUN git clone https://github.com/skiptests/astraea.git /astraea
 RUN ./gradlew clean build -x test
 # download test dependencies
 RUN ./gradlew clean build testClasses -x test --no-daemon
-# download database
-RUN ./gradlew cleanTest it:test --tests DatabaseTest --no-daemon
 
 WORKDIR /root
 " >"$DOCKERFILE"
@@ -56,7 +54,7 @@ WORKDIR /root
 
 function buildBaseImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+    docker build --platform=linux/arm64/v8,linux/amd64 --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
     docker push $IMAGE_NAME
   else
     echo "$IMAGE_NAME is existent in local"
