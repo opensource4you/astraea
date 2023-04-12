@@ -84,6 +84,32 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
             .filter(v -> v < standardDeviation)
             .max(Comparator.naturalOrder())
             .orElse(avg);
+
+    var incompatible =
+        partitionTrafficPerBroker.values().stream()
+            .flatMap(
+                tpTraffic ->
+                    tpTraffic.entrySet().stream()
+                        .map(
+                            tp ->
+                                tp.getValue() < upperBound
+                                    ? Map.entry(
+                                        tp.getKey(),
+                                        tpTraffic.entrySet().stream()
+                                            .filter(
+                                                others -> // using traffic interval to filter
+                                                Math.abs(tp.getValue() - others.getValue())
+                                                        > trafficInterval.bytes())
+                                            .map(Map.Entry::getKey)
+                                            .collect(Collectors.toUnmodifiableSet()))
+                                    : Map.entry(
+                                        tp.getKey(),
+                                        tpTraffic.entrySet().stream()
+                                            .filter(others -> others.getValue() < upperBound)
+                                            .map(Map.Entry::getKey)
+                                            .collect(Collectors.toUnmodifiableSet()))))
+            .filter(entry -> !entry.getValue().isEmpty())
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     return new PartitionCost() {
       @Override
       public Map<TopicPartition, Double> value() {
@@ -103,31 +129,6 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
         // 4. When the traffic of the partition is less than the `upper bound`, the partition isn't
         // suitable to be assigned together with partitions that have the difference value higher
         // than traffic interval
-        var incompatible =
-            partitionTrafficPerBroker.values().stream()
-                .flatMap(
-                    tpTraffic ->
-                        tpTraffic.entrySet().stream()
-                            .map(
-                                tp ->
-                                    tp.getValue() < upperBound
-                                        ? Map.entry(
-                                            tp.getKey(),
-                                            tpTraffic.entrySet().stream()
-                                                .filter(
-                                                    others -> // using traffic interval to filter
-                                                    Math.abs(tp.getValue() - others.getValue())
-                                                            > trafficInterval.bytes())
-                                                .map(Map.Entry::getKey)
-                                                .collect(Collectors.toUnmodifiableSet()))
-                                        : Map.entry(
-                                            tp.getKey(),
-                                            tpTraffic.entrySet().stream()
-                                                .filter(others -> others.getValue() < upperBound)
-                                                .map(Map.Entry::getKey)
-                                                .collect(Collectors.toUnmodifiableSet()))))
-                .filter(entry -> !entry.getValue().isEmpty())
-                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
         return incompatible;
       }
     };
