@@ -72,6 +72,18 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
             .flatMap(cost -> cost.entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
+    var avg = partitionTraffic.values().stream().mapToDouble(i -> i).average().orElse(0.0);
+    var standardDeviation =
+        Math.sqrt(
+            partitionTraffic.values().stream()
+                .mapToDouble(i -> Math.pow(i - avg, 2))
+                .average()
+                .getAsDouble());
+    var upperBound =
+        partitionTraffic.values().stream()
+            .filter(v -> v < standardDeviation)
+            .max(Comparator.naturalOrder())
+            .orElse(avg);
     return new PartitionCost() {
       @Override
       public Map<TopicPartition, Double> value() {
@@ -80,19 +92,6 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
 
       @Override
       public Map<TopicPartition, Set<TopicPartition>> incompatibility() {
-        var avg = partitionTraffic.values().stream().mapToDouble(i -> i).average().orElse(0.0);
-        var standardDeviation =
-            Math.sqrt(
-                partitionTraffic.values().stream()
-                    .mapToDouble(i -> Math.pow(i - avg, 2))
-                    .average()
-                    .getAsDouble());
-        var upperBound =
-            partitionTraffic.values().stream()
-                .filter(v -> v < standardDeviation)
-                .max(Comparator.naturalOrder())
-                .orElse(avg);
-
         var incompatible =
             partitionTrafficPerBroker.values().stream()
                 .flatMap(
