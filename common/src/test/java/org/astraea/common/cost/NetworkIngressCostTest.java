@@ -80,7 +80,7 @@ public class NetworkIngressCostTest {
     var partitionCost = networkCost.partitionCost(clusterInfo, clusterBean);
     var incompatible = partitionCost.incompatibility();
 
-    Assertions.assertEquals(1, incompatible.size());
+    Assertions.assertEquals(10, incompatible.size());
     Assertions.assertEquals(8, incompatible.get(TopicPartition.of(topics.get(0), 0)).size());
   }
 
