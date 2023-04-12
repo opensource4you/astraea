@@ -109,7 +109,12 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
                                                             > trafficInterval.bytes())
                                                 .map(Map.Entry::getKey)
                                                 .collect(Collectors.toUnmodifiableSet()))
-                                        : Map.entry(tp.getKey(), Set.<TopicPartition>of())))
+                                        : Map.entry(
+                                            tp.getKey(),
+                                            tpTraffic.entrySet().stream()
+                                                .filter(others -> others.getValue() < upperBound)
+                                                .map(Map.Entry::getKey)
+                                                .collect(Collectors.toUnmodifiableSet()))))
                 .filter(entry -> !entry.getValue().isEmpty())
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
         return incompatible;
