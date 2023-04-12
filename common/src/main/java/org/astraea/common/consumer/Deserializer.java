@@ -17,14 +17,9 @@
 package org.astraea.common.consumer;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.common.header.Headers;
@@ -34,16 +29,14 @@ import org.apache.kafka.common.serialization.FloatDeserializer;
 import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.astraea.common.ByteUtils;
 import org.astraea.common.Header;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Config;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.backup.ByteUtils;
-import org.astraea.common.generated.BeanObjectOuterClass;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.BeanObject;
@@ -92,11 +85,11 @@ public interface Deserializer<T> {
   Deserializer<Long> LONG = of(new LongDeserializer());
   Deserializer<Float> FLOAT = of(new FloatDeserializer());
   Deserializer<Double> DOUBLE = of(new DoubleDeserializer());
-  Deserializer<BeanObject> BEAN_OBJECT = new BeanDeserializer();
   Deserializer<NodeInfo> NODE_INFO = new NodeInfoDeserializer();
   Deserializer<Topic> TOPIC = new TopicDeserializer();
   Deserializer<Replica> REPLICA = new ReplicaDeserializer();
   Deserializer<ClusterInfo> CLUSTER_INFO = new ClusterInfoDeserializer();
+  Deserializer<BeanObject> BEAN_OBJECT = (topic, headers, data) -> ByteUtils.readBeanObject(data);
 
   /**
    * create Custom JsonDeserializer
@@ -123,35 +116,6 @@ public interface Deserializer<T> {
       else {
         return jackson.fromJson(Deserializer.STRING.deserialize(topic, headers, data), typeRef);
       }
-    }
-  }
-
-  /**
-   * Deserialize byte arrays to string and then parse the string to `BeanObject`. It is inverse of
-   * BeanObject.toString().getBytes(). TODO: Should be replaced by protoBuf
-   */
-  class BeanDeserializer implements Deserializer<BeanObject> {
-    @Override
-    public BeanObject deserialize(String topic, List<Header> headers, byte[] data) {
-      var beanString = new String(data);
-      Pattern p =
-          Pattern.compile("\\[(?<domain>[^:]*):(?<properties>[^]]*)]\n\\{(?<attributes>[^}]*)}");
-      Matcher m = p.matcher(beanString);
-      if (!m.matches()) return null;
-      var domain = m.group("domain");
-      var propertiesPairs = m.group("properties").split("[, ]");
-      var attributesPairs = m.group("attributes").split("[, ]");
-      var properties =
-          Arrays.stream(propertiesPairs)
-              .map(kv -> kv.split("="))
-              .filter(kv -> kv.length >= 2)
-              .collect(Collectors.toUnmodifiableMap(kv -> kv[0], kv -> kv[1]));
-      var attributes =
-          Arrays.stream(attributesPairs)
-              .map(kv -> kv.split("="))
-              .filter(kv -> kv.length >= 2)
-              .collect(Collectors.toUnmodifiableMap(kv -> kv[0], kv -> (Object) kv[1]));
-      return new BeanObject(domain, properties, attributes);
     }
   }
 
@@ -276,42 +240,6 @@ public interface Deserializer<T> {
                   })
               .collect(Collectors.toList());
       return ClusterInfo.of(clusterId, nodes, topics, replicas);
-    }
-  }
-
-  class BeanObjectDeserializer implements Deserializer<BeanObject> {
-    @Override
-    public BeanObject deserialize(String topic, List<Header> headers, byte[] data) {
-      // Pack InvalidProtocolBufferException thrown by protoBuf
-      var outerBean = Utils.packException(() -> BeanObjectOuterClass.BeanObject.parseFrom(data));
-      return new BeanObject(
-          outerBean.getDomain(),
-          outerBean.getPropertiesMap(),
-          outerBean.getAttributesMap().entrySet().stream()
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      Map.Entry::getKey, e -> Objects.requireNonNull(toObject(e.getValue())))));
-    }
-
-    private Object toObject(BeanObjectOuterClass.BeanObject.Primitive v) {
-      var oneOfCase = v.getValueCase();
-      switch (oneOfCase) {
-        case INT:
-          return v.getInt();
-        case LONG:
-          return v.getLong();
-        case FLOAT:
-          return v.getFloat();
-        case DOUBLE:
-          return v.getDouble();
-        case BOOLEAN:
-          return v.getBoolean();
-        case STR:
-          return v.getStr();
-        case VALUE_NOT_SET:
-        default:
-          throw new IllegalArgumentException("The value is not set.");
-      }
     }
   }
 }
