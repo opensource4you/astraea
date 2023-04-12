@@ -18,6 +18,7 @@ package org.astraea.common.partitioner;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -31,10 +32,14 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.BrokerCost;
+import org.astraea.common.cost.CostFunction;
 import org.astraea.common.cost.HasBrokerCost;
+import org.astraea.common.cost.HasPartitionCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.NodeLatencyCost;
+import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricStore;
 
@@ -61,7 +66,8 @@ public class StrictCostPartitioner extends Partitioner {
   MetricStore metricStore = null;
 
   private Duration roundRobinLease = Duration.ofSeconds(4);
-  HasBrokerCost costFunction = new NodeLatencyCost();
+  HasBrokerCost brokerCost = new NodeLatencyCost();
+  HasPartitionCost partitionCost = new ReplicaLeaderSizeCost();
   Function<Integer, Integer> jmxPortGetter =
       (id) -> {
         throw new NoSuchElementException("must define either broker.x.jmx.port or jmx.port");
@@ -80,7 +86,7 @@ public class StrictCostPartitioner extends Partitioner {
     try {
       roundRobinKeeper.tryToUpdate(
           clusterInfo,
-          () -> costToScore(costFunction.brokerCost(clusterInfo, metricStore.clusterBean())));
+          () -> costToScore(brokerCost.brokerCost(clusterInfo, metricStore.clusterBean())));
     } catch (NoSufficientMetricsException e) {
       // There is not enough metrics for the cost functions computing teh broker cost. We should not
       // update the round-robin keeper. Reuse the weights that were kept in the round-robin keeper.
@@ -95,7 +101,27 @@ public class StrictCostPartitioner extends Partitioner {
     var candidate =
         target < 0 ? partitionLeaders : clusterInfo.replicaLeaders(BrokerTopic.of(target, topic));
     candidate = candidate.isEmpty() ? partitionLeaders : candidate;
-    return candidate.get((int) (Math.random() * candidate.size())).partition();
+    // Convert the data structure to make quick "contains" check
+    var candidateSet =
+        candidate.stream().map(Replica::topicPartition).collect(Collectors.toUnmodifiableSet());
+
+    // Choose a preferred partition from candidate by partition cost function
+    var preferredPartition =
+        partitionCost
+            .partitionCost(clusterInfo, metricStore.clusterBean())
+            .value()
+            .entrySet()
+            .stream()
+            .filter(e -> candidateSet.contains(e.getKey()))
+            .min(Comparator.comparingDouble(Map.Entry::getValue));
+
+    if (preferredPartition.isPresent()) {
+      return preferredPartition.get().getKey().partition();
+    } else {
+      // Partitions returned from partition cost function did not contain any candidates.
+      // Randomly choose from candidate.
+      return candidate.get((int) (Math.random() * candidate.size())).partition();
+    }
   }
 
   /**
@@ -125,8 +151,23 @@ public class StrictCostPartitioner extends Partitioner {
   public void configure(Configuration config) {
     var configuredFunctions =
         Utils.costFunctions(
-            config.filteredPrefixConfigs(COST_PREFIX).raw(), HasBrokerCost.class, config);
-    if (!configuredFunctions.isEmpty()) this.costFunction = HasBrokerCost.of(configuredFunctions);
+            config.filteredPrefixConfigs(COST_PREFIX).raw(), CostFunction.class, config);
+    if (!configuredFunctions.isEmpty()) {
+      this.brokerCost =
+          HasBrokerCost.of(
+              configuredFunctions.entrySet().stream()
+                  .filter(e -> e.getKey() instanceof HasBrokerCost)
+                  .collect(
+                      Collectors.toUnmodifiableMap(
+                          e -> (HasBrokerCost) e.getKey(), Map.Entry::getValue)));
+      this.partitionCost =
+          HasPartitionCost.of(
+              configuredFunctions.entrySet().stream()
+                  .filter(e -> e.getKey() instanceof HasPartitionCost)
+                  .collect(
+                      Collectors.toUnmodifiableMap(
+                          e -> (HasPartitionCost) e.getKey(), Map.Entry::getValue)));
+    }
     var customJmxPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJmxPort = config.integer(JMX_PORT);
     this.jmxPortGetter =
@@ -161,7 +202,7 @@ public class StrictCostPartitioner extends Partitioner {
             .localReceiver(clientSupplier)
             .sensorsSupplier(
                 () ->
-                    this.costFunction
+                    this.brokerCost
                         .metricSensor()
                         .map(s -> Map.of(s, (BiConsumer<Integer, Exception>) (integer, e) -> {}))
                         .orElse(Map.of()))
