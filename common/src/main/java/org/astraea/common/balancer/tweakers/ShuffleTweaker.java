@@ -152,33 +152,6 @@ public class ShuffleTweaker {
         .noneMatch(p -> p.test(replicas));
   }
 
-  public static class MovementConstraint {
-    public static final MovementConstraint DEFAULT = MovementConstraint.builder().build();
-
-    public final Predicate<String> allowedTopics;
-
-    MovementConstraint(Predicate<String> allowedTopics) {
-      this.allowedTopics = allowedTopics;
-    }
-
-    public static Builder builder() {
-      return new Builder();
-    }
-
-    public static class Builder {
-      private Predicate<String> allowedTopics = (i) -> true;
-
-      public Builder useAllowedTopicFilter(Predicate<String> allowedTopics) {
-        this.allowedTopics = allowedTopics;
-        return this;
-      }
-
-      public MovementConstraint build() {
-        return new MovementConstraint(allowedTopics);
-      }
-    }
-  }
-
   enum Operation implements EnumInfo {
     LEADERSHIP_CHANGE,
     REPLICA_LIST_CHANGE;
