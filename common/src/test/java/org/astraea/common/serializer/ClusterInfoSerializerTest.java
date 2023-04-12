@@ -52,13 +52,14 @@ public class ClusterInfoSerializerTest {
           .join();
       Utils.sleep(Duration.ofSeconds(1));
       var clusterInfo = admin.clusterInfo(Set.of(topic)).toCompletableFuture().join();
-      var serializer = new Serializer.ClusterInfoSerializer();
-      var deserializer = new Deserializer.ClusterInfoDeserializer();
 
-      Assertions.assertDoesNotThrow(() -> serializer.serialize("ignore", List.of(), clusterInfo));
-      var bytes = serializer.serialize("ignore", List.of(), clusterInfo);
-      Assertions.assertDoesNotThrow(() -> deserializer.deserialize("ignore", List.of(), bytes));
-      var deserializedClusterInfo = deserializer.deserialize("ignore", List.of(), bytes);
+      Assertions.assertDoesNotThrow(
+          () -> Serializer.CLUSTER_INFO.serialize("ignore", List.of(), clusterInfo));
+      var bytes = Serializer.CLUSTER_INFO.serialize("ignore", List.of(), clusterInfo);
+      Assertions.assertDoesNotThrow(
+          () -> Deserializer.CLUSTER_INFO.deserialize("ignore", List.of(), bytes));
+      var deserializedClusterInfo =
+          Deserializer.CLUSTER_INFO.deserialize("ignore", List.of(), bytes);
 
       Assertions.assertEquals(clusterInfo.clusterId(), deserializedClusterInfo.clusterId());
       Assertions.assertTrue(clusterInfo.nodes().containsAll(deserializedClusterInfo.nodes()));

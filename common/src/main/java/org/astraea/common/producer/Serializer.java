@@ -16,11 +16,9 @@
  */
 package org.astraea.common.producer;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.DoubleSerializer;
@@ -32,11 +30,6 @@ import org.astraea.common.ByteUtils;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.Topic;
-import org.astraea.common.backup.ByteUtils;
-import org.astraea.common.generated.BeanObjectOuterClass;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.BeanObject;
@@ -81,7 +74,7 @@ public interface Serializer<T> {
   Serializer<Long> LONG = of(new LongSerializer());
   Serializer<Float> FLOAT = of(new FloatSerializer());
   Serializer<Double> DOUBLE = of(new DoubleSerializer());
-  Serializer<ClusterInfo> CLUSTER_INFO = new ClusterInfoSerializer();
+  Serializer<ClusterInfo> CLUSTER_INFO = (topic, headers, data) -> ByteUtils.toBytes(data);
   Serializer<BeanObject> BEAN_OBJECT = (topic, headers, data) -> ByteUtils.toBytes(data);
 
   /**
@@ -107,64 +100,6 @@ public interface Serializer<T> {
       }
 
       return Utils.packException(() -> jackson.toJson(data).getBytes(encoding));
-    }
-  }
-
-  class ClusterInfoSerializer implements Serializer<ClusterInfo> {
-
-    @Override
-    public byte[] serialize(String topic, Collection<Header> headers, ClusterInfo data) {
-      return ClusterInfoOuterClass.ClusterInfo.newBuilder()
-          .setClusterId(data.clusterId())
-          .addAllNodeInfo(
-              data.nodes().stream()
-                  .map(
-                      nodeInfo ->
-                          ClusterInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()
-                              .setId(nodeInfo.id())
-                              .setHost(nodeInfo.host())
-                              .setPort(nodeInfo.port())
-                              .build())
-                  .collect(Collectors.toList()))
-          .addAllTopic(
-              data.topics().values().stream()
-                  .map(
-                      topicClass ->
-                          ClusterInfoOuterClass.ClusterInfo.Topic.newBuilder()
-                              .setName(topicClass.name())
-                              .putAllConfig(topicClass.config().raw())
-                              .setInternal(topicClass.internal())
-                              .addAllTopicPartition(
-                                  topicClass.topicPartitions().stream()
-                                      .map(TopicPartition::partition)
-                                      .collect(Collectors.toList()))
-                              .build())
-                  .collect(Collectors.toList()))
-          .addAllReplica(
-              data.replicas().stream()
-                  .map(
-                      replica ->
-                          ClusterInfoOuterClass.ClusterInfo.Replica.newBuilder()
-                              .setTopic(replica.topic())
-                              .setPartition(replica.partition())
-                              .setNodeInfo(
-                                  ClusterInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()
-                                      .setId(replica.nodeInfo().id())
-                                      .setHost(replica.nodeInfo().host())
-                                      .setPort(replica.nodeInfo().port())
-                                      .build())
-                              .setLag(replica.lag())
-                              .setSize(replica.size())
-                              .setIsLeader(replica.isLeader())
-                              .setIsSync(replica.isSync())
-                              .setIsFuture(replica.isFuture())
-                              .setIsOffline(replica.isOffline())
-                              .setIsPreferredLeader(replica.isPreferredLeader())
-                              .setPath(replica.path())
-                              .build())
-                  .collect(Collectors.toList()))
-          .build()
-          .toByteArray();
     }
   }
 }

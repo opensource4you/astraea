@@ -17,7 +17,7 @@ message ClusterInfo{
     string name = 1;
     map<string, string> config = 2;
     bool internal = 3;
-    repeated int32 topicPartition = 4;
+    repeated int32 partition = 4;
   }
 
   repeated Replica replica = 4;
