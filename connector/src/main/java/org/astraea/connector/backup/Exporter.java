@@ -26,7 +26,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -152,67 +151,78 @@ public class Exporter extends SinkConnector {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
+    final BlockingQueue<Record<byte[], byte[]>> recordsQueue = new LinkedBlockingQueue<>();
 
-    private final LongAdder bufferSize = new LongAdder();
+    final LongAdder bufferSize = new LongAdder();
 
     private final Object putLock = new Object();
 
     private long bufferSizeLimit;
 
-    static Runnable createWriter(
-        FileSystem fs,
-        String path,
-        String topicName,
-        long interval,
-        DataSize size,
-        Supplier<Boolean> closed,
-        Supplier<List<Record<byte[], byte[]>>> recordsQueue) {
+    FileSystem fs;
+    String topicName;
+    String path;
+    DataSize size;
+    long interval;
+
+    RecordWriter createRecordWriter(TopicPartition tp, long offset) {
+      var fileName = String.valueOf(offset);
+      return RecordWriter.builder(
+              fs.write(String.join("/", path, topicName, String.valueOf(tp.partition()), fileName)))
+          .build();
+    }
+
+    /**
+     * Remove writers that have not appended any records in the past <code>interval</code>
+     * milliseconds.
+     *
+     * @param writers a map of <code>TopicPartition</code> to <code>RecordWriter</code> objects
+     */
+    void removeOldWriters(HashMap<TopicPartition, RecordWriter> writers) {
+      var itr = writers.values().iterator();
+      var currentTime = System.currentTimeMillis();
+      while (itr.hasNext()) {
+        var writer = itr.next();
+        if (currentTime - writer.latestAppendTimestamp() > interval) {
+          writer.close();
+          itr.remove();
+        }
+      }
+    }
+
+    /**
+     * Writes a list {@link Record} objects to the specified {@link RecordWriter} objects. If a
+     * writer for the specified {@link TopicPartition} does not exist, it is created using the given
+     * {@link FileSystem}, path. topic name, partition, and offset.
+     *
+     * @param writers a {@link HashMap} that maps a {@link TopicPartition} to a {@link RecordWriter}
+     *     object
+     */
+    void writeRecords(HashMap<TopicPartition, RecordWriter> writers) {
+
+      var records = recordsFromBuffer();
+
+      removeOldWriters(writers);
+
+      records.forEach(
+          record -> {
+            var writer =
+                writers.computeIfAbsent(
+                    record.topicPartition(), tp -> createRecordWriter(tp, record.offset()));
+            writer.append(record);
+            if (writer.size().greaterThan(size)) {
+              writers.remove(record.topicPartition()).close();
+            }
+          });
+    }
+
+    Runnable createWriter() {
       return () -> {
         var writers = new HashMap<TopicPartition, RecordWriter>();
-        var longestWriteTime = System.currentTimeMillis();
 
         try {
           while (!closed.get()) {
-            var records = recordsQueue.get();
-            var currentTime = System.currentTimeMillis();
-
-            if (currentTime - longestWriteTime > interval) {
-              longestWriteTime = currentTime;
-              var itr = writers.values().iterator();
-              while (itr.hasNext()) {
-                var writer = itr.next();
-                if (currentTime - writer.latestAppendTimestamp() > interval) {
-                  writer.close();
-                  itr.remove();
-                } else {
-                  longestWriteTime = Math.min(longestWriteTime, writer.latestAppendTimestamp());
-                }
-              }
-            }
-
-            records.forEach(
-                record -> {
-                  var writer =
-                      writers.computeIfAbsent(
-                          record.topicPartition(),
-                          ignored -> {
-                            var fileName = String.valueOf(record.offset());
-                            return RecordWriter.builder(
-                                    fs.write(
-                                        String.join(
-                                            "/",
-                                            path,
-                                            topicName,
-                                            String.valueOf(record.partition()),
-                                            fileName)))
-                                .build();
-                          });
-                  writer.append(record);
-                  if (writer.size().greaterThan(size)) {
-                    writers.remove(record.topicPartition()).close();
-                  }
-                });
+            writeRecords(writers);
           }
         } finally {
           writers.forEach((tp, writer) -> writer.close());
@@ -220,14 +230,35 @@ public class Exporter extends SinkConnector {
       };
     }
 
+    /**
+     * Retrieves a list of records from the buffer and empties the records queue.
+     *
+     * @return a {@link List} of records retrieved from the buffer
+     */
+    List<Record<byte[], byte[]>> recordsFromBuffer() {
+      var list = new ArrayList<Record<byte[], byte[]>>(recordsQueue.size());
+      recordsQueue.drainTo(list);
+      if (list.size() > 0) {
+        var drainedSize =
+            list.stream()
+                .mapToInt(record -> record.serializedKeySize() + record.serializedValueSize())
+                .sum();
+        bufferSize.add(-drainedSize);
+        synchronized (putLock) {
+          putLock.notify();
+        }
+      }
+      return list;
+    }
+
     @Override
     protected void init(Configuration configuration) {
-      var topicName = configuration.requireString(TOPICS_KEY);
-      var path = configuration.requireString(PATH_KEY.name());
-      var size =
+      this.topicName = configuration.requireString(TOPICS_KEY);
+      this.path = configuration.requireString(PATH_KEY.name());
+      this.size =
           DataSize.of(
               configuration.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString()));
-      var interval =
+      this.interval =
           Utils.toDuration(
                   configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()))
               .toMillis();
@@ -241,37 +272,8 @@ public class Exporter extends SinkConnector {
                       .orElse(BUFFER_SIZE_KEY.defaultValue().toString()))
               .bytes();
 
-      var fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
-      this.writerFuture =
-          CompletableFuture.runAsync(
-              createWriter(
-                  fs,
-                  path,
-                  topicName,
-                  interval,
-                  size,
-                  this.closed::get,
-                  () ->
-                      Utils.packException(
-                          () -> {
-                            var list =
-                                new ArrayList<Record<byte[], byte[]>>(this.recordsQueue.size());
-                            this.recordsQueue.drainTo(list);
-                            if (list.size() > 0) {
-                              var drainedSize =
-                                  list.stream()
-                                      .mapToInt(
-                                          record ->
-                                              record.serializedKeySize()
-                                                  + record.serializedValueSize())
-                                      .sum();
-                              this.bufferSize.add(-drainedSize);
-                              synchronized (putLock) {
-                                putLock.notify();
-                              }
-                            }
-                            return list;
-                          })));
+      this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
+      this.writerFuture = CompletableFuture.runAsync(createWriter());
     }
 
     @Override

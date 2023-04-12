@@ -14,12 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.metrics.broker;
+package org.astraea.common.cost;
 
-import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.EnumInfo;
 
-public interface HasCount extends HasBeanObject {
-  default long count() {
-    return (long) beanObject().attributes().get("Count");
+/** Method to estimate the partition bandwidth */
+enum EstimationMethod implements EnumInfo {
+  BROKER_TOPIC_ONE_MINUTE_RATE,
+  BROKER_TOPIC_FIVE_MINUTE_RATE,
+  BROKER_TOPIC_FIFTEEN_MINUTE_RATE;
+
+  static EstimationMethod ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(EstimationMethod.class, alias);
+  }
+
+  @Override
+  public String alias() {
+    return name();
+  }
+
+  @Override
+  public String toString() {
+    return alias();
   }
 }

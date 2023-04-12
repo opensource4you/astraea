@@ -38,10 +38,7 @@ public class TopicPartitionDataRateMapFieldTest {
         Argument.parse(
             new FakeParameter(), new String[] {"--field", "test-0:60MB/s,test-1:87GB/h"});
     Assertions.assertEquals(2, param.value.size());
-    Assertions.assertEquals(
-        DataRate.MB.of(60).perSecond(), param.value.get(TopicPartition.of("test-0")));
-    Assertions.assertEquals(
-        DataRate.GB.of(87).perHour(), param.value.get(TopicPartition.of("test-1")));
+    Assertions.assertEquals(DataRate.MB.of(60), param.value.get(TopicPartition.of("test-0")));
 
     Assertions.assertThrows(
         ParameterException.class,

@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.BrokerTopic;
@@ -36,7 +37,6 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.utils.ClusterInfoSensor;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -60,17 +60,32 @@ import org.astraea.common.metrics.platform.HostMetrics;
  *       every consumer fetches data from the leader(which is the default behavior of Kafka). For
  *       more detail about consumer rack awareness or how consumer can fetch data from the closest
  *       replica, see <a href="https://cwiki.apache.org/confluence/x/go_zBQ">KIP-392<a>.
+ *   <li>NetworkCost implementation use broker-topic bandwidth rate and some other info to estimate
+ *       the broker-topic-partition bandwidth rate. The implementation assume the broker-topic
+ *       bandwidth is correct and steadily reflect the actual resource usage. This is generally true
+ *       when the broker has reach its steady state, but to reach that state might takes awhile. And
+ *       based on our observation this probably won't happen at the early broker start (see <a
+ *       href="https://github.com/skiptests/astraea/issues/1641">Issue #1641</a>). We suggest use
+ *       this cost with metrics from the servers in steady state.
  * </ol>
  */
 public abstract class NetworkCost implements HasClusterCost {
 
+  public static final String NETWORK_COST_ESTIMATION_METHOD = "network.cost.estimation.method";
+
+  private final EstimationMethod estimationMethod;
   private final BandwidthType bandwidthType;
   private final Map<ClusterBean, CachedCalculation> calculationCache;
   private final ClusterInfoSensor clusterInfoSensor = new ClusterInfoSensor();
 
-  NetworkCost(BandwidthType bandwidthType) {
+  NetworkCost(Configuration config, BandwidthType bandwidthType) {
     this.bandwidthType = bandwidthType;
     this.calculationCache = new ConcurrentHashMap<>();
+    this.estimationMethod =
+        config
+            .string(NETWORK_COST_ESTIMATION_METHOD)
+            .map(EstimationMethod::ofAlias)
+            .orElse(EstimationMethod.BROKER_TOPIC_ONE_MINUTE_RATE);
   }
 
   void noMetricCheck(ClusterBean clusterBean) {
@@ -221,7 +236,20 @@ public abstract class NetworkCost implements HasClusterCost {
                           .brokerTopicMetrics(bt, ServerMetrics.Topic.Meter.class)
                           .filter(bean -> bean.type().equals(metric))
                           .max(Comparator.comparingLong(HasBeanObject::createdTimestamp))
-                          .map(HasRate::fifteenMinuteRate)
+                          .map(
+                              hasRate -> {
+                                switch (estimationMethod) {
+                                  case BROKER_TOPIC_ONE_MINUTE_RATE:
+                                    return hasRate.oneMinuteRate();
+                                  case BROKER_TOPIC_FIVE_MINUTE_RATE:
+                                    return hasRate.fiveMinuteRate();
+                                  case BROKER_TOPIC_FIFTEEN_MINUTE_RATE:
+                                    return hasRate.fifteenMinuteRate();
+                                  default:
+                                    throw new IllegalStateException(
+                                        "Unknown estimation method: " + estimationMethod);
+                                }
+                              })
                           // no load metric for this partition, treat as zero load
                           .orElse(0.0);
               if (Double.isNaN(totalShare) || totalShare < 0)
@@ -338,7 +366,7 @@ public abstract class NetworkCost implements HasClusterCost {
     @Override
     public String toString() {
       return brokerRate.values().stream()
-          .map(x -> DataRate.Byte.of(x).perSecond())
+          .map(DataRate.Byte::of)
           .map(DataRate::toString)
           .collect(Collectors.joining(", ", "{", "}"));
     }
