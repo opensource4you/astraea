@@ -21,7 +21,11 @@ import org.astraea.common.balancer.BalancerConfigTestSuite;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class SingleStepBalancerTest {
+class SingleStepBalancerTest extends BalancerConfigTestSuite {
+
+  public SingleStepBalancerTest() {
+    super(SingleStepBalancer.class);
+  }
 
   @Test
   void testConfig() {
@@ -40,10 +44,5 @@ class SingleStepBalancerTest {
         Utils.constants(SingleStepBalancer.class, name -> name.endsWith("CONFIG"), String.class)
             .size(),
         "No duplicate element");
-  }
-
-  @Test
-  void testBalancerAllowedTopicRegex() {
-    BalancerConfigTestSuite.testBalancerAllowedTopicRegex(new SingleStepBalancer());
   }
 }

@@ -43,7 +43,7 @@ class ShuffleTweakerTest {
   void testRun() {
     final var shuffleTweaker =
         ShuffleTweaker.builder()
-            .setNumberOfShuffle(() -> ThreadLocalRandom.current().nextInt(1, 10))
+            .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(1, 10))
             .build();
     final var fakeCluster = FakeClusterInfo.of(100, 10, 10, 3);
     final var stream = shuffleTweaker.generate(fakeCluster);
@@ -58,7 +58,7 @@ class ShuffleTweakerTest {
   @ValueSource(ints = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31})
   void testMovement(int shuffle) {
     final var fakeCluster = FakeClusterInfo.of(30, 30, 20, 5);
-    final var shuffleTweaker = ShuffleTweaker.builder().setNumberOfShuffle(() -> shuffle).build();
+    final var shuffleTweaker = ShuffleTweaker.builder().numberOfShuffle(() -> shuffle).build();
 
     shuffleTweaker
         .generate(fakeCluster)
@@ -80,7 +80,7 @@ class ShuffleTweakerTest {
   @Test
   void testNoNodes() {
     final var fakeCluster = FakeClusterInfo.of(0, 0, 0, 0);
-    final var shuffleTweaker = ShuffleTweaker.builder().setNumberOfShuffle(() -> 3).build();
+    final var shuffleTweaker = ShuffleTweaker.builder().numberOfShuffle(() -> 3).build();
 
     Assertions.assertEquals(
         0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
@@ -89,7 +89,7 @@ class ShuffleTweakerTest {
   @Test
   void testOneNode() {
     final var fakeCluster = FakeClusterInfo.of(1, 1, 1, 1, 1);
-    final var shuffleTweaker = ShuffleTweaker.builder().setNumberOfShuffle(() -> 3).build();
+    final var shuffleTweaker = ShuffleTweaker.builder().numberOfShuffle(() -> 3).build();
 
     Assertions.assertEquals(
         0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
@@ -98,7 +98,7 @@ class ShuffleTweakerTest {
   @Test
   void testNoTopic() {
     final var fakeCluster = FakeClusterInfo.of(3, 0, 0, 0);
-    final var shuffleTweaker = ShuffleTweaker.builder().setNumberOfShuffle(() -> 3).build();
+    final var shuffleTweaker = ShuffleTweaker.builder().numberOfShuffle(() -> 3).build();
 
     Assertions.assertEquals(
         0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
@@ -108,7 +108,7 @@ class ShuffleTweakerTest {
   void parallelStreamWorks() {
     final var shuffleTweaker =
         ShuffleTweaker.builder()
-            .setNumberOfShuffle(() -> ThreadLocalRandom.current().nextInt(1, 10))
+            .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(1, 10))
             .build();
     final var fakeCluster = FakeClusterInfo.of(10, 20, 10, 3);
 
@@ -122,7 +122,7 @@ class ShuffleTweakerTest {
   void parallelPerformanceTests() throws InterruptedException {
     final var shuffleTweaker =
         ShuffleTweaker.builder()
-            .setNumberOfShuffle(() -> ThreadLocalRandom.current().nextInt(1, 10))
+            .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(1, 10))
             .build();
     final var fakeCluster = FakeClusterInfo.of(50, 500, 30, 2);
     final var counter = new LongAdder();
@@ -154,7 +154,7 @@ class ShuffleTweakerTest {
 
   @Test
   void testEligiblePartition() {
-    final var shuffleTweaker = ShuffleTweaker.builder().setNumberOfShuffle(() -> 100).build();
+    final var shuffleTweaker = ShuffleTweaker.builder().numberOfShuffle(() -> 100).build();
     var dataDir =
         Map.of(
             0, Set.of("/a", "/b", "c"),

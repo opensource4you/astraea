@@ -22,8 +22,10 @@ package org.astraea.common.balancer;
  * with a "balancer." prefix, and when the implementation sees an unsupported capability, it should
  * raise an exception.
  */
-public class BalancerConfigs {
+public final class BalancerConfigs {
   // TODO: Add tests for the above requirement described in javadoc.
+
+  private BalancerConfigs() {}
 
   /**
    * A regular expression indicates which topics are eligible for rebalancing. When specified,

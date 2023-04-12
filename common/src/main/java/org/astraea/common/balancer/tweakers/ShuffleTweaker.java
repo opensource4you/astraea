@@ -212,12 +212,12 @@ public class ShuffleTweaker {
 
     private Builder() {}
 
-    public Builder setNumberOfShuffle(Supplier<Integer> numberOfShuffle) {
+    public Builder numberOfShuffle(Supplier<Integer> numberOfShuffle) {
       this.numberOfShuffle = numberOfShuffle;
       return this;
     }
 
-    public Builder setAllowedTopics(Predicate<String> allowedTopics) {
+    public Builder allowedTopics(Predicate<String> allowedTopics) {
       this.allowedTopics = allowedTopics;
       return this;
     }

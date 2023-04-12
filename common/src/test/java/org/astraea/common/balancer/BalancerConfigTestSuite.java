@@ -23,6 +23,7 @@ import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -30,11 +31,20 @@ import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /** A collection of helper methods that aid in verifying the implementation of balancer configs. */
-public class BalancerConfigTestSuite {
+public abstract class BalancerConfigTestSuite {
 
-  public static void testBalancerAllowedTopicRegex(Balancer balancer) {
+  private final Class<? extends Balancer> balancerClass;
+
+  public BalancerConfigTestSuite(Class<? extends Balancer> balancerClass) {
+    this.balancerClass = balancerClass;
+  }
+
+  @Test
+  public void testBalancerAllowedTopicRegex() {
+    final var balancer = Utils.construct(balancerClass, Configuration.EMPTY);
     final var cluster = cluster(10, 10, 10, (short) 5);
     final var AssertionsHelper =
         new Object() {
@@ -147,7 +157,7 @@ public class BalancerConfigTestSuite {
     return builder.build();
   }
 
-  public static HasClusterCost decreasingCost() {
+  private static HasClusterCost decreasingCost() {
     return new HasClusterCost() {
 
       private final AtomicReference<ClusterInfo> initial = new AtomicReference<>();

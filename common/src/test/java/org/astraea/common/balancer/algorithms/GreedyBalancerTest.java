@@ -32,7 +32,11 @@ import org.astraea.common.metrics.MBeanClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class GreedyBalancerTest {
+class GreedyBalancerTest extends BalancerConfigTestSuite {
+
+  public GreedyBalancerTest() {
+    super(GreedyBalancer.class);
+  }
 
   @Test
   void testConfig() {
@@ -90,10 +94,5 @@ class GreedyBalancerTest {
                 Assertions.assertTrue(1.0 > (double) bean.attributes().get("MinCost"));
               });
     }
-  }
-
-  @Test
-  void testBalancerAllowedTopicRegex() {
-    BalancerConfigTestSuite.testBalancerAllowedTopicRegex(new GreedyBalancer());
   }
 }
