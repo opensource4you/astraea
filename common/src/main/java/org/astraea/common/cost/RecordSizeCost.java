@@ -16,6 +16,8 @@
  */
 package org.astraea.common.cost;
 
+import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
+
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
@@ -29,9 +31,6 @@ public class RecordSizeCost
     implements HasClusterCost, HasBrokerCost, HasMoveCost, HasPartitionCost {
   private final Configuration config;
   public static final String MAX_MIGRATE_SIZE_KEY = "max.migrated.size";
-  public static final String MOVED_SIZE = "moved size (bytes)";
-  public static final String TO_SYNC_BYTES = "record size to sync (bytes)";
-  public static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
 
   public RecordSizeCost() {
     this.config = Configuration.of(Map.of());
@@ -60,8 +59,7 @@ public class RecordSizeCost
             .map(DataSize::of)
             .map(DataSize::bytes)
             .orElse(Long.MAX_VALUE);
-    var overflow =
-        ClusterInfo.changedRecordSizeOverflow(before, after, ignored -> true, maxMigratedSize);
+    var overflow = changedRecordSizeOverflow(before, after, ignored -> true, maxMigratedSize);
     return () -> overflow;
   }
 

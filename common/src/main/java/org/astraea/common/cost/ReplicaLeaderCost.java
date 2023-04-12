@@ -16,6 +16,8 @@
  */
 package org.astraea.common.cost;
 
+import static org.astraea.common.cost.MigrationCost.replicaLeaderChanged;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,7 +33,6 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   private final Dispersion dispersion = Dispersion.cov();
   private final Configuration config;
   public static final String MAX_MIGRATE_LEADER_KEY = "max.migrated.leader.number";
-  public static final String CHANGED_LEADERS = "changed leaders";
 
   public ReplicaLeaderCost() {
     this.config = Configuration.of(Map.of());
@@ -79,7 +80,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = ClusterInfo.replicaLeaderChanged(before, after);
+    var moveCost = replicaLeaderChanged(before, after);
     var maxMigratedLeader =
         config.string(MAX_MIGRATE_LEADER_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =

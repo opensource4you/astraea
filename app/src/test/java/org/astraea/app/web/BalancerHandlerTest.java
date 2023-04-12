@@ -21,6 +21,9 @@ import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Executing;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.ExecutionFailed;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.SearchFailed;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Searched;
+import static org.astraea.common.cost.MigrationCost.CHANGED_LEADERS;
+import static org.astraea.common.cost.MigrationCost.TO_FETCH_BYTES;
+import static org.astraea.common.cost.MigrationCost.TO_SYNC_BYTES;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -147,7 +150,7 @@ public class BalancerHandlerTest {
           .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
       var sizeMigration =
           report.migrationCosts.stream()
-              .filter(x -> x.name.equals(RecordSizeCost.TO_SYNC_BYTES))
+              .filter(x -> x.name.equals(TO_SYNC_BYTES))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
@@ -175,7 +178,7 @@ public class BalancerHandlerTest {
           "Only allowed topics been altered");
       var sizeMigration =
           report.migrationCosts.stream()
-              .filter(x -> x.name.equals(RecordSizeCost.TO_SYNC_BYTES))
+              .filter(x -> x.name.equals(TO_SYNC_BYTES))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
@@ -360,13 +363,13 @@ public class BalancerHandlerTest {
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
-              case RecordSizeCost.TO_SYNC_BYTES:
-              case RecordSizeCost.TO_FETCH_BYTES:
+              case TO_SYNC_BYTES:
+              case TO_FETCH_BYTES:
                 Assertions.assertTrue(
                     migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
                         <= DataSize.of(sizeLimit).bytes());
                 break;
-              case ReplicaLeaderCost.CHANGED_LEADERS:
+              case CHANGED_LEADERS:
                 Assertions.assertTrue(
                     Math.max(
                             migrationCost.brokerCosts.values().stream()

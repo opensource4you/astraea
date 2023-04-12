@@ -16,6 +16,8 @@
  */
 package org.astraea.common.cost;
 
+import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -61,8 +63,7 @@ public class ReplicaLeaderSizeCost
     var maxMigratedLeaderSize =
         config.string(COST_LIMIT_KEY).map(DataSize::of).map(DataSize::bytes).orElse(Long.MAX_VALUE);
     var overflow =
-        ClusterInfo.changedRecordSizeOverflow(
-            before, after, Replica::isLeader, maxMigratedLeaderSize);
+        changedRecordSizeOverflow(before, after, Replica::isLeader, maxMigratedLeaderSize);
     return () -> overflow;
   }
 

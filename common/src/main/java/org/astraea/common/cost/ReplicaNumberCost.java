@@ -16,6 +16,8 @@
  */
 package org.astraea.common.cost;
 
+import static org.astraea.common.cost.MigrationCost.replicaNumChanged;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -28,7 +30,6 @@ import org.astraea.common.metrics.collector.MetricSensor;
 /** more replicas migrate -> higher cost */
 public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
   public static final String COST_LIMIT_KEY = "max.migrated.replica.number";
-  public static final String CHANGED_REPLICAS = "changed replicas";
 
   private final Configuration config;
 
@@ -47,7 +48,7 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = ClusterInfo.replicaNumChanged(before, after);
+    var moveCost = replicaNumChanged(before, after);
     var maxMigratedReplicas =
         config.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var overflow =
