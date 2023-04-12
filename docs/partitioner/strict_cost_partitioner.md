@@ -1,6 +1,6 @@
 # Strict Cost Partitioner
 
-Strict Cost Partitioner 是 [Astraea partitioner](./README.md) 之一，功能在於 "依據 broker cost" 來選擇發送的 partition 順序。"broker cost" 是使用者自定義的效能指標，目前使用 "request 平均延遲" 作為效能指標。（TODO: 允許使用者選擇效能指標）
+Strict Cost Partitioner 是 [Astraea partitioner](./README.md) 之一，功能在於 "依據 cost function" 來選擇發送的 partition 順序。"cost function" 是使用者自定義的效能指標，目前使用 "request 平均延遲" 作為效能指標。
 
 ### 於本專案的 [performance tool](../performance_benchmark.md) 使用
 
@@ -28,7 +28,7 @@ var producer = new KafkaProducer<String, String>(props);
 
 Strict Cost Partitioner 實做了 Apache Kafka 的 `org.apache.kafka.clients.producer.Partitioner` 介面，當 record 沒有指定要發送到哪個 partition 時，producer 便會呼叫 partitioner 來決定要把 record 發送到哪個 partition 上？
 
-此 Partitioner (or called partitioner) 便藉著 Apache Kafka 提供的這項自由度，來選擇 "適合" 的 partition 發送。Strict Cost Partitioner 在選擇 partition 前，會
+此 Partitioner 便藉著 Apache Kafka 提供的這項自由度，來選擇 "適合" 的 partition 發送。Strict Cost Partitioner 在選擇 partition 前，會
 
 1. 獲取使用者定義的效能指標（預設是使用 producer 端的 request 平均延遲），下方範例示範指定以`record`大小為成本估計：
 ```java
@@ -41,8 +41,10 @@ var producer = new KafkaProducer<String, String>(props);
 3. 加權各個效能指標計算出的分數
 4. 利用分數建立 [Smooth Round Robin](../../common/src/main/java/org/astraea/common/partitioner/RoundRobin.java) 的排序
 5. 紀錄前 `ROUND_ROBIN_LENGTH` 筆排序並重複使用
+6. 套用各 cost function 計算 partition cost 並加權
+7. 選出目標 broker 中 cost 最低的 partition
 
-以上5個步驟每 `round.robin.lease` 時間會重新計算一次，預設的時間是4秒。可以在傳入的 `Properties` 中設定，
+1~5 步驟每 `round.robin.lease` 時間會重新計算一次，預設的時間是4秒。可以在傳入的 `Properties` 中設定，
 
 ```bash
 # 使用 performance tool 時，設定更新效能指標的時間

@@ -45,8 +45,10 @@ import org.astraea.common.metrics.collector.MetricStore;
 
 /**
  * this partitioner scores the nodes by multiples cost functions. Each function evaluate the target
- * node by different metrics. The default cost function ranks nodes by replica leader. It means the
- * node having lower replica leaders get higher score.
+ * node by different metrics. The default cost function ranks nodes by request latency. It means the
+ * node having lower request latency get higher score. After determining the node, this partitioner
+ * scores the partitions with partition cost function. The default partition cost function ranks
+ * partition by partition size. It means the node having lower size get higher score.
  *
  * <p>The important config is JMX port. Most cost functions need the JMX metrics to score nodes.
  * Normally, all brokers use the same JMX port, so you can just define the `jmx.port=12345`. If one
@@ -106,22 +108,20 @@ public class StrictCostPartitioner extends Partitioner {
         candidate.stream().map(Replica::topicPartition).collect(Collectors.toUnmodifiableSet());
 
     // Choose a preferred partition from candidate by partition cost function
-    var preferredPartition =
-        partitionCost
-            .partitionCost(clusterInfo, metricStore.clusterBean())
-            .value()
-            .entrySet()
-            .stream()
-            .filter(e -> candidateSet.contains(e.getKey()))
-            .min(Comparator.comparingDouble(Map.Entry::getValue));
-
-    if (preferredPartition.isPresent()) {
-      return preferredPartition.get().getKey().partition();
-    } else {
-      // Partitions returned from partition cost function did not contain any candidates.
-      // Randomly choose from candidate.
-      return candidate.get((int) (Math.random() * candidate.size())).partition();
+    if (partitionCost != null) {
+      var preferredPartition =
+          partitionCost
+              .partitionCost(clusterInfo, metricStore.clusterBean())
+              .value()
+              .entrySet()
+              .stream()
+              .filter(e -> candidateSet.contains(e.getKey()))
+              .min(Comparator.comparingDouble(Map.Entry::getValue));
+      if (preferredPartition.isPresent()) return preferredPartition.get().getKey().partition();
     }
+
+    // Randomly choose from candidate.
+    return candidate.get((int) (Math.random() * candidate.size())).partition();
   }
 
   /**
