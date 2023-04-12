@@ -68,10 +68,8 @@ public class ConfigurationTest {
     var interval = config.dataSize("traffic.interval");
     var empty = config.dataSize("kekw");
 
-    Assertions.assertEquals(
-        DataRate.MiB.of(30).perSecond().dataSize().bytes(), upper.get().bytes());
-    Assertions.assertEquals(
-        DataRate.MB.of(5).perSecond().dataSize().bytes(), interval.get().bytes());
+    Assertions.assertEquals(DataRate.MiB.of(30).dataSize().bytes(), upper.get().bytes());
+    Assertions.assertEquals(DataRate.MB.of(5).dataSize().bytes(), interval.get().bytes());
     Assertions.assertTrue(empty.isEmpty());
   }
 }

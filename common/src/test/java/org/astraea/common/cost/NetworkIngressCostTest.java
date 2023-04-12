@@ -16,6 +16,7 @@
  */
 package org.astraea.common.cost;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,19 +30,24 @@ import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class NetworkIngressCostTest {
+  static Function<Replica, Replica> generateReplica =
+      (replica) -> Replica.builder(replica).size(1).build();
 
   @Test
   void testIncompatibility() {
-    Function<Replica, Replica> generateReplica =
-        (replica) -> Replica.builder(replica).size(1).build();
-
-    var networkCost = new NetworkIngressCost(Configuration.of(Map.of("traffic.interval", "1Byte")));
+    var networkCost =
+        new NetworkIngressCost(
+            Configuration.of(
+                Map.of(
+                    NetworkIngressCost.TRAFFIC_INTERVAL,
+                    "1Byte",
+                    NetworkIngressCost.NETWORK_COST_ESTIMATION_METHOD,
+                    "BROKER_TOPIC_FIFTEEN_MINUTE_RATE")));
     var topics =
         IntStream.range(0, 10)
             .mapToObj(i -> Utils.randomString(6))
@@ -59,33 +65,68 @@ public class NetworkIngressCostTest {
               .build();
     }
     var index = new AtomicInteger(1);
-    var topicTrafficInBroker =
-        topics.stream()
-            .map(
-                topic ->
-                    Map.entry(
-                        topic,
-                        bandwidth(
-                            ServerMetrics.Topic.BYTES_IN_PER_SEC, topic, index.getAndIncrement())))
-            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-    var clusterBean = ClusterBean.of(Map.of(1, topicTrafficInBroker.values()));
+    var clusterBean =
+        ClusterBean.of(
+            Map.of(
+                1,
+                topics.stream()
+                    .map(
+                        topic ->
+                            bandwidth(
+                                ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                                topic,
+                                index.getAndIncrement()))
+                    .collect(Collectors.toUnmodifiableList())));
     var partitionCost = networkCost.partitionCost(clusterInfo, clusterBean);
     var incompatible = partitionCost.incompatibility();
 
-    var avg =
-        topicTrafficInBroker.values().stream()
-            .mapToDouble(HasRate::fifteenMinuteRate)
-            .average()
-            .getAsDouble();
-    var standardDeviation =
-        Math.sqrt(
-            topicTrafficInBroker.values().stream()
-                .mapToDouble(v -> Math.pow(v.fifteenMinuteRate() - avg, 2))
-                .average()
-                .getAsDouble());
-
     Assertions.assertEquals(1, incompatible.size());
     Assertions.assertEquals(8, incompatible.get(TopicPartition.of(topics.get(0), 0)).size());
+  }
+
+  @Test
+  void testEmptyIncompatibility() {
+    var networkCost =
+        new NetworkIngressCost(
+            Configuration.of(
+                Map.of(
+                    NetworkIngressCost.TRAFFIC_INTERVAL,
+                    "1Byte",
+                    NetworkIngressCost.NETWORK_COST_ESTIMATION_METHOD,
+                    "BROKER_TOPIC_FIFTEEN_MINUTE_RATE")));
+    var topics =
+        IntStream.range(0, 10)
+            .mapToObj(i -> Utils.randomString(6))
+            .collect(Collectors.toUnmodifiableList());
+    var clusterInfo =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(1))
+            .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
+            .build();
+
+    for (var topic : topics) {
+      clusterInfo =
+          ClusterInfoBuilder.builder(clusterInfo)
+              .addTopic(topic, 1, (short) 1, generateReplica)
+              .build();
+    }
+    var clusterBean =
+        ClusterBean.of(
+            Map.of(
+                1,
+                topics.stream()
+                    .map(topic -> bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, topic, 1.0))
+                    .collect(Collectors.toUnmodifiableList())));
+    var partitionCost = networkCost.partitionCost(clusterInfo, clusterBean);
+    var incompatible = partitionCost.incompatibility();
+
+    Assertions.assertEquals(0, incompatible.size());
+  }
+
+  static double standardDeviation(List<Double> tpTraffic) {
+    var avg = tpTraffic.stream().mapToDouble(i -> i).average().getAsDouble();
+    return Math.sqrt(
+        tpTraffic.stream().mapToDouble(v -> Math.pow(v - avg, 2)).average().getAsDouble());
   }
 
   static ServerMetrics.Topic.Meter bandwidth(

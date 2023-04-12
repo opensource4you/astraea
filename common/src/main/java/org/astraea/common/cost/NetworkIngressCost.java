@@ -34,7 +34,7 @@ import org.astraea.common.metrics.broker.ServerMetrics;
  */
 public class NetworkIngressCost extends NetworkCost implements HasPartitionCost {
   private Configuration config;
-  private static final String TRAFFIC_INTERVAL = "traffic.interval";
+  public static final String TRAFFIC_INTERVAL = "traffic.interval";
   private final DataSize trafficInterval;
 
   public NetworkIngressCost(Configuration config) {
