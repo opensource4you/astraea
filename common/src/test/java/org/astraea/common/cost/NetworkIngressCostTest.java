@@ -57,15 +57,13 @@ public class NetworkIngressCostTest {
                 1,
                 List.of(
                     NetworkCostTest.bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                        "a",
-                        DataRate.MB.of(60).perSecond().byteRate())),
+                        ServerMetrics.Topic.BYTES_IN_PER_SEC, "a", DataRate.MB.of(60).byteRate())),
                 2,
                 List.of(
                     NetworkCostTest.bandwidth(
                         ServerMetrics.Topic.BYTES_IN_PER_SEC,
                         "a",
-                        DataRate.MB.of(60).perSecond().byteRate()))));
+                        DataRate.MB.of(60).byteRate()))));
 
     var networkCost = new NetworkIngressCost(Configuration.EMPTY);
     var partitionCost = networkCost.partitionCost(clusterInfo, clusterBean);
@@ -115,13 +113,11 @@ public class NetworkIngressCostTest {
                 1,
                 List.of(
                     NetworkCostTest.bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                        "a",
-                        DataRate.MB.of(100).perSecond().byteRate()),
+                        ServerMetrics.Topic.BYTES_IN_PER_SEC, "a", DataRate.MB.of(100).byteRate()),
                     NetworkCostTest.bandwidth(
                         ServerMetrics.Topic.BYTES_IN_PER_SEC,
                         "b",
-                        DataRate.MB.of(100).perSecond().byteRate()))));
+                        DataRate.MB.of(100).byteRate()))));
 
     var networkCost = new NetworkIngressCost(Configuration.EMPTY);
     var partitionCost = networkCost.partitionCost(clusterInfo, clusterBean);

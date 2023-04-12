@@ -44,7 +44,7 @@ public class RecordGeneratorTest {
             .valueDistribution(() -> 2L)
             .valueSizeDistribution(
                 () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue())
-            .throughput(tp -> DataRate.MB.of(200).perSecond())
+            .throughput(tp -> DataRate.MB.of(200))
             .build();
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
@@ -67,7 +67,7 @@ public class RecordGeneratorTest {
             .valueDistribution(() -> 2L)
             .valueSizeDistribution(
                 () -> DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue())
-            .throughput(tp -> DataRate.KiB.of(100).perSecond())
+            .throughput(tp -> DataRate.KiB.of(100))
             .build();
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
@@ -90,7 +90,7 @@ public class RecordGeneratorTest {
             .valueRange(List.of(10L))
             .valueDistribution(() -> 10L)
             .valueSizeDistribution(() -> 10L)
-            .throughput(tp -> DataRate.KiB.of(200).perSecond())
+            .throughput(tp -> DataRate.KiB.of(200))
             .build();
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
@@ -116,7 +116,7 @@ public class RecordGeneratorTest {
             .valueRange(List.of(10L))
             .valueDistribution(() -> 10L)
             .valueSizeDistribution(() -> 10L)
-            .throughput(ignored -> DataRate.KiB.of(200).perSecond())
+            .throughput(ignored -> DataRate.KiB.of(200))
             .build();
     data1 = dataSupplier.apply(tp);
     Assertions.assertFalse(data1.isEmpty());
@@ -143,7 +143,7 @@ public class RecordGeneratorTest {
             .valueRange(List.of(0L, 1L))
             .valueDistribution(() -> counter.getAndIncrement() % 2)
             .valueSizeDistribution(valueSizeCount::getAndIncrement)
-            .throughput(ignored -> DataRate.KiB.of(100).perSecond())
+            .throughput(ignored -> DataRate.KiB.of(100))
             .build();
     var tp = TopicPartition.of("test-0");
     var data1 = dataSupplier.apply(tp);
@@ -169,7 +169,7 @@ public class RecordGeneratorTest {
             .valueRange(List.of(0L, 1L))
             .valueDistribution(() -> counter.getAndIncrement() % 2)
             .valueSizeDistribution(() -> 100L)
-            .throughput(ignored -> DataRate.KiB.of(100).perSecond())
+            .throughput(ignored -> DataRate.KiB.of(100))
             .build();
     data1 = dataSupplier.apply(tp);
     Assertions.assertFalse(data1.isEmpty());
@@ -183,7 +183,7 @@ public class RecordGeneratorTest {
 
   @Test
   void testThrottle() {
-    var throttler = RecordGenerator.throttler(DataRate.KiB.of(150).perSecond());
+    var throttler = RecordGenerator.throttler(DataRate.KiB.of(150));
     // total: 100KB, limit: 150KB -> no throttle
     Assertions.assertFalse(
         throttler.apply(DataSize.KiB.of(100).measurement(DataUnit.Byte).longValue()));
@@ -203,7 +203,7 @@ public class RecordGeneratorTest {
             .valueRange(List.of(10L))
             .valueDistribution(() -> 10L)
             .valueSizeDistribution(() -> 10L)
-            .throughput(ignored -> DataRate.KiB.of(200).perSecond())
+            .throughput(ignored -> DataRate.KiB.of(200))
             .build();
 
     var tp = TopicPartition.of("test-0");
@@ -223,7 +223,7 @@ public class RecordGeneratorTest {
             .valueRange(List.of(10L))
             .valueDistribution(() -> 10L)
             .valueSizeDistribution(() -> 0L)
-            .throughput(ignored -> DataRate.KiB.of(200).perSecond())
+            .throughput(ignored -> DataRate.KiB.of(200))
             .build();
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
@@ -242,7 +242,7 @@ public class RecordGeneratorTest {
             .valueRange(List.of(1L))
             .valueDistribution(() -> 1L)
             .valueSizeDistribution(() -> 1L)
-            .throughput(ignored -> DataRate.KiB.of(100).perSecond())
+            .throughput(ignored -> DataRate.KiB.of(100))
             .build();
     var tp = TopicPartition.of("test-0");
     var data = dataSupplier.apply(tp);
@@ -271,7 +271,7 @@ public class RecordGeneratorTest {
                 LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
             .valueDistribution(() -> Math.abs(valueRandom0.nextLong() % size))
             .valueSizeDistribution(() -> 256L)
-            .throughput(ignored -> DataRate.MB.of(1000).perSecond())
+            .throughput(ignored -> DataRate.MB.of(1000))
             .build();
     var gen1 =
         RecordGenerator.builder()
@@ -286,7 +286,7 @@ public class RecordGeneratorTest {
                 LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
             .valueDistribution(() -> Math.abs(valueRandom1.nextLong() % size))
             .valueSizeDistribution(() -> 256L)
-            .throughput(ignored -> DataRate.MB.of(1000).perSecond())
+            .throughput(ignored -> DataRate.MB.of(1000))
             .build();
 
     var tp = TopicPartition.of("A", -1);
