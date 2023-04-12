@@ -38,7 +38,7 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
   private final DataSize trafficInterval;
 
   public NetworkIngressCost(Configuration config) {
-    super(BandwidthType.Ingress);
+    super(config, BandwidthType.Ingress);
     this.config = config;
     this.trafficInterval = config.dataSize(TRAFFIC_INTERVAL).orElse(DataSize.MB.of(10));
   }

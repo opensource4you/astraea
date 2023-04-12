@@ -79,7 +79,7 @@ public class QuotaHandler implements Handler {
       var producerQuota = postRequest.producer.get();
       return admin
           .setProducerQuotas(
-              Map.of(producerQuota.clientId, DataRate.Byte.of(producerQuota.byteRate).perSecond()))
+              Map.of(producerQuota.clientId, DataRate.Byte.of(producerQuota.byteRate)))
           .thenCompose(
               ignored ->
                   admin
@@ -92,7 +92,7 @@ public class QuotaHandler implements Handler {
       var consumerQuota = postRequest.consumer.get();
       return admin
           .setConsumerQuotas(
-              Map.of(consumerQuota.clientId, DataRate.Byte.of(consumerQuota.byteRate).perSecond()))
+              Map.of(consumerQuota.clientId, DataRate.Byte.of(consumerQuota.byteRate)))
           .thenCompose(
               ignored ->
                   admin

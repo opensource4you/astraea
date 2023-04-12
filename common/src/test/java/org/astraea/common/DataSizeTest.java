@@ -25,12 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -58,26 +56,7 @@ class DataSizeTest {
     // 500 PB * 10
     DataSize.PB.of(500).multiply(10);
 
-    // the data rate of sending 1 EB over 1 second
-    DataSize.EB.of(1).dataRate(ChronoUnit.SECONDS);
-    // the data rate of sending 1 EB over 1 millisecond
-    DataSize.EB.of(1).dataRate(ChronoUnit.MILLIS);
-    // the data rate of sending 1 EB over 1 century (100 years)
-    DataSize.EB.of(1).dataRate(ChronoUnit.CENTURIES);
-    // the data rate of sending 1 EB over 59 seconds
     DataSize.EB.of(1).dataRate(Duration.ofSeconds(59));
-    // data rate string of sending 1 EB over 1 second in the most human friendly data unit & second
-    // time unit
-    DataSize.EB.of(1).dataRate(ChronoUnit.SECONDS).toString();
-    // data rate string of sending 1 EB over 1 second in the most human friendly data unit & 1 hour
-    // time unit
-    DataSize.EB.of(1).dataRate(ChronoUnit.SECONDS).toString(ChronoUnit.HOURS);
-    // data rate string of sending 1 EB over 1 second in ZB unit and hour time unit
-    DataSize.EB.of(1).dataRate(ChronoUnit.SECONDS).toString(DataUnit.ZB, ChronoUnit.HOURS);
-
-    // someone wondering that if we send 1 YB of data over 1000 years, how much data we sent per
-    // second.
-    DataSize.YB.of(1).dataRate(ChronoUnit.MILLENNIA).toString(ChronoUnit.SECONDS);
 
     // faster convert between DataRate and others.
     var randomSize = DataSize.Byte.of(ThreadLocalRandom.current().nextLong());
@@ -87,61 +66,9 @@ class DataSizeTest {
         IntStream.range(0, 100).mapToObj(DataSize.Byte::of).reduce(DataSize.ZERO, DataSize::add);
     Assertions.assertEquals(4950, sumAll.bytes());
 
-    // fast way to get bytes, be aware of exception caused by overflow.
-    long bytesInLong = randomSize.bytes();
-    long bytes10Gib = DataSize.Gib.of(10).bytes();
-
-    // two ways to get second rate
-    DataRate two = DataRate.Byte.of(1000).perSecond();
-
-    // data rate to other types
-    double dataRateDouble = DataRate.Byte.of(1000).perSecond().byteRate();
-    DataSize dataRateSize = DataRate.Byte.of(1000).perSecond().dataSize();
-
-    // fast way to get DataSize & DataRate from primitive type
-    DataSize primitive0 = DataSize.Byte.of(1000);
-    DataSize primitive1 = DataSize.Byte.of((long) 1000.0);
-
     // fast way to add/subtract data from primitive type
     DataSize.Byte.of(1000).subtract(500);
     DataSize.Byte.of(1024).add(1024);
-
-    // solve the above problem
-    var dataVolume = DataSize.YB.of(1);
-    var dataVolumeOver1000Years = dataVolume.dataRate(ChronoUnit.MILLENNIA);
-    Consumer<ChronoUnit> tellMeTheAnswerIn =
-        (ChronoUnit chronoUnit) ->
-            System.out.printf(
-                "If Bob sends %s %s data over 1000 years. Then Bob has to send %s %s each %s.%n",
-                dataVolume.idealMeasurement(),
-                dataVolume.idealDataUnit(),
-                dataVolumeOver1000Years.toBigDecimal(
-                    dataVolumeOver1000Years.idealDataUnit(chronoUnit), chronoUnit),
-                dataVolumeOver1000Years.idealDataUnit(chronoUnit),
-                chronoUnit);
-
-    tellMeTheAnswerIn.accept(ChronoUnit.NANOS);
-    tellMeTheAnswerIn.accept(ChronoUnit.SECONDS);
-    tellMeTheAnswerIn.accept(ChronoUnit.HOURS);
-    tellMeTheAnswerIn.accept(ChronoUnit.DAYS);
-    tellMeTheAnswerIn.accept(ChronoUnit.MONTHS);
-    tellMeTheAnswerIn.accept(ChronoUnit.YEARS);
-    tellMeTheAnswerIn.accept(ChronoUnit.DECADES);
-    tellMeTheAnswerIn.accept(ChronoUnit.CENTURIES);
-    tellMeTheAnswerIn.accept(ChronoUnit.MILLENNIA);
-
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.NANOS));
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.MICROS));
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.MILLIS));
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.SECONDS));
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.MINUTES));
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.HOURS));
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.DAYS));
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.WEEKS));
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.MONTHS));
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.YEARS));
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.DECADES));
-    System.out.println(dataVolumeOver1000Years.toString(ChronoUnit.CENTURIES));
   }
 
   @ParameterizedTest

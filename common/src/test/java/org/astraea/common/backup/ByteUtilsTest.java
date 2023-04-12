@@ -17,6 +17,7 @@
 package org.astraea.common.backup;
 
 import java.nio.charset.StandardCharsets;
+import org.astraea.common.ByteUtils;
 import org.astraea.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

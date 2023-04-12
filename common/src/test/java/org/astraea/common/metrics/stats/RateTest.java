@@ -17,20 +17,11 @@
 package org.astraea.common.metrics.stats;
 
 import java.time.Duration;
-import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class RateTest {
-
-  @Test
-  void testMeasure() {
-    var rate = Rate.sizeRate();
-    rate.record(DataSize.Byte.of(100L));
-    Utils.sleep(Duration.ofSeconds(1));
-    Assertions.assertTrue(rate.measure().bytes() < 100);
-  }
 
   @Test
   void testCountMeasure() {
