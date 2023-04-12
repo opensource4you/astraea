@@ -16,10 +16,9 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Collection;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
@@ -35,15 +34,12 @@ import org.astraea.common.metrics.broker.ServerMetrics;
  */
 public class NetworkIngressCost extends NetworkCost implements HasPartitionCost {
   private Configuration config;
-  private static final String UPPER_BOUND = "upper.bound";
   private static final String TRAFFIC_INTERVAL = "traffic.interval";
-  private final DataSize upperBound;
   private final DataSize trafficInterval;
 
   public NetworkIngressCost(Configuration config) {
     super(BandwidthType.Ingress);
     this.config = config;
-    this.upperBound = config.dataSize(UPPER_BOUND).orElse(DataSize.MB.of(30));
     this.trafficInterval = config.dataSize(TRAFFIC_INTERVAL).orElse(DataSize.MB.of(10));
   }
 
@@ -84,43 +80,38 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
 
       @Override
       public Map<TopicPartition, Set<TopicPartition>> incompatibility() {
-        var higherThanUpper = 1;
-        var hashMapper =
-            (Function<Double, Double>)
-                (traffic) -> {
-                  if (traffic < upperBound.bytes())
-                    return Math.ceil(traffic / trafficInterval.bytes());
-                  else
-                    return Math.ceil((double) upperBound.bytes() / trafficInterval.bytes())
-                        + higherThanUpper;
-                };
+        var avg = partitionTraffic.values().stream().mapToDouble(i -> i).average().orElse(0.0);
+        var standardDeviation =
+            Math.sqrt(
+                partitionTraffic.values().stream()
+                    .mapToDouble(i -> Math.pow(i - avg, 2))
+                    .average()
+                    .getAsDouble());
+        var upperBound =
+            partitionTraffic.values().stream()
+                .filter(v -> v < standardDeviation)
+                .max(Comparator.naturalOrder())
+                .orElse(avg);
 
         var incompatible =
             partitionTrafficPerBroker.values().stream()
                 .flatMap(
-                    v -> {
-                      var groupSimilarTraffic =
-                          v.entrySet().stream()
-                              .collect(
-                                  Collectors.groupingBy(
-                                      entry -> hashMapper.apply(entry.getValue()),
-                                      Collectors.mapping(
-                                          Map.Entry::getKey, Collectors.toUnmodifiableSet())));
-
-                      return v.entrySet().stream()
-                          .collect(
-                              Collectors.toMap(
-                                  Map.Entry::getKey,
-                                  e ->
-                                      groupSimilarTraffic.values().stream()
-                                          .filter(set -> !set.contains(e.getKey()))
-                                          .collect(
-                                              Collectors.flatMapping(
-                                                  Collection::stream,
-                                                  Collectors.toUnmodifiableSet()))))
-                          .entrySet()
-                          .stream();
-                    })
+                    tpTraffic ->
+                        tpTraffic.entrySet().stream()
+                            .map(
+                                tp ->
+                                    tp.getValue() < upperBound
+                                        ? Map.entry(
+                                            tp.getKey(),
+                                            tpTraffic.entrySet().stream()
+                                                .filter(
+                                                    others -> // using traffic interval to filter
+                                                    Math.abs(tp.getValue() - others.getValue())
+                                                            > trafficInterval.bytes())
+                                                .map(Map.Entry::getKey)
+                                                .collect(Collectors.toUnmodifiableSet()))
+                                        : Map.entry(tp.getKey(), Set.<TopicPartition>of())))
+                .filter(entry -> !entry.getValue().isEmpty())
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
         return incompatible;
       }
