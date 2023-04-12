@@ -24,6 +24,7 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.AlgorithmConfig;
+import org.astraea.common.balancer.BalancerConfigTestSuite;
 import org.astraea.common.balancer.FakeClusterInfo;
 import org.astraea.common.cost.DecreasingCost;
 import org.astraea.common.metrics.BeanQuery;
@@ -31,7 +32,11 @@ import org.astraea.common.metrics.MBeanClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class GreedyBalancerTest {
+class GreedyBalancerTest extends BalancerConfigTestSuite {
+
+  public GreedyBalancerTest() {
+    super(GreedyBalancer.class);
+  }
 
   @Test
   void testConfig() {
