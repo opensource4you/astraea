@@ -93,7 +93,7 @@ public class ThrottleHandlerTest {
   void testThrottleBandwidth() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new ThrottleHandler(admin);
-      var dataRate = DataRate.MiB.of(500).perSecond();
+      var dataRate = DataRate.MiB.of(500);
       var longDataRate = (long) dataRate.byteRate();
 
       Utils.sleep(Duration.ofSeconds(1));
