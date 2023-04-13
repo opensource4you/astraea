@@ -107,21 +107,19 @@ public class StrictCostPartitioner extends Partitioner {
     var candidateSet =
         candidate.stream().map(Replica::topicPartition).collect(Collectors.toUnmodifiableSet());
 
-    // Choose a preferred partition from candidate by partition cost function
-    if (partitionCost != null) {
-      var preferredPartition =
-          partitionCost
-              .partitionCost(clusterInfo, metricStore.clusterBean())
-              .value()
-              .entrySet()
-              .stream()
-              .filter(e -> candidateSet.contains(e.getKey()))
-              .min(Comparator.comparingDouble(Map.Entry::getValue));
-      if (preferredPartition.isPresent()) return preferredPartition.get().getKey().partition();
-    }
+    var preferredPartition =
+        partitionCost
+            .partitionCost(clusterInfo, metricStore.clusterBean())
+            .value()
+            .entrySet()
+            .stream()
+            .filter(e -> candidateSet.contains(e.getKey()))
+            .min(Comparator.comparingDouble(Map.Entry::getValue));
 
+    // Choose a preferred partition from candidate by partition cost function
+    if (preferredPartition.isPresent()) return preferredPartition.get().getKey().partition();
     // Randomly choose from candidate.
-    return candidate.get((int) (Math.random() * candidate.size())).partition();
+    else return candidate.get((int) (Math.random() * candidate.size())).partition();
   }
 
   /**
