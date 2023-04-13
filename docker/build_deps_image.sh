@@ -47,8 +47,6 @@ RUN git clone https://github.com/skiptests/astraea.git /astraea
 RUN ./gradlew clean build -x test
 # download test dependencies
 RUN ./gradlew clean build testClasses -x test --no-daemon
-# download database
-RUN ./gradlew cleanTest it:test --tests DatabaseTest --no-daemon
 
 WORKDIR /root
 " >"$DOCKERFILE"

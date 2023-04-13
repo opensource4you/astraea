@@ -135,7 +135,7 @@ class NetworkCostTest {
   @DisplayName("Run with Balancer")
   void testOptimization(HasClusterCost costFunction, TestCase testcase) {
     var newPlan =
-        Balancer.Official.Greedy.create(Configuration.EMPTY)
+        Balancer.Official.Greedy.create()
             .offer(
                 AlgorithmConfig.builder()
                     .clusterInfo(testcase.clusterInfo())

@@ -25,6 +25,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public interface Configuration {
@@ -82,6 +83,14 @@ public interface Configuration {
    * @return string value. never null
    */
   Optional<String> string(String key);
+
+  /**
+   * @param key the key whose associated value is to be returned
+   * @return optional {@link Pattern} compiled from the string associated with the key. never null
+   */
+  default Optional<Pattern> regexString(String key) {
+    return string(key).map(Pattern::compile);
+  }
 
   /**
    * @param key the key whose associated value is to be returned
