@@ -18,6 +18,7 @@ package org.astraea.common.admin;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -83,6 +84,17 @@ class OptimizedClusterInfo implements ClusterInfo {
                                 return OptimizedClusterInfo.this.replicas(topic).stream()
                                     .map(Replica::topicPartition)
                                     .collect(Collectors.toUnmodifiableSet());
+                              }
+
+                              @Override
+                              public boolean equals(Object obj) {
+                                if (this == obj) return true;
+                                if (obj == null || getClass() != obj.getClass()) return false;
+                                Topic objTopic = (Topic) obj;
+                                return Objects.equals(name(), objTopic.name())
+                                    && config().raw().equals(objTopic.config().raw())
+                                    && internal() == objTopic.internal()
+                                    && topicPartitions().equals(objTopic.topicPartitions());
                               }
                             })
                     .collect(Collectors.toUnmodifiableMap(t -> t.name(), t -> t)));

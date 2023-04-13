@@ -88,22 +88,8 @@ public class ByteUtilsTest {
 
         Assertions.assertEquals(clusterInfo.clusterId(), deserializedClusterInfo.clusterId());
         Assertions.assertTrue(clusterInfo.nodes().containsAll(deserializedClusterInfo.nodes()));
-        Assertions.assertEquals(
-            clusterInfo.topics().keySet(), deserializedClusterInfo.topics().keySet());
-        Assertions.assertEquals(
-            clusterInfo.topics().get(topic).name(),
-            deserializedClusterInfo.topics().get(topic).name());
-        Assertions.assertEquals(
-            clusterInfo.topics().get(topic).topicPartitions(),
-            deserializedClusterInfo.topics().get(topic).topicPartitions());
-        Assertions.assertEquals(
-            clusterInfo.topics().get(topic).config().raw(),
-            deserializedClusterInfo.topics().get(topic).config().raw());
-        Assertions.assertEquals(
-            clusterInfo.topics().get(topic).internal(),
-            deserializedClusterInfo.topics().get(topic).internal());
-        Assertions.assertTrue(
-            deserializedClusterInfo.replicas().containsAll(clusterInfo.replicas()));
+        Assertions.assertEquals(clusterInfo.topics(), deserializedClusterInfo.topics());
+        Assertions.assertEquals(clusterInfo.replicas(), deserializedClusterInfo.replicas());
       }
     }
   }
