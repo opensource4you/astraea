@@ -77,27 +77,15 @@ public class MigrationCost {
    */
   private static Map<Integer, Long> changedRecordSize(
       ClusterInfo before, ClusterInfo after, boolean migrateOut) {
-    final ClusterInfo sourceClusterInfo;
-    final ClusterInfo destClusterInfo;
-    if (migrateOut) {
-      sourceClusterInfo = after;
-      destClusterInfo = before;
-    } else {
-      sourceClusterInfo = before;
-      destClusterInfo = after;
-    }
-    var changePartitions =
-        ClusterInfo.findNonFulfilledAllocation(sourceClusterInfo, destClusterInfo);
+    var source = migrateOut ? after : before;
+    var dest = migrateOut ? before : after;
+    var changePartitions = ClusterInfo.findNonFulfilledAllocation(source, dest);
     var cost =
         changePartitions.stream()
-            .flatMap(
-                p ->
-                    destClusterInfo.replicas(p).stream()
-                        .filter(r -> !sourceClusterInfo.replicas(p).contains(r)))
+            .flatMap(p -> dest.replicas(p).stream().filter(r -> !source.replicas(p).contains(r)))
             .map(
                 r -> {
-                  if (migrateOut)
-                    return destClusterInfo.replicaLeader(r.topicPartition()).orElse(r);
+                  if (migrateOut) return dest.replicaLeader(r.topicPartition()).orElse(r);
                   return r;
                 })
             .collect(
@@ -105,7 +93,7 @@ public class MigrationCost {
                     r -> r.nodeInfo().id(),
                     Collectors.mapping(
                         Function.identity(), Collectors.summingLong(Replica::size))));
-    return Stream.concat(destClusterInfo.nodes().stream(), sourceClusterInfo.nodes().stream())
+    return Stream.concat(dest.nodes().stream(), source.nodes().stream())
         .map(NodeInfo::id)
         .distinct()
         .parallel()
