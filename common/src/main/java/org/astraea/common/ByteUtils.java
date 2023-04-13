@@ -22,8 +22,17 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Config;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.Topic;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.generated.BeanObjectOuterClass;
+import org.astraea.common.generated.ClusterInfoOuterClass;
 import org.astraea.common.generated.PrimitiveOuterClass;
 import org.astraea.common.metrics.BeanObject;
 
@@ -95,6 +104,61 @@ public final class ByteUtils {
     beanBuilder.putAllProperties(value.properties());
     value.attributes().forEach((key, val) -> beanBuilder.putAttributes(key, primitive(val)));
     return beanBuilder.build().toByteArray();
+  }
+
+  /** Serialize ClusterInfo by protocol buffer. */
+  public static byte[] toBytes(ClusterInfo value) {
+    return ClusterInfoOuterClass.ClusterInfo.newBuilder()
+        .setClusterId(value.clusterId())
+        .addAllNodeInfo(
+            value.nodes().stream()
+                .map(
+                    nodeInfo ->
+                        ClusterInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()
+                            .setId(nodeInfo.id())
+                            .setHost(nodeInfo.host())
+                            .setPort(nodeInfo.port())
+                            .build())
+                .collect(Collectors.toList()))
+        .addAllTopic(
+            value.topics().values().stream()
+                .map(
+                    topicClass ->
+                        ClusterInfoOuterClass.ClusterInfo.Topic.newBuilder()
+                            .setName(topicClass.name())
+                            .putAllConfig(topicClass.config().raw())
+                            .setInternal(topicClass.internal())
+                            .addAllPartition(
+                                topicClass.topicPartitions().stream()
+                                    .map(TopicPartition::partition)
+                                    .collect(Collectors.toList()))
+                            .build())
+                .collect(Collectors.toList()))
+        .addAllReplica(
+            value.replicas().stream()
+                .map(
+                    replica ->
+                        ClusterInfoOuterClass.ClusterInfo.Replica.newBuilder()
+                            .setTopic(replica.topic())
+                            .setPartition(replica.partition())
+                            .setNodeInfo(
+                                ClusterInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()
+                                    .setId(replica.nodeInfo().id())
+                                    .setHost(replica.nodeInfo().host())
+                                    .setPort(replica.nodeInfo().port())
+                                    .build())
+                            .setLag(replica.lag())
+                            .setSize(replica.size())
+                            .setIsLeader(replica.isLeader())
+                            .setIsSync(replica.isSync())
+                            .setIsFuture(replica.isFuture())
+                            .setIsOffline(replica.isOffline())
+                            .setIsPreferredLeader(replica.isPreferredLeader())
+                            .setPath(replica.path())
+                            .build())
+                .collect(Collectors.toList()))
+        .build()
+        .toByteArray();
   }
 
   public static int readInt(ReadableByteChannel channel) {
@@ -173,6 +237,65 @@ public final class ByteUtils {
             .collect(
                 Collectors.toUnmodifiableMap(
                     Map.Entry::getKey, e -> Objects.requireNonNull(toObject(e.getValue())))));
+  }
+
+  /** Deserialize to ClusterInfo with protocol buffer */
+  public static ClusterInfo readClusterInfo(byte[] bytes) {
+    var outerClusterInfo =
+        Utils.packException(() -> ClusterInfoOuterClass.ClusterInfo.parseFrom(bytes));
+    return ClusterInfo.of(
+        outerClusterInfo.getClusterId(),
+        outerClusterInfo.getNodeInfoList().stream()
+            .map(nodeInfo -> NodeInfo.of(nodeInfo.getId(), nodeInfo.getHost(), nodeInfo.getPort()))
+            .collect(Collectors.toList()),
+        outerClusterInfo.getTopicList().stream()
+            .map(
+                protoTopic ->
+                    new Topic() {
+                      @Override
+                      public String name() {
+                        return protoTopic.getName();
+                      }
+
+                      @Override
+                      public Config config() {
+                        return Config.of(protoTopic.getConfigMap());
+                      }
+
+                      @Override
+                      public boolean internal() {
+                        return protoTopic.getInternal();
+                      }
+
+                      @Override
+                      public Set<TopicPartition> topicPartitions() {
+                        return protoTopic.getPartitionList().stream()
+                            .map(tp -> TopicPartition.of(protoTopic.getName(), tp))
+                            .collect(Collectors.toSet());
+                      }
+                    })
+            .collect(Collectors.toMap(Topic::name, Function.identity())),
+        outerClusterInfo.getReplicaList().stream()
+            .map(
+                replica ->
+                    Replica.builder()
+                        .topic(replica.getTopic())
+                        .partition(replica.getPartition())
+                        .nodeInfo(
+                            NodeInfo.of(
+                                replica.getNodeInfo().getId(),
+                                replica.getNodeInfo().getHost(),
+                                replica.getNodeInfo().getPort()))
+                        .lag(replica.getLag())
+                        .size(replica.getSize())
+                        .isLeader(replica.getIsLeader())
+                        .isSync(replica.getIsSync())
+                        .isFuture(replica.getIsFuture())
+                        .isOffline(replica.getIsOffline())
+                        .isPreferredLeader(replica.getIsPreferredLeader())
+                        .path(replica.getPath())
+                        .build())
+            .collect(Collectors.toList()));
   }
 
   // --------------------------------ProtoBuf Primitive----------------------------------------- //
