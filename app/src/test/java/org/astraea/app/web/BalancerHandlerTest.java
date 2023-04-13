@@ -21,6 +21,9 @@ import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Executing;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.ExecutionFailed;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.SearchFailed;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Searched;
+import static org.astraea.common.cost.MigrationCost.CHANGED_LEADERS;
+import static org.astraea.common.cost.MigrationCost.TO_FETCH_BYTES;
+import static org.astraea.common.cost.MigrationCost.TO_SYNC_BYTES;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -149,11 +152,11 @@ public class BalancerHandlerTest {
           .forEach(p -> Assertions.assertEquals(Optional.empty(), p.size));
       var sizeMigration =
           report.migrationCosts.stream()
-              .filter(x -> x.name.equals(BalancerHandler.TO_SYNC_BYTES))
+              .filter(x -> x.name.equals(TO_SYNC_BYTES))
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
-      sizeMigration.brokerCosts.values().forEach(v -> Assertions.assertNotEquals(0D, v));
+      sizeMigration.brokerCosts.values().forEach(v -> Assertions.assertNotEquals(0, v));
     }
   }
 
@@ -323,18 +326,24 @@ public class BalancerHandlerTest {
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
-              case BalancerHandler.TO_SYNC_BYTES:
-              case BalancerHandler.TO_FETCH_BYTES:
+              case TO_SYNC_BYTES:
+              case TO_FETCH_BYTES:
                 Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream().mapToLong(Double::intValue).sum()
+                    migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
                         <= DataSize.of(sizeLimit).bytes());
                 break;
-              case BalancerHandler.CHANGED_LEADERS:
+              case CHANGED_LEADERS:
                 Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream()
-                            .map(Math::abs)
-                            .mapToLong(Double::byteValue)
-                            .sum()
+                    Math.max(
+                            migrationCost.brokerCosts.values().stream()
+                                .filter(x -> x >= 0)
+                                .mapToLong(Long::byteValue)
+                                .sum(),
+                            migrationCost.brokerCosts.values().stream()
+                                .filter(x -> x < 0)
+                                .map(Math::abs)
+                                .mapToLong(Long::byteValue)
+                                .sum())
                         <= Integer.parseInt(leaderLimit));
                 break;
             }
