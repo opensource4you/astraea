@@ -90,7 +90,7 @@ class OptimizedClusterInfo implements ClusterInfo {
                               public boolean equals(Object obj) {
                                 if (this == obj) return true;
                                 if (obj == null || getClass() != obj.getClass()) return false;
-                                Topic objTopic = (Topic) obj;
+                                var objTopic = (Topic) obj;
                                 return Objects.equals(name(), objTopic.name())
                                     && config().raw().equals(objTopic.config().raw())
                                     && internal() == objTopic.internal()
