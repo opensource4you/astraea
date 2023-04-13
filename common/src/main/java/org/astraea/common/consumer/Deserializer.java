@@ -27,7 +27,6 @@ import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.astraea.common.ByteUtils;
 import org.astraea.common.Header;
-import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.BeanObject;
@@ -76,8 +75,6 @@ public interface Deserializer<T> {
   Deserializer<Long> LONG = of(new LongDeserializer());
   Deserializer<Float> FLOAT = of(new FloatDeserializer());
   Deserializer<Double> DOUBLE = of(new DoubleDeserializer());
-  Deserializer<ClusterInfo> CLUSTER_INFO =
-      (topic, headers, data) -> ByteUtils.readClusterInfo(data);
   Deserializer<BeanObject> BEAN_OBJECT = (topic, headers, data) -> ByteUtils.readBeanObject(data);
 
   /**
