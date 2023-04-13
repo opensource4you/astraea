@@ -85,6 +85,17 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
             .max(Comparator.naturalOrder())
             .orElse(avg);
 
+    // Calculate partitions that are not suitable to be assigned together based on the partition
+    // traffic
+    // 1. Calculate the standard deviation of the partition traffics on each node
+    // 2. Find the maximum value less than the standard deviation, we call the value `upper
+    // bound`
+    // 3. If the traffic of the partition is greater than the `upper bound`, the partition isn't
+    // suitable to be assigned together with partitions that have traffic lower than the upper
+    // bound
+    // 4. When the traffic of the partition is less than the `upper bound`, the partition isn't
+    // suitable to be assigned together with partitions that have the difference value higher
+    // than traffic interval
     var incompatible =
         partitionTrafficPerBroker.values().stream()
             .flatMap(
@@ -118,17 +129,6 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
 
       @Override
       public Map<TopicPartition, Set<TopicPartition>> incompatibility() {
-        // Calculate partitions that are not suitable to be assigned together based on the partition
-        // traffic
-        // 1. Calculate the standard deviation of the partition traffics on each node
-        // 2. Find the maximum value less than the standard deviation, we call the value `upper
-        // bound`
-        // 3. If the traffic of the partition is greater than the `upper bound`, the partition isn't
-        // suitable to be assigned together with partitions that have traffic lower than the upper
-        // bound
-        // 4. When the traffic of the partition is less than the `upper bound`, the partition isn't
-        // suitable to be assigned together with partitions that have the difference value higher
-        // than traffic interval
         return incompatible;
       }
     };
