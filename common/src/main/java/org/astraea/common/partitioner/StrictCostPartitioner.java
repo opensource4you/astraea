@@ -119,7 +119,7 @@ public class StrictCostPartitioner extends Partitioner {
     // Choose a preferred partition from candidate by partition cost function
     if (preferredPartition.isPresent()) return preferredPartition.get().getKey().partition();
     // Randomly choose from candidate.
-    else return candidate.get((int) (Math.random() * candidate.size())).partition();
+    return candidate.get((int) (Math.random() * candidate.size())).partition();
   }
 
   /**
