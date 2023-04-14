@@ -32,7 +32,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -47,6 +46,7 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.cost.MigrationCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -225,7 +225,8 @@ class BalancerHandler implements Handler, AutoCloseable {
                     .map(
                         solution ->
                             new PlanReport(
-                                changes.apply(solution), BalancerHandler.migrationCosts(solution)))
+                                changes.apply(solution),
+                                MigrationCost.migrationCosts(contextCluster, solution.proposal())))
                     .orElse(null);
     var phase = balancerConsole.taskPhase(taskId).orElseThrow();
     return new PlanExecutionProgress(
@@ -238,58 +239,9 @@ class BalancerHandler implements Handler, AutoCloseable {
         report.get());
   }
 
-  private static List<MigrationCost> migrationCosts(Balancer.Plan solution) {
-    return Stream.of(
-            new MigrationCost(
-                CHANGED_REPLICAS,
-                ClusterInfo.changedReplicaNumber(
-                        solution.initialClusterInfo(), solution.proposal(), ignored -> true)
-                    .entrySet()
-                    .stream()
-                    .collect(
-                        Collectors.toMap(
-                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
-            new MigrationCost(
-                CHANGED_LEADERS,
-                ClusterInfo.changedReplicaNumber(
-                        solution.initialClusterInfo(), solution.proposal(), Replica::isLeader)
-                    .entrySet()
-                    .stream()
-                    .collect(
-                        Collectors.toMap(
-                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue()))),
-            new MigrationCost(
-                TO_SYNC_BYTES,
-                ClusterInfo.recordSizeToSync(solution.initialClusterInfo(), solution.proposal())
-                    .entrySet()
-                    .stream()
-                    .collect(
-                        Collectors.toMap(
-                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))),
-            new MigrationCost(
-                TO_FETCH_BYTES,
-                ClusterInfo.recordSizeToFetch(solution.initialClusterInfo(), solution.proposal())
-                    .entrySet()
-                    .stream()
-                    .collect(
-                        Collectors.toMap(
-                            e -> String.valueOf(e.getKey()), e -> (double) e.getValue().bytes()))))
-        .filter(
-            m -> !m.brokerCosts.isEmpty() && m.brokerCosts.values().stream().anyMatch(v -> v != 0))
-        .collect(Collectors.toList());
-  }
-
   // visible for test
   static PostRequestWrapper parsePostRequestWrapper(
       BalancerPostRequest balancerPostRequest, ClusterInfo currentClusterInfo) {
-    var topics =
-        balancerPostRequest.topics.isEmpty()
-            ? currentClusterInfo.topicNames()
-            : balancerPostRequest.topics;
-
-    if (topics.isEmpty())
-      throw new IllegalArgumentException(
-          "Illegal topic filter, empty topic specified so nothing can be rebalance. ");
     if (balancerPostRequest.timeout.isZero() || balancerPostRequest.timeout.isNegative())
       throw new IllegalArgumentException(
           "Illegal timeout, value should be positive integer: "
@@ -302,7 +254,7 @@ class BalancerHandler implements Handler, AutoCloseable {
             .clusterCost(balancerPostRequest.clusterCost())
             .moveCost(balancerPostRequest.moveCost())
             .timeout(balancerPostRequest.timeout)
-            .topicFilter(topics::contains)
+            .configs(balancerPostRequest.balancerConfig)
             .build(),
         currentClusterInfo);
   }
@@ -314,7 +266,6 @@ class BalancerHandler implements Handler, AutoCloseable {
     Map<String, String> balancerConfig = Map.of();
     Map<String, String> costConfig = Map.of();
     Duration timeout = Duration.ofSeconds(3);
-    Set<String> topics = Set.of();
     List<CostWeight> clusterCosts = List.of();
     Set<String> moveCosts =
         Set.of(
@@ -423,22 +374,6 @@ class BalancerHandler implements Handler, AutoCloseable {
   }
 
   // visible for testing
-  static final String CHANGED_REPLICAS = "changed replicas";
-  static final String CHANGED_LEADERS = "changed leaders";
-  static final String TO_SYNC_BYTES = "record size to sync (bytes)";
-  static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
-
-  static class MigrationCost {
-    final String name;
-
-    final Map<String, Double> brokerCosts;
-
-    MigrationCost(String name, Map<String, Double> brokerCosts) {
-      this.name = name;
-      this.brokerCosts = brokerCosts;
-    }
-  }
-
   static class PlanReport implements Response {
 
     final List<Change> changes;

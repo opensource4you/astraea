@@ -16,6 +16,8 @@
  */
 package org.astraea.common.cost;
 
+import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
+
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
@@ -57,8 +59,7 @@ public class RecordSizeCost
             .map(DataSize::of)
             .map(DataSize::bytes)
             .orElse(Long.MAX_VALUE);
-    var overflow =
-        ClusterInfo.changedRecordSizeOverflow(before, after, ignored -> true, maxMigratedSize);
+    var overflow = changedRecordSizeOverflow(before, after, ignored -> true, maxMigratedSize);
     return () -> overflow;
   }
 

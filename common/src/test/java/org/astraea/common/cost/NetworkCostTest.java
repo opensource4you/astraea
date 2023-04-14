@@ -135,7 +135,7 @@ class NetworkCostTest {
   @DisplayName("Run with Balancer")
   void testOptimization(HasClusterCost costFunction, TestCase testcase) {
     var newPlan =
-        Balancer.Official.Greedy.create(Configuration.EMPTY)
+        Balancer.Official.Greedy.create()
             .offer(
                 AlgorithmConfig.builder()
                     .clusterInfo(testcase.clusterInfo())
@@ -447,10 +447,7 @@ class NetworkCostTest {
                 (short) 1,
                 replica ->
                     Replica.builder(replica)
-                        .size(
-                            (long)
-                                ((replica.partition() + 1)
-                                    * DataRate.KB.of(10).perSecond().byteRate()))
+                        .size((long) ((replica.partition() + 1) * DataRate.KB.of(10).byteRate()))
                         .build())
             .build();
 
@@ -575,12 +572,12 @@ class NetworkCostTest {
               case 3:
               case 4:
               case 5:
-                return DataRate.MB.of((long) (random.nextInt(50))).perSecond();
+                return DataRate.MB.of((long) (random.nextInt(50)));
               case 6:
               case 7:
-                return DataRate.MB.of(3 * (long) (random.nextInt(50))).perSecond();
+                return DataRate.MB.of(3 * (long) (random.nextInt(50)));
               case 8:
-                return DataRate.MB.of(5 * (long) (random.nextInt(50))).perSecond();
+                return DataRate.MB.of(5 * (long) (random.nextInt(50)));
               default:
                 throw new RuntimeException();
             }
