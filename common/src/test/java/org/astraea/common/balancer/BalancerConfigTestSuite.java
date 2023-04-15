@@ -18,7 +18,6 @@ package org.astraea.common.balancer;
 
 import java.time.Duration;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -161,11 +160,7 @@ public abstract class BalancerConfigTestSuite {
 
     {
       var testName = "[test some match]";
-      var allowedBrokers =
-          IntStream.range(0, 5)
-              .map(i -> ThreadLocalRandom.current().nextInt(0, 20))
-              .boxed()
-              .collect(Collectors.toUnmodifiableSet());
+      var allowedBrokers = IntStream.range(1, 6).boxed().collect(Collectors.toUnmodifiableSet());
       var rawRegex =
           allowedBrokers.stream().map(Object::toString).collect(Collectors.joining("|", "(", ")"));
       var plan =
