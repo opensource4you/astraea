@@ -55,6 +55,15 @@ public class PerfSource extends SourceConnector {
           .documentation(
               "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
           .build();
+  static Definition KEY_LENGTH_DISTRIBUTION_DEF =
+      Definition.builder()
+          .name("key.size.distribution")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DistributionType.ofAlias(obj.toString()))
+          .defaultValue(DistributionType.FIXED.alias())
+          .documentation(
+              "Distribution name for key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: fixed")
+          .build();
   static Definition KEY_LENGTH_DEF =
       Definition.builder()
           .name("key.size")
@@ -84,6 +93,15 @@ public class PerfSource extends SourceConnector {
           .documentation(
               "the max length of value. The distribution of length is defined by "
                   + VALUE_DISTRIBUTION_DEF.name())
+          .build();
+  static Definition VALUE_LENGTH_DISTRIBUTION_DEF =
+      Definition.builder()
+          .name("value.size.distribution")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DistributionType.ofAlias(obj.toString()))
+          .defaultValue(DistributionType.FIXED.alias())
+          .documentation(
+              "Distribution name for value size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: fixed")
           .build();
   static Definition BATCH_LENGTH_DEF =
       Definition.builder()
@@ -147,9 +165,13 @@ public class PerfSource extends SourceConnector {
         THROUGHPUT_DEF,
         KEY_LENGTH_DEF,
         KEY_DISTRIBUTION_DEF,
+        KEY_LENGTH_DISTRIBUTION_DEF,
         VALUE_LENGTH_DEF,
         VALUE_DISTRIBUTION_DEF,
-        BATCH_LENGTH_DEF);
+        VALUE_LENGTH_DISTRIBUTION_DEF,
+        BATCH_LENGTH_DEF,
+        KEY_TABLE_SEED,
+        VALUE_TABLE_SEED);
   }
 
   public static class Task extends SourceTask {
@@ -169,21 +191,32 @@ public class PerfSource extends SourceConnector {
               configuration
                   .string(KEY_LENGTH_DEF.name())
                   .orElse(KEY_LENGTH_DEF.defaultValue().toString()));
-      var valueLength =
-          DataSize.of(
-              configuration
-                  .string(VALUE_LENGTH_DEF.name())
-                  .orElse(VALUE_LENGTH_DEF.defaultValue().toString()));
       var keyDistribution =
           DistributionType.ofAlias(
               configuration
                   .string(KEY_DISTRIBUTION_DEF.name())
                   .orElse(KEY_DISTRIBUTION_DEF.defaultValue().toString()));
+      var keyLengthDistribution =
+          DistributionType.ofAlias(
+              configuration
+                  .string(KEY_LENGTH_DISTRIBUTION_DEF.name())
+                  .orElse(KEY_LENGTH_DISTRIBUTION_DEF.defaultValue().toString()));
+      var valueLength =
+          DataSize.of(
+              configuration
+                  .string(VALUE_LENGTH_DEF.name())
+                  .orElse(VALUE_LENGTH_DEF.defaultValue().toString()));
       var valueDistribution =
           DistributionType.ofAlias(
               configuration
                   .string(VALUE_DISTRIBUTION_DEF.name())
                   .orElse(VALUE_DISTRIBUTION_DEF.defaultValue().toString()));
+      var valueLengthDistribution =
+          DistributionType.ofAlias(
+              configuration
+                  .string(VALUE_LENGTH_DISTRIBUTION_DEF.name())
+                  .orElse(VALUE_LENGTH_DISTRIBUTION_DEF.defaultValue().toString()));
+
       var batchLength =
           configuration
               .integer(BATCH_LENGTH_DEF.name())
@@ -208,13 +241,14 @@ public class PerfSource extends SourceConnector {
               .keyRange(
                   LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
               .keyDistribution(keyDistribution.create(10000, configuration))
-              .keySizeDistribution(keyDistribution.create((int) keyLength.bytes(), configuration))
+              .keySizeDistribution(
+                  keyLengthDistribution.create((int) keyLength.bytes(), configuration))
               .valueTableSeed(valueTableSeed)
               .valueRange(
                   LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
               .valueDistribution(valueDistribution.create(10000, configuration))
               .valueSizeDistribution(
-                  valueDistribution.create((int) valueLength.bytes(), configuration))
+                  valueLengthDistribution.create((int) valueLength.bytes(), configuration))
               .throughput(tp -> throughput.dataRate(Duration.ofSeconds(1)))
               .build();
     }
