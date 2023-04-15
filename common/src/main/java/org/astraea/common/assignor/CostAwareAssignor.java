@@ -20,29 +20,17 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
-import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.BrokerTopic;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.NoSufficientMetricsException;
-import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.broker.HasRate;
-import org.astraea.common.metrics.broker.ServerMetrics;
 
 /**
  * This assignor scores the partitions by cost function(s) that user given. Each cost function
@@ -65,16 +53,14 @@ import org.astraea.common.metrics.broker.ServerMetrics;
  * config by `max.wait.bean=10` or `max.traffic.mib.interval=15`
  */
 public class CostAwareAssignor extends Assignor {
-  public static final String MAX_TRAFFIC_MIB_INTERVAL = "max.traffic.mib.interval";
-  public static final String MAX_UPPER_BOUND_MIB = "max.upper.bound.mib";
-  double maxTrafficMiBInterval = 10;
-  double maxUpperBoundMiB = 40;
+  protected static final String MAX_RETRY_TIME = "max.retry.time";
+  Duration maxRetryTime = Duration.ofSeconds(30);
 
   @Override
   protected Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.assignor.Subscription> subscriptions,
       ClusterInfo clusterInfo) {
-    registerUnregisterNode(clusterInfo);
+    // TODO: Detect Unregister node and register them if any
     var subscribedTopics =
         subscriptions.values().stream()
             .map(org.astraea.common.assignor.Subscription::topics)
@@ -85,317 +71,83 @@ public class CostAwareAssignor extends Assignor {
     retry(clusterInfo);
 
     var clusterBean = metricStore.clusterBean();
-    var partitionCost = costFunction.partitionCost(clusterInfo, clusterBean).value();
-    var costPerBroker = wrapCostBaseOnNode(clusterInfo, subscribedTopics, partitionCost);
-    var intervalPerBroker = estimateIntervalTraffic(clusterInfo, clusterBean, costPerBroker);
-    return greedyAssign(costPerBroker, subscriptions, intervalPerBroker);
-  }
-
-  /**
-   * register unregistered nodes if present. if we didn't register unregistered nodes, we would miss
-   * the beanObjects from the nodes
-   *
-   * @param clusterInfo Currently cluster information.
-   */
-  private void registerUnregisterNode(ClusterInfo clusterInfo) {
-    var unregister = checkUnregister(clusterInfo.nodes());
-    if (!unregister.isEmpty()) {
-      unregister.forEach((id, host) -> MBeanClient.jndi(host, jmxPortGetter.apply(id)));
-    }
-  }
-
-  /**
-   * perform assign algorithm ensure that similar loads within a node would be assigned to the same
-   * consumer.
-   *
-   * @param costs the tp and their cost within a node
-   * @param subscription All subscription for consumers
-   * @param intervalPerBroker Transforming the traffic of each node into cost
-   * @return the final assignment
-   */
-  Map<String, List<TopicPartition>> greedyAssign(
-      Map<Integer, Map<TopicPartition, Double>> costs,
-      Map<String, org.astraea.common.assignor.Subscription> subscription,
-      Map<Integer, Double> intervalPerBroker) {
-    // TODO: need detect consumer with different subscription
-    // initial
-    var assignment = new HashMap<String, List<TopicPartition>>();
-    var consumers = subscription.keySet();
-    for (var consumer : consumers) {
-      assignment.put(consumer, new ArrayList<>());
-    }
-    var costPerConsumer =
-        assignment.keySet().stream()
-            .map(c -> Map.entry(c, (double) 0))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-    costs.forEach(
-        (brokerId, cost) ->
-            assignPerNode(cost, costPerConsumer, intervalPerBroker.get(brokerId))
-                .forEach((consumer, result) -> assignment.get(consumer).addAll(result)));
-    return assignment;
-  }
-
-  /**
-   * aggregate the assignment of with interval and without interval
-   *
-   * @param partitionCost partition cost
-   * @param consumerCost the consumer with its total cost
-   * @param interval the config of `max.traffic.mib.interval`
-   * @return the assignment of a node
-   */
-  Map<String, List<TopicPartition>> assignPerNode(
-      Map<TopicPartition, Double> partitionCost,
-      Map<String, Double> consumerCost,
-      Double interval) {
-    // TODO: avoid numberOfConsumer < intervalAssignment.size()
-    var intervalAssignment = groupPartitionWithInterval(partitionCost, interval);
-    var groupNumberOfNonInterval = consumerCost.size() - intervalAssignment.size();
-    Map<Double, HashMap<TopicPartition, Double>> result;
-
-    if (groupNumberOfNonInterval == 0) {
-      var upperBound = interval * (maxUpperBoundMiB / maxTrafficMiBInterval);
-      var dontCareSimilarCost =
-          partitionCost.entrySet().stream()
-              .filter(e -> e.getValue() >= upperBound)
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      intervalAssignment.get(upperBound).putAll(dontCareSimilarCost);
-      result = intervalAssignment;
-    } else {
-      var dontCareSimilar =
-          groupPartitionWithoutInterval(partitionCost, interval, groupNumberOfNonInterval);
-      result =
-          Stream.concat(intervalAssignment.entrySet().stream(), dontCareSimilar.entrySet().stream())
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
-    var assignOrder =
-        result.entrySet().stream()
-            .map(
-                e -> {
-                  var id = e.getKey();
-                  var total = e.getValue().values().stream().mapToDouble(x -> x).sum();
-                  return Map.entry(id, total);
-                })
-            .sorted(Map.Entry.comparingByValue())
-            .map(Map.Entry::getKey)
-            .collect(Collectors.toList());
-    Collections.reverse(assignOrder);
-
-    var tmpConsumerCost = new HashMap<>(consumerCost);
-    Supplier<String> lowestCostConsumer =
-        () -> Collections.min(tmpConsumerCost.entrySet(), Map.Entry.comparingByValue()).getKey();
-
-    return assignOrder.stream()
-        .map(
-            id -> {
-              var consumer = lowestCostConsumer.get();
-
-              tmpConsumerCost.remove(consumer);
-              consumerCost.compute(
-                  consumer,
-                  (ignore, cost) ->
-                      cost + result.get(id).values().stream().mapToDouble(x -> x).sum());
-              return Map.entry(
-                  consumer,
-                  result.get(id).keySet().stream().collect(Collectors.toUnmodifiableList()));
-            })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-
-  /**
-   * Assign the partitions which cost is larger than `max.upper.bound.mib`. For costs that exceed
-   * the upper bound, they should be evenly distributed as much as possible.
-   *
-   * @param partitionCost partition cost based on the cost function user used
-   * @param interval the config of `max.traffic.mib.interval`
-   * @param groupNumber the group number must equal to the (number of consumers - number of group
-   *     within interval)
-   * @return the part of assignment
-   */
-  protected Map<Double, HashMap<TopicPartition, Double>> groupPartitionWithoutInterval(
-      Map<TopicPartition, Double> partitionCost, Double interval, int groupNumber) {
-    var upperBound = interval * (maxUpperBoundMiB / maxTrafficMiBInterval);
-    var dontCareSimilarCost =
-        partitionCost.entrySet().stream()
-            .filter(e -> e.getValue() >= upperBound)
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    if (groupNumber == 1) return Map.of(1.0, new HashMap<>(dontCareSimilarCost));
-
-    var result =
-        IntStream.range(1, groupNumber + 1)
-            .mapToObj(i -> Map.entry((double) i, new HashMap<TopicPartition, Double>()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var tmpCost = result.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> 0.0));
-    Supplier<Double> minCost =
-        () -> Collections.min(tmpCost.entrySet(), Map.Entry.comparingByValue()).getKey();
-    dontCareSimilarCost.forEach(
-        (tp, cost) -> {
-          var min = minCost.get();
-          result.get(min).put(tp, cost);
-          tmpCost.computeIfPresent(min, (ignore, costValue) -> costValue + cost);
-        });
-    return result.entrySet().stream()
-        .filter(e -> !e.getValue().isEmpty())
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-
-  /**
-   * Assign the partitions which cost is less than `max.upper.bound.mib`. The reason for needing to
-   * look at the upper bound is to assign partitions with similar amounts of traffic to the same
-   * consumer.
-   *
-   * @param partitionCost the partition cost
-   * @param interval the config of `max.traffic.mib.interval`, Distinguishing the interval of
-   *     traffic
-   * @return the part of assignment
-   */
-  protected Map<Double, HashMap<TopicPartition, Double>> groupPartitionWithInterval(
-      Map<TopicPartition, Double> partitionCost, Double interval) {
-    // upper = 50, interval = 10
-    // range: 0~10, 10~20, 20~30, 30~40, 40~50
-    // upper = 35, interval = 10
-    // range: 0~10, 10~20, 20~30, 30~35
-    var upperBoundCost = interval * (maxUpperBoundMiB / maxTrafficMiBInterval);
-    var groupNumbers = (int) Math.ceil(maxUpperBoundMiB / maxTrafficMiBInterval);
-    var intervals =
-        IntStream.range(1, groupNumbers + 1)
-            .mapToObj(
-                i ->
-                    Map.entry(
-                        Math.min(interval * i, upperBoundCost),
-                        new HashMap<TopicPartition, Double>()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var orderedList = intervals.keySet().stream().sorted().collect(Collectors.toUnmodifiableList());
-    // Aggregate similar traffic to the same key of intervals.
-    // If cost is larger than upperBound cost, put it into dontCareSimilarCost
-    partitionCost.entrySet().stream()
-        .filter(e -> e.getValue() < upperBoundCost)
-        .forEach(
-            e -> {
-              for (var i : orderedList) {
-                if (e.getValue() < i) {
-                  intervals.get(i).put(e.getKey(), e.getValue());
-                  break;
-                }
-              }
-            });
-    return intervals.entrySet().stream()
-        .filter(e -> !e.getValue().isEmpty())
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-  /**
-   * Wrap the partition and cost based on nodes. This method is used to process special cost, e.g.,
-   * `LogSizeCost` and `NetworkIngressCost`
-   *
-   * @param clusterInfo the cluster information that admin fetch
-   * @param topics total topics that consumers subscribed
-   * @param cost partition cost calculated by cost function
-   * @return Map from each broker id to partitions' cost
-   */
-  Map<Integer, Map<TopicPartition, Double>> wrapCostBaseOnNode(
-      ClusterInfo clusterInfo, Set<String> topics, Map<TopicPartition, Double> cost) {
-    return clusterInfo
-        .replicaStream()
-        .filter(Replica::isLeader)
-        .filter(Replica::isOnline)
-        .filter(replica -> topics.contains(replica.topic()))
-        .collect(
-            Collectors.groupingBy(
-                replica -> replica.nodeInfo().id(),
-                Collectors.toUnmodifiableMap(
-                    Replica::topicPartition, r -> cost.get(r.topicPartition()))));
-  }
-
-  // visible for test
-  /**
-   * For all nodes, estimate the cost of given traffic. The assignor would use the interval cost to
-   * assign the partition with similar cost to the same consumer.
-   *
-   * @param clusterInfo the clusterInfo
-   * @param clusterBean the clusterBean
-   * @param tpCostPerBroker the partition cost of every broker
-   * @return Map from broker id to the cost of given traffic
-   */
-  Map<Integer, Double> estimateIntervalTraffic(
-      ClusterInfo clusterInfo,
-      ClusterBean clusterBean,
-      Map<Integer, Map<TopicPartition, Double>> tpCostPerBroker) {
-    var interval = DataRate.MiB.of((long) maxTrafficMiBInterval).perSecond().byteRate();
-    // get partitions' cost
-    var partitionsTraffic =
-        replicaLeaderLocation(clusterInfo).entrySet().stream()
-            .flatMap(
-                e -> {
-                  var bt = e.getKey();
-                  var totalReplicaSize = e.getValue().stream().mapToLong(Replica::size).sum();
-                  var totalShare =
-                      (double)
-                          clusterBean
-                              .brokerTopicMetrics(bt, ServerMetrics.Topic.Meter.class)
-                              .filter(
-                                  bean -> bean.type().equals(ServerMetrics.Topic.BYTES_IN_PER_SEC))
-                              .max(Comparator.comparingLong(HasBeanObject::createdTimestamp))
-                              .map(HasRate::fifteenMinuteRate)
-                              .orElse(0.0);
-
-                  if (Double.isNaN(totalShare) || totalShare < 0.0 || totalReplicaSize < 0) {
-                    throw new NoSufficientMetricsException(
-                        costFunction,
-                        Duration.ofSeconds(1),
-                        "no enough metric to calculate traffic");
-                  }
-                  var calculateShare =
-                      (Function<Replica, Long>)
-                          (replica) ->
-                              totalReplicaSize > 0
-                                  ? (long) ((totalShare * replica.size()) / totalReplicaSize)
-                                  : 0L;
-                  return e.getValue().stream()
-                      .map(r -> Map.entry(r.topicPartition(), calculateShare.apply(r)));
-                })
+    var partitionCost = costFunction.partitionCost(clusterInfo, clusterBean);
+    var cost =
+        partitionCost.value().entrySet().stream()
+            .filter(e -> subscribedTopics.contains(e.getKey().topic()))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+    var incompatiblePartition = partitionCost.incompatibility();
 
-    return tpCostPerBroker.entrySet().stream()
-        .map(
-            e -> {
-              // select a partition with its network ingress cost
-              var tpCost =
-                  e.getValue().entrySet().stream()
-                      .filter(entry -> entry.getValue() > 0.0)
-                      .findFirst()
-                      .orElseThrow();
-              var traffic = partitionsTraffic.get(tpCost.getKey());
-              var normalizedCost = tpCost.getValue();
-              // convert the interval value to cost
-              var result = normalizedCost / (traffic / interval);
-              return Map.entry(e.getKey(), result);
-            })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    return greedyAssign(subscriptions, cost, incompatiblePartition);
   }
 
-  /**
-   * the helper method that estimate the interval traffic
-   *
-   * @param clusterInfo cluster info
-   * @return Map from BrokerTopic to Replica
-   */
-  private Map<BrokerTopic, List<Replica>> replicaLeaderLocation(ClusterInfo clusterInfo) {
-    return clusterInfo
-        .replicaStream()
-        .filter(Replica::isLeader)
-        .filter(Replica::isOnline)
-        .map(
-            replica -> Map.entry(BrokerTopic.of(replica.nodeInfo().id(), replica.topic()), replica))
+  protected Map<String, List<TopicPartition>> greedyAssign(
+      Map<String, org.astraea.common.assignor.Subscription> subscriptions,
+      Map<TopicPartition, Double> costs,
+      Map<TopicPartition, Set<TopicPartition>> incompatiblePartition) {
+    var tmpConsumerCost =
+        subscriptions.keySet().stream()
+            .map(c -> Map.entry(c, 0.0))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var tmpAssignment =
+        subscriptions.keySet().stream()
+            .map(v -> Map.entry(v, new ArrayList<TopicPartition>()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    var lowestCostConsumer =
+        (Function<TopicPartition, String>)
+            (tp) -> {
+              var subscribeConsumers =
+                  subscriptions.entrySet().stream()
+                      .filter(e -> e.getValue().topics().contains(tp.topic()))
+                      .map(Map.Entry::getKey)
+                      .collect(Collectors.toUnmodifiableSet());
+              var suitableConsumers =
+                  incompatiblePartition.isEmpty()
+                      ? subscribeConsumers
+                      : incompatiblePartition.get(tp).isEmpty()
+                          ? subscribeConsumers
+                          : subscribeConsumers.stream()
+                              .filter(
+                                  c ->
+                                      tmpAssignment.get(c).stream()
+                                          .noneMatch(
+                                              p -> incompatiblePartition.get(tp).contains(p)))
+                              .collect(Collectors.toUnmodifiableSet());
+
+              return suitableConsumers.isEmpty()
+                  ? tmpConsumerCost.entrySet().stream()
+                      .filter(e -> subscribeConsumers.contains(e.getKey()))
+                      .min(Map.Entry.comparingByValue())
+                      .get()
+                      .getKey()
+                  : tmpConsumerCost.entrySet().stream()
+                      .filter(e -> suitableConsumers.contains(e.getKey()))
+                      .min(Map.Entry.comparingByValue())
+                      .get()
+                      .getKey();
+            };
+
+    return costs.entrySet().stream()
+        .flatMap(
+            e -> {
+              var tp = e.getKey();
+              var cost = e.getValue();
+              var consumer = lowestCostConsumer.apply(tp);
+              tmpConsumerCost.compute(consumer, (ignore, totalCost) -> cost + totalCost);
+              tmpAssignment.get(consumer).add(tp);
+              return Stream.of(Map.entry(consumer, tp));
+            })
         .collect(
-            Collectors.groupingBy(
+            Collectors.toMap(
                 Map.Entry::getKey,
-                Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
+                entry -> Collections.singletonList(entry.getValue()),
+                (l1, l2) ->
+                    Stream.of(l1, l2).flatMap(Collection::stream).collect(Collectors.toList())));
   }
 
   private void retry(ClusterInfo clusterInfo) {
-    // temp
-    var timeoutMs = System.currentTimeMillis() + 20000;
+    var timeoutMs = System.currentTimeMillis() + maxRetryTime.toMillis();
     while (System.currentTimeMillis() < timeoutMs) {
       try {
         var clusterBean = metricStore.clusterBean();
@@ -411,10 +163,7 @@ public class CostAwareAssignor extends Assignor {
 
   @Override
   protected void configure(Configuration config) {
-    config.integer(MAX_TRAFFIC_MIB_INTERVAL).ifPresent(value -> this.maxTrafficMiBInterval = value);
-    config.integer(MAX_UPPER_BOUND_MIB).ifPresent(value -> this.maxUpperBoundMiB = value);
-    if (maxUpperBoundMiB < maxTrafficMiBInterval)
-      throw new IllegalArgumentException("max traffic interval cannot larger than max upperbound");
+    config.duration(MAX_RETRY_TIME).ifPresent(v -> this.maxRetryTime = v);
   }
 
   @Override
