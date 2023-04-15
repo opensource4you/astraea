@@ -17,7 +17,7 @@
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source $DOCKER_FOLDER/docker_build_common.sh
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/deps}
-declare -r VERSION=${VERSION:-latest}
+declare -r VERSION="latest"
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/deps.dockerfile
 # ===================================[functions]===================================
