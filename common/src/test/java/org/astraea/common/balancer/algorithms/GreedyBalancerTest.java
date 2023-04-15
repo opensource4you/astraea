@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test;
 class GreedyBalancerTest extends BalancerConfigTestSuite {
 
   public GreedyBalancerTest() {
-    super(GreedyBalancer.class);
+    super(GreedyBalancer.class, Configuration.EMPTY);
   }
 
   @Test

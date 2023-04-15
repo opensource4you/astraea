@@ -48,10 +48,15 @@ public class ShuffleTweaker {
 
   private final Supplier<Integer> numberOfShuffle;
   private final Predicate<String> allowedTopics;
+  private final Predicate<Integer> allowedBrokers;
 
-  public ShuffleTweaker(Supplier<Integer> numberOfShuffle, Predicate<String> allowedTopics) {
+  public ShuffleTweaker(
+      Supplier<Integer> numberOfShuffle,
+      Predicate<String> allowedTopics,
+      Predicate<Integer> allowedBrokers) {
     this.numberOfShuffle = numberOfShuffle;
     this.allowedTopics = allowedTopics;
+    this.allowedBrokers = allowedBrokers;
   }
 
   public static Builder builder() {
@@ -86,13 +91,22 @@ public class ShuffleTweaker {
             final var tp = partitionOrder.get(i);
             if (!eligiblePartition(baseAllocation.replicas(tp))) continue;
             switch (Operation.random()) {
+                // change leader/follower identity
               case LEADERSHIP_CHANGE:
                 {
-                  // change leader/follower identity
+                  // test if leader is located at an allowed broker.
+                  if (!this.allowedBrokers.test(
+                      baseAllocation.replicaLeader(tp).stream()
+                          .findFirst()
+                          .orElseThrow()
+                          .nodeInfo()
+                          .id())) continue;
                   var replica =
                       baseAllocation
                           .replicaStream(tp)
                           .filter(Replica::isFollower)
+                          // this follower is located at allowed broker
+                          .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
                           .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
                           .min(Map.Entry.comparingByValue())
                           .map(Map.Entry::getKey);
@@ -102,27 +116,34 @@ public class ShuffleTweaker {
                   }
                   break;
                 }
+                // change replica list
               case REPLICA_LIST_CHANGE:
                 {
-                  // change replica list
-                  var replicaList = baseAllocation.replicas(tp);
+                  var replicaList =
+                      baseAllocation.replicas(tp).stream()
+                          .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
+                          .collect(Collectors.toUnmodifiableList());
+                  if (replicaList.isEmpty()) continue;
                   var currentIds =
                       replicaList.stream()
                           .map(Replica::nodeInfo)
                           .map(NodeInfo::id)
                           .collect(Collectors.toUnmodifiableSet());
-                  var broker =
+                  var toBroker =
                       baseAllocation.brokers().stream()
+                          // the candidate should not be part of the replica list
                           .filter(b -> !currentIds.contains(b.id()))
+                          // should be an allowed broker
+                          .filter(b -> this.allowedBrokers.test(b.id()))
                           .map(b -> Map.entry(b, ThreadLocalRandom.current().nextInt()))
                           .min(Map.Entry.comparingByValue())
                           .map(Map.Entry::getKey);
-                  if (broker.isPresent()) {
+                  if (toBroker.isPresent()) {
                     var replica = randomElement(replicaList);
                     finalCluster.reassignReplica(
                         replica.topicPartitionReplica(),
-                        broker.get().id(),
-                        randomElement(baseAllocation.brokerFolders().get(broker.get().id())));
+                        toBroker.get().id(),
+                        randomElement(baseAllocation.brokerFolders().get(toBroker.get().id())));
                     shuffled++;
                   }
                   break;
@@ -182,6 +203,7 @@ public class ShuffleTweaker {
 
     private Supplier<Integer> numberOfShuffle = () -> ThreadLocalRandom.current().nextInt(1, 5);
     private Predicate<String> allowedTopics = (name) -> true;
+    private Predicate<Integer> allowedBrokers = (name) -> true;
 
     private Builder() {}
 
@@ -195,8 +217,13 @@ public class ShuffleTweaker {
       return this;
     }
 
+    public Builder allowedBrokers(Predicate<Integer> allowedBrokers) {
+      this.allowedBrokers = allowedBrokers;
+      return this;
+    }
+
     public ShuffleTweaker build() {
-      return new ShuffleTweaker(numberOfShuffle, allowedTopics);
+      return new ShuffleTweaker(numberOfShuffle, allowedTopics, allowedBrokers);
     }
   }
 }
