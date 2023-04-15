@@ -1456,7 +1456,7 @@ public class AdminTest {
   void testProducerQuotas() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
-          .setProducerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(100).perSecond()))
+          .setProducerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(100)))
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(2));
@@ -1467,9 +1467,7 @@ public class AdminTest {
               .collect(Collectors.toList());
       Assertions.assertNotEquals(0, quotas.size());
       quotas.forEach(
-          quota ->
-              Assertions.assertEquals(
-                  DataRate.Byte.of(100).perSecond().byteRate(), quota.limitValue()));
+          quota -> Assertions.assertEquals(DataRate.Byte.of(100).byteRate(), quota.limitValue()));
 
       admin.unsetProducerQuotas(Set.of(Utils.hostname())).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
@@ -1488,7 +1486,7 @@ public class AdminTest {
   void testConsumerQuotas() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
-          .setConsumerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(1000).perSecond()))
+          .setConsumerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(1000)))
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(2));
@@ -1499,9 +1497,7 @@ public class AdminTest {
               .collect(Collectors.toList());
       Assertions.assertNotEquals(0, quotas.size());
       quotas.forEach(
-          quota ->
-              Assertions.assertEquals(
-                  DataRate.Byte.of(1000).perSecond().byteRate(), quota.limitValue()));
+          quota -> Assertions.assertEquals(DataRate.Byte.of(1000).byteRate(), quota.limitValue()));
 
       admin.unsetConsumerQuotas(Set.of(Utils.hostname())).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));

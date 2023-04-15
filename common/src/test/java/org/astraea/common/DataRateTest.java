@@ -18,7 +18,6 @@ package org.astraea.common;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigInteger;
@@ -54,17 +53,9 @@ class DataRateTest {
   }
 
   @Test
-  void idealDataRateAndUnit() {
-    var sut = DataRate.KB.of(1000).perSecond();
-
-    assertFloatingValueEquals(1.0, sut.idealDataRate(ChronoUnit.SECONDS).doubleValue());
-    assertSame(DataUnit.MB, sut.idealDataUnit(ChronoUnit.SECONDS));
-  }
-
-  @Test
   void dataRate() {
-    var sut0 = DataRate.KB.of(500).perSecond().toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
-    var sut1 = DataRate.KB.of(500).perSecond().toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
+    var sut0 = DataRate.KB.of(500).toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
+    var sut1 = DataRate.KB.of(500).toBigDecimal(DataUnit.MB, Duration.ofSeconds(1));
 
     assertFloatingValueEquals(0.5, sut0.doubleValue());
     assertFloatingValueEquals(0.5, sut1.doubleValue());
@@ -95,16 +86,14 @@ class DataRateTest {
       DataUnit expectedDataUnit) {
     DataRate sut = dataUnit.of(measurement).dataRate(Duration.ofSeconds(passedSecond));
 
-    assertFloatingValueEquals(
-        expectedIdealDataRate, sut.idealDataRate(ChronoUnit.SECONDS).doubleValue());
-    assertEquals(expectedDataUnit, sut.idealDataUnit(ChronoUnit.SECONDS));
+    assertEquals(expectedDataUnit, sut.idealDataUnit(Duration.ofSeconds(1)));
   }
 
   @Test
   void testToDataSize() {
-    Assertions.assertEquals(DataUnit.Byte.of(1024), DataRate.Byte.of(1024).perSecond().dataSize());
-    Assertions.assertEquals(DataUnit.KiB.of(1024), DataRate.KiB.of(1024).perSecond().dataSize());
-    Assertions.assertEquals(DataUnit.EiB.of(24), DataRate.EiB.of(24).perSecond().dataSize());
+    Assertions.assertEquals(DataUnit.Byte.of(1024), DataRate.Byte.of(1024).dataSize());
+    Assertions.assertEquals(DataUnit.KiB.of(1024), DataRate.KiB.of(1024).dataSize());
+    Assertions.assertEquals(DataUnit.EiB.of(24), DataRate.EiB.of(24).dataSize());
   }
 
   @Test
@@ -115,42 +104,26 @@ class DataRateTest {
                 Math.abs(a - b) < 1e-8,
                 "The value " + a + " and " + b + " should have no difference above 1e-8");
 
-    assertDoubleEqual.accept(1024.0, DataRate.Byte.of(1024).perSecond().byteRate());
-    assertDoubleEqual.accept(1024.0 * 1024, DataRate.KiB.of(1024).perSecond().byteRate());
+    assertDoubleEqual.accept(1024.0, DataRate.Byte.of(1024).byteRate());
+    assertDoubleEqual.accept(1024.0 * 1024, DataRate.KiB.of(1024).byteRate());
   }
 
   @Test
   void testLongByteRate() {
-    Assertions.assertEquals(1024L, DataRate.Byte.of(1024).perSecond().byteRate());
-    Assertions.assertEquals(1024L * 1024, DataRate.KiB.of(1024).perSecond().byteRate());
+    Assertions.assertEquals(1024L, DataRate.Byte.of(1024).byteRate());
+    Assertions.assertEquals(1024L * 1024, DataRate.KiB.of(1024).byteRate());
   }
 
   @Test
   void testDataRateOf() {
-    BiConsumer<BigInteger, DataRate.DataRateBuilder> test =
-        (bits, rateBuilder) -> {
-          var perSecond = rateBuilder.perSecond();
-          var perMinute = rateBuilder.perMinute();
-          var perHour = rateBuilder.perHour();
-          var perDay = rateBuilder.perDay();
-          var per2Sec = rateBuilder.over(Duration.ofSeconds(2));
-          var perSecond2 = rateBuilder.over(ChronoUnit.SECONDS);
+    BiConsumer<BigInteger, DataRate> test =
+        (bits, rate) -> {
+          var perMinute = rate.dataSize().dataRate(Duration.ofMinutes(1));
           Assertions.assertEquals(
-              bits, perSecond.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
+              bits, rate.toBigDecimal(DataUnit.Bit, Duration.ofSeconds(1)).toBigInteger());
           Assertions.assertEquals(
               bits.divide(BigInteger.valueOf(60)),
-              perMinute.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
-          Assertions.assertEquals(
-              bits.divide(BigInteger.valueOf(60 * 60)),
-              perHour.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
-          Assertions.assertEquals(
-              bits.divide(BigInteger.valueOf(60 * 60 * 24)),
-              perDay.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
-          Assertions.assertEquals(
-              bits.divide(BigInteger.valueOf(2)),
-              per2Sec.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
-          Assertions.assertEquals(
-              bits, perSecond2.toBigDecimal(DataUnit.Bit, ChronoUnit.SECONDS).toBigInteger());
+              perMinute.toBigDecimal(DataUnit.Bit, Duration.ofSeconds(1)).toBigInteger());
         };
 
     test.accept(new BigInteger("1"), DataRate.Bit.of(1));
@@ -187,9 +160,6 @@ class DataRateTest {
     test.accept(new BigInteger("9223372036854775808"), DataRate.EiB.of(1));
     test.accept(new BigInteger("9444732965739290427392"), DataRate.ZiB.of(1));
     test.accept(new BigInteger("9671406556917033397649408"), DataRate.YiB.of(1));
-
-    DataSize size = DataSize.GB.of(1024);
-    test.accept(size.bits(), DataRate.Size.of(size));
   }
 
   @Test

@@ -462,7 +462,7 @@ public class Performance {
         description =
             "dataRate: size output/timeUnit. Default: second. e.g. \"500KiB/second\", \"100 MB/PT-10S\"",
         converter = DataRateField.class)
-    DataRate throughput = DataRate.GiB.of(500).perSecond();
+    DataRate throughput = DataRate.GiB.of(500);
 
     @Parameter(
         names = {"--report.path"},

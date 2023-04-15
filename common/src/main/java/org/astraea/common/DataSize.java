@@ -21,7 +21,6 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.Objects;
 
@@ -262,11 +261,6 @@ public class DataSize implements Comparable<DataSize> {
         .dropWhile((x) -> this.bits.abs().compareTo(x.bits) < 0)
         .findFirst()
         .orElse(DataUnit.Byte);
-  }
-
-  /** Return a {@link DataRate} based on current data size over a specific time unit. */
-  public DataRate dataRate(ChronoUnit chronoUnit) {
-    return dataRate(chronoUnit.getDuration());
   }
 
   /**

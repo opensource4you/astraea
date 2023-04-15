@@ -44,14 +44,14 @@ public class BeanObjectSerializerTest {
             "String",
             "str");
     var bean = new BeanObject(domain, properties, attributes);
-    var serializer = new Serializer.BeanObjectSerializer();
-    var deserializer = new Deserializer.BeanObjectDeserializer();
 
     // Valid arguments should not throw
-    Assertions.assertDoesNotThrow(() -> serializer.serialize("ignore", List.of(), bean));
-    var bytes = serializer.serialize("ignore", List.of(), bean);
-    Assertions.assertDoesNotThrow(() -> deserializer.deserialize("ignore", List.of(), bytes));
-    var beanObj = deserializer.deserialize("ignore", List.of(), bytes);
+    Assertions.assertDoesNotThrow(
+        () -> Serializer.BEAN_OBJECT.serialize("ignore", List.of(), bean));
+    var bytes = Serializer.BEAN_OBJECT.serialize("ignore", List.of(), bean);
+    Assertions.assertDoesNotThrow(
+        () -> Deserializer.BEAN_OBJECT.deserialize("ignore", List.of(), bytes));
+    var beanObj = Deserializer.BEAN_OBJECT.deserialize("ignore", List.of(), bytes);
 
     // Check serialization correctness
     Assertions.assertEquals("domain", beanObj.domainName());
@@ -65,8 +65,8 @@ public class BeanObjectSerializerTest {
     var properties = Map.of("name", "wrongType");
     var attributes = Map.of("map", (Object) Map.of("k", "v"));
     var bean = new BeanObject(domain, properties, attributes);
-    var serializer = new Serializer.BeanObjectSerializer();
     Assertions.assertThrows(
-        IllegalArgumentException.class, () -> serializer.serialize("ignore", List.of(), bean));
+        IllegalArgumentException.class,
+        () -> Serializer.BEAN_OBJECT.serialize("ignore", List.of(), bean));
   }
 }
