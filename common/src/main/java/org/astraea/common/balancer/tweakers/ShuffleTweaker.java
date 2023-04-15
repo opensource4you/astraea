@@ -73,15 +73,19 @@ public class ShuffleTweaker {
         && baseAllocation.brokerFolders().values().stream().findFirst().orElseThrow().size() == 1)
       return Stream.of();
 
+    final var legalReplicas =
+        baseAllocation.topicPartitions().stream()
+            .filter(tp -> this.allowedTopics.test(tp.topic()))
+            .filter(tp -> eligiblePartition(baseAllocation.replicas(tp)))
+            .flatMap(baseAllocation::replicaStream)
+            .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
+            .collect(Collectors.toUnmodifiableList());
+
     return Stream.generate(
         () -> {
           final var shuffleCount = numberOfShuffle.get();
           final var replicaOrder =
-              baseAllocation.topicPartitions().stream()
-                  .filter(tp -> this.allowedTopics.test(tp.topic()))
-                  .filter(tp -> eligiblePartition(baseAllocation.replicas(tp)))
-                  .flatMap(baseAllocation::replicaStream)
-                  .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
+              legalReplicas.stream()
                   .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
                   .sorted(Map.Entry.comparingByValue())
                   .map(Map.Entry::getKey)
