@@ -143,7 +143,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     var defaultJMXPort = config.integer(JMX_PORT);
     this.costFunction =
         costFunctions.isEmpty()
-            ? HasPartitionCost.of(Map.of(new NetworkIngressCost(Configuration.EMPTY), 1D))
+            ? HasPartitionCost.of(Map.of(new NetworkIngressCost(config), 1D))
             : HasPartitionCost.of(costFunctions);
     this.jmxPortGetter =
         id ->
