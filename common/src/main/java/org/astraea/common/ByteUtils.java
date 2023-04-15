@@ -38,16 +38,42 @@ import org.astraea.common.metrics.BeanObject;
 
 public final class ByteUtils {
 
-  // ----------------------------------Java Primitive------------------------------------------- //
+  // ----------------------------------[Java Primitive]----------------------------------//
 
   public static byte[] toBytes(short value) {
     return new byte[] {(byte) (value >>> 8), (byte) value};
+  }
+
+  public static short toShort(byte[] value) {
+    if (value.length != Short.BYTES) {
+      throw new IllegalArgumentException(
+          "expected size: " + Short.BYTES + " but actual: " + value.length);
+    }
+    short r = 0;
+    for (byte b : value) {
+      r <<= 8;
+      r |= b & 0xFF;
+    }
+    return r;
   }
 
   public static byte[] toBytes(int value) {
     return new byte[] {
       (byte) (value >>> 24), (byte) (value >>> 16), (byte) (value >>> 8), (byte) value
     };
+  }
+
+  public static int toInteger(byte[] value) {
+    if (value.length != Integer.BYTES) {
+      throw new IllegalArgumentException(
+          "expected size: " + Integer.BYTES + " but actual: " + value.length);
+    }
+    int r = 0;
+    for (byte b : value) {
+      r <<= 8;
+      r |= b & 0xFF;
+    }
+    return r;
   }
 
   public static byte[] toBytes(long value) {
@@ -63,12 +89,25 @@ public final class ByteUtils {
     };
   }
 
+  public static long toLong(byte[] value) {
+    if (value.length != Long.BYTES) {
+      throw new IllegalArgumentException(
+          "expected size: " + Long.BYTES + " but actual: " + value.length);
+    }
+    long r = 0;
+    for (byte b : value) {
+      r <<= 8;
+      r |= b & 0xFF;
+    }
+    return r;
+  }
+
   public static byte[] toBytes(String value) {
     return value.getBytes(StandardCharsets.UTF_8);
   }
 
-  public static byte[] toBytes(char value) {
-    return String.valueOf(value).getBytes(StandardCharsets.UTF_8);
+  public static String toString(byte[] value) {
+    return new String(value, StandardCharsets.UTF_8);
   }
 
   public static byte[] toBytes(float value) {
@@ -76,6 +115,19 @@ public final class ByteUtils {
     return new byte[] {
       (byte) (intBits >> 24), (byte) (intBits >> 16), (byte) (intBits >> 8), (byte) intBits
     };
+  }
+
+  public static float toFloat(byte[] value) {
+    if (value.length != Float.BYTES) {
+      throw new IllegalArgumentException(
+          "expected size: " + Float.BYTES + " but actual: " + value.length);
+    }
+    int r = 0;
+    for (byte b : value) {
+      r <<= 8;
+      r |= b & 0xFF;
+    }
+    return Float.intBitsToFloat(r);
   }
 
   public static byte[] toBytes(double value) {
@@ -90,6 +142,19 @@ public final class ByteUtils {
       (byte) (longBits >> 8),
       (byte) longBits
     };
+  }
+
+  public static double toDouble(byte[] value) {
+    if (value.length != Double.BYTES) {
+      throw new IllegalArgumentException(
+          "expected size: " + Double.BYTES + " but actual: " + value.length);
+    }
+    long r = 0;
+    for (byte b : value) {
+      r <<= 8;
+      r |= b & 0xFF;
+    }
+    return Double.longBitsToDouble(r);
   }
 
   public static byte[] toBytes(boolean value) {
