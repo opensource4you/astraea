@@ -19,12 +19,6 @@ package org.astraea.common.consumer;
 import java.util.Base64;
 import java.util.List;
 import org.apache.kafka.common.header.Headers;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.DoubleDeserializer;
-import org.apache.kafka.common.serialization.FloatDeserializer;
-import org.apache.kafka.common.serialization.IntegerDeserializer;
-import org.apache.kafka.common.serialization.LongDeserializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.astraea.common.ByteUtils;
 import org.astraea.common.Header;
 import org.astraea.common.json.JsonConverter;
@@ -61,20 +55,18 @@ public interface Deserializer<T> {
     };
   }
 
-  private static <T> Deserializer<T> of(
-      org.apache.kafka.common.serialization.Deserializer<T> deserializer) {
-    // the headers are not used by primitive type deserializer
-    return (topic, headers, data) -> deserializer.deserialize(topic, data);
-  }
-
   Deserializer<String> BASE64 =
       (topic, headers, data) -> data == null ? null : Base64.getEncoder().encodeToString(data);
-  Deserializer<byte[]> BYTE_ARRAY = of(new ByteArrayDeserializer());
-  Deserializer<String> STRING = of(new StringDeserializer());
-  Deserializer<Integer> INTEGER = of(new IntegerDeserializer());
-  Deserializer<Long> LONG = of(new LongDeserializer());
-  Deserializer<Float> FLOAT = of(new FloatDeserializer());
-  Deserializer<Double> DOUBLE = of(new DoubleDeserializer());
+  Deserializer<byte[]> BYTE_ARRAY = (topic, headers, data) -> data;
+  Deserializer<String> STRING =
+      (topic, headers, data) -> data == null ? null : ByteUtils.toString(data);
+  Deserializer<Integer> INTEGER =
+      (topic, headers, data) -> data == null ? null : ByteUtils.toInteger(data);
+  Deserializer<Long> LONG = (topic, headers, data) -> data == null ? null : ByteUtils.toLong(data);
+  Deserializer<Float> FLOAT =
+      (topic, headers, data) -> data == null ? null : ByteUtils.toFloat(data);
+  Deserializer<Double> DOUBLE =
+      (topic, headers, data) -> data == null ? null : ByteUtils.toDouble(data);
   Deserializer<BeanObject> BEAN_OBJECT = (topic, headers, data) -> ByteUtils.readBeanObject(data);
 
   /**
