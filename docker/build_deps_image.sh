@@ -31,9 +31,6 @@ RUN apt-get update && apt-get install -y \
   openjdk-11-jdk \
   wget \
   unzip \
-  libaio1 \
-  numactl \
-  libncurses5 \
   curl
 
 # download gradle 5 for previous kafka having no built-in gradlew
