@@ -28,14 +28,11 @@ import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.astraea.common.Lazy;
 
 public interface ClusterInfo {
   static ClusterInfo empty() {
     return of("unknown", List.of(), Map.of(), List.of());
   }
-
-  // ---------------------[helpers]---------------------//
 
   /**
    * Find a subset of topic/partitions in the source allocation, that has any non-fulfilled log
@@ -142,7 +139,7 @@ public interface ClusterInfo {
    */
   static ClusterInfo of(
       String clusterId, List<NodeInfo> nodes, Map<String, Topic> topics, List<Replica> replicas) {
-    return new Optimized(clusterId, nodes, topics, replicas);
+    return new OptimizedClusterInfo(clusterId, nodes, topics, replicas);
   }
 
   // ---------------------[for leader]---------------------//
@@ -370,217 +367,4 @@ public interface ClusterInfo {
    * @return a map of topic description
    */
   Map<String, Topic> topics();
-
-  /** It optimizes all queries by pre-allocated Map collection. */
-  class Optimized implements ClusterInfo {
-    private final String clusterId;
-    private final List<NodeInfo> nodeInfos;
-    private final List<Replica> all;
-
-    private final Lazy<Map<String, Topic>> topics;
-
-    private final Lazy<Map<BrokerTopic, List<Replica>>> byBrokerTopic;
-
-    private final Lazy<Map<BrokerTopic, List<Replica>>> byBrokerTopicForLeader;
-    private final Lazy<Map<Integer, List<Replica>>> byBroker;
-    private final Lazy<Map<String, List<Replica>>> byTopic;
-
-    private final Lazy<Map<String, List<Replica>>> byTopicForLeader;
-    private final Lazy<Map<TopicPartition, List<Replica>>> byPartition;
-    private final Lazy<Map<TopicPartitionReplica, List<Replica>>> byReplica;
-
-    protected Optimized(
-        String clusterId,
-        List<NodeInfo> nodeInfos,
-        Map<String, Topic> topics,
-        List<Replica> replicas) {
-      this.clusterId = clusterId;
-      this.nodeInfos = nodeInfos;
-      this.all = replicas;
-      this.topics =
-          Lazy.of(
-              () ->
-                  replicas.stream()
-                      .map(Replica::topic)
-                      .distinct()
-                      .map(
-                          topic ->
-                              new Topic() {
-                                @Override
-                                public String name() {
-                                  return topic;
-                                }
-
-                                @Override
-                                public Config config() {
-                                  return Optional.ofNullable(topics.get(name()))
-                                      .map(Topic::config)
-                                      .orElse(Config.EMPTY);
-                                }
-
-                                @Override
-                                public boolean internal() {
-                                  return Optional.ofNullable(topics.get(name()))
-                                      .map(Topic::internal)
-                                      .orElse(false);
-                                }
-
-                                @Override
-                                public Set<TopicPartition> topicPartitions() {
-                                  return Optimized.this.replicas(topic).stream()
-                                      .map(Replica::topicPartition)
-                                      .collect(Collectors.toUnmodifiableSet());
-                                }
-                              })
-                      .collect(Collectors.toUnmodifiableMap(t -> t.name(), t -> t)));
-      this.byBrokerTopic =
-          Lazy.of(
-              () ->
-                  all.stream()
-                      .collect(
-                          Collectors.groupingBy(
-                              r -> BrokerTopic.of(r.nodeInfo().id(), r.topic()),
-                              Collectors.toUnmodifiableList())));
-      this.byBrokerTopicForLeader =
-          Lazy.of(
-              () ->
-                  all.stream()
-                      .filter(Replica::isOnline)
-                      .filter(Replica::isLeader)
-                      .collect(
-                          Collectors.groupingBy(
-                              r -> BrokerTopic.of(r.nodeInfo().id(), r.topic()),
-                              Collectors.toUnmodifiableList())));
-
-      this.byBroker =
-          Lazy.of(
-              () ->
-                  all.stream()
-                      .collect(
-                          Collectors.groupingBy(
-                              r -> r.nodeInfo().id(), Collectors.toUnmodifiableList())));
-
-      this.byTopic =
-          Lazy.of(
-              () ->
-                  all.stream()
-                      .collect(
-                          Collectors.groupingBy(Replica::topic, Collectors.toUnmodifiableList())));
-
-      this.byTopicForLeader =
-          Lazy.of(
-              () ->
-                  all.stream()
-                      .filter(Replica::isOnline)
-                      .filter(Replica::isLeader)
-                      .collect(
-                          Collectors.groupingBy(Replica::topic, Collectors.toUnmodifiableList())));
-
-      this.byPartition =
-          Lazy.of(
-              () ->
-                  all.stream()
-                      .collect(
-                          Collectors.groupingBy(
-                              Replica::topicPartition, Collectors.toUnmodifiableList())));
-
-      this.byReplica =
-          Lazy.of(
-              () ->
-                  all.stream()
-                      .collect(
-                          Collectors.groupingBy(
-                              Replica::topicPartitionReplica, Collectors.toUnmodifiableList())));
-    }
-
-    @Override
-    public Stream<Replica> replicaStream(String topic) {
-      return byTopic.get().getOrDefault(topic, List.of()).stream();
-    }
-
-    @Override
-    public Stream<Replica> replicaStream(TopicPartition partition) {
-      return byPartition.get().getOrDefault(partition, List.of()).stream();
-    }
-
-    @Override
-    public Stream<Replica> replicaStream(TopicPartitionReplica replica) {
-      return byReplica.get().getOrDefault(replica, List.of()).stream();
-    }
-
-    @Override
-    public Stream<Replica> replicaStream(int broker) {
-      return byBroker.get().getOrDefault(broker, List.of()).stream();
-    }
-
-    @Override
-    public Stream<Replica> replicaStream(BrokerTopic brokerTopic) {
-      return byBrokerTopic.get().getOrDefault(brokerTopic, List.of()).stream();
-    }
-
-    @Override
-    public Set<TopicPartition> topicPartitions() {
-      return byPartition.get().keySet();
-    }
-
-    @Override
-    public Set<TopicPartitionReplica> topicPartitionReplicas() {
-      return byReplica.get().keySet();
-    }
-
-    @Override
-    public String clusterId() {
-      return clusterId;
-    }
-
-    @Override
-    public Set<String> topicNames() {
-      return byTopic.get().keySet();
-    }
-
-    @Override
-    public List<NodeInfo> nodes() {
-      return nodeInfos;
-    }
-
-    @Override
-    public Stream<Replica> replicaStream() {
-      return all.stream();
-    }
-
-    @Override
-    public Map<String, Topic> topics() {
-      return topics.get();
-    }
-
-    @Override
-    public List<Replica> replicas() {
-      return all;
-    }
-
-    @Override
-    public List<Replica> replicas(String topic) {
-      return byTopic.get().getOrDefault(topic, List.of());
-    }
-
-    @Override
-    public List<Replica> replicas(TopicPartition topicPartition) {
-      return byPartition.get().getOrDefault(topicPartition, List.of());
-    }
-
-    @Override
-    public List<Replica> replicas(TopicPartitionReplica replica) {
-      return byReplica.get().getOrDefault(replica, List.of());
-    }
-
-    @Override
-    public List<Replica> replicaLeaders(String topic) {
-      return byTopicForLeader.get().getOrDefault(topic, List.of());
-    }
-
-    @Override
-    public List<Replica> replicaLeaders(BrokerTopic brokerTopic) {
-      return byBrokerTopicForLeader.get().getOrDefault(brokerTopic, List.of());
-    }
-  }
 }

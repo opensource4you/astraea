@@ -16,16 +16,15 @@
  */
 package org.astraea.common.cost;
 
-import java.net.InetSocketAddress;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ServerMetrics;
-import org.astraea.common.metrics.collector.MetricCollector;
+import org.astraea.common.producer.Producer;
+import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -59,41 +58,32 @@ public class BrokerInputCostTest {
 
   @Test
   void testSensor() {
-    var interval = Duration.ofMillis(300);
-    try (var collector =
-        MetricCollector.local()
-            .interval(interval)
-            .registerJmx(
-                0,
-                InetSocketAddress.createUnresolved(
-                    SERVICE.jmxServiceURL().getHost(), SERVICE.jmxServiceURL().getPort()))
-            .addMetricSensor(
-                new BrokerInputCost().metricSensor().orElseThrow(),
-                (id, err) -> Assertions.fail(err.getMessage()))
-            .build()) {
-      Assertions.assertFalse(collector.listIdentities().isEmpty());
-      Assertions.assertFalse(collector.metricSensors().isEmpty());
-
-      // wait for first fetch
-      Utils.sleep(interval);
-
-      // Test the fetched object's type, and its metric name.
-      Assertions.assertTrue(
-          collector
-              .metrics(ServerMetrics.BrokerTopic.Meter.class)
-              .allMatch(
-                  o ->
-                      (o != null)
-                          && (ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC
-                              .metricName()
-                              .equals(o.beanObject().properties().get("name")))));
-
-      // Test the fetched object's value.
-      Assertions.assertTrue(
-          collector
-              .metrics(ServerMetrics.BrokerTopic.Meter.class)
-              .allMatch(result -> result.count() == 0));
+    try (var producer = Producer.of(SERVICE.bootstrapServers())) {
+      producer.send(Record.builder().topic("test").key(new byte[100]).build());
+      producer.flush();
     }
+    var f = new BrokerInputCost();
+    var clusterBean =
+        ClusterBean.of(Map.of(0, MBeanClient.of(SERVICE.jmxServiceURL())), f.metricSensor().get());
+
+    Assertions.assertNotEquals(
+        0, clusterBean.brokerMetrics(0, ServerMetrics.BrokerTopic.Meter.class).count());
+
+    // Test the fetched object's type, and its metric name.
+    Assertions.assertTrue(
+        clusterBean
+            .brokerMetrics(0, ServerMetrics.BrokerTopic.Meter.class)
+            .allMatch(
+                o ->
+                    ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC
+                        .metricName()
+                        .equals(o.beanObject().properties().get("name"))));
+
+    // Test the fetched object's value.
+    Assertions.assertTrue(
+        clusterBean
+            .brokerMetrics(0, ServerMetrics.BrokerTopic.Meter.class)
+            .allMatch(result -> result.count() != 0));
   }
 
   private static ServerMetrics.BrokerTopic.Meter meter(double value) {

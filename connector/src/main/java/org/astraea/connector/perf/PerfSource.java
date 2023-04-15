@@ -16,24 +16,21 @@
  */
 package org.astraea.connector.perf;
 
-import java.util.Arrays;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Random;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.apache.kafka.common.config.ConfigException;
+import java.util.stream.LongStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
-import org.astraea.common.DataUnit;
 import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
-import org.astraea.common.metrics.stats.Rate;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Record;
+import org.astraea.common.producer.RecordGenerator;
 import org.astraea.connector.Definition;
 import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
@@ -60,7 +57,7 @@ public class PerfSource extends SourceConnector {
           .build();
   static Definition KEY_LENGTH_DEF =
       Definition.builder()
-          .name("key.length")
+          .name("key.size")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
           .defaultValue(DataSize.Byte.of(50).toString())
@@ -80,30 +77,13 @@ public class PerfSource extends SourceConnector {
           .build();
   static Definition VALUE_LENGTH_DEF =
       Definition.builder()
-          .name("value.length")
+          .name("value.size")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
           .defaultValue(DataSize.KB.of(1).toString())
           .documentation(
               "the max length of value. The distribution of length is defined by "
                   + VALUE_DISTRIBUTION_DEF.name())
-          .build();
-
-  static Definition SPECIFY_PARTITIONS_DEF =
-      Definition.builder()
-          .name("specify.partitions")
-          .type(Definition.Type.STRING)
-          .validator(
-              (name, obj) -> {
-                if (obj == null) return;
-                if (obj instanceof String) {
-                  Arrays.stream(((String) obj).split(",")).forEach(Integer::parseInt);
-                  return;
-                }
-                throw new ConfigException(name, obj, "there are non-number strings");
-              })
-          .documentation(
-              "If this config is defined, all records will be sent to those given partitions")
           .build();
 
   private Configuration config;
@@ -120,19 +100,24 @@ public class PerfSource extends SourceConnector {
 
   @Override
   protected List<Configuration> takeConfiguration(int maxTasks) {
-    var ps = specifyPartitions(config);
-    if (ps.isEmpty())
-      return IntStream.range(0, maxTasks).mapToObj(i -> config).collect(Collectors.toList());
-    return Utils.chunk(ps, maxTasks).stream()
+    var topics = config.list(SourceConnector.TOPICS_KEY, ",");
+    if (topics.size() <= maxTasks)
+      return topics.stream()
+          .map(
+              t -> {
+                var copy = new HashMap<>(config.raw());
+                copy.put(SourceConnector.TOPICS_KEY, t);
+                return Configuration.of(copy);
+              })
+          .collect(Collectors.toUnmodifiableList());
+    return Utils.chunk(topics, maxTasks).stream()
         .map(
-            partitions -> {
-              var c = new HashMap<>(config.raw());
-              c.put(
-                  SPECIFY_PARTITIONS_DEF.name(),
-                  partitions.stream().map(String::valueOf).collect(Collectors.joining(",")));
-              return Configuration.of(c);
+            tps -> {
+              var copy = new HashMap<>(config.raw());
+              copy.put(SourceConnector.TOPICS_KEY, String.join(",", tps));
+              return Configuration.of(copy);
             })
-        .collect(Collectors.toList());
+        .collect(Collectors.toUnmodifiableList());
   }
 
   @Override
@@ -142,37 +127,17 @@ public class PerfSource extends SourceConnector {
         KEY_LENGTH_DEF,
         KEY_DISTRIBUTION_DEF,
         VALUE_LENGTH_DEF,
-        VALUE_DISTRIBUTION_DEF,
-        SPECIFY_PARTITIONS_DEF);
-  }
-
-  private static Set<Integer> specifyPartitions(Configuration configuration) {
-    return configuration
-        .string(SPECIFY_PARTITIONS_DEF.name())
-        .map(s -> Arrays.stream(s.split(",")).map(Integer::parseInt).collect(Collectors.toSet()))
-        .orElse(Set.of());
+        VALUE_DISTRIBUTION_DEF);
   }
 
   public static class Task extends SourceTask {
+    Set<TopicPartition> specifyPartitions = Set.of();
 
-    final Random rand = new Random();
-    Set<String> topics = Set.of();
-    DataSize throughput;
-    Supplier<Long> keySelector;
-    Supplier<Long> keySizeGenerator;
-    final Map<Long, byte[]> keys = new HashMap<>();
-    Supplier<Long> valueSelector;
-    Supplier<Long> valueSizeGenerator;
-    final Map<Long, byte[]> values = new HashMap<>();
-
-    Set<Integer> specifyPartitions = Set.of();
-
-    final Rate<DataSize> sizeRate = Rate.sizeRate();
+    RecordGenerator recordGenerator = null;
 
     @Override
     protected void init(Configuration configuration, MetadataStorage storage) {
-      this.topics = Set.copyOf(configuration.list(SourceConnector.TOPICS_KEY, ","));
-      this.throughput =
+      var throughput =
           DataSize.of(
               configuration
                   .string(THROUGHPUT_DEF.name())
@@ -197,78 +162,39 @@ public class PerfSource extends SourceConnector {
               configuration
                   .string(VALUE_DISTRIBUTION_DEF.name())
                   .orElse(VALUE_DISTRIBUTION_DEF.defaultValue().toString()));
-      keySelector = keyDistribution.create(10000, Configuration.EMPTY);
-      keySizeGenerator =
-          keyDistribution.create(
-              keyLength.measurement(DataUnit.Byte).intValue(), Configuration.EMPTY);
-      valueSelector = valueDistribution.create(10000, Configuration.EMPTY);
-      valueSizeGenerator =
-          valueDistribution.create(
-              valueLength.measurement(DataUnit.Byte).intValue(), Configuration.EMPTY);
-      specifyPartitions = specifyPartitions(configuration);
-    }
-
-    byte[] key() {
-      var size = keySizeGenerator.get().intValue();
-      // user can define zero size for key
-      if (size == 0) return null;
-      return keys.computeIfAbsent(
-          keySelector.get(),
-          ignored -> {
-            var value = new byte[size];
-            rand.nextBytes(value);
-            return value;
-          });
-    }
-
-    byte[] value() {
-      var size = valueSizeGenerator.get().intValue();
-      // user can define zero size for value
-      if (size == 0) return null;
-      return values.computeIfAbsent(
-          valueSelector.get(),
-          ignored -> {
-            var value = new byte[size];
-            rand.nextBytes(value);
-            return value;
-          });
-    }
-
-    private Collection<Record<byte[], byte[]>> records() {
-      if (specifyPartitions.isEmpty())
-        return topics.stream()
-            .map(t -> Record.builder().topic(t).key(key()).value(value()).build())
-            .collect(Collectors.toList());
-      return topics.stream()
-          .flatMap(
-              t ->
-                  specifyPartitions.stream()
-                      .map(
-                          p ->
-                              Record.builder()
-                                  .topic(t)
-                                  .partition(p)
-                                  .key(key())
-                                  .value(value())
-                                  .build()))
-          .collect(Collectors.toList());
+      specifyPartitions =
+          configuration.list(SourceConnector.TOPICS_KEY, ",").stream()
+              .map(t -> TopicPartition.of(t, -1))
+              .collect(Collectors.toUnmodifiableSet());
+      recordGenerator =
+          RecordGenerator.builder()
+              // TODO: make it configurable
+              .batchSize(1)
+              // TODO: make it configurable
+              .keyTableSeed(ThreadLocalRandom.current().nextLong())
+              .keyRange(
+                  LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
+              .keyDistribution(keyDistribution.create(10000, configuration))
+              // TODO: make it configurable
+              .keySizeDistribution(
+                  DistributionType.UNIFORM.create((int) keyLength.bytes(), configuration))
+              // TODO: make it configurable
+              .valueTableSeed(ThreadLocalRandom.current().nextLong())
+              .valueRange(
+                  LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
+              .valueDistribution(valueDistribution.create(10000, configuration))
+              // TODO: make it configurable
+              .valueSizeDistribution(
+                  DistributionType.UNIFORM.create((int) valueLength.bytes(), configuration))
+              .throughput(tp -> throughput.dataRate(Duration.ofSeconds(1)))
+              .build();
     }
 
     @Override
     protected Collection<Record<byte[], byte[]>> take() {
-      var size = sizeRate.measure();
-      if (size.greaterThan(throughput)) return List.of();
-      var records = records();
-      records.forEach(r -> sizeRate.record(DataSize.Byte.of(estimatedSize(r))));
-      return records;
-    }
-
-    private static int estimatedSize(Record<byte[], byte[]> record) {
-      return (record.key() == null ? 0 : record.key().length)
-          + (record.value() == null ? 0 : record.value().length)
-          + record.headers().stream()
-              .mapToInt(h -> h.key().length() + (h.value() == null ? 0 : record.value().length))
-              .sum();
+      return specifyPartitions.stream()
+          .flatMap(tp -> recordGenerator.apply(tp).stream())
+          .collect(Collectors.toUnmodifiableList());
     }
   }
 }

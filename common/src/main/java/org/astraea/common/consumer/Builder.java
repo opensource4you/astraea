@@ -19,8 +19,6 @@ package org.astraea.common.consumer;
 import static java.util.Objects.requireNonNull;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -31,6 +29,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.astraea.common.FixedIterable;
+import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 
@@ -123,45 +124,48 @@ public abstract class Builder<Key, Value> {
    * @return stream with records
    */
   public Iterator<Record<Key, Value>> iterator(List<IteratorLimit<Key, Value>> limits) {
-    var queue = new LinkedBlockingQueue<Optional<Record<Key, Value>>>();
+    var queue = new LinkedBlockingQueue<FixedIterable<Record<Key, Value>>>();
     var exception = new AtomicReference<RuntimeException>();
-    CompletableFuture.runAsync(
-        () -> {
-          try (var consumer = build()) {
-            while (true) {
-              var records = consumer.poll(Duration.ofSeconds(2));
-              for (var r : records) queue.add(Optional.of(r));
-              if (limits.stream().anyMatch(l -> l.done(records))) return;
-            }
-          } catch (RuntimeException e) {
-            exception.set(e);
-          } finally {
-            queue.add(Optional.empty());
-          }
-        });
+    var f =
+        CompletableFuture.runAsync(
+            () -> {
+              try (var consumer = build()) {
+                while (true) {
+                  var records = consumer.poll(Duration.ofSeconds(1));
+                  if (records.nonEmpty()) queue.add(records);
+                  if (limits.stream().anyMatch(l -> l.done(records))) return;
+                }
+              } catch (RuntimeException e) {
+                exception.set(e);
+              } finally {
+                queue.add(FixedIterable.empty());
+              }
+            });
 
     return new Iterator<>() {
 
-      private Record<Key, Value> current;
+      private Iterator<Record<Key, Value>> current;
+
+      private boolean done = false;
 
       @Override
       public boolean hasNext() {
-        if (current != null) return true;
+        if (done) return false;
+        if (current != null && current.hasNext()) return true;
         if (exception.get() != null) throw exception.get();
-        var record = Utils.packException(queue::take);
-        if (record.isEmpty()) return false;
-        current = record.get();
-        return true;
+        var next = Utils.packException(queue::take);
+        if (next.isEmpty()) {
+          done = true;
+          return false;
+        }
+        current = next.iterator();
+        return current.hasNext();
       }
 
       @Override
       public Record<Key, Value> next() {
-        if (current == null) throw new NoSuchElementException("there is no more record");
-        try {
-          return current;
-        } finally {
-          current = null;
-        }
+        if (!hasNext()) throw new NoSuchElementException("there is no more record");
+        return current.next();
       }
     };
   }
@@ -179,15 +183,30 @@ public abstract class Builder<Key, Value> {
     }
 
     @Override
-    public List<Record<Key, Value>> poll(int recordCount, Duration timeout) {
-      var end = System.currentTimeMillis() + timeout.toMillis();
-      var records = new ArrayList<Record<Key, Value>>();
-      while (records.size() < recordCount) {
-        var remaining = end - System.currentTimeMillis();
-        if (remaining <= 0) break;
-        kafkaConsumer.poll(Duration.ofMillis(remaining)).forEach(r -> records.add(Record.of(r)));
-      }
-      return Collections.unmodifiableList(records);
+    public FixedIterable<Record<Key, Value>> poll(Duration timeout) {
+      final var end = System.currentTimeMillis() + timeout.toMillis();
+      do {
+        var records =
+            kafkaConsumer.poll(Duration.ofMillis(Math.max(0, end - System.currentTimeMillis())));
+        if (!records.isEmpty())
+          return FixedIterable.of(
+              records.count(),
+              () ->
+                  new Iterator<>() {
+                    private final Iterator<ConsumerRecord<Key, Value>> iter = records.iterator();
+
+                    @Override
+                    public boolean hasNext() {
+                      return iter.hasNext();
+                    }
+
+                    @Override
+                    public Record<Key, Value> next() {
+                      return toRecord(iter.next());
+                    }
+                  });
+      } while (end > System.currentTimeMillis());
+      return FixedIterable.empty();
     }
 
     @Override
@@ -216,5 +235,59 @@ public abstract class Builder<Key, Value> {
     }
 
     protected abstract void doResubscribe();
+  }
+
+  private static <Key, Value> Record<Key, Value> toRecord(ConsumerRecord<Key, Value> record) {
+    return new Record<>() {
+      @Override
+      public String topic() {
+        return record.topic();
+      }
+
+      @Override
+      public List<Header> headers() {
+        return Header.of(record.headers());
+      }
+
+      @Override
+      public Key key() {
+        return record.key();
+      }
+
+      @Override
+      public Value value() {
+        return record.value();
+      }
+
+      @Override
+      public long offset() {
+        return record.offset();
+      }
+
+      @Override
+      public long timestamp() {
+        return record.timestamp();
+      }
+
+      @Override
+      public int partition() {
+        return record.partition();
+      }
+
+      @Override
+      public int serializedKeySize() {
+        return record.serializedKeySize();
+      }
+
+      @Override
+      public int serializedValueSize() {
+        return record.serializedValueSize();
+      }
+
+      @Override
+      public Optional<Integer> leaderEpoch() {
+        return record.leaderEpoch();
+      }
+    };
   }
 }

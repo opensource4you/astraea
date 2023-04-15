@@ -49,4 +49,27 @@ public class ConfigurationTest {
     var config = Configuration.of(Map.of("key", "v1", "filtered.key", "v2", "key.filtered", "v3"));
     Assertions.assertEquals(Map.of("key", "v2"), config.filteredPrefixConfigs("filtered").raw());
   }
+
+  @Test
+  void testDuration() {
+    var config = Configuration.of(Map.of("wait.time", "15ms", "response", "3s"));
+    var waitTime = config.duration("wait.time");
+    var response = config.duration("response");
+    var empty = config.duration("walala");
+    Assertions.assertEquals(Utils.toDuration("15ms"), waitTime.orElseThrow());
+    Assertions.assertEquals(Utils.toDuration("3s"), response.orElseThrow());
+    Assertions.assertTrue(empty.isEmpty());
+  }
+
+  @Test
+  void testDataSize() {
+    var config = Configuration.of(Map.of("upper.bound", "30MiB", "traffic.interval", "5MB"));
+    var upper = config.dataSize("upper.bound");
+    var interval = config.dataSize("traffic.interval");
+    var empty = config.dataSize("kekw");
+
+    Assertions.assertEquals(DataRate.MiB.of(30).dataSize().bytes(), upper.get().bytes());
+    Assertions.assertEquals(DataRate.MB.of(5).dataSize().bytes(), interval.get().bytes());
+    Assertions.assertTrue(empty.isEmpty());
+  }
 }

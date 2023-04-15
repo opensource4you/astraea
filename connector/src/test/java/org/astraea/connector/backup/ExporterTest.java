@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,13 +28,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
+import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.RecordReader;
+import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.connector.Config;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.connector.Value;
-import org.astraea.common.consumer.Record;
 import org.astraea.common.producer.Producer;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
@@ -191,14 +194,14 @@ public class ExporterTest {
 
       var records =
           List.of(
-              Record.builder()
+              RecordBuilder.of()
                   .topic(topicName)
                   .key("test".getBytes())
                   .value("test0".getBytes())
                   .partition(0)
                   .timestamp(System.currentTimeMillis())
                   .build(),
-              Record.builder()
+              RecordBuilder.of()
                   .topic(topicName)
                   .key("test".getBytes())
                   .value("test1".getBytes())
@@ -277,7 +280,7 @@ public class ExporterTest {
       task.start(configs);
 
       var records1 =
-          Record.builder()
+          RecordBuilder.of()
               .topic(topicName)
               .key("test".getBytes())
               .value("test0".getBytes())
@@ -352,7 +355,7 @@ public class ExporterTest {
       task.start(configs);
 
       var record1 =
-          Record.builder()
+          RecordBuilder.of()
               .topic(topicName)
               .key("test".getBytes())
               .value("test0".getBytes())
@@ -362,7 +365,7 @@ public class ExporterTest {
               .build();
 
       var record2 =
-          Record.builder()
+          RecordBuilder.of()
               .topic(topicName)
               .key("test".getBytes())
               .value("test1".getBytes())
@@ -372,7 +375,7 @@ public class ExporterTest {
               .build();
 
       var record3 =
-          Record.builder()
+          RecordBuilder.of()
               .topic(topicName)
               .key("test".getBytes())
               .value("test2".getBytes())
@@ -458,14 +461,14 @@ public class ExporterTest {
 
       var records =
           List.of(
-              Record.builder()
+              RecordBuilder.of()
                   .topic(topicName)
                   .key("test".getBytes())
                   .value("test0".getBytes())
                   .partition(0)
                   .timestamp(System.currentTimeMillis())
                   .build(),
-              Record.builder()
+              RecordBuilder.of()
                   .topic(topicName)
                   .key("test".getBytes())
                   .value("test1".getBytes())
@@ -542,7 +545,7 @@ public class ExporterTest {
       task.start(configs);
 
       var records1 =
-          Record.builder()
+          RecordBuilder.of()
               .topic(topicName)
               .key("test".getBytes())
               .value("test0".getBytes())
@@ -615,7 +618,7 @@ public class ExporterTest {
       task.start(configs);
 
       var record1 =
-          Record.builder()
+          RecordBuilder.of()
               .topic(topicName)
               .key("test".getBytes())
               .value("test0".getBytes())
@@ -625,7 +628,7 @@ public class ExporterTest {
               .build();
 
       var record2 =
-          Record.builder()
+          RecordBuilder.of()
               .topic(topicName)
               .key("test".getBytes())
               .value("test1".getBytes())
@@ -635,7 +638,7 @@ public class ExporterTest {
               .build();
 
       var record3 =
-          Record.builder()
+          RecordBuilder.of()
               .topic(topicName)
               .key("test".getBytes())
               .value("test2".getBytes())
@@ -686,6 +689,156 @@ public class ExporterTest {
                 }
               });
       task.close();
+    }
+  }
+
+  @Test
+  void testGetRecordsFromBuffer() {
+    var topicName = Utils.randomString(10);
+    var records =
+        List.of(
+            RecordBuilder.of()
+                .topic(topicName)
+                .key("test".getBytes())
+                .value("test0".getBytes())
+                .partition(0)
+                .offset(0)
+                .timestamp(System.currentTimeMillis())
+                .build(),
+            RecordBuilder.of()
+                .topic(topicName)
+                .key("test".getBytes())
+                .value("test1".getBytes())
+                .partition(1)
+                .offset(0)
+                .timestamp(System.currentTimeMillis())
+                .build());
+
+    var task = new Exporter.Task();
+    task.bufferSize.reset();
+
+    records.forEach(
+        record -> {
+          task.recordsQueue.offer(record);
+          task.bufferSize.add(record.serializedKeySize() + record.serializedValueSize());
+        });
+
+    var list = task.recordsFromBuffer();
+
+    Assertions.assertEquals(records, list);
+  }
+
+  /** The purpose of this test is also to remove old writers */
+  @Test
+  void testCreateRecordWriter() {
+    try (var server = HdfsServer.local()) {
+      var path = "/test";
+      var topicName = Utils.randomString(10);
+      var tp = TopicPartition.of(topicName, 0);
+      long offset = 123;
+      var configs =
+          Map.of(
+              "fs.schema",
+              "hdfs",
+              "topics",
+              topicName,
+              "fs.hdfs.hostname",
+              String.valueOf(server.hostname()),
+              "fs.hdfs.port",
+              String.valueOf(server.port()),
+              "fs.hdfs.user",
+              String.valueOf(server.user()),
+              "path",
+              path,
+              "size",
+              "100MB",
+              "tasks.max",
+              "1",
+              "roll.duration",
+              "300ms");
+
+      var writers = new HashMap<TopicPartition, RecordWriter>();
+
+      var task = new Exporter.Task();
+      task.fs = FileSystem.of("hdfs", Configuration.of(configs));
+      task.interval = 1000;
+
+      RecordWriter recordWriter = task.createRecordWriter(tp, offset);
+
+      Assertions.assertNotNull(recordWriter);
+
+      writers.put(tp, recordWriter);
+
+      recordWriter.append(
+          RecordBuilder.of()
+              .topic(topicName)
+              .key("test".getBytes())
+              .value("test0".getBytes())
+              .partition(0)
+              .offset(0)
+              .timestamp(System.currentTimeMillis())
+              .build());
+
+      task.removeOldWriters(writers);
+
+      // the writer should not be closed before sleep.
+      Assertions.assertNotEquals(0, writers.size());
+
+      Utils.sleep(Duration.ofMillis(1500));
+
+      task.removeOldWriters(writers);
+
+      Assertions.assertEquals(0, writers.size());
+    }
+  }
+
+  @Test
+  void testWriteRecords() {
+    try (var server = HdfsServer.local()) {
+      var topicName = Utils.randomString(10);
+      var path = "/test";
+      var configs =
+          Map.of(
+              "fs.schema",
+              "hdfs",
+              "topics",
+              topicName,
+              "fs.hdfs.hostname",
+              String.valueOf(server.hostname()),
+              "fs.hdfs.port",
+              String.valueOf(server.port()),
+              "fs.hdfs.user",
+              String.valueOf(server.user()),
+              "path",
+              path,
+              "size",
+              "100MB",
+              "tasks.max",
+              "1",
+              "roll.duration",
+              "300ms");
+
+      var writers = new HashMap<TopicPartition, RecordWriter>();
+
+      var task = new Exporter.Task();
+      task.fs = FileSystem.of("hdfs", Configuration.of(configs));
+      task.size = DataSize.of("100MB");
+      task.bufferSize.reset();
+      task.recordsQueue.add(
+          RecordBuilder.of()
+              .topic(topicName)
+              .key("test".getBytes())
+              .value("test0".getBytes())
+              .partition(0)
+              .offset(0)
+              .timestamp(System.currentTimeMillis())
+              .build());
+
+      Assertions.assertNotEquals(0, task.recordsQueue.size());
+
+      task.writeRecords(writers);
+
+      Assertions.assertEquals(0, task.recordsQueue.size());
     }
   }
 }

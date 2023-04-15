@@ -65,7 +65,7 @@ public class ConsumerMetricsTest {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       consumer.poll(Duration.ofSeconds(5));
-      var metrics = ConsumerMetrics.nodes(MBeanClient.local());
+      var metrics = ConsumerMetrics.node(MBeanClient.local());
       Assertions.assertNotEquals(1, metrics.size());
       Assertions.assertTrue(
           metrics.stream()

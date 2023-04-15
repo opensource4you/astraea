@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.zip.GZIPOutputStream;
+import org.astraea.common.ByteUtils;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;

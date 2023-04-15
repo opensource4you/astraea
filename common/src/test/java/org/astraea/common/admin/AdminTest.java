@@ -41,6 +41,7 @@ import org.apache.kafka.common.errors.LogDirNotFoundException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.internals.KafkaFutureImpl;
 import org.astraea.common.DataRate;
+import org.astraea.common.FixedIterable;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -177,7 +178,7 @@ public class AdminTest {
                   ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
               .build()) {
-        Assertions.assertNotEquals(0, consumer.poll(3, Duration.ofSeconds(7)).size());
+        Assertions.assertNotEquals(0, consumer.poll(Duration.ofSeconds(7)).size());
       }
 
       admin
@@ -832,6 +833,37 @@ public class AdminTest {
   }
 
   @Test
+  void testCreateTopicWithReplicasAssignment() {
+    var topic = Utils.randomString();
+    var replicasAssignment = Map.of(0, List.of(0, 2), 1, List.of(2, 1));
+    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      admin
+          .creator()
+          .topic(topic)
+          .replicasAssignments(replicasAssignment)
+          .configs(Map.of(TopicConfigs.COMPRESSION_TYPE_CONFIG, "lz4"))
+          .run()
+          .toCompletableFuture()
+          .join();
+      Utils.sleep(Duration.ofSeconds(2));
+
+      var config = admin.topics(Set.of(topic)).toCompletableFuture().join().get(0).config();
+      var partitions =
+          admin.partitions(Set.of(topic)).toCompletableFuture().join().stream()
+              .collect(Collectors.toUnmodifiableList());
+      Assertions.assertTrue(config.raw().containsValue("lz4"));
+      Assertions.assertEquals(
+          List.of(0, 2),
+          partitions.get(0).replicas().stream().map(NodeInfo::id).collect(Collectors.toList()));
+      Assertions.assertEquals(
+          List.of(2, 1),
+          partitions.get(1).replicas().stream().map(NodeInfo::id).collect(Collectors.toList()));
+      Assertions.assertEquals(0, partitions.get(0).leader().get().id());
+      Assertions.assertEquals(2, partitions.get(1).leader().get().id());
+    }
+  }
+
+  @Test
   void testPartitions() {
     var topic = Utils.randomString();
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
@@ -1218,7 +1250,7 @@ public class AdminTest {
         var records =
             IntStream.range(0, 5)
                 .mapToObj(i -> consumer.poll(Duration.ofSeconds(1)))
-                .flatMap(Collection::stream)
+                .flatMap(FixedIterable::stream)
                 .collect(Collectors.toList());
 
         Assertions.assertEquals(
@@ -1424,7 +1456,7 @@ public class AdminTest {
   void testProducerQuotas() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
-          .setProducerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(100).perSecond()))
+          .setProducerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(100)))
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(2));
@@ -1435,9 +1467,7 @@ public class AdminTest {
               .collect(Collectors.toList());
       Assertions.assertNotEquals(0, quotas.size());
       quotas.forEach(
-          quota ->
-              Assertions.assertEquals(
-                  DataRate.Byte.of(100).perSecond().byteRate(), quota.limitValue()));
+          quota -> Assertions.assertEquals(DataRate.Byte.of(100).byteRate(), quota.limitValue()));
 
       admin.unsetProducerQuotas(Set.of(Utils.hostname())).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
@@ -1456,7 +1486,7 @@ public class AdminTest {
   void testConsumerQuotas() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
-          .setConsumerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(1000).perSecond()))
+          .setConsumerQuotas(Map.of(Utils.hostname(), DataRate.Byte.of(1000)))
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(2));
@@ -1467,9 +1497,7 @@ public class AdminTest {
               .collect(Collectors.toList());
       Assertions.assertNotEquals(0, quotas.size());
       quotas.forEach(
-          quota ->
-              Assertions.assertEquals(
-                  DataRate.Byte.of(1000).perSecond().byteRate(), quota.limitValue()));
+          quota -> Assertions.assertEquals(DataRate.Byte.of(1000).byteRate(), quota.limitValue()));
 
       admin.unsetConsumerQuotas(Set.of(Utils.hostname())).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
@@ -1663,7 +1691,7 @@ public class AdminTest {
                   ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
               .build()) {
-        Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
+        Assertions.assertEquals(1, consumer.poll(Duration.ofSeconds(5)).size());
         admin.deleteMembers(Set.of(consumer.groupId())).toCompletableFuture().join();
         groupId = consumer.groupId();
       }
@@ -1693,7 +1721,7 @@ public class AdminTest {
                   ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                   ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
               .build()) {
-        Assertions.assertEquals(1, consumer.poll(1, Duration.ofSeconds(5)).size());
+        Assertions.assertEquals(1, consumer.poll(Duration.ofSeconds(5)).size());
         groupId = consumer.groupId();
       }
       admin.deleteGroups(Set.of(groupId)).toCompletableFuture().join();

@@ -31,12 +31,32 @@ public interface Balancer {
   /**
    * @return a rebalance plan
    */
-  Plan offer(AlgorithmConfig config);
+  Optional<Plan> offer(AlgorithmConfig config);
 
   class Plan {
-    final ClusterInfo initialClusterInfo;
-    final ClusterCost initialClusterCost;
-    final Solution solution;
+    private final ClusterInfo initialClusterInfo;
+    private final ClusterCost initialClusterCost;
+
+    private final ClusterInfo proposal;
+    private final ClusterCost proposalClusterCost;
+    private final MoveCost moveCost;
+
+    public Plan(
+        ClusterInfo initialClusterInfo,
+        ClusterCost initialClusterCost,
+        ClusterInfo proposal,
+        ClusterCost proposalClusterCost,
+        MoveCost moveCost) {
+      this.initialClusterInfo = initialClusterInfo;
+      this.initialClusterCost = initialClusterCost;
+      this.proposal = proposal;
+      this.proposalClusterCost = proposalClusterCost;
+      this.moveCost = moveCost;
+    }
+
+    public ClusterInfo initialClusterInfo() {
+      return initialClusterInfo;
+    }
 
     /**
      * The {@link ClusterCost} score of the original {@link ClusterInfo} when this plan is start
@@ -45,27 +65,6 @@ public interface Balancer {
     public ClusterCost initialClusterCost() {
       return initialClusterCost;
     }
-
-    public Optional<Solution> solution() {
-      return Optional.ofNullable(solution);
-    }
-
-    public Plan(ClusterInfo initialClusterInfo, ClusterCost initialClusterCost) {
-      this(initialClusterInfo, initialClusterCost, null);
-    }
-
-    public Plan(ClusterInfo initialClusterInfo, ClusterCost initialClusterCost, Solution solution) {
-      this.initialClusterInfo = initialClusterInfo;
-      this.initialClusterCost = initialClusterCost;
-      this.solution = solution;
-    }
-  }
-
-  class Solution {
-
-    final ClusterInfo proposal;
-    final ClusterCost proposalClusterCost;
-    final MoveCost moveCost;
 
     public ClusterInfo proposal() {
       return proposal;
@@ -78,12 +77,6 @@ public interface Balancer {
 
     public MoveCost moveCost() {
       return moveCost;
-    }
-
-    public Solution(ClusterCost proposalClusterCost, MoveCost moveCost, ClusterInfo proposal) {
-      this.proposal = proposal;
-      this.proposalClusterCost = proposalClusterCost;
-      this.moveCost = moveCost;
     }
   }
 
@@ -102,8 +95,8 @@ public interface Balancer {
       return balancerClass;
     }
 
-    public Balancer create(Configuration config) {
-      return Utils.construct(theClass(), config);
+    public Balancer create() {
+      return Utils.construct(theClass(), Configuration.EMPTY);
     }
 
     @Override

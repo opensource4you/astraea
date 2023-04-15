@@ -19,6 +19,7 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -78,7 +79,7 @@ class BalancerConsoleTest {
           console
               .launchRebalancePlanGeneration()
               .setTaskId("THE_TASK")
-              .setBalancer(new GreedyBalancer(Configuration.EMPTY))
+              .setBalancer(new GreedyBalancer())
               .setAlgorithmConfig(
                   AlgorithmConfig.builder()
                       .timeout(Duration.ofSeconds(1))
@@ -137,7 +138,7 @@ class BalancerConsoleTest {
       console
           .launchRebalancePlanGeneration()
           .setTaskId("TASK_1")
-          .setBalancer(new GreedyBalancer(Configuration.EMPTY))
+          .setBalancer(new GreedyBalancer())
           .checkNoOngoingMigration(false)
           .setAlgorithmConfig(
               AlgorithmConfig.builder()
@@ -148,7 +149,7 @@ class BalancerConsoleTest {
       console
           .launchRebalancePlanGeneration()
           .setTaskId("TASK_2")
-          .setBalancer(new GreedyBalancer(Configuration.EMPTY))
+          .setBalancer(new GreedyBalancer())
           .checkNoOngoingMigration(false)
           .setAlgorithmConfig(
               AlgorithmConfig.builder()
@@ -159,7 +160,7 @@ class BalancerConsoleTest {
       console
           .launchRebalancePlanGeneration()
           .setTaskId("TASK_3")
-          .setBalancer(new GreedyBalancer(Configuration.EMPTY))
+          .setBalancer(new GreedyBalancer())
           .checkNoOngoingMigration(false)
           .setAlgorithmConfig(
               AlgorithmConfig.builder()
@@ -190,7 +191,7 @@ class BalancerConsoleTest {
           console
               .launchRebalancePlanGeneration()
               .setTaskId("THE_TASK_0")
-              .setBalancer(new GreedyBalancer(Configuration.EMPTY))
+              .setBalancer(new GreedyBalancer())
               .setAlgorithmConfig(
                   AlgorithmConfig.builder()
                       .timeout(Duration.ofSeconds(1))
@@ -201,7 +202,7 @@ class BalancerConsoleTest {
           console
               .launchRebalancePlanGeneration()
               .setTaskId("THE_TASK_1")
-              .setBalancer(new GreedyBalancer(Configuration.EMPTY))
+              .setBalancer(new GreedyBalancer())
               .setAlgorithmConfig(
                   AlgorithmConfig.builder()
                       .timeout(Duration.ofSeconds(1))
@@ -264,7 +265,7 @@ class BalancerConsoleTest {
               console
                   .launchRebalancePlanGeneration()
                   .setTaskId(Utils.randomString())
-                  .setBalancer(new GreedyBalancer(Configuration.EMPTY))
+                  .setBalancer(new GreedyBalancer())
                   .setAlgorithmConfig(
                       AlgorithmConfig.builder()
                           .timeout(Duration.ofMillis(100))
@@ -300,7 +301,7 @@ class BalancerConsoleTest {
                         console
                             .launchRebalancePlanGeneration()
                             .setTaskId(Utils.randomString())
-                            .setBalancer(new GreedyBalancer(Configuration.EMPTY))
+                            .setBalancer(new GreedyBalancer())
                             .setAlgorithmConfig(
                                 AlgorithmConfig.builder()
                                     .timeout(Duration.ofMillis(100))
@@ -316,7 +317,7 @@ class BalancerConsoleTest {
                         console
                             .launchRebalancePlanGeneration()
                             .setTaskId(Utils.randomString())
-                            .setBalancer(new GreedyBalancer(Configuration.EMPTY))
+                            .setBalancer(new GreedyBalancer())
                             .setAlgorithmConfig(
                                 AlgorithmConfig.builder()
                                     .timeout(Duration.ofMillis(100))
@@ -349,7 +350,7 @@ class BalancerConsoleTest {
           console
               .launchRebalancePlanGeneration()
               .setTaskId("THE_TASK")
-              .setBalancer(new GreedyBalancer(Configuration.EMPTY))
+              .setBalancer(new GreedyBalancer())
               .setAlgorithmConfig(
                   AlgorithmConfig.builder()
                       .timeout(Duration.ofSeconds(1))
@@ -394,15 +395,14 @@ class BalancerConsoleTest {
     var balancer =
         new Balancer() {
           @Override
-          public Plan offer(AlgorithmConfig config) {
+          public Optional<Plan> offer(AlgorithmConfig config) {
             if (System.currentTimeMillis() - startMs < sampleTimeMs)
               throw new NoSufficientMetricsException(
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
-            return new Plan(
-                config.clusterInfo(),
-                () -> 0,
-                new Solution(() -> 0, MoveCost.EMPTY, config.clusterInfo()));
+            return Optional.of(
+                new Plan(
+                    config.clusterInfo(), () -> 0, config.clusterInfo(), () -> 0, MoveCost.EMPTY));
           }
         };
 
@@ -433,7 +433,7 @@ class BalancerConsoleTest {
     var balancer =
         new Balancer() {
           @Override
-          public Plan offer(AlgorithmConfig config) {
+          public Optional<Plan> offer(AlgorithmConfig config) {
             throw new NoSufficientMetricsException(
                 costFunction, Duration.ofSeconds(999), "This will takes forever");
           }

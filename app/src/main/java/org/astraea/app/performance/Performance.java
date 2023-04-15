@@ -46,7 +46,6 @@ import org.astraea.app.argument.PatternField;
 import org.astraea.app.argument.PositiveIntegerField;
 import org.astraea.app.argument.PositiveIntegerListField;
 import org.astraea.app.argument.PositiveLongField;
-import org.astraea.app.argument.PositiveShortField;
 import org.astraea.app.argument.StringListField;
 import org.astraea.app.argument.StringMapField;
 import org.astraea.app.argument.TopicPartitionDataRateMapField;
@@ -87,8 +86,7 @@ public class Performance {
 
     System.out.println("creating threads");
     var producerThreads =
-        ProducerThread.create(
-            blockingQueues, param.producers, param::createProducer, param.interdependent);
+        ProducerThread.create(blockingQueues, param::createProducer, param.interdependent);
     var consumerThreads =
         param.monkeys != null
             ? Collections.synchronizedList(new ArrayList<>(consumers(param, latestOffsets)))
@@ -211,8 +209,8 @@ public class Performance {
     @Parameter(
         names = {"--producers"},
         description = "Integer: number of producers to produce records",
-        validateWith = PositiveShortField.class,
-        converter = PositiveShortField.class)
+        validateWith = NonNegativeShortField.class,
+        converter = NonNegativeShortField.class)
     int producers = 1;
 
     @Parameter(
@@ -464,7 +462,7 @@ public class Performance {
         description =
             "dataRate: size output/timeUnit. Default: second. e.g. \"500KiB/second\", \"100 MB/PT-10S\"",
         converter = DataRateField.class)
-    DataRate throughput = DataRate.GiB.of(500).perSecond();
+    DataRate throughput = DataRate.GiB.of(500);
 
     @Parameter(
         names = {"--report.path"},

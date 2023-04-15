@@ -26,10 +26,12 @@ import org.apache.kafka.common.serialization.FloatSerializer;
 import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.astraea.common.ByteUtils;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
+import org.astraea.common.metrics.BeanObject;
 
 @FunctionalInterface
 public interface Serializer<T> {
@@ -59,8 +61,10 @@ public interface Serializer<T> {
     };
   }
 
-  static <T> Serializer<T> of(org.apache.kafka.common.serialization.Serializer<T> serializer) {
-    return (topic, headers, data) -> serializer.serialize(topic, Header.of(headers), data);
+  private static <T> Serializer<T> of(
+      org.apache.kafka.common.serialization.Serializer<T> serializer) {
+    // the headers are not used by primitive type serializer
+    return (topic, headers, data) -> serializer.serialize(topic, data);
   }
 
   Serializer<byte[]> BYTE_ARRAY = of(new ByteArraySerializer());
@@ -69,6 +73,7 @@ public interface Serializer<T> {
   Serializer<Long> LONG = of(new LongSerializer());
   Serializer<Float> FLOAT = of(new FloatSerializer());
   Serializer<Double> DOUBLE = of(new DoubleSerializer());
+  Serializer<BeanObject> BEAN_OBJECT = (topic, headers, data) -> ByteUtils.toBytes(data);
 
   /**
    * create Custom JsonSerializer

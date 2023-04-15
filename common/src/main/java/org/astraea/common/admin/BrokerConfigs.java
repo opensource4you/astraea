@@ -83,7 +83,8 @@ public final class BrokerConfigs {
   public static final String REPLICA_ALTER_LOG_DIRS_IO_MAX_BYTES_PER_SECOND_CONFIG =
       "replica.alter.log.dirs.io.max.bytes.per.second";
   public static final Set<String> DYNAMICAL_CONFIGS =
-      new TreeSet<>(Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG")));
+      new TreeSet<>(
+          Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG"), String.class));
   // ---------------------------------[values]---------------------------------//
 
   private BrokerConfigs() {}

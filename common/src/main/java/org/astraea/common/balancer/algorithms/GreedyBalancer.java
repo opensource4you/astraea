@@ -25,11 +25,12 @@ import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
-import org.astraea.common.Configuration;
+import java.util.regex.Pattern;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.BalancerConfigs;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.metrics.MBeanRegister;
@@ -102,43 +103,50 @@ public class GreedyBalancer implements Balancer {
 
   public static final String ITERATION_CONFIG = "iteration";
   public static final Set<String> ALL_CONFIGS =
-      new TreeSet<>(Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG")));
+      new TreeSet<>(
+          Utils.constants(GreedyBalancer.class, name -> name.endsWith("CONFIG"), String.class));
 
-  private final int minStep;
-  private final int maxStep;
-  private final int iteration;
   private final AtomicInteger run = new AtomicInteger();
 
-  public GreedyBalancer(Configuration config) {
-    minStep =
+  @Override
+  public Optional<Plan> offer(AlgorithmConfig config) {
+    final var minStep =
         config
+            .balancerConfig()
             .string(SHUFFLE_TWEAKER_MIN_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(1);
-    maxStep =
+    final var maxStep =
         config
+            .balancerConfig()
             .string(SHUFFLE_TWEAKER_MAX_STEP_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             // Use 5 as the maximum step in each trial, this number provide a good balance between
             // exploration and processing resource.
             .orElse(5);
-    iteration =
+    final var iteration =
         config
+            .balancerConfig()
             .string(ITERATION_CONFIG)
             .map(Integer::parseInt)
             .map(Utils::requirePositive)
             .orElse(Integer.MAX_VALUE);
-  }
+    final var allowedTopics =
+        config
+            .balancerConfig()
+            .regexString(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX)
+            .map(Pattern::asMatchPredicate)
+            .orElse((ignore) -> true);
 
-  @Override
-  public Plan offer(AlgorithmConfig config) {
     final var currentClusterInfo = config.clusterInfo();
     final var clusterBean = config.clusterBean();
     final var allocationTweaker =
-        new ShuffleTweaker(
-            () -> ThreadLocalRandom.current().nextInt(minStep, maxStep), config.topicFilter());
+        ShuffleTweaker.builder()
+            .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(minStep, maxStep))
+            .allowedTopics(allowedTopics)
+            .build();
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
     final var initialCost = clusterCostFunction.clusterCost(currentClusterInfo, clusterBean);
@@ -148,18 +156,20 @@ public class GreedyBalancer implements Balancer {
     final var executionTime = config.timeout().toMillis();
     Supplier<Boolean> moreRoom =
         () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
-    BiFunction<ClusterInfo, ClusterCost, Optional<Solution>> next =
+    BiFunction<ClusterInfo, ClusterCost, Optional<Plan>> next =
         (currentAllocation, currentCost) ->
             allocationTweaker
                 .generate(currentAllocation)
                 .takeWhile(ignored -> moreRoom.get())
                 .map(
                     newAllocation ->
-                        new Solution(
+                        new Plan(
+                            config.clusterInfo(),
+                            initialCost,
+                            newAllocation,
                             clusterCostFunction.clusterCost(newAllocation, clusterBean),
                             moveCostFunction.moveCost(
-                                currentClusterInfo, newAllocation, clusterBean),
-                            newAllocation))
+                                currentClusterInfo, newAllocation, clusterBean)))
                 .filter(
                     plan ->
                         config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
@@ -167,7 +177,7 @@ public class GreedyBalancer implements Balancer {
                 .findFirst();
     var currentCost = initialCost;
     var currentAllocation = currentClusterInfo;
-    var currentSolution = Optional.<Solution>empty();
+    var currentSolution = Optional.<Plan>empty();
 
     // register JMX
     var currentIteration = new LongAdder();
@@ -191,6 +201,6 @@ public class GreedyBalancer implements Balancer {
       currentCost = currentSolution.get().proposalClusterCost();
       currentAllocation = currentSolution.get().proposal();
     }
-    return new Plan(currentClusterInfo, initialCost, currentSolution.orElse(null));
+    return currentSolution;
   }
 }

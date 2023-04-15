@@ -16,10 +16,12 @@
  */
 package org.astraea.common.cost;
 
+import static org.astraea.common.cost.MigrationCost.replicaNumChanged;
+
+import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -27,6 +29,18 @@ import org.astraea.common.metrics.collector.MetricSensor;
 
 /** more replicas migrate -> higher cost */
 public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
+  public static final String COST_LIMIT_KEY = "max.migrated.replica.number";
+
+  private final Configuration config;
+
+  public ReplicaNumberCost() {
+    this.config = Configuration.of(Map.of());
+  }
+
+  public ReplicaNumberCost(Configuration config) {
+    this.config = config;
+  }
+
   @Override
   public Optional<MetricSensor> metricSensor() {
     return Optional.empty();
@@ -34,35 +48,12 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    return MoveCost.changedReplicaCount(
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
-            .distinct()
-            .parallel()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Function.identity(),
-                    id -> {
-                      var removedReplicas =
-                          (int)
-                              before
-                                  .replicaStream(id)
-                                  .filter(
-                                      r ->
-                                          after.replicaStream(r.topicPartitionReplica()).count()
-                                              == 0)
-                                  .count();
-                      var newReplicas =
-                          (int)
-                              after
-                                  .replicaStream(id)
-                                  .filter(
-                                      r ->
-                                          before.replicaStream(r.topicPartitionReplica()).count()
-                                              == 0)
-                                  .count();
-                      return newReplicas - removedReplicas;
-                    })));
+    var moveCost = replicaNumChanged(before, after);
+    var maxMigratedReplicas =
+        config.string(COST_LIMIT_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
+    var overflow =
+        maxMigratedReplicas < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
+    return () -> overflow;
   }
 
   @Override

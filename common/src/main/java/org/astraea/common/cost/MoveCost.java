@@ -16,78 +16,13 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Map;
-import org.astraea.common.DataSize;
-
 /** Return type of cost function, `HasMoveCost`. It returns the score of migrate plan. */
 public interface MoveCost {
 
-  MoveCost EMPTY = new MoveCost() {};
-
-  static MoveCost movedReplicaLeaderSize(Map<Integer, DataSize> value) {
-    return new MoveCost() {
-      @Override
-      public Map<Integer, DataSize> movedReplicaLeaderSize() {
-        return value;
-      }
-    };
-  }
-
-  static MoveCost movedRecordSize(Map<Integer, DataSize> value) {
-    return new MoveCost() {
-      @Override
-      public Map<Integer, DataSize> movedRecordSize() {
-        return value;
-      }
-    };
-  }
-
-  static MoveCost changedReplicaCount(Map<Integer, Integer> value) {
-    return new MoveCost() {
-      @Override
-      public Map<Integer, Integer> changedReplicaCount() {
-        return value;
-      }
-    };
-  }
-
-  static MoveCost changedReplicaLeaderCount(Map<Integer, Integer> value) {
-    return new MoveCost() {
-      @Override
-      public Map<Integer, Integer> changedReplicaLeaderCount() {
-        return value;
-      }
-    };
-  }
+  MoveCost EMPTY = () -> false;
 
   /**
-   * @return the leader data size of moving replicas. Noted that the "removing" replicas are
-   *     excluded.
+   * @return check if the cost exceeds the limit value of the user
    */
-  default Map<Integer, DataSize> movedReplicaLeaderSize() {
-    return Map.of();
-  }
-
-  /**
-   * @return the data size of moving replicas. Noted that the "removing" replicas are excluded.
-   */
-  default Map<Integer, DataSize> movedRecordSize() {
-    return Map.of();
-  }
-
-  /**
-   * @return broker id and changed number of replicas. changed number = (number of adding replicas -
-   *     number of removing replicas)
-   */
-  default Map<Integer, Integer> changedReplicaCount() {
-    return Map.of();
-  }
-
-  /**
-   * @return broker id and changed number of leaders. changed number = (number of adding leaders -
-   *     number of removing leaders)
-   */
-  default Map<Integer, Integer> changedReplicaLeaderCount() {
-    return Map.of();
-  }
+  boolean overflow();
 }
