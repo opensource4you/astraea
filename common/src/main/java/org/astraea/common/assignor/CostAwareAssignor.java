@@ -129,14 +129,14 @@ public class CostAwareAssignor extends Assignor {
             };
 
     return costs.entrySet().stream()
-        .flatMap(
+        .map(
             e -> {
               var tp = e.getKey();
               var cost = e.getValue();
               var consumer = lowestCostConsumer.apply(tp);
               tmpConsumerCost.compute(consumer, (ignore, totalCost) -> cost + totalCost);
               tmpAssignment.get(consumer).add(tp);
-              return Stream.of(Map.entry(consumer, tp));
+              return Map.entry(consumer, tp);
             })
         .collect(
             Collectors.toMap(
