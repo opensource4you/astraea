@@ -17,12 +17,15 @@
 package org.astraea.common;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.cost.CostFunction;
@@ -36,6 +39,70 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 public class UtilsTest {
+
+  @Test
+  void testShuffledPermutation() {
+    var items = IntStream.range(0, 100000).boxed().collect(Collectors.toUnmodifiableList());
+
+    Assertions.assertEquals(
+        100000,
+        Stream.iterate(Utils.shuffledPermutation(items), Iterator::hasNext, i -> i)
+            .map(Iterator::next)
+            .distinct()
+            .count(),
+        "No duplicate element");
+    Assertions.assertEquals(
+        Set.copyOf(items),
+        Stream.iterate(Utils.shuffledPermutation(items), Iterator::hasNext, i -> i)
+            .map(Iterator::next)
+            .collect(Collectors.toSet()),
+        "No element lost");
+    Assertions.assertEquals(
+        100000,
+        Stream.iterate(Utils.shuffledPermutation(items), Iterator::hasNext, i -> i)
+            .map(Iterator::next)
+            .count(),
+        "Size correct");
+    Assertions.assertNotEquals(
+        items,
+        Stream.iterate(Utils.shuffledPermutation(items), Iterator::hasNext, i -> i)
+            .map(Iterator::next)
+            .collect(Collectors.toUnmodifiableList()),
+        "Content randomized");
+  }
+
+  @Test
+  void testShuffledPermutationStatistics() {
+    // Generate 10 elements, perform the shuffle multiple time and counting the number frequency of
+    // each position. See if under large number of experiment, the number is uniformly distributed.
+    var items = IntStream.range(0, 10).boxed().collect(Collectors.toUnmodifiableList());
+    var buckets = new int[10][10];
+
+    var trials = 100000;
+    for (int i = 0; i < trials; i++) {
+      var index = 0;
+      var iterator = Utils.shuffledPermutation(items);
+      while (iterator.hasNext()) buckets[iterator.next()][index++] += 1;
+    }
+
+    var expectedValue = trials / 10.0;
+    var error = 1.0;
+    var result =
+        IntStream.range(0, buckets.length)
+            .boxed()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    i -> i,
+                    i ->
+                        Arrays.stream(buckets[i])
+                            .boxed()
+                            .collect(Collectors.toUnmodifiableList())));
+    Assertions.assertTrue(
+        result.values().stream()
+            .map(x -> x.stream().mapToInt(i -> i).average().orElse(0))
+            .allMatch(x -> expectedValue - error <= x && x <= expectedValue + error),
+        "The implementation might be biased: " + result);
+  }
 
   @Test
   void testChunk() {
