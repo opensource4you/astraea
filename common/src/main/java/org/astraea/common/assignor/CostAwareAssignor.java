@@ -87,12 +87,11 @@ public class CostAwareAssignor extends Assignor {
       Map<TopicPartition, Set<TopicPartition>> incompatiblePartition) {
     var tmpConsumerCost =
         subscriptions.keySet().stream()
-            .map(c -> Map.entry(c, 0.0))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            .collect(Collectors.toMap(Function.identity(), ignored -> 0.0D));
     var tmpAssignment =
         subscriptions.keySet().stream()
-            .map(v -> Map.entry(v, new ArrayList<TopicPartition>()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            .collect(
+                Collectors.toMap(Function.identity(), ignored -> new ArrayList<TopicPartition>()));
 
     var lowestCostConsumer =
         (Function<TopicPartition, String>)
