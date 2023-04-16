@@ -239,7 +239,7 @@ public abstract class BalancerConfigTestSuite {
       assertSomeMovement(source, target, name);
       source
           .replicaStream()
-          // for those replicas that is not allowed to move
+          // for those replicas that are not allowed to move
           .filter(r -> !allowedBroker.test(r.nodeInfo().id()))
           // they should exist as-is in the target allocation
           .forEach(
