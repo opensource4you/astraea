@@ -83,7 +83,7 @@ class ShuffleTweakerTest {
     final var shuffleTweaker = ShuffleTweaker.builder().numberOfShuffle(() -> 3).build();
 
     Assertions.assertEquals(
-        0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
+        0, (int) shuffleTweaker.generate(fakeCluster).limit(100).count(), "No possible tweak");
   }
 
   @Test
@@ -92,7 +92,7 @@ class ShuffleTweakerTest {
     final var shuffleTweaker = ShuffleTweaker.builder().numberOfShuffle(() -> 3).build();
 
     Assertions.assertEquals(
-        0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
+        0, (int) shuffleTweaker.generate(fakeCluster).limit(100).count(), "No possible tweak");
   }
 
   @Test
@@ -101,7 +101,7 @@ class ShuffleTweakerTest {
     final var shuffleTweaker = ShuffleTweaker.builder().numberOfShuffle(() -> 3).build();
 
     Assertions.assertEquals(
-        0, (int) shuffleTweaker.generate(fakeCluster).count(), "No possible tweak");
+        0, (int) shuffleTweaker.generate(fakeCluster).limit(100).count(), "No possible tweak");
   }
 
   @Test
