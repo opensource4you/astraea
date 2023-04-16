@@ -25,13 +25,13 @@ import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 import org.astraea.common.admin.TopicPartition;
 
-public final class Subscription {
+public final class SubscriptionInfo {
   private final List<String> topics;
   private final Map<String, String> userData;
   private final List<TopicPartition> ownedPartitions;
   private Optional<String> groupInstanceId;
 
-  public Subscription(
+  public SubscriptionInfo(
       List<String> topics, Map<String, String> userData, List<TopicPartition> ownedPartitions) {
     this.topics = topics;
     this.userData = userData;
@@ -39,7 +39,7 @@ public final class Subscription {
     this.groupInstanceId = Optional.empty();
   }
 
-  public Subscription(List<String> topics, List<TopicPartition> ownedPartitions) {
+  public SubscriptionInfo(List<String> topics, List<TopicPartition> ownedPartitions) {
     this.topics = topics;
     this.ownedPartitions = ownedPartitions;
     this.userData = null;
@@ -66,8 +66,8 @@ public final class Subscription {
     return groupInstanceId;
   }
 
-  public static Subscription from(ConsumerPartitionAssignor.Subscription subscription) {
-    Subscription ourSubscription;
+  public static SubscriptionInfo from(ConsumerPartitionAssignor.Subscription subscription) {
+    SubscriptionInfo ourSubscription;
     // convert astraea topic-partition into Kafka topic-partition
     var ownPartitions =
         subscription.ownedPartitions() == null
@@ -80,8 +80,8 @@ public final class Subscription {
     // convert ByteBuffer into Map<String,String>
     if (kafkaUserData != null) {
       var ourUserData = convert(StandardCharsets.UTF_8.decode(kafkaUserData).toString());
-      ourSubscription = new Subscription(subscription.topics(), ourUserData, ownPartitions);
-    } else ourSubscription = new Subscription(subscription.topics(), ownPartitions);
+      ourSubscription = new SubscriptionInfo(subscription.topics(), ourUserData, ownPartitions);
+    } else ourSubscription = new SubscriptionInfo(subscription.topics(), ownPartitions);
 
     // check groupInstanceId if it's empty or not
     if (!subscription.groupInstanceId().equals(Optional.empty()))
