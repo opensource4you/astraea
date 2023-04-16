@@ -203,8 +203,11 @@ public interface MBeanClient extends AutoCloseable {
     }
 
     BeanObject queryBean(BeanQuery beanQuery, Collection<String> attributeNameCollection)
-        throws ReflectionException, InstanceNotFoundException, IOException,
-            AttributeNotFoundException, MBeanException {
+        throws ReflectionException,
+            InstanceNotFoundException,
+            IOException,
+            AttributeNotFoundException,
+            MBeanException {
       // fetch attribute value from mbean server
       var attributeNameArray = attributeNameCollection.toArray(new String[0]);
       var attributeList =

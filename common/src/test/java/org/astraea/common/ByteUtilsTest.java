@@ -27,36 +27,45 @@ import org.junit.jupiter.api.Test;
 
 public class ByteUtilsTest {
   @Test
+  void testShort2Bytes() {
+    Assertions.assertEquals(379, ByteUtils.toShort(ByteUtils.toBytes((short) 379)));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> ByteUtils.toShort(new byte[0]));
+  }
+
+  @Test
   void testInt2Bytes() {
     Assertions.assertArrayEquals(new byte[] {0, 0, 4, -46}, ByteUtils.toBytes(1234));
+    Assertions.assertEquals(379, ByteUtils.toInteger(ByteUtils.toBytes(379)));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> ByteUtils.toInteger(new byte[0]));
   }
 
   @Test
   void testString2Bytes() {
     var string = Utils.randomString();
     Assertions.assertEquals(string, new String(ByteUtils.toBytes(string), StandardCharsets.UTF_8));
-  }
-
-  @Test
-  void testChar2Bytes() {
-    Assertions.assertEquals(
-        'c', new String(ByteUtils.toBytes('c'), StandardCharsets.UTF_8).charAt(0));
+    Assertions.assertEquals("xxx", ByteUtils.toString(ByteUtils.toBytes("xxx")));
   }
 
   @Test
   void testLong2Bytes() {
     Assertions.assertArrayEquals(new byte[] {0, 0, 0, 0, 0, 0, 1, 123}, ByteUtils.toBytes(379L));
+    Assertions.assertEquals(379L, ByteUtils.toLong(ByteUtils.toBytes(379L)));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> ByteUtils.toLong(new byte[0]));
   }
 
   @Test
   void testFloat2Bytes() {
     Assertions.assertArrayEquals(new byte[] {63, -64, 0, 0}, ByteUtils.toBytes(1.5f));
+    Assertions.assertEquals(379F, ByteUtils.toFloat(ByteUtils.toBytes(379F)));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> ByteUtils.toFloat(new byte[0]));
   }
 
   @Test
   void testDouble2Bytes() {
     Assertions.assertArrayEquals(
         new byte[] {64, 94, -58, 102, 102, 102, 102, 102}, ByteUtils.toBytes(123.1D));
+    Assertions.assertEquals(379D, ByteUtils.toDouble(ByteUtils.toBytes(379D)));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> ByteUtils.toDouble(new byte[0]));
   }
 
   @Test

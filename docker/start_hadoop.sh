@@ -18,7 +18,7 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
-declare -r VERSION=${VERSION:-3.3.4}
+declare -r VERSION=${VERSION:-3.3.5}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/hadoop}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/hadoop.dockerfile
