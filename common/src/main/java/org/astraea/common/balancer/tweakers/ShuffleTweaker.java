@@ -103,6 +103,63 @@ public class ShuffleTweaker {
             // ClusterInfoBuilder.
             if (forbiddenReplica.contains(sourceReplica.topicPartitionReplica())) continue;
 
+            Supplier<Boolean> leadershipChange =
+                () -> {
+                  var targetReplica =
+                      baseAllocation
+                          .replicaStream(sourceReplica.topicPartition())
+                          // leader pair follower, follower pair leader
+                          .filter(r -> r.isFollower() != sourceReplica.isFollower())
+                          // this follower is located at allowed broker
+                          .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
+                          // not forbidden
+                          .filter(r -> !forbiddenReplica.contains(r.topicPartitionReplica()))
+                          .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
+                          .min(Map.Entry.comparingByValue())
+                          .map(Map.Entry::getKey);
+
+                  // allowed broker filter might cause no legal exchange target
+                  if (targetReplica.isPresent()) {
+                    var theFollower =
+                        sourceReplica.isFollower() ? sourceReplica : targetReplica.orElseThrow();
+                    finalCluster.setPreferredLeader(theFollower.topicPartitionReplica());
+
+                    forbiddenReplica.add(sourceReplica.topicPartitionReplica());
+                    forbiddenReplica.add(targetReplica.orElseThrow().topicPartitionReplica());
+
+                    return true;
+                  } else {
+                    return false;
+                  }
+                };
+            Supplier<Boolean> replicaListChange =
+                () -> {
+                  var replicaList = baseAllocation.replicas(sourceReplica.topicPartition());
+                  var targetBroker =
+                      baseAllocation.brokers().stream()
+                          // the candidate should not be part of the replica list
+                          .filter(
+                              b -> replicaList.stream().noneMatch(r -> r.nodeInfo().id() == b.id()))
+                          // should be an allowed broker
+                          .filter(b -> this.allowedBrokers.test(b.id()))
+                          .map(b -> Map.entry(b, ThreadLocalRandom.current().nextInt()))
+                          .min(Map.Entry.comparingByValue())
+                          .map(Map.Entry::getKey);
+
+                  if (targetBroker.isPresent()) {
+                    finalCluster.reassignReplica(
+                        sourceReplica.topicPartitionReplica(),
+                        targetBroker.orElseThrow().id(),
+                        randomElement(
+                            baseAllocation.brokerFolders().get(targetBroker.orElseThrow().id())));
+
+                    forbiddenReplica.add(sourceReplica.topicPartitionReplica());
+                    return true;
+                  } else {
+                    return false;
+                  }
+                };
+
             final var isFinished =
                 Operation.randomStream()
                     .sequential()
@@ -110,86 +167,18 @@ public class ShuffleTweaker {
                         operation -> {
                           switch (operation) {
                             case LEADERSHIP_CHANGE:
-                              {
-                                var targetReplica =
-                                    baseAllocation
-                                        .replicaStream(sourceReplica.topicPartition())
-                                        // leader pair follower, follower pair leader
-                                        .filter(r -> r.isFollower() != sourceReplica.isFollower())
-                                        // this follower is located at allowed broker
-                                        .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
-                                        // not forbidden
-                                        .filter(
-                                            r ->
-                                                !forbiddenReplica.contains(
-                                                    r.topicPartitionReplica()))
-                                        .map(
-                                            r ->
-                                                Map.entry(r, ThreadLocalRandom.current().nextInt()))
-                                        .min(Map.Entry.comparingByValue())
-                                        .map(Map.Entry::getKey);
-
-                                // allowed broker filter might cause no legal exchange target
-                                if (targetReplica.isPresent()) {
-                                  var theFollower =
-                                      sourceReplica.isFollower()
-                                          ? sourceReplica
-                                          : targetReplica.orElseThrow();
-                                  finalCluster.setPreferredLeader(
-                                      theFollower.topicPartitionReplica());
-
-                                  forbiddenReplica.add(sourceReplica.topicPartitionReplica());
-                                  forbiddenReplica.add(
-                                      targetReplica.orElseThrow().topicPartitionReplica());
-
-                                  return true;
-                                } else {
-                                  return false;
-                                }
-                              }
+                              return leadershipChange.get();
                             case REPLICA_LIST_CHANGE:
-                              {
-                                var replicaList =
-                                    baseAllocation.replicas(sourceReplica.topicPartition());
-                                var targetBroker =
-                                    baseAllocation.brokers().stream()
-                                        // the candidate should not be part of the replica list
-                                        .filter(
-                                            b ->
-                                                replicaList.stream()
-                                                    .noneMatch(r -> r.nodeInfo().id() == b.id()))
-                                        // should be an allowed broker
-                                        .filter(b -> this.allowedBrokers.test(b.id()))
-                                        .map(
-                                            b ->
-                                                Map.entry(b, ThreadLocalRandom.current().nextInt()))
-                                        .min(Map.Entry.comparingByValue())
-                                        .map(Map.Entry::getKey);
-
-                                if (targetBroker.isPresent()) {
-                                  finalCluster.reassignReplica(
-                                      sourceReplica.topicPartitionReplica(),
-                                      targetBroker.orElseThrow().id(),
-                                      randomElement(
-                                          baseAllocation
-                                              .brokerFolders()
-                                              .get(targetBroker.orElseThrow().id())));
-
-                                  forbiddenReplica.add(sourceReplica.topicPartitionReplica());
-                                  return true;
-                                } else {
-                                  return false;
-                                }
-                              }
+                              return replicaListChange.get();
                             default:
                               throw new RuntimeException("Unexpected Condition: " + operation);
                           }
                         })
                     .filter(finished -> finished)
-                    .findFirst();
-            if (isFinished.isPresent()) {
-              shuffled++;
-            }
+                    .findFirst()
+                    .orElse(false);
+
+            shuffled += isFinished ? 1 : 0;
           }
 
           return finalCluster.build();
