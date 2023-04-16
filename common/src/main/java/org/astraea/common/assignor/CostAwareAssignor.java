@@ -38,19 +38,11 @@ import org.astraea.common.cost.NoSufficientMetricsException;
  * default cost function ranks partitions that are in the same node by NetworkIngressCost{@link
  * org.astraea.common.cost.NetworkIngressCost}
  *
- * <p>When get the partitions' cost of each node, assignor would assign partitions to consumers base
- * on node. Each consumer would get the partitions with "the similar cost" from same node.
- *
- * <p>The important configs are JMX port, MAX_WAIT_BEAN, MAX_TRAFFIC_MiB_INTERVAL. Most cost
- * function need the JMX metrics to score partitions. Normally, all brokers use the same JMX port,
- * so you could just define the `jmx.port=12345`. If one of brokers uses different JMX client port,
- * you can define `broker.1001.jmx.port=3456` (`1001` is the broker id) to replace the value of
- * `jmx.port`. If the jmx port is undefined, only local mbean client is created for each cost
- * function.
- *
- * <p>MAX_WAIT_BEAN is the config of setting the amount of time waiting for fetch ClusterBean.
- * MAX_TRAFFIC_MiB_INTERVAL is the config of setting how traffic similar is. You can define these
- * config by `max.wait.bean=10` or `max.traffic.mib.interval=15`
+ * <p>The important configs are JMX port. Most cost function need the JMX metrics to score
+ * partitions. Normally, all brokers use the same JMX port, so you could just define the
+ * `jmx.port=12345`. If one of brokers uses different JMX client port, you can define
+ * `broker.1001.jmx.port=3456` (`1001` is the broker id) to replace the value of `jmx.port`. If the
+ * jmx port is undefined, only local mbean client is created for each cost function.
  */
 public class CostAwareAssignor extends Assignor {
   protected static final String MAX_RETRY_TIME = "max.retry.time";
@@ -60,7 +52,6 @@ public class CostAwareAssignor extends Assignor {
   protected Map<String, List<TopicPartition>> assign(
       Map<String, org.astraea.common.assignor.Subscription> subscriptions,
       ClusterInfo clusterInfo) {
-    // TODO: Detect Unregister node and register them if any
     var subscribedTopics =
         subscriptions.values().stream()
             .map(org.astraea.common.assignor.Subscription::topics)
@@ -81,6 +72,25 @@ public class CostAwareAssignor extends Assignor {
     return greedyAssign(subscriptions, cost, incompatiblePartition);
   }
 
+  /**
+   * Using the greedy strategy to assign partitions to consumers. The partitions would be evaluated
+   * based on the following steps to identify a suitable consumer for assigning.
+   *
+   * <p>1. Filter out the consumers without subscribing.
+   *
+   * <p>2. Filter out consumers that are not suitable to be assigned together with the
+   * topic-partition based on its incompatibility.
+   *
+   * <p>3. If there are consumers that are suitable for the topic-partition after filtering, the
+   * consumer with the lowest cost would be assigned the topic-partition. Otherwise, if there are no
+   * suitable consumers for the topic-partition, identify the consumers subscribed to that topic and
+   * assign the topic-partition to the consumer with the lowest cost.
+   *
+   * @param subscriptions the subscription of consumers
+   * @param costs partition cost evaluated by cost function
+   * @param incompatiblePartition the incompatibility of the partition
+   * @return the assignment calculated by greedy
+   */
   protected Map<String, List<TopicPartition>> greedyAssign(
       Map<String, org.astraea.common.assignor.Subscription> subscriptions,
       Map<TopicPartition, Double> costs,
