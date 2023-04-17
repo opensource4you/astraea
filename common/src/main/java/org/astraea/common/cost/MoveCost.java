@@ -17,7 +17,6 @@
 package org.astraea.common.cost;
 
 /** Return type of cost function, `HasMoveCost`. It returns the score of migrate plan. */
-@FunctionalInterface
 public interface MoveCost {
 
   MoveCost EMPTY = () -> false;

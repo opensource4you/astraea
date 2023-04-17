@@ -42,7 +42,7 @@ public class AssignorTest {
     var userData = ByteBuffer.wrap(data.getBytes(StandardCharsets.UTF_8));
     var kafkaSubscription =
         new ConsumerPartitionAssignor.Subscription(List.of("test"), userData, null);
-    var ourSubscription = Subscription.from(kafkaSubscription);
+    var ourSubscription = SubscriptionInfo.from(kafkaSubscription);
 
     Assertions.assertEquals(kafkaSubscription.topics(), ourSubscription.topics());
     Assertions.assertNull(kafkaSubscription.ownedPartitions());
@@ -66,7 +66,7 @@ public class AssignorTest {
     var kafkaGroupSubscription =
         new ConsumerPartitionAssignor.GroupSubscription(
             Map.of("user1", kafkaUser1Subscription, "user2", kafkaUser2Subscription));
-    var ourGroupSubscription = GroupSubscription.from(kafkaGroupSubscription);
+    var ourGroupSubscription = GroupSubscriptionInfo.from(kafkaGroupSubscription);
 
     var ourUser1Subscription = ourGroupSubscription.groupSubscription().get("user1");
     var ourUser2Subscription = ourGroupSubscription.groupSubscription().get("user2");

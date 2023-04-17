@@ -19,114 +19,122 @@ package org.astraea.common.cost;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
-import org.astraea.common.DataRate;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class NetworkIngressCostTest {
+  static Function<Replica, Replica> generateReplica =
+      (replica) -> Replica.builder(replica).size(1).build();
 
   @Test
-  void testTwoNodesWithSameTopic() {
-    var clusterInfo =
-        ClusterInfoBuilder.builder()
-            .addNode(Set.of(1, 2))
-            .addFolders(
-                Map.of(1, Set.of("/folder0", "/folder1"), 2, Set.of("/folder0", "/folder1")))
-            .addTopic(
-                "a",
-                4,
-                (short) 1,
-                replica -> {
-                  var size = 0;
-                  if (replica.partition() == 0) size = 10;
-                  else if (replica.partition() == 1) size = 40;
-                  else if (replica.partition() == 2) size = 90;
-                  else size = 60;
-                  return Replica.builder(replica).size(size).build();
-                })
-            .build();
-    var clusterBean =
-        ClusterBean.of(
-            Map.of(
-                1,
-                List.of(
-                    NetworkCostTest.bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC, "a", DataRate.MB.of(60).byteRate())),
-                2,
-                List.of(
-                    NetworkCostTest.bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                        "a",
-                        DataRate.MB.of(60).byteRate()))));
-
-    var networkCost = new NetworkIngressCost(Configuration.EMPTY);
-    var partitionCost = networkCost.partitionCost(clusterInfo, clusterBean);
-    var tpBrokerId =
-        clusterInfo
-            .replicaStream()
-            .collect(Collectors.toMap(Replica::topicPartition, r -> r.nodeInfo().id()));
-
-    var incompatiblePartitions = partitionCost.incompatibility();
-    incompatiblePartitions.forEach(
-        (tp, set) -> {
-          Assertions.assertFalse(set.isEmpty());
-          set.forEach(p -> Assertions.assertEquals(tpBrokerId.get(tp), tpBrokerId.get(p)));
-        });
-  }
-
-  @Test
-  void testOneNodeWithMultipleTopics() {
+  void testIncompatibility() {
+    var networkCost =
+        new NetworkIngressCost(
+            Configuration.of(
+                Map.of(
+                    NetworkIngressCost.TRAFFIC_INTERVAL,
+                    "1Byte",
+                    NetworkIngressCost.NETWORK_COST_ESTIMATION_METHOD,
+                    "BROKER_TOPIC_FIFTEEN_MINUTE_RATE")));
+    var topics =
+        IntStream.range(0, 10)
+            .mapToObj(i -> Utils.randomString(6))
+            .collect(Collectors.toUnmodifiableList());
     var clusterInfo =
         ClusterInfoBuilder.builder()
             .addNode(Set.of(1))
             .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
-            .addTopic(
-                "a",
-                2,
-                (short) 1,
-                replica -> {
-                  var size = 0;
-                  if (replica.partition() == 0) size = 20;
-                  else size = 80;
-                  return Replica.builder(replica).size(size).build();
-                })
-            .addTopic(
-                "b",
-                2,
-                (short) 1,
-                replica -> {
-                  var size = 0;
-                  if (replica.partition() == 0) size = 40;
-                  else size = 60;
-                  return Replica.builder(replica).size(size).build();
-                })
             .build();
+
+    for (var topic : topics) {
+      clusterInfo =
+          ClusterInfoBuilder.builder(clusterInfo)
+              .addTopic(topic, 1, (short) 1, generateReplica)
+              .build();
+    }
+    var index = new AtomicInteger(1);
     var clusterBean =
         ClusterBean.of(
             Map.of(
                 1,
-                List.of(
-                    NetworkCostTest.bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC, "a", DataRate.MB.of(100).byteRate()),
-                    NetworkCostTest.bandwidth(
-                        ServerMetrics.Topic.BYTES_IN_PER_SEC,
-                        "b",
-                        DataRate.MB.of(100).byteRate()))));
-
-    var networkCost = new NetworkIngressCost(Configuration.EMPTY);
+                topics.stream()
+                    .map(
+                        topic ->
+                            bandwidth(
+                                ServerMetrics.Topic.BYTES_IN_PER_SEC,
+                                topic,
+                                index.getAndIncrement()))
+                    .collect(Collectors.toUnmodifiableList())));
     var partitionCost = networkCost.partitionCost(clusterInfo, clusterBean);
-
     var incompatible = partitionCost.incompatibility();
-    incompatible.forEach(
-        (tp, set) -> {
-          if (tp.topic().equals("a") && tp.partition() == 0) Assertions.assertEquals(3, set.size());
-          else Assertions.assertEquals(1, set.size());
-        });
+
+    Assertions.assertEquals(10, incompatible.size());
+    Assertions.assertEquals(8, incompatible.get(TopicPartition.of(topics.get(0), 0)).size());
+  }
+
+  @Test
+  void testEmptyIncompatibility() {
+    var networkCost =
+        new NetworkIngressCost(
+            Configuration.of(
+                Map.of(
+                    NetworkIngressCost.TRAFFIC_INTERVAL,
+                    "1Byte",
+                    NetworkIngressCost.NETWORK_COST_ESTIMATION_METHOD,
+                    "BROKER_TOPIC_FIFTEEN_MINUTE_RATE")));
+    var topics =
+        IntStream.range(0, 10)
+            .mapToObj(i -> Utils.randomString(6))
+            .collect(Collectors.toUnmodifiableList());
+    var clusterInfo =
+        ClusterInfoBuilder.builder()
+            .addNode(Set.of(1))
+            .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
+            .build();
+
+    for (var topic : topics) {
+      clusterInfo =
+          ClusterInfoBuilder.builder(clusterInfo)
+              .addTopic(topic, 1, (short) 1, generateReplica)
+              .build();
+    }
+    var clusterBean =
+        ClusterBean.of(
+            Map.of(
+                1,
+                topics.stream()
+                    .map(topic -> bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, topic, 1.0))
+                    .collect(Collectors.toUnmodifiableList())));
+    var partitionCost = networkCost.partitionCost(clusterInfo, clusterBean);
+    var incompatible = partitionCost.incompatibility();
+
+    Assertions.assertEquals(0, incompatible.size());
+  }
+
+  static double standardDeviation(List<Double> tpTraffic) {
+    var avg = tpTraffic.stream().mapToDouble(i -> i).average().getAsDouble();
+    return Math.sqrt(
+        tpTraffic.stream().mapToDouble(v -> Math.pow(v - avg, 2)).average().getAsDouble());
+  }
+
+  static ServerMetrics.Topic.Meter bandwidth(
+      ServerMetrics.Topic metric, String topic, double fifteenRate) {
+    var domainName = "kafka.server";
+    var properties =
+        Map.of("type", "BrokerTopicMetric", "topic", topic, "name", metric.metricName());
+    var attributes = Map.<String, Object>of("FifteenMinuteRate", fifteenRate);
+    return new ServerMetrics.Topic.Meter(new BeanObject(domainName, properties, attributes));
   }
 }
