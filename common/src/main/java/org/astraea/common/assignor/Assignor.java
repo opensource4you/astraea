@@ -66,7 +66,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    * @return Map from each member to the list of partitions assigned to them.
    */
   protected abstract Map<String, List<TopicPartition>> assign(
-      Map<String, org.astraea.common.assignor.Subscription> subscriptions, ClusterInfo clusterInfo);
+      Map<String, SubscriptionInfo> subscriptions, ClusterInfo clusterInfo);
 
   /**
    * Parse config to get JMX port and cost function type.
@@ -104,11 +104,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   public final GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
     var clusterInfo = updateClusterInfo();
     // convert Kafka's data structure to ours
-    var subscriptionsPerMember =
-        org.astraea.common.assignor.GroupSubscription.from(groupSubscription).groupSubscription();
-
-    // TODO: Detected if consumers subscribed to the same topics.
-    // For now, assume that the consumers only subscribed to identical topics
+    var subscriptionsPerMember = GroupSubscriptionInfo.from(groupSubscription).groupSubscription();
 
     return new GroupAssignment(
         assign(subscriptionsPerMember, clusterInfo).entrySet().stream()

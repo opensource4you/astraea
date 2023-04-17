@@ -154,8 +154,11 @@ class MBeanClientTest {
 
   @Test
   void testFetchSelectedAttributes()
-      throws ReflectionException, InstanceNotFoundException, IOException,
-          AttributeNotFoundException, MBeanException {
+      throws ReflectionException,
+          InstanceNotFoundException,
+          IOException,
+          AttributeNotFoundException,
+          MBeanException {
     // arrange
     try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
