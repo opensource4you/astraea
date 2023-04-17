@@ -50,7 +50,9 @@ public interface ClusterBean {
                     Map.Entry::getKey,
                     entry ->
                         sensor.fetch(
-                            MBeanClient.of(entry.getValue().beans(BeanQuery.all())), EMPTY))));
+                            entry.getKey(),
+                            MBeanClient.of(entry.getValue().beans(BeanQuery.all())),
+                            EMPTY))));
   }
 
   static ClusterBean masked(ClusterBean clusterBean, Predicate<Integer> nodeFilter) {

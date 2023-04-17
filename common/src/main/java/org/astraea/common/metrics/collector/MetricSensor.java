@@ -48,12 +48,12 @@ public interface MetricSensor {
       Collection<MetricSensor> metricSensors, Consumer<Exception> exceptionHandler) {
     if (metricSensors.isEmpty()) return Optional.empty();
     return Optional.of(
-        (client, clusterBean) ->
+        (identity, client, clusterBean) ->
             metricSensors.stream()
                 .flatMap(
                     ms -> {
                       try {
-                        return ms.fetch(client, clusterBean).stream();
+                        return ms.fetch(identity, client, clusterBean).stream();
                       } catch (Exception ex) {
                         exceptionHandler.accept(ex);
                         return Stream.empty();
@@ -66,9 +66,10 @@ public interface MetricSensor {
    * fetch metrics from remote/local mbean server. Or the implementation can generate custom metrics
    * according to existent cluster bean
    *
+   * @param identity
    * @param client mbean client (don't close it!)
    * @param bean current cluster bean
    * @return java metrics
    */
-  Collection<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean);
+  Collection<? extends HasBeanObject> fetch(int identity, MBeanClient client, ClusterBean bean);
 }

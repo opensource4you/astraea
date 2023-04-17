@@ -57,7 +57,7 @@ public class MemoryCost implements HasBrokerCost {
 
   @Override
   public Optional<MetricSensor> metricSensor() {
-    return Optional.of((client, ignored) -> List.of(HostMetrics.jvmMemory(client)));
+    return Optional.of((ignore, client, ignored) -> List.of(HostMetrics.jvmMemory(client)));
   }
 
   @Override

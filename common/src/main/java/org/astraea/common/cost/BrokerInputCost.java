@@ -46,7 +46,8 @@ public class BrokerInputCost implements HasBrokerCost, HasClusterCost {
   @Override
   public Optional<MetricSensor> metricSensor() {
     return Optional.of(
-        (client, ignored) -> List.of(ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.fetch(client)));
+        (ignore, client, ignored) ->
+            List.of(ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.fetch(client)));
   }
 
   @Override

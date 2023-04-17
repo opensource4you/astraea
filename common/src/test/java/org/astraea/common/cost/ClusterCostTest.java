@@ -63,7 +63,7 @@ class ClusterCostTest {
     var mergeCost = HasClusterCost.of(Map.of(cost1, 1.0, cost2, 1.0));
     var metrics =
         mergeCost.metricSensor().stream()
-            .map(x -> x.fetch(MBeanClient.of(SERVICE.jmxServiceURL()), ClusterBean.EMPTY))
+            .map(x -> x.fetch(-1, MBeanClient.of(SERVICE.jmxServiceURL()), ClusterBean.EMPTY))
             .collect(Collectors.toSet());
     Assertions.assertTrue(
         metrics.iterator().next().stream()

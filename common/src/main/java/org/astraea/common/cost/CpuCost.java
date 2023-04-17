@@ -57,7 +57,7 @@ public class CpuCost implements HasBrokerCost {
 
   @Override
   public Optional<MetricSensor> metricSensor() {
-    return Optional.of((client, ignored) -> List.of(HostMetrics.operatingSystem(client)));
+    return Optional.of((ignore, client, ignored) -> List.of(HostMetrics.operatingSystem(client)));
   }
 
   @Override

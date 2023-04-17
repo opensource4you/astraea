@@ -78,7 +78,7 @@ public class NodeThroughputCostTest {
     var bean = new BeanObject("aaa", Map.of("node-id", "node-1"), Map.of());
     var client = Mockito.mock(MBeanClient.class);
     Mockito.when(client.beans(Mockito.any())).thenReturn(List.of(bean));
-    var result = sensor.fetch(client, ClusterBean.EMPTY);
+    var result = sensor.fetch(-1, client, ClusterBean.EMPTY);
     Assertions.assertEquals(1, result.size());
     Assertions.assertEquals(bean, result.iterator().next().beanObject());
   }

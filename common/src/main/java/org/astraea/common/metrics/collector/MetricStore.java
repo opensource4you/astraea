@@ -117,7 +117,7 @@ public interface MetricStore extends AutoCloseable {
         () ->
             Map.of(
                 (MetricSensor)
-                    (client, bean) ->
+                    (identity, client, bean) ->
                         client.beans(BeanQuery.all()).stream()
                             .map(bs -> (HasBeanObject) () -> bs)
                             .collect(Collectors.toUnmodifiableList()),
@@ -236,7 +236,7 @@ public interface MetricStore extends AutoCloseable {
                             try {
                               beans
                                   .computeIfAbsent(id, ignored -> new ConcurrentLinkedQueue<>())
-                                  .addAll(sensor.fetch(client, clusterBean));
+                                  .addAll(sensor.fetch(id, client, clusterBean));
                             } catch (Exception e) {
                               errorHandler.accept(id, e);
                             }

@@ -196,13 +196,13 @@ public abstract class NetworkCost implements HasClusterCost {
     //  obtain the replica info, so we intentionally sample log size but never use it.
     //  https://github.com/skiptests/astraea/pull/1240#discussion_r1044487473
     return Optional.of(
-        (client, clusterBean) ->
+        (identity, client, clusterBean) ->
             Stream.of(
                     List.of(HostMetrics.jvmMemory(client)),
                     ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
                     ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client),
                     LogMetrics.Log.SIZE.fetch(client),
-                    clusterInfoSensor.fetch(client, clusterBean))
+                    clusterInfoSensor.fetch(identity, client, clusterBean))
                 .flatMap(Collection::stream)
                 .collect(Collectors.toUnmodifiableList()));
   }
