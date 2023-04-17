@@ -50,11 +50,10 @@ public class CostAwareAssignor extends Assignor {
 
   @Override
   protected Map<String, List<TopicPartition>> assign(
-      Map<String, org.astraea.common.assignor.Subscription> subscriptions,
-      ClusterInfo clusterInfo) {
+      Map<String, SubscriptionInfo> subscriptions, ClusterInfo clusterInfo) {
     var subscribedTopics =
         subscriptions.values().stream()
-            .map(org.astraea.common.assignor.Subscription::topics)
+            .map(SubscriptionInfo::topics)
             .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableSet());
 
@@ -92,7 +91,7 @@ public class CostAwareAssignor extends Assignor {
    * @return the assignment calculated by greedy
    */
   protected Map<String, List<TopicPartition>> greedyAssign(
-      Map<String, org.astraea.common.assignor.Subscription> subscriptions,
+      Map<String, SubscriptionInfo> subscriptions,
       Map<TopicPartition, Double> costs,
       Map<TopicPartition, Set<TopicPartition>> incompatiblePartition) {
     var tmpConsumerCost =

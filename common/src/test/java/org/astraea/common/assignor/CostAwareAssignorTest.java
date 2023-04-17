@@ -32,9 +32,9 @@ public class CostAwareAssignorTest {
     var subscription =
         Map.of(
             "c1",
-            new Subscription(List.of("t1", "t2", "t3"), null),
+            new SubscriptionInfo(List.of("t1", "t2", "t3"), null),
             "c2",
-            new Subscription(List.of("t1", "t2", "t3"), null));
+            new SubscriptionInfo(List.of("t1", "t2", "t3"), null));
     var cost1 =
         Map.of(
             TopicPartition.of("t1", 0),
