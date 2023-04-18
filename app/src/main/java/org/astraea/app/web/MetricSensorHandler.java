@@ -16,22 +16,42 @@
  */
 package org.astraea.app.web;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.common.Configuration;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.cost.CostFunction;
+import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.collector.MetricSensor;
 
-public class BeanHandler implements Handler {
+public class MetricSensorHandler implements Handler {
   private final Admin admin;
   private final Function<Integer, Integer> jmxPorts;
+  private final Collection<MetricSensor> sensors;
 
-  BeanHandler(Admin admin, Function<Integer, Integer> jmxPorts) {
+  MetricSensorHandler(
+      Admin admin, Function<Integer, Integer> jmxPorts, Collection<MetricSensor> sensors) {
     this.admin = admin;
     this.jmxPorts = jmxPorts;
+    this.sensors = sensors;
+  }
+
+  @Override
+  public CompletionStage<Response> post(Channel channel) {
+    var metricSensorPostRequest = channel.request(TypeRef.of(MetricSensorPostRequest.class));
+    var costs = costs(metricSensorPostRequest.costs);
+    if (!costs.isEmpty()) sensors.clear();
+    costs.forEach(costFunction -> costFunction.metricSensor().ifPresent(sensors::add));
+    return CompletableFuture.completedFuture(new PostResponse(metricSensorPostRequest.costs));
   }
 
   @Override
@@ -55,6 +75,11 @@ public class BeanHandler implements Handler {
                               }
                             })
                         .collect(Collectors.toUnmodifiableList())));
+  }
+
+  private static Set<CostFunction> costs(Set<String> costs) {
+    if (costs.isEmpty()) throw new IllegalArgumentException("costs is not specified");
+    return Utils.costFunctions(costs, CostFunction.class, Configuration.EMPTY);
   }
 
   static class Property implements Response {
@@ -110,6 +135,21 @@ public class BeanHandler implements Handler {
 
     NodeBeans(List<NodeBean> nodeBeans) {
       this.nodeBeans = nodeBeans;
+    }
+  }
+
+  static class MetricSensorPostRequest implements Request {
+    Set<String> costs =
+        Set.of(
+            "org.astraea.common.cost.ReplicaLeaderCost",
+            "org.astraea.common.cost.NetworkIngressCost");
+  }
+
+  static class PostResponse implements Response {
+    final Set<String> costs;
+
+    PostResponse(Set<String> costs) {
+      this.costs = costs;
     }
   }
 }

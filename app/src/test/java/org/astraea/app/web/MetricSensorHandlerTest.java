@@ -18,6 +18,7 @@ package org.astraea.app.web;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.it.Service;
@@ -25,7 +26,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class BeanHandlerTest {
+public class MetricSensorHandlerTest {
 
   private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
 
@@ -40,21 +41,23 @@ public class BeanHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
-      var handler = new BeanHandler(admin, name -> SERVICE.jmxServiceURL().getPort());
+      var handler =
+          new MetricSensorHandler(admin, name -> SERVICE.jmxServiceURL().getPort(), Set.of());
       var response =
           Assertions.assertInstanceOf(
-              BeanHandler.NodeBeans.class, handler.get(Channel.EMPTY).toCompletableFuture().join());
+              MetricSensorHandler.NodeBeans.class,
+              handler.get(Channel.EMPTY).toCompletableFuture().join());
       Assertions.assertNotEquals(0, response.nodeBeans.size());
 
       var response1 =
           Assertions.assertInstanceOf(
-              BeanHandler.NodeBeans.class,
+              MetricSensorHandler.NodeBeans.class,
               handler.get(Channel.ofTarget("kafka.server")).toCompletableFuture().join());
       Assertions.assertNotEquals(0, response1.nodeBeans.size());
 
       var response2 =
           Assertions.assertInstanceOf(
-              BeanHandler.NodeBeans.class,
+              MetricSensorHandler.NodeBeans.class,
               handler.get(Channel.ofQueries(Map.of("topic", topic))).toCompletableFuture().join());
       Assertions.assertNotEquals(0, response2.nodeBeans.size());
     }
