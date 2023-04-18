@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.MetricsTestUtil;
+import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
@@ -44,7 +44,7 @@ public class ProducerMetricsTest {
     var topic = Utils.randomString(10);
     try (var producer = Producer.of(SERVICE.bootstrapServers())) {
       producer.send(Record.builder().topic(topic).build()).toCompletableFuture().join();
-      ProducerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
+      ProducerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtils::validate);
     }
   }
 

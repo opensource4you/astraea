@@ -22,6 +22,7 @@ import java.util.Objects;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.common.metrics.platform.OperatingSystemInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -53,7 +54,8 @@ public class CpuCostTest {
   @Test
   void testSensor() {
     var f = new CpuCost();
-    var clusterBean = ClusterBean.of(Map.of(0, MBeanClient.local()), f.metricSensor().get());
+    var clusterBean =
+        MetricsTestUtils.clusterBean(Map.of(0, MBeanClient.local()), f.metricSensor().get());
     Assertions.assertFalse(
         clusterBean.brokerMetrics(0, OperatingSystemInfo.class).findAny().isEmpty());
     Assertions.assertTrue(
