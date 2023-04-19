@@ -32,7 +32,7 @@ import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.MetricsTestUtil;
+import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
@@ -60,7 +60,7 @@ public class ServerMetricsTest {
 
   @Test
   void testAppInfo() {
-    ServerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
+    ServerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtils::validate);
   }
 
   @ParameterizedTest()
@@ -68,18 +68,18 @@ public class ServerMetricsTest {
   void testPurgatorySize(ServerMetrics.DelayedOperationPurgatory request) {
     var m = request.fetch(MBeanClient.local());
     Assertions.assertDoesNotThrow(m::value);
-    MetricsTestUtil.validate(m);
+    MetricsTestUtils.validate(m);
   }
 
   @ParameterizedTest()
   @EnumSource(value = ServerMetrics.KafkaServer.class)
   void testKafkaServer(ServerMetrics.KafkaServer request) {
-    MetricsTestUtil.validate(request.fetch(MBeanClient.local()));
+    MetricsTestUtils.validate(request.fetch(MBeanClient.local()));
   }
 
   @Test
   void testKafkaServerOtherMetrics() {
-    MetricsTestUtil.validate(ServerMetrics.KafkaServer.CLUSTER_ID.fetch(MBeanClient.local()));
+    MetricsTestUtils.validate(ServerMetrics.KafkaServer.CLUSTER_ID.fetch(MBeanClient.local()));
   }
 
   @Test
@@ -236,21 +236,21 @@ public class ServerMetricsTest {
           Assertions.assertNotNull(m.metricsName());
           Assertions.assertNotNull(m.topic());
           Assertions.assertNotNull(m.type());
-          MetricsTestUtil.validate(m);
+          MetricsTestUtils.validate(m);
         });
   }
 
   @Test
   void testAllEnumNameUnique() {
     Assertions.assertTrue(
-        MetricsTestUtil.metricDistinct(
+        MetricsTestUtils.metricDistinct(
             ServerMetrics.ReplicaManager.values(), ServerMetrics.ReplicaManager::metricName));
     Assertions.assertTrue(
-        MetricsTestUtil.metricDistinct(
+        MetricsTestUtils.metricDistinct(
             ServerMetrics.DelayedOperationPurgatory.values(),
             ServerMetrics.DelayedOperationPurgatory::metricName));
     Assertions.assertTrue(
-        MetricsTestUtil.metricDistinct(
+        MetricsTestUtils.metricDistinct(
             ServerMetrics.BrokerTopic.values(), ServerMetrics.BrokerTopic::metricName));
   }
 }
