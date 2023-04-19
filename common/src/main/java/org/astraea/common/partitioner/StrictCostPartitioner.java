@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -105,7 +106,9 @@ public class StrictCostPartitioner extends Partitioner {
     candidate = candidate.isEmpty() ? partitionLeaders : candidate;
     // Convert the data structure to make quick "contains" check
     var candidateSet =
-        candidate.stream().map(Replica::topicPartition).collect(Collectors.toUnmodifiableSet());
+        candidate.stream()
+            .map(Replica::topicPartition)
+            .collect(HashSet::new, HashSet::add, HashSet::addAll);
 
     var preferredPartition =
         partitionCost
