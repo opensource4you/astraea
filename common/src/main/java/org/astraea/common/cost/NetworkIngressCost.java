@@ -16,6 +16,7 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Set;
@@ -26,6 +27,7 @@ import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.broker.ServerMetrics;
 
 /**
@@ -137,5 +139,17 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
   @Override
   public String toString() {
     return this.getClass().getSimpleName();
+  }
+
+  @Override
+  public ResourceUsage evaluateResourceUsage(
+      ClusterInfo clusterInfo, ClusterBean clusterBean, TopicPartitionReplica target) {
+    return this.evaluateIngressResourceUsage(clusterBean, target);
+  }
+
+  @Override
+  public Collection<ResourceCapacity> evaluateResourceCapacity(
+      ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    return this.evaluateIngressResourceCapacity(clusterInfo, clusterBean);
   }
 }

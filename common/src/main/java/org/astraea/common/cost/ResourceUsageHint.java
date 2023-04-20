@@ -26,5 +26,6 @@ public interface ResourceUsageHint {
   ResourceUsage evaluateResourceUsage(
       ClusterInfo clusterInfo, ClusterBean clusterBean, TopicPartitionReplica target);
 
-  Collection<ResourceCapacity> evaluateResourceCapacity(ClusterInfo clusterInfo);
+  Collection<ResourceCapacity> evaluateResourceCapacity(
+      ClusterInfo clusterInfo, ClusterBean clusterBean);
 }
