@@ -160,7 +160,6 @@ public class Exporter extends SinkConnector {
     private long bufferSizeLimit;
 
     FileSystem fs;
-    String topicName;
     String path;
     DataSize size;
     long interval;
@@ -168,7 +167,8 @@ public class Exporter extends SinkConnector {
     RecordWriter createRecordWriter(TopicPartition tp, long offset) {
       var fileName = String.valueOf(offset);
       return RecordWriter.builder(
-              fs.write(String.join("/", path, topicName, String.valueOf(tp.partition()), fileName)))
+              fs.write(
+                  String.join("/", path, tp.topic(), String.valueOf(tp.partition()), fileName)))
           .build();
     }
 
@@ -253,7 +253,6 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void init(Configuration configuration) {
-      this.topicName = configuration.requireString(TOPICS_KEY);
       this.path = configuration.requireString(PATH_KEY.name());
       this.size =
           DataSize.of(
