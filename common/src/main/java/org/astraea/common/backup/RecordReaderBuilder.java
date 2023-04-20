@@ -39,7 +39,7 @@ public class RecordReaderBuilder {
               if (nextCache == null) {
                 nextCache = ByteUtils.readRecord(inputStream);
               }
-              // nextCache will be null
+              // nextCache is null if the stream reach EOF.
               return nextCache != null;
             }
 
