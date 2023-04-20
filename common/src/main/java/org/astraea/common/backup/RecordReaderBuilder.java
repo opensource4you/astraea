@@ -42,9 +42,8 @@ public class RecordReaderBuilder {
             public boolean hasNext() {
               // Try to parse a record from the inputStream. And store the parsed record for
               // RecordReader#next().
-              if (current == null) {
-                current = readRecord(inputStream);
-              }
+              if (current == null) current = readRecord(inputStream);
+
               // nextCache is null if the stream reach EOF.
               return current != null;
             }
