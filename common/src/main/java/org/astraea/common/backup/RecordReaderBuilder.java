@@ -60,7 +60,7 @@ public class RecordReaderBuilder {
           };
 
   /** Parsed message if successful, or null if the stream is at EOF. */
-  public static Record<byte[], byte[]> readRecord(InputStream inputStream) {
+  private static Record<byte[], byte[]> readRecord(InputStream inputStream) {
     var outerRecord =
         Utils.packException(() -> RecordOuterClass.Record.parseDelimitedFrom(inputStream));
     // inputStream reaches EOF
