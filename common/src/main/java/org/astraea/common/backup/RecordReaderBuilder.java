@@ -19,15 +19,10 @@ package org.astraea.common.backup;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.NoSuchElementException;
 import java.util.function.Function;
 import java.util.zip.GZIPInputStream;
 import org.astraea.common.ByteUtils;
-import org.astraea.common.Header;
-import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;
 
 public class RecordReaderBuilder {
@@ -35,88 +30,27 @@ public class RecordReaderBuilder {
   private static final Function<InputStream, RecordReader> V0 =
       inputStream ->
           new RecordReader() {
-            private int recordSize;
+            private Record<byte[], byte[]> nextCache = null;
 
             @Override
             public boolean hasNext() {
-              recordSize = ByteUtils.readInt(inputStream);
-              return recordSize != -1;
+              // Try to parse a record from the inputStream. And store the parsed record for
+              // RecordReader#next().
+              if (nextCache == null) {
+                nextCache = ByteUtils.readRecord(inputStream);
+              }
+              // nextCache will be null
+              return nextCache != null;
             }
 
             @Override
             public Record<byte[], byte[]> next() {
-              var recordBuffer = ByteBuffer.allocate(recordSize);
-              var actualSize =
-                  Utils.packException(
-                      () -> inputStream.readNBytes(recordBuffer.array(), 0, recordSize));
-              if (actualSize != recordSize)
-                throw new IllegalStateException(
-                    "expected size is " + recordSize + ", but actual size is " + actualSize);
-              var topic = ByteUtils.readString(recordBuffer, recordBuffer.getShort());
-              var partition = recordBuffer.getInt();
-              var offset = recordBuffer.getLong();
-              var timestamp = recordBuffer.getLong();
-              var key = ByteUtils.readBytes(recordBuffer, recordBuffer.getInt());
-              var value = ByteUtils.readBytes(recordBuffer, recordBuffer.getInt());
-              var headerCnt = recordBuffer.getInt();
-              var headers = new ArrayList<Header>(headerCnt);
-              for (int headerIndex = 0; headerIndex < headerCnt; headerIndex++) {
-                var headerKey = ByteUtils.readString(recordBuffer, recordBuffer.getShort());
-                var headerValue = ByteUtils.readBytes(recordBuffer, recordBuffer.getInt());
-                headers.add(Header.of(headerKey, headerValue));
+              if (hasNext()) {
+                var next = nextCache;
+                nextCache = null;
+                return next;
               }
-
-              return new Record<>() {
-                @Override
-                public String topic() {
-                  return topic;
-                }
-
-                @Override
-                public List<Header> headers() {
-                  return headers;
-                }
-
-                @Override
-                public byte[] key() {
-                  return key;
-                }
-
-                @Override
-                public byte[] value() {
-                  return value;
-                }
-
-                @Override
-                public long offset() {
-                  return offset;
-                }
-
-                @Override
-                public long timestamp() {
-                  return timestamp;
-                }
-
-                @Override
-                public int partition() {
-                  return partition;
-                }
-
-                @Override
-                public int serializedKeySize() {
-                  return key == null ? 0 : key.length;
-                }
-
-                @Override
-                public int serializedValueSize() {
-                  return value == null ? 0 : value.length;
-                }
-
-                @Override
-                public Optional<Integer> leaderEpoch() {
-                  return Optional.empty();
-                }
-              };
+              throw new NoSuchElementException("RecordReader has no more elements.");
             }
           };
 

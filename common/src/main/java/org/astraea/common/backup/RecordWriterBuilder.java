@@ -19,8 +19,6 @@ package org.astraea.common.backup;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
@@ -43,50 +41,7 @@ public class RecordWriterBuilder {
 
             @Override
             public void append(Record<byte[], byte[]> record) {
-              var topicBytes = record.topic().getBytes(StandardCharsets.UTF_8);
-              var recordSize =
-                  2 // [topic size 2bytes]
-                      + topicBytes.length // [topic]
-                      + 4 // [partition 4bytes]
-                      + 8 // [offset 8bytes]
-                      + 8 // [timestamp 8bytes]
-                      + 4 // [key length 4bytes]
-                      + (record.key() == null ? 0 : record.key().length) // [key]
-                      + 4 // [value length 4bytes]
-                      + (record.value() == null ? 0 : record.value().length) // [value]
-                      + 4 // [header size 4bytes]
-                      + record.headers().stream()
-                          .mapToInt(
-                              h ->
-                                  2 // [header key length 2bytes]
-                                      + (h.key() == null
-                                          ? 0
-                                          : h.key()
-                                              .getBytes(StandardCharsets.UTF_8)
-                                              .length) // [header key]
-                                      + 4 // [header value length 4bytes]
-                                      + (h.value() == null ? 0 : h.value().length) // [header value]
-                              )
-                          .sum();
-              size.add(recordSize);
-              // TODO reuse the recordBuffer
-              var recordBuffer = ByteBuffer.allocate(4 + recordSize);
-              recordBuffer.putInt(recordSize);
-              ByteUtils.putLengthString(recordBuffer, record.topic());
-              recordBuffer.putInt(record.partition());
-              recordBuffer.putLong(record.offset());
-              recordBuffer.putLong(record.timestamp());
-              ByteUtils.putLengthBytes(recordBuffer, record.key());
-              ByteUtils.putLengthBytes(recordBuffer, record.value());
-              recordBuffer.putInt(record.headers().size());
-              record
-                  .headers()
-                  .forEach(
-                      h -> {
-                        ByteUtils.putLengthString(recordBuffer, h.key());
-                        ByteUtils.putLengthBytes(recordBuffer, h.value());
-                      });
-              Utils.packException(() -> outputStream.write(recordBuffer.array()));
+              ByteUtils.writeTo(outputStream, record);
               count.incrementAndGet();
               this.latestAppendTimestamp.set(System.currentTimeMillis());
             }
@@ -115,7 +70,6 @@ public class RecordWriterBuilder {
             public void close() {
               Utils.packException(
                   () -> {
-                    outputStream.write(ByteUtils.of(-1).array());
                     outputStream.flush();
                     outputStream.close();
                   });
