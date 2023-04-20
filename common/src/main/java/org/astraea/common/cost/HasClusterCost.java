@@ -16,6 +16,10 @@
  */
 package org.astraea.common.cost;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -27,7 +31,7 @@ import org.astraea.common.metrics.collector.MetricSensor;
 @FunctionalInterface
 public interface HasClusterCost extends CostFunction {
 
-  static HasClusterCost of(Map<HasClusterCost, Double> costAndWeight) {
+  static CompositeClusterCost of(Map<HasClusterCost, Double> costAndWeight) {
     var sensor =
         MetricSensor.of(
             costAndWeight.keySet().stream()
@@ -36,7 +40,8 @@ public interface HasClusterCost extends CostFunction {
                 .map(Optional::get)
                 .collect(Collectors.toUnmodifiableList()));
 
-    return new HasClusterCost() {
+    return new CompositeClusterCost() {
+
       @Override
       public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
         var scores =
@@ -76,6 +81,21 @@ public interface HasClusterCost extends CostFunction {
                   + "] = "
                   + compositeScore;
             });
+      }
+
+      @Override
+      public Collection<? extends HasClusterCost> functions() {
+        var queue = new LinkedList<HasClusterCost>(List.of(this));
+        var functions = new ArrayList<HasClusterCost>();
+
+        while (!queue.isEmpty()) {
+          var next = queue.poll();
+          if (next instanceof CompositeClusterCost)
+            queue.addAll(((CompositeClusterCost) next).functions());
+          else functions.add(next);
+        }
+
+        return List.copyOf(functions);
       }
 
       @Override
