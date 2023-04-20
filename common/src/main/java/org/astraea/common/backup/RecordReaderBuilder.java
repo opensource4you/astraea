@@ -19,40 +19,108 @@ package org.astraea.common.backup;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import org.astraea.common.ByteUtils;
+import org.astraea.common.Header;
+import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;
+import org.astraea.common.generated.RecordOuterClass;
 
 public class RecordReaderBuilder {
 
   private static final Function<InputStream, RecordReader> V0 =
       inputStream ->
           new RecordReader() {
-            private Record<byte[], byte[]> nextCache = null;
+            private Record<byte[], byte[]> current = null;
 
             @Override
             public boolean hasNext() {
               // Try to parse a record from the inputStream. And store the parsed record for
               // RecordReader#next().
-              if (nextCache == null) {
-                nextCache = ByteUtils.readRecord(inputStream);
+              if (current == null) {
+                current = readRecord(inputStream);
               }
               // nextCache is null if the stream reach EOF.
-              return nextCache != null;
+              return current != null;
             }
 
             @Override
             public Record<byte[], byte[]> next() {
               if (hasNext()) {
-                var next = nextCache;
-                nextCache = null;
+                var next = current;
+                current = null;
                 return next;
               }
               throw new NoSuchElementException("RecordReader has no more elements.");
             }
           };
+
+  /** Parsed message if successful, or null if the stream is at EOF. */
+  public static Record<byte[], byte[]> readRecord(InputStream inputStream) {
+    var outerRecord =
+        Utils.packException(() -> RecordOuterClass.Record.parseDelimitedFrom(inputStream));
+    // inputStream reaches EOF
+    if (outerRecord == null) return null;
+
+    return new Record<>() {
+      @Override
+      public String topic() {
+        return outerRecord.getTopic();
+      }
+
+      @Override
+      public List<Header> headers() {
+        return outerRecord.getHeadersList().stream()
+            .map(header -> Header.of(header.getKey(), header.getValue().toByteArray()))
+            .collect(Collectors.toUnmodifiableList());
+      }
+
+      @Override
+      public byte[] key() {
+        return outerRecord.getKey().toByteArray();
+      }
+
+      @Override
+      public byte[] value() {
+        return outerRecord.getValue().toByteArray();
+      }
+
+      @Override
+      public long offset() {
+        return outerRecord.getOffset();
+      }
+
+      @Override
+      public long timestamp() {
+        return outerRecord.getTimestamp();
+      }
+
+      @Override
+      public int partition() {
+        return outerRecord.getPartition();
+      }
+
+      @Override
+      public int serializedKeySize() {
+        return outerRecord.getKey().size();
+      }
+
+      @Override
+      public int serializedValueSize() {
+        return outerRecord.getValue().size();
+      }
+
+      @Override
+      public Optional<Integer> leaderEpoch() {
+        return Optional.empty();
+      }
+    };
+  }
 
   private InputStream fs;
 

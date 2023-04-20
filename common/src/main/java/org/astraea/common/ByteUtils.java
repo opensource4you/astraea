@@ -16,16 +16,12 @@
  */
 package org.astraea.common;
 
-import com.google.protobuf.ByteString;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -35,11 +31,9 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.consumer.Record;
 import org.astraea.common.generated.BeanObjectOuterClass;
 import org.astraea.common.generated.ClusterInfoOuterClass;
 import org.astraea.common.generated.PrimitiveOuterClass;
-import org.astraea.common.generated.RecordOuterClass;
 import org.astraea.common.metrics.BeanObject;
 
 public final class ByteUtils {
@@ -298,96 +292,6 @@ public final class ByteUtils {
   }
 
   // ---------------------------------ProtoBuf Object------------------------------------------- //
-
-  /** Serialize consumer record and write to the stream. */
-  public static void writeTo(OutputStream outputStream, Record<byte[], byte[]> record) {
-    Utils.packException(
-        () ->
-            RecordOuterClass.Record.newBuilder()
-                .setTopic(record.topic())
-                .setPartition(record.partition())
-                .setOffset(record.offset())
-                .setTimestamp(record.timestamp())
-                .setKey(record.key() == null ? ByteString.EMPTY : ByteString.copyFrom(record.key()))
-                .setValue(
-                    record.value() == null ? ByteString.EMPTY : ByteString.copyFrom(record.value()))
-                .addAllHeaders(
-                    record.headers().stream()
-                        .map(
-                            header ->
-                                RecordOuterClass.Record.Header.newBuilder()
-                                    .setKey(header.key())
-                                    .setValue(
-                                        header.value() == null
-                                            ? ByteString.EMPTY
-                                            : ByteString.copyFrom(header.value()))
-                                    .build())
-                        .collect(Collectors.toUnmodifiableList()))
-                .build()
-                .writeDelimitedTo(outputStream));
-  }
-
-  /** Parsed message if successful, or null if the stream is at EOF. */
-  public static Record<byte[], byte[]> readRecord(InputStream inputStream) {
-    var outerRecord =
-        Utils.packException(() -> RecordOuterClass.Record.parseDelimitedFrom(inputStream));
-    // inputStream reaches EOF
-    if (outerRecord == null) return null;
-
-    return new Record<>() {
-      @Override
-      public String topic() {
-        return outerRecord.getTopic();
-      }
-
-      @Override
-      public List<Header> headers() {
-        return outerRecord.getHeadersList().stream()
-            .map(header -> Header.of(header.getKey(), header.getValue().toByteArray()))
-            .collect(Collectors.toUnmodifiableList());
-      }
-
-      @Override
-      public byte[] key() {
-        return outerRecord.getKey().toByteArray();
-      }
-
-      @Override
-      public byte[] value() {
-        return outerRecord.getValue().toByteArray();
-      }
-
-      @Override
-      public long offset() {
-        return outerRecord.getOffset();
-      }
-
-      @Override
-      public long timestamp() {
-        return outerRecord.getTimestamp();
-      }
-
-      @Override
-      public int partition() {
-        return outerRecord.getPartition();
-      }
-
-      @Override
-      public int serializedKeySize() {
-        return outerRecord.getKey().size();
-      }
-
-      @Override
-      public int serializedValueSize() {
-        return outerRecord.getValue().size();
-      }
-
-      @Override
-      public Optional<Integer> leaderEpoch() {
-        return Optional.empty();
-      }
-    };
-  }
 
   /** Deserialize to BeanObject with protocol buffer */
   public static BeanObject readBeanObject(byte[] bytes) {

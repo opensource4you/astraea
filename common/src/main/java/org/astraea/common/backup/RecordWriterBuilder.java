@@ -16,6 +16,7 @@
  */
 package org.astraea.common.backup;
 
+import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -23,11 +24,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 import org.astraea.common.ByteUtils;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;
+import org.astraea.common.generated.RecordOuterClass;
 
 public class RecordWriterBuilder {
 
@@ -41,7 +44,35 @@ public class RecordWriterBuilder {
 
             @Override
             public void append(Record<byte[], byte[]> record) {
-              ByteUtils.writeTo(outputStream, record);
+              Utils.packException(
+                  () ->
+                      RecordOuterClass.Record.newBuilder()
+                          .setTopic(record.topic())
+                          .setPartition(record.partition())
+                          .setOffset(record.offset())
+                          .setTimestamp(record.timestamp())
+                          .setKey(
+                              record.key() == null
+                                  ? ByteString.EMPTY
+                                  : ByteString.copyFrom(record.key()))
+                          .setValue(
+                              record.value() == null
+                                  ? ByteString.EMPTY
+                                  : ByteString.copyFrom(record.value()))
+                          .addAllHeaders(
+                              record.headers().stream()
+                                  .map(
+                                      header ->
+                                          RecordOuterClass.Record.Header.newBuilder()
+                                              .setKey(header.key())
+                                              .setValue(
+                                                  header.value() == null
+                                                      ? ByteString.EMPTY
+                                                      : ByteString.copyFrom(header.value()))
+                                              .build())
+                                  .collect(Collectors.toUnmodifiableList()))
+                          .build()
+                          .writeDelimitedTo(outputStream));
               count.incrementAndGet();
               this.latestAppendTimestamp.set(System.currentTimeMillis());
             }
