@@ -35,15 +35,23 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
+import javax.management.Attribute;
+import javax.management.AttributeList;
 import javax.management.AttributeNotFoundException;
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.InstanceNotFoundException;
+import javax.management.MBeanAttributeInfo;
+import javax.management.MBeanConstructorInfo;
 import javax.management.MBeanException;
+import javax.management.MBeanInfo;
+import javax.management.MBeanNotificationInfo;
+import javax.management.MBeanOperationInfo;
 import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
+import javax.management.RuntimeOperationsException;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
@@ -154,8 +162,11 @@ class MBeanClientTest {
 
   @Test
   void testFetchSelectedAttributes()
-      throws ReflectionException, InstanceNotFoundException, IOException,
-          AttributeNotFoundException, MBeanException {
+      throws ReflectionException,
+          InstanceNotFoundException,
+          IOException,
+          AttributeNotFoundException,
+          MBeanException {
     // arrange
     try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
@@ -388,7 +399,7 @@ class MBeanClientTest {
     // arrange
     Map<String, Integer> mbeanPayload =
         IntStream.range(0, 500).boxed().collect(toMap(i -> "attribute" + i, i -> i));
-    Object customMBean0 = Utility.createReadOnlyDynamicMBean(mbeanPayload);
+    Object customMBean0 = createReadOnlyDynamicMBean(mbeanPayload);
     ObjectName objectName0 = ObjectName.getInstance("com.example:type=test0");
 
     register(objectName0, customMBean0);
@@ -416,7 +427,7 @@ class MBeanClientTest {
     // arrange
     for (int i = 0; i < 100; i++) {
       ObjectName objectName = ObjectName.getInstance("com.example:type=test" + i);
-      Object mbean = Utility.createReadOnlyDynamicMBean(Map.of("attribute", i));
+      Object mbean = createReadOnlyDynamicMBean(Map.of("attribute", i));
       register(objectName, mbean);
     }
 
@@ -460,5 +471,84 @@ class MBeanClientTest {
   void testLocal() {
     var client = MBeanClient.local();
     Assertions.assertNotEquals(0, client.beans(BeanQuery.all()).size());
+  }
+
+  static class DynamicMBean implements javax.management.DynamicMBean {
+
+    private final MBeanInfo mBeanInfo;
+    private final Map<String, ?> readonlyAttributes;
+
+    DynamicMBean(Map<String, ?> readonlyAttributes) {
+      this.readonlyAttributes = readonlyAttributes;
+      var attributeInfos =
+          readonlyAttributes.entrySet().stream()
+              .map(
+                  entry ->
+                      new MBeanAttributeInfo(
+                          entry.getKey(),
+                          entry.getValue().getClass().getName(),
+                          "",
+                          true,
+                          false,
+                          false))
+              .toArray(MBeanAttributeInfo[]::new);
+      this.mBeanInfo =
+          new MBeanInfo(
+              DynamicMBean.class.getName(),
+              "Readonly Dynamic MBean for Testing Purpose",
+              attributeInfos,
+              new MBeanConstructorInfo[0],
+              new MBeanOperationInfo[0],
+              new MBeanNotificationInfo[0]);
+    }
+
+    @Override
+    public Object getAttribute(String attributeName) throws AttributeNotFoundException {
+      if (readonlyAttributes.containsKey(attributeName))
+        return readonlyAttributes.get(attributeName);
+
+      throw new AttributeNotFoundException();
+    }
+
+    @Override
+    public void setAttribute(Attribute attribute) {
+      throw new RuntimeOperationsException(new IllegalArgumentException("readonly"));
+    }
+
+    @Override
+    public AttributeList getAttributes(String[] attributes) {
+      final AttributeList list = new AttributeList();
+      for (String attribute : attributes) {
+        if (readonlyAttributes.containsKey(attribute))
+          list.add(new Attribute(attribute, readonlyAttributes.get(attribute)));
+      }
+
+      return list;
+    }
+
+    @Override
+    public AttributeList setAttributes(AttributeList attributes) {
+      throw new RuntimeOperationsException(new IllegalArgumentException("readonly"));
+    }
+
+    @Override
+    public Object invoke(String actionName, Object[] params, String[] signature) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MBeanInfo getMBeanInfo() {
+      return mBeanInfo;
+    }
+  }
+
+  /**
+   * Create a readonly dynamic MBeans
+   *
+   * @param attributes for each key/value pair. the key string represent the attribute name, and the
+   *     value represent the attribute value
+   */
+  public static DynamicMBean createReadOnlyDynamicMBean(Map<String, ?> attributes) {
+    return new DynamicMBean(attributes);
   }
 }

@@ -17,10 +17,15 @@
 package org.astraea.common.balancer.algorithms;
 
 import org.astraea.common.Utils;
+import org.astraea.common.balancer.BalancerConfigTestSuite;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class SingleStepBalancerTest {
+class SingleStepBalancerTest extends BalancerConfigTestSuite {
+
+  public SingleStepBalancerTest() {
+    super(SingleStepBalancer.class);
+  }
 
   @Test
   void testConfig() {

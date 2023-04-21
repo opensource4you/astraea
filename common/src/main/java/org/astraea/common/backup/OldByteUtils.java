@@ -16,12 +16,11 @@
  */
 package org.astraea.common.backup;
 
-import org.astraea.common.Utils;
-
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
+import org.astraea.common.Utils;
 
 public final class OldByteUtils {
 

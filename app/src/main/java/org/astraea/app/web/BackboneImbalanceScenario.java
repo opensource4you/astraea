@@ -139,11 +139,10 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                           x -> x,
                           x ->
                               DataRate.Byte.of(
-                                      (long)
-                                          (x.equals(backboneTopicName)
-                                              ? backboneDataRateDistribution.sample()
-                                              : topicDataRateDistribution.sample()))
-                                  .perSecond()));
+                                  (long)
+                                      (x.equals(backboneTopicName)
+                                          ? backboneDataRateDistribution.sample()
+                                          : topicDataRateDistribution.sample()))));
           var topicPartitionDataRate =
               clusterInfo.topicNames().stream()
                   .filter(topic -> !topic.equals(backboneTopicName))
@@ -165,8 +164,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                                     Map.entry(
                                         e.getKey(),
                                         DataRate.Byte.of(
-                                                (long) (totalDataRate * e.getValue() / totalWeight))
-                                            .perSecond()));
+                                            (long) (totalDataRate * e.getValue() / totalWeight))));
                       })
                   .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
           var backboneTopicBandwidth = topicDataRate.get(backboneTopicName);
@@ -191,7 +189,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
                         replica ->
                             topicPartitionDataRate.put(
                                 replica.topicPartition(),
-                                DataRate.Byte.of((long) replicaDataRate).perSecond()));
+                                DataRate.Byte.of((long) replicaDataRate)));
                   });
 
           var consumerFanoutMap =
@@ -251,7 +249,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
     @JsonProperty
     public String totalProduceRate() {
       var sum = topicDataRates.values().stream().mapToDouble(DataRate::byteRate).sum();
-      return DataRate.Byte.of((long) sum).perSecond().toString();
+      return DataRate.Byte.of((long) sum).toString();
     }
 
     @JsonProperty
@@ -260,7 +258,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
           topicDataRates.entrySet().stream()
               .mapToDouble(e -> e.getValue().byteRate() * topicConsumerFanout.get(e.getKey()))
               .sum();
-      return DataRate.Byte.of((long) sum).perSecond().toString();
+      return DataRate.Byte.of((long) sum).toString();
     }
 
     @JsonProperty
@@ -304,10 +302,8 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
           histogramBins.stream()
               .map(
                   binContent -> {
-                    var first = DataRate.Byte.of(binContent.get(0).longValue()).perSecond();
-                    var last =
-                        DataRate.Byte.of(binContent.get(binContent.size() - 1).longValue())
-                            .perSecond();
+                    var first = DataRate.Byte.of(binContent.get(0).longValue());
+                    var last = DataRate.Byte.of(binContent.get(binContent.size() - 1).longValue());
                     var key = String.format("[%s, %s]", first, last);
                     var value = Integer.toString(binContent.size());
                     return Map.entry(key, value);
@@ -386,8 +382,8 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
           .map(
               client -> {
                 var isBackbone = client.topics.equals(Set.of(backboneTopicName));
-                var consumeRate = DataRate.Byte.of(client.consumeRate).perSecond();
-                var produceRate = DataRate.Byte.of(client.produceRate).perSecond();
+                var consumeRate = DataRate.Byte.of(client.consumeRate);
+                var produceRate = DataRate.Byte.of(client.produceRate);
                 var throttle =
                     client.topics.stream()
                         .flatMap(
@@ -492,7 +488,7 @@ public class BackboneImbalanceScenario implements Scenario<BackboneImbalanceScen
       return scenarioConfig
           .string(CONFIG_TOPIC_DATA_RATE_PARETO_SCALE)
           .map(Double::parseDouble)
-          .orElse(DataRate.MB.of(1).perSecond().byteRate());
+          .orElse(DataRate.MB.of(1).byteRate());
     }
 
     double topicRateParetoShape() {

@@ -22,13 +22,13 @@ import java.util.List;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.consumer.DDeserializer;
-import org.astraea.common.producer.SSerializer;
 
 public class ClusterInfoSerializer {
 
   public static void serialize(ClusterInfo clusterBean, OutputStream stream) {
-    byte[] serialize = SSerializer.CLUSTER_INFO.serialize("", List.of(), clusterBean);
-    Utils.packException(() -> stream.write(serialize));
+    throw new UnsupportedOperationException();
+    // byte[] serialize = Serializer.CLUSTER_INFO.serialize("", List.of(), clusterBean);
+    // Utils.packException(() -> stream.write(serialize));
   }
 
   public static ClusterInfo deserialize(InputStream stream) {

@@ -31,6 +31,7 @@ import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.MetricFactory;
+import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.common.metrics.broker.ClusterMetrics;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -73,7 +74,7 @@ class ClusterInfoSensorTest {
             .forEach(i -> i.toCompletableFuture().join());
       }
 
-      var cb = ClusterBean.of(Map.of(aBroker.id(), MBeanClient.local()), sensor);
+      var cb = MetricsTestUtils.clusterBean(Map.of(aBroker.id(), MBeanClient.local()), sensor);
 
       // assert contains that metrics
       cb.all()

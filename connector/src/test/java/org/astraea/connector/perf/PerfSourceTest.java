@@ -87,12 +87,12 @@ public class PerfSourceTest {
 
   @Test
   void testKeyLength() {
-    testConfig(PerfSource.KEY_LENGTH_DEF.name(), "a");
+    testConfig(PerfSource.KEY_SIZE_DEF.name(), "a");
   }
 
   @Test
   void testValueLength() {
-    testConfig(PerfSource.VALUE_LENGTH_DEF.name(), "a");
+    testConfig(PerfSource.VALUE_SIZE_DEF.name(), "a");
   }
 
   @Test
@@ -363,7 +363,7 @@ public class PerfSourceTest {
     var task = new PerfSource.Task();
     task.init(
         Configuration.of(
-            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_LENGTH_DEF.name(), "0Byte")),
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_SIZE_DEF.name(), "0Byte")),
         MetadataStorage.EMPTY);
     var records = task.take();
     Assertions.assertNotEquals(0, records.size());
@@ -375,7 +375,7 @@ public class PerfSourceTest {
     var task = new PerfSource.Task();
     task.init(
         Configuration.of(
-            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_LENGTH_DEF.name(), "0Byte")),
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_SIZE_DEF.name(), "0Byte")),
         MetadataStorage.EMPTY);
     var records = task.take();
     Assertions.assertNotEquals(0, records.size());

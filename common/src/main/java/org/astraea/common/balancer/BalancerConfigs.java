@@ -14,33 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.database;
+package org.astraea.common.balancer;
 
-public interface DatabaseClient extends AutoCloseable {
+/**
+ * A collection of official balancer capabilities. Noted that all these capabilities are optional,
+ * the concrete balancer implementation might not support it. All the capability names must start
+ * with a "balancer." prefix, and when the implementation sees an unsupported capability, it should
+ * raise an exception.
+ */
+public final class BalancerConfigs {
+  // TODO: Add tests for the above requirement described in javadoc.
 
-  static Builder builder() {
-    return new Builder();
-  }
-
-  /**
-   * start to query tables
-   *
-   * @return Table Query
-   */
-  TableQuery query();
+  private BalancerConfigs() {}
 
   /**
-   * start to create new table
-   *
-   * @return Table Creator
+   * A regular expression indicates which topics are eligible for rebalancing. When specified,
+   * topics that don't match this expression cannot be altered and must stay at their original
+   * position.
    */
-  TableCreator tableCreator();
-
-  /**
-   * @param name to delete
-   */
-  void deleteTable(String name);
-
-  @Override
-  void close();
+  public static final String BALANCER_ALLOWED_TOPICS_REGEX = "balancer.allowed.topics.regex";
 }

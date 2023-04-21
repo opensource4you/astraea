@@ -82,7 +82,7 @@ public class BalancerExperimentTest {
               new ReplicaNumberCost(Configuration.EMPTY), 1.0);
       var costFunction = HasClusterCost.of(costMap);
 
-      var balancer = new GreedyBalancer(Configuration.EMPTY);
+      var balancer = new GreedyBalancer();
       var result =
           BalancerBenchmark.costProfiling()
               .setClusterInfo(clusterInfo)
@@ -186,7 +186,7 @@ public class BalancerExperimentTest {
                                               (Broker b) -> MBeanClient.jndi(b.host(), 16926)))))
               .build()) {
         var clusterBean = (ClusterBean) null;
-        var balancer = new GreedyBalancer(Configuration.EMPTY);
+        var balancer = new GreedyBalancer();
 
         while (!Thread.currentThread().isInterrupted()) {
           clusterBean = metricStore.clusterBean();

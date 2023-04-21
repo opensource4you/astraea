@@ -100,7 +100,7 @@ public class QuotaNode {
                                     .setProducerQuotas(
                                         Map.of(
                                             argument.nonEmptyTexts().get(clientIdLabelKey),
-                                            DataRate.MB.of(Long.parseLong(rate)).perSecond())))
+                                            DataRate.MB.of(Long.parseLong(rate)))))
                         .orElseGet(
                             () ->
                                 context
@@ -139,7 +139,7 @@ public class QuotaNode {
                                     .setConsumerQuotas(
                                         Map.of(
                                             argument.nonEmptyTexts().get(clientIdLabelKey),
-                                            DataRate.MB.of(Long.parseLong(rate)).perSecond())))
+                                            DataRate.MB.of(Long.parseLong(rate)))))
                         .orElseGet(
                             () ->
                                 context

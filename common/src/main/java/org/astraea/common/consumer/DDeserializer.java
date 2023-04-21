@@ -16,6 +16,17 @@
  */
 package org.astraea.common.consumer;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.DoubleDeserializer;
@@ -24,7 +35,6 @@ import org.apache.kafka.common.serialization.IntegerDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.astraea.common.Header;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Config;
@@ -33,23 +43,9 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.OldByteUtils;
-import org.astraea.common.generated.BeanObjectOuterClass;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.BeanObject;
-
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 @FunctionalInterface
 public interface DDeserializer<T> {
@@ -342,42 +338,6 @@ public interface DDeserializer<T> {
                   })
               .collect(Collectors.toList());
       return ClusterInfo.of(clusterId, nodes, topics, replicas);
-    }
-  }
-
-  class BeanObjectDeserializer implements DDeserializer<BeanObject> {
-    @Override
-    public BeanObject deserialize(String topic, List<Header> headers, byte[] data) {
-      // Pack InvalidProtocolBufferException thrown by protoBuf
-      var outerBean = Utils.packException(() -> BeanObjectOuterClass.BeanObject.parseFrom(data));
-      return new BeanObject(
-          outerBean.getDomain(),
-          outerBean.getPropertiesMap(),
-          outerBean.getAttributesMap().entrySet().stream()
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      Map.Entry::getKey, e -> Objects.requireNonNull(toObject(e.getValue())))));
-    }
-
-    private Object toObject(BeanObjectOuterClass.BeanObject.Primitive v) {
-      var oneOfCase = v.getValueCase();
-      switch (oneOfCase) {
-        case INT:
-          return v.getInt();
-        case LONG:
-          return v.getLong();
-        case FLOAT:
-          return v.getFloat();
-        case DOUBLE:
-          return v.getDouble();
-        case BOOLEAN:
-          return v.getBoolean();
-        case STR:
-          return v.getStr();
-        case VALUE_NOT_SET:
-        default:
-          throw new IllegalArgumentException("The value is not set.");
-      }
     }
   }
 }
