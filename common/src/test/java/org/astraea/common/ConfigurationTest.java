@@ -62,6 +62,12 @@ public class ConfigurationTest {
   }
 
   @Test
+  void testLong() {
+    var config = Configuration.of(Map.of("long.value", "2147483648"));
+    Assertions.assertEquals(2147483648L, config.longInteger("long.value").orElse(0L));
+  }
+
+  @Test
   void testDataSize() {
     var config = Configuration.of(Map.of("upper.bound", "30MiB", "traffic.interval", "5MB"));
     var upper = config.dataSize("upper.bound");

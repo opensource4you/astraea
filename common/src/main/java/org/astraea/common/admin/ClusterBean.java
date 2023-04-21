@@ -26,33 +26,11 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Lazy;
-import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.MetricSensor;
 
 /** Used to get beanObject using a variety of different keys . */
 public interface ClusterBean {
   ClusterBean EMPTY = ClusterBean.of(Map.of());
-
-  /**
-   * create a cluster bean right now by fetching all beans from input clients
-   *
-   * @param clients to fetch
-   * @param sensor to generate object
-   * @return cluster bean
-   */
-  static ClusterBean of(Map<Integer, MBeanClient> clients, MetricSensor sensor) {
-    return of(
-        clients.entrySet().stream()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Map.Entry::getKey,
-                    entry ->
-                        sensor.fetch(
-                            MBeanClient.of(entry.getKey(), entry.getValue().beans(BeanQuery.all())),
-                            EMPTY))));
-  }
 
   static ClusterBean masked(ClusterBean clusterBean, Predicate<Integer> nodeFilter) {
     return ClusterBean.of(
