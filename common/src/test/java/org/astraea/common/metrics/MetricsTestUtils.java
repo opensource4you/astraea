@@ -52,7 +52,7 @@ public final class MetricsTestUtils {
                     Map.Entry::getKey,
                     entry ->
                         sensor.fetch(
-                            MBeanClient.of(entry.getValue().beans(BeanQuery.all())),
+                            MBeanClient.of(entry.getKey(), entry.getValue().beans(BeanQuery.all())),
                             ClusterBean.EMPTY))));
   }
 
