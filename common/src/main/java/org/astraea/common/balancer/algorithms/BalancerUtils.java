@@ -14,18 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.cost;
+package org.astraea.common.balancer.algorithms;
 
 import java.util.Collection;
-import java.util.Collections;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+import org.astraea.common.admin.Replica;
 
-public interface CompositeClusterCost extends HasClusterCost {
+public final class BalancerUtils {
 
-  static Collection<? extends HasClusterCost> decompose(HasClusterCost costFunction) {
-    if (costFunction instanceof CompositeClusterCost)
-      return ((CompositeClusterCost) costFunction).functions();
-    else return Collections.singleton(costFunction);
+  private BalancerUtils() {}
+
+  public static boolean eligiblePartition(Collection<Replica> replicas) {
+    return Stream.<Predicate<Collection<Replica>>>of(
+            // only one replica and it is offline
+            r -> r.size() == 1 && r.stream().findFirst().orElseThrow().isOffline(),
+            // no leader
+            r -> r.stream().noneMatch(Replica::isLeader))
+        .noneMatch(p -> p.test(replicas));
   }
-
-  Collection<? extends HasClusterCost> functions();
 }

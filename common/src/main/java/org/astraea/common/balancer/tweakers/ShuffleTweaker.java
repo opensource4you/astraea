@@ -30,6 +30,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.balancer.algorithms.BalancerUtils;
 
 /**
  * The {@link ShuffleTweaker} proposes a new log placement based on the current log placement, but
@@ -84,7 +85,7 @@ public class ShuffleTweaker {
           final var finalCluster = ClusterInfoBuilder.builder(baseAllocation);
           for (int i = 0, shuffled = 0; i < partitionOrder.size() && shuffled < shuffleCount; i++) {
             final var tp = partitionOrder.get(i);
-            if (!eligiblePartition(baseAllocation.replicas(tp))) continue;
+            if (!BalancerUtils.eligiblePartition(baseAllocation.replicas(tp))) continue;
             switch (Operation.random()) {
               case LEADERSHIP_CHANGE:
                 {
@@ -141,15 +142,6 @@ public class ShuffleTweaker {
         .skip(ThreadLocalRandom.current().nextInt(0, collection.size()))
         .findFirst()
         .orElseThrow();
-  }
-
-  private static boolean eligiblePartition(Collection<Replica> replicas) {
-    return Stream.<Predicate<Collection<Replica>>>of(
-            // only one replica and it is offline
-            r -> r.size() == 1 && r.stream().findFirst().orElseThrow().isOffline(),
-            // no leader
-            r -> r.stream().noneMatch(Replica::isLeader))
-        .noneMatch(p -> p.test(replicas));
   }
 
   enum Operation implements EnumInfo {

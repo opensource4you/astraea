@@ -74,8 +74,10 @@ import org.astraea.common.metrics.platform.HostMetrics;
 public abstract class NetworkCost implements HasClusterCost, ResourceUsageHint {
 
   public static final String NETWORK_COST_ESTIMATION_METHOD = "network.cost.estimation.method";
-  public static final String NETWORK_COST_RESOURCE_PREFIX_INGRESS = "NetworkIngress_Broker_";
-  public static final String NETWORK_COST_RESOURCE_PREFIX_EGRESS = "NetworkEgress_Broker_";
+  public static final String NETWORK_COST_REPLICA_RESOURCE_PREFIX_INGRESS = "NetworkIngress";
+  public static final String NETWORK_COST_REPLICA_RESOURCE_PREFIX_EGRESS = "NetworkEgress";
+  public static final String NETWORK_COST_BROKER_RESOURCE_PREFIX_INGRESS = "NetworkIngress_Broker_";
+  public static final String NETWORK_COST_BROKER_RESOURCE_PREFIX_EGRESS = "NetworkEgress_Broker_";
 
   private final EstimationMethod estimationMethod;
   private final BandwidthType bandwidthType;
@@ -211,23 +213,16 @@ public abstract class NetworkCost implements HasClusterCost, ResourceUsageHint {
                 .collect(Collectors.toUnmodifiableList()));
   }
 
-  ResourceUsage evaluateIngressResourceUsage(
-      ClusterBean clusterBean, TopicPartitionReplica target) {
+  double evaluateIngressResourceUsage(ClusterBean clusterBean, TopicPartitionReplica target) {
     final var cachedCalculation =
         calculationCache.computeIfAbsent(clusterBean, CachedCalculation::new);
-    return new ResourceUsage(
-        Map.of(
-            NETWORK_COST_RESOURCE_PREFIX_INGRESS + target.brokerId(),
-            cachedCalculation.partitionIngressRate.get(target.topicPartition()).doubleValue()));
+    return cachedCalculation.partitionIngressRate.get(target.topicPartition()).doubleValue();
   }
 
-  ResourceUsage evaluateEgressResourceUsage(ClusterBean clusterBean, TopicPartitionReplica target) {
+  double evaluateEgressResourceUsage(ClusterBean clusterBean, TopicPartitionReplica target) {
     final var cachedCalculation =
         calculationCache.computeIfAbsent(clusterBean, CachedCalculation::new);
-    return new ResourceUsage(
-        Map.of(
-            NETWORK_COST_RESOURCE_PREFIX_EGRESS + target.brokerId(),
-            cachedCalculation.partitionEgressRate.get(target.topicPartition()).doubleValue()));
+    return cachedCalculation.partitionEgressRate.get(target.topicPartition()).doubleValue();
   }
 
   Collection<ResourceCapacity> evaluateIngressResourceCapacity(
@@ -242,7 +237,7 @@ public abstract class NetworkCost implements HasClusterCost, ResourceUsageHint {
         .map(
             broker ->
                 new NetworkResourceCapacity(
-                    NETWORK_COST_RESOURCE_PREFIX_INGRESS + broker.id(), avgIngressPerBroker))
+                    NETWORK_COST_BROKER_RESOURCE_PREFIX_INGRESS + broker.id(), avgIngressPerBroker))
         .collect(Collectors.toSet());
   }
 
@@ -258,7 +253,7 @@ public abstract class NetworkCost implements HasClusterCost, ResourceUsageHint {
         .map(
             broker ->
                 new NetworkResourceCapacity(
-                    NETWORK_COST_RESOURCE_PREFIX_EGRESS + broker.id(), avgEgressPerBroker))
+                    NETWORK_COST_BROKER_RESOURCE_PREFIX_EGRESS + broker.id(), avgEgressPerBroker))
         .collect(Collectors.toSet());
   }
 

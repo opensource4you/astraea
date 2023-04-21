@@ -23,9 +23,12 @@ import org.astraea.common.admin.TopicPartitionReplica;
 
 public interface ResourceUsageHint {
 
-  ResourceUsage evaluateResourceUsage(
+  ResourceUsage evaluateClusterResourceUsage(
       ClusterInfo clusterInfo, ClusterBean clusterBean, TopicPartitionReplica target);
 
-  Collection<ResourceCapacity> evaluateResourceCapacity(
+  ResourceUsage evaluateReplicaResourceUsage(
+      ClusterInfo clusterInfo, ClusterBean clusterBean, TopicPartitionReplica target);
+
+  Collection<ResourceCapacity> evaluateClusterResourceCapacity(
       ClusterInfo clusterInfo, ClusterBean clusterBean);
 }

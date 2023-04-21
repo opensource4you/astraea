@@ -24,6 +24,10 @@ public class ResourceUsage {
 
   private final Map<String, Double> usage;
 
+  public ResourceUsage() {
+    this(Map.of());
+  }
+
   public ResourceUsage(Map<String, Double> usage) {
     this.usage = new HashMap<>(usage);
   }
@@ -42,5 +46,10 @@ public class ResourceUsage {
     resourceUsage.usage.forEach(
         (resource, usage) ->
             this.usage.put(resource, this.usage.getOrDefault(resource, 0.0) - usage));
+  }
+
+  @Override
+  public String toString() {
+    return "ResourceUsage{" + "usage=" + usage + '}';
   }
 }
