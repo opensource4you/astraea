@@ -23,7 +23,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.MetricsTestUtil;
+import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
@@ -50,7 +50,7 @@ public class ConsumerMetricsTest {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       consumer.poll(Duration.ofSeconds(5));
-      ConsumerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtil::validate);
+      ConsumerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtils::validate);
     }
   }
 

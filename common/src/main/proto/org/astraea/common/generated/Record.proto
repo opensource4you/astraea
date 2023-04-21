@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package org.astraea.common.generated;
+
+message Record {
+  string topic = 1;
+  int32 partition = 2;
+  int64 offset = 3;
+  int64 timestamp = 4;
+  bytes key = 5;
+  bytes value = 6;
+  repeated Header headers = 7;
+  message Header{
+    string key = 1;
+    bytes value = 2;
+  }
+}
