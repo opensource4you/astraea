@@ -16,13 +16,13 @@
  */
 package org.astraea.app.web;
 
-import java.util.Map;
 import java.util.concurrent.CompletionStage;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 
 /** The subclass of this class should contain the logic to fulfill a scenario. */
-public interface Scenario {
+public interface Scenario<Result> {
 
   static Builder builder() {
     return new Builder();
@@ -56,54 +56,12 @@ public interface Scenario {
       return this;
     }
 
-    public Scenario build() {
+    public Scenario<SkewedPartitionScenario.Result> build() {
       return new SkewedPartitionScenario(
           topicName, numberOfPartitions, numberOfReplicas, binomialProbability);
     }
   }
 
   /** Apply this scenario to the Kafka cluster */
-  CompletionStage<Result> apply(Admin admin);
-
-  class Result {
-
-    private final String topicName;
-    private final int numberOfPartitions;
-    private final short numberOfReplicas;
-    private final Map<Integer, Long> leaderSum;
-    private final Map<Integer, Long> logSum;
-
-    public Result(
-        String topicName,
-        int numberOfPartitions,
-        short numberOfReplicas,
-        Map<Integer, Long> leaderSum,
-        Map<Integer, Long> logSum) {
-      this.topicName = topicName;
-      this.numberOfPartitions = numberOfPartitions;
-      this.numberOfReplicas = numberOfReplicas;
-      this.leaderSum = leaderSum;
-      this.logSum = logSum;
-    }
-
-    public String topicName() {
-      return topicName;
-    }
-
-    public int numberOfPartitions() {
-      return numberOfPartitions;
-    }
-
-    public short numberOfReplicas() {
-      return numberOfReplicas;
-    }
-
-    public Map<Integer, Long> leaderSum() {
-      return leaderSum;
-    }
-
-    public Map<Integer, Long> logSum() {
-      return logSum;
-    }
-  }
+  CompletionStage<Result> apply(Admin admin, Configuration scenarioConfig);
 }

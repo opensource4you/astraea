@@ -16,10 +16,14 @@
  */
 package org.astraea.common.cost.utils;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterBean;
@@ -36,6 +40,9 @@ import org.astraea.common.metrics.collector.MetricSensor;
 
 /** This MetricSensor attempts to reconstruct a ClusterInfo of the kafka cluster via JMX metrics. */
 public class ClusterInfoSensor implements MetricSensor {
+
+  private static final Map<ClusterBean, CompletionStage<ClusterInfo>> cache =
+      new ConcurrentHashMap<>();
 
   @Override
   public List<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean) {
@@ -56,11 +63,21 @@ public class ClusterInfoSensor implements MetricSensor {
    * @return a {@link ClusterInfo}.
    */
   public static ClusterInfo metricViewCluster(ClusterBean clusterBean) {
+    return cache
+        .computeIfAbsent(
+            clusterBean,
+            (beans) -> CompletableFuture.supplyAsync(() -> calculateMetricViewCluster(beans)))
+        .toCompletableFuture()
+        .join();
+  }
+
+  private static ClusterInfo calculateMetricViewCluster(ClusterBean clusterBean) {
     var nodes =
         clusterBean.brokerIds().stream()
             .filter(id -> id != -1)
             .map(id -> NodeInfo.of(id, "", -1))
             .collect(Collectors.toUnmodifiableMap(NodeInfo::id, x -> x));
+    long l = System.nanoTime();
     var replicas =
         clusterBean.brokerTopics().stream()
             .filter(bt -> bt.broker() != -1)
@@ -114,6 +131,9 @@ public class ClusterInfoSensor implements MetricSensor {
                   return partitions.values().stream();
                 })
             .collect(Collectors.toUnmodifiableList());
+    long t = System.nanoTime();
+    System.out.println(
+        "ClusterInfoSensor#metricClusterView " + Duration.ofNanos(t - l).toMillis() + "ms");
     var clusterId =
         clusterBean.all().entrySet().stream()
             .filter(e -> e.getKey() != -1)

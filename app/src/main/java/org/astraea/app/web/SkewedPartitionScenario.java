@@ -29,12 +29,13 @@ import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.EnumeratedDistribution;
 import org.apache.commons.math3.distribution.IntegerDistribution;
 import org.apache.commons.math3.util.Pair;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 
-public class SkewedPartitionScenario implements Scenario {
+public class SkewedPartitionScenario implements Scenario<SkewedPartitionScenario.Result> {
 
   final String topicName;
   final int partitions;
@@ -50,7 +51,7 @@ public class SkewedPartitionScenario implements Scenario {
   }
 
   @Override
-  public CompletionStage<Result> apply(Admin admin) {
+  public CompletionStage<Result> apply(Admin admin, Configuration scenarioConfig) {
     return admin
         .creator()
         .topic(topicName)
@@ -137,5 +138,47 @@ public class SkewedPartitionScenario implements Scenario {
       }
     }
     return result;
+  }
+
+  public static class Result {
+
+    private final String topicName;
+    private final int numberOfPartitions;
+    private final short numberOfReplicas;
+    private final Map<Integer, Long> leaderSum;
+    private final Map<Integer, Long> logSum;
+
+    public Result(
+        String topicName,
+        int numberOfPartitions,
+        short numberOfReplicas,
+        Map<Integer, Long> leaderSum,
+        Map<Integer, Long> logSum) {
+      this.topicName = topicName;
+      this.numberOfPartitions = numberOfPartitions;
+      this.numberOfReplicas = numberOfReplicas;
+      this.leaderSum = leaderSum;
+      this.logSum = logSum;
+    }
+
+    public String topicName() {
+      return topicName;
+    }
+
+    public int numberOfPartitions() {
+      return numberOfPartitions;
+    }
+
+    public short numberOfReplicas() {
+      return numberOfReplicas;
+    }
+
+    public Map<Integer, Long> leaderSum() {
+      return leaderSum;
+    }
+
+    public Map<Integer, Long> logSum() {
+      return logSum;
+    }
   }
 }
