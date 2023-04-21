@@ -38,7 +38,7 @@ import org.astraea.common.metrics.collector.MetricSensor;
 public class ClusterInfoSensor implements MetricSensor {
 
   @Override
-  public List<? extends HasBeanObject> fetch(int identity, MBeanClient client, ClusterBean bean) {
+  public List<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean) {
     return Stream.of(
             List.of(ServerMetrics.KafkaServer.CLUSTER_ID.fetch(client)),
             LogMetrics.Log.SIZE.fetch(client),

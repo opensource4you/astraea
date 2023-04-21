@@ -128,7 +128,8 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
                       brokers.forEach(
                           b ->
                               map.put(
-                                  b.id(), MBeanClient.jndi(b.host(), jmxPortGetter.apply(b.id()))));
+                                  b.id(),
+                                  MBeanClient.jndi(b.id(), b.host(), jmxPortGetter.apply(b.id()))));
                       // add local client to fetch consumer metrics
                       map.put(-1, MBeanClient.local());
                       return Collections.unmodifiableMap(map);

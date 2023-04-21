@@ -46,7 +46,7 @@ public class BeanHandler implements Handler {
                         .map(
                             b -> {
                               try (var client =
-                                  MBeanClient.jndi(b.host(), jmxPorts.apply(b.id()))) {
+                                  MBeanClient.jndi(b.id(), b.host(), jmxPorts.apply(b.id()))) {
                                 return new NodeBean(
                                     b.host(),
                                     client.beans(builder.build()).stream()

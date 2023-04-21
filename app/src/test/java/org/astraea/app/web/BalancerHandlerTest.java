@@ -1221,7 +1221,7 @@ public class BalancerHandlerTest {
 
     @Override
     public Optional<MetricSensor> metricSensor() {
-      return Optional.of((ignore, c, ignored) -> List.of(HostMetrics.jvmMemory(c)));
+      return Optional.of((c, ignored) -> List.of(HostMetrics.jvmMemory(c)));
     }
 
     @Override

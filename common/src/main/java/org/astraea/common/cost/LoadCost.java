@@ -150,7 +150,7 @@ public class LoadCost implements HasBrokerCost {
   @Override
   public Optional<MetricSensor> metricSensor() {
     return Optional.of(
-        (ignore, client, ignored) ->
+        (client, ignored) ->
             List.of(
                 ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.fetch(client),
                 ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.fetch(client)));

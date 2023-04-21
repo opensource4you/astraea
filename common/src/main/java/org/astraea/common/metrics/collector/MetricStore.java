@@ -117,7 +117,7 @@ public interface MetricStore extends AutoCloseable {
         () ->
             Map.of(
                 (MetricSensor)
-                    (identity, client, bean) ->
+                    (client, bean) ->
                         client.beans(BeanQuery.all()).stream()
                             .map(bs -> (HasBeanObject) () -> bs)
                             .collect(Collectors.toUnmodifiableList()),
@@ -229,14 +229,14 @@ public interface MetricStore extends AutoCloseable {
                 lastSensors = sensorsSupplier.get();
                 allBeans.forEach(
                     (id, bs) -> {
-                      var client = MBeanClient.of(bs);
+                      var client = MBeanClient.of(id, bs);
                       var clusterBean = clusterBean();
                       lastSensors.forEach(
                           (sensor, errorHandler) -> {
                             try {
                               beans
                                   .computeIfAbsent(id, ignored -> new ConcurrentLinkedQueue<>())
-                                  .addAll(sensor.fetch(id, client, clusterBean));
+                                  .addAll(sensor.fetch(client, clusterBean));
                             } catch (Exception e) {
                               errorHandler.accept(id, e);
                             }

@@ -31,13 +31,13 @@ public class MetricSensorTest {
   @Test
   void testMultipleSensors() {
     var mbean0 = Mockito.mock(HasBeanObject.class);
-    MetricSensor metricSensor0 = (ignore, client, ignored) -> List.of(mbean0);
+    MetricSensor metricSensor0 = (client, ignored) -> List.of(mbean0);
     var mbean1 = Mockito.mock(HasBeanObject.class);
-    MetricSensor metricSensor1 = (ignore, client, ignored) -> List.of(mbean1);
+    MetricSensor metricSensor1 = (client, ignored) -> List.of(mbean1);
 
     var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1)).get();
 
-    var result = sensor.fetch(-1, Mockito.mock(MBeanClient.class), ClusterBean.EMPTY);
+    var result = sensor.fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY);
 
     Assertions.assertEquals(2, result.size());
     Assertions.assertTrue(result.contains(mbean0));
@@ -52,9 +52,9 @@ public class MetricSensorTest {
   @Test
   void testNoSwallowException() {
     var result = List.of(Mockito.mock(HasBeanObject.class));
-    MetricSensor goodMetricSensor = (ignore, client, ignored) -> result;
+    MetricSensor goodMetricSensor = (client, ignored) -> result;
     MetricSensor badMetricSensor =
-        (ignore, client, ignored) -> {
+        (client, ignored) -> {
           throw new RuntimeException("xxx");
         };
     var sensor =
@@ -68,33 +68,33 @@ public class MetricSensorTest {
             .get();
     Assertions.assertThrows(
         RuntimeException.class,
-        () -> sensor.fetch(-1, Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
+        () -> sensor.fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
   }
 
   @Test
   void testSensorsWithExceptionHandler() {
     var mbean0 = Mockito.mock(HasBeanObject.class);
-    MetricSensor metricSensor0 = (ignore, client, ignored) -> List.of(mbean0);
+    MetricSensor metricSensor0 = (client, ignored) -> List.of(mbean0);
     MetricSensor metricSensor1 =
-        (ignore, client, ignored) -> {
+        (client, ignored) -> {
           throw new NoSuchElementException();
         };
     MetricSensor metricSensor2 =
-        (ignore, client, ignored) -> {
+        (client, ignored) -> {
           throw new RuntimeException();
         };
 
     var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1)).get();
     Assertions.assertDoesNotThrow(
-        () -> sensor.fetch(-1, Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
+        () -> sensor.fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
     Assertions.assertEquals(
-        1, sensor.fetch(-1, Mockito.mock(MBeanClient.class), ClusterBean.EMPTY).size());
+        1, sensor.fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY).size());
 
     Assertions.assertDoesNotThrow(
         () ->
             MetricSensor.of(List.of(metricSensor0, metricSensor2))
                 .get()
-                .fetch(-1, Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
+                .fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
     Assertions.assertThrows(
         NoSuchElementException.class,
         () ->
@@ -104,6 +104,6 @@ public class MetricSensorTest {
                       if (e instanceof NoSuchElementException) throw new NoSuchElementException();
                     })
                 .get()
-                .fetch(-1, Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
+                .fetch(Mockito.mock(MBeanClient.class), ClusterBean.EMPTY));
   }
 }

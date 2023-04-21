@@ -71,8 +71,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   @Override
   public Optional<MetricSensor> metricSensor() {
     return Optional.of(
-        (ignore, client, ignored) ->
-            List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(client)));
+        (client, ignored) -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(client)));
   }
 
   public Configuration config() {

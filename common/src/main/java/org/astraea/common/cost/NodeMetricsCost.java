@@ -72,6 +72,6 @@ public abstract class NodeMetricsCost implements HasBrokerCost {
 
   @Override
   public Optional<MetricSensor> metricSensor() {
-    return Optional.of((ignore, client, clusterBean) -> ProducerMetrics.node(client));
+    return Optional.of((client, clusterBean) -> ProducerMetrics.node(client));
   }
 }

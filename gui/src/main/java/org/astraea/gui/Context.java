@@ -78,7 +78,7 @@ public class Context {
     nodeInfos.forEach(
         n ->
             brokerClients.clients.computeIfAbsent(
-                n.id(), ignored -> MBeanClient.jndi(n.host(), brokerClients.jmxPort)));
+                n.id(), ignored -> MBeanClient.jndi(n.id(), n.host(), brokerClients.jmxPort)));
     return Map.copyOf(brokerClients.clients);
   }
 
@@ -88,7 +88,7 @@ public class Context {
     hostnames.forEach(
         n ->
             workerClients.clients.computeIfAbsent(
-                n, ignored -> MBeanClient.jndi(n, workerClients.jmxPort)));
+                n, ignored -> MBeanClient.jndi(-1, n, workerClients.jmxPort)));
     return Map.copyOf(workerClients.clients);
   }
 

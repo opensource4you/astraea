@@ -101,7 +101,7 @@ class MBeanClientTest {
   @Test
   void testFetchAttributes() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(-1, jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
 
@@ -118,7 +118,7 @@ class MBeanClientTest {
   @Test
   void testFetchMbeanWithMultipleProperties() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(-1, jmxServer.getAddress())) {
       BeanQuery query1 =
           BeanQuery.builder()
               .domainName("java.lang")
@@ -160,7 +160,7 @@ class MBeanClientTest {
           AttributeNotFoundException,
           MBeanException {
     // arrange
-    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(-1, jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
       List<String> selectedAttribute = List.of("HeapMemoryUsage");
@@ -178,7 +178,7 @@ class MBeanClientTest {
   @Test
   void testQueryBeans() {
     // arrange 1 query beans
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(-1, jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "C*").build();
 
@@ -216,7 +216,7 @@ class MBeanClientTest {
   @Test
   void testQueryNonExistsBeans() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(-1, jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Something").build();
 
@@ -231,7 +231,7 @@ class MBeanClientTest {
   @Test
   void testFetchNonExistsBeans() {
     // arrange
-    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(-1, jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Something").build();
 
@@ -246,7 +246,7 @@ class MBeanClientTest {
   @Test
   void testCloseOnceMore() {
     // arrange
-    var client = MBeanClient.of(jmxServer.getAddress());
+    var client = MBeanClient.of(-1, jmxServer.getAddress());
 
     // act
     client.close();
@@ -262,7 +262,7 @@ class MBeanClientTest {
   @Test
   void testGetAllMBeans() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(-1, jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> beanObjects = client.beans(BeanQuery.all());
@@ -276,7 +276,7 @@ class MBeanClientTest {
   @Test
   void testGetAllMBeansUnderSpecificDomainName() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(-1, jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> beanObjects = client.beans(BeanQuery.all("java.lang"));
@@ -290,7 +290,7 @@ class MBeanClientTest {
   @Test
   void testGetAllMBeansUnderSpecificDomainNamePattern() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(-1, jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> beanObjects = client.beans(BeanQuery.all("java.*"));
@@ -303,7 +303,7 @@ class MBeanClientTest {
 
   @Test
   void testUsePropertyListPatternForRemote() {
-    testUsePropertyListPattern(MBeanClient.of(jmxServer.getAddress()));
+    testUsePropertyListPattern(MBeanClient.of(-1, jmxServer.getAddress()));
   }
 
   @Test
@@ -366,7 +366,7 @@ class MBeanClientTest {
   @Test
   void testListDomains() {
     // arrange
-    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(-1, jmxServer.getAddress())) {
 
       // act
       List<String> domains = client.domains();
@@ -380,7 +380,7 @@ class MBeanClientTest {
   @Test
   void testHostAndPort() {
     // arrange
-    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(-1, jmxServer.getAddress())) {
       assertEquals(jmxServer.getAddress().getHost(), client.host);
       assertEquals(jmxServer.getAddress().getPort(), client.port);
     }
@@ -396,7 +396,7 @@ class MBeanClientTest {
 
     register(objectName0, customMBean0);
 
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(-1, jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> all =
@@ -423,7 +423,7 @@ class MBeanClientTest {
       register(objectName, mbean);
     }
 
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = MBeanClient.of(-1, jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> all =

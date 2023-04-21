@@ -58,7 +58,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
   @Override
   public Optional<MetricSensor> metricSensor() {
     return Optional.of(
-        (identity, client, clusterBean) -> {
+        (client, clusterBean) -> {
           var metrics =
               clusterBean.all().values().stream()
                   .flatMap(Collection::stream)
@@ -69,12 +69,12 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
           var current = Duration.ofMillis(System.currentTimeMillis());
           var maxInRateSensor =
               maxBrokerReplicationInRate.computeIfAbsent(
-                  identity,
+                  client.identity(),
                   ignore ->
                       Sensor.builder().addStat(REPLICATION_IN_RATE, Max.<Double>of()).build());
           var maxOutRateSensor =
               maxBrokerReplicationOutRate.computeIfAbsent(
-                  identity,
+                  client.identity(),
                   ignore ->
                       Sensor.builder().addStat(REPLICATION_OUT_RATE, Max.<Double>of()).build());
           maxInRateSensor.record(newInMetrics.oneMinuteRate());

@@ -78,7 +78,9 @@ class BalancerHandler implements Handler, AutoCloseable {
                             .collect(
                                 Collectors.toUnmodifiableMap(
                                     NodeInfo::id,
-                                    b -> MBeanClient.jndi(b.host(), jmxPortMapper.apply(b.id())))));
+                                    b ->
+                                        MBeanClient.jndi(
+                                            b.id(), b.host(), jmxPortMapper.apply(b.id())))));
     this.metricStore =
         MetricStore.builder()
             .beanExpiration(Duration.ofSeconds(90))

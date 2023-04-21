@@ -49,7 +49,7 @@ public class MoveCostTest {
     var mergeCost = HasMoveCost.of(List.of(cost1, cost2));
     var metrics =
         mergeCost.metricSensor().stream()
-            .map(x -> x.fetch(-1, MBeanClient.of(SERVICE.jmxServiceURL()), ClusterBean.EMPTY))
+            .map(x -> x.fetch(MBeanClient.of(-1, SERVICE.jmxServiceURL()), ClusterBean.EMPTY))
             .collect(Collectors.toSet());
     Assertions.assertEquals(3, metrics.iterator().next().size());
     Assertions.assertTrue(
@@ -84,10 +84,9 @@ public class MoveCostTest {
     public Optional<MetricSensor> metricSensor() {
       return MetricSensor.of(
           List.of(
-              (ignore, c, ignored) ->
+              (c, ignored) ->
                   List.of(ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC.fetch(c)),
-              (ignore, c, ignored) ->
-                  List.of(ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.fetch(c))));
+              (c, ignored) -> List.of(ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.fetch(c))));
     }
 
     @Override

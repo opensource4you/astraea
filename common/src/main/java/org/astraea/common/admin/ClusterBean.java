@@ -50,8 +50,7 @@ public interface ClusterBean {
                     Map.Entry::getKey,
                     entry ->
                         sensor.fetch(
-                            entry.getKey(),
-                            MBeanClient.of(entry.getValue().beans(BeanQuery.all())),
+                            MBeanClient.of(entry.getKey(), entry.getValue().beans(BeanQuery.all())),
                             EMPTY))));
   }
 

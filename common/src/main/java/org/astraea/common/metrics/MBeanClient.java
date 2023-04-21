@@ -56,7 +56,7 @@ import org.astraea.common.Utils;
  * }</pre>
  */
 public interface MBeanClient extends AutoCloseable {
-  static MBeanClient of(Collection<BeanObject> objs) {
+  static MBeanClient of(int identity, Collection<BeanObject> objs) {
     return new MBeanClient() {
 
       @Override
@@ -95,6 +95,11 @@ public interface MBeanClient extends AutoCloseable {
                                         .matches()))
             .collect(Collectors.toUnmodifiableList());
       }
+
+      @Override
+      public int identity() {
+        return identity;
+      }
     };
   }
 
@@ -103,9 +108,10 @@ public interface MBeanClient extends AutoCloseable {
    * @param port the port of jmx server
    * @return a mbean client using JNDI to lookup metrics.
    */
-  static MBeanClient jndi(String host, int port) {
+  static MBeanClient jndi(int identity, String host, int port) {
     try {
       return of(
+          identity,
           new JMXServiceURL(
               String.format(
                   "service:jmx:rmi://%s:%s/jndi/rmi://%s:%s/jmxrmi", host, port, host, port)));
@@ -114,11 +120,12 @@ public interface MBeanClient extends AutoCloseable {
     }
   }
 
-  static MBeanClient of(JMXServiceURL jmxServiceURL) {
+  static MBeanClient of(int identity, JMXServiceURL jmxServiceURL) {
     return Utils.packException(
         () -> {
           var jmxConnector = JMXConnectorFactory.connect(jmxServiceURL);
           return new BasicMBeanClient(
+              identity,
               jmxConnector.getMBeanServerConnection(),
               jmxServiceURL.getHost(),
               jmxServiceURL.getPort()) {
@@ -131,7 +138,8 @@ public interface MBeanClient extends AutoCloseable {
   }
 
   static MBeanClient local() {
-    return new BasicMBeanClient(ManagementFactory.getPlatformMBeanServer(), Utils.hostname(), -1);
+    return new BasicMBeanClient(
+        -1, ManagementFactory.getPlatformMBeanServer(), Utils.hostname(), -1);
   }
 
   /**
@@ -168,17 +176,21 @@ public interface MBeanClient extends AutoCloseable {
    */
   Collection<BeanObject> beans(BeanQuery beanQuery, Consumer<RuntimeException> errorHandle);
 
+  int identity();
+
   @Override
   default void close() {}
 
   class BasicMBeanClient implements MBeanClient {
 
     private final MBeanServerConnection connection;
+    final int identity;
     final String host;
 
     final int port;
 
-    BasicMBeanClient(MBeanServerConnection connection, String host, int port) {
+    BasicMBeanClient(int identity, MBeanServerConnection connection, String host, int port) {
+      this.identity = identity;
       this.connection = connection;
       this.host = host;
       this.port = port;
@@ -259,6 +271,11 @@ public interface MBeanClient extends AutoCloseable {
                         }
                       })
                   .collect(Collectors.toUnmodifiableList()));
+    }
+
+    @Override
+    public int identity() {
+      return identity;
     }
 
     /**
