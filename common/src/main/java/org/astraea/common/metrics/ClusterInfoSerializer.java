@@ -21,18 +21,18 @@ import java.io.OutputStream;
 import java.util.List;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.consumer.Deserializer;
-import org.astraea.common.producer.Serializer;
+import org.astraea.common.consumer.DDeserializer;
+import org.astraea.common.producer.SSerializer;
 
 public class ClusterInfoSerializer {
 
   public static void serialize(ClusterInfo clusterBean, OutputStream stream) {
-    byte[] serialize = Serializer.CLUSTER_INFO.serialize("", List.of(), clusterBean);
+    byte[] serialize = SSerializer.CLUSTER_INFO.serialize("", List.of(), clusterBean);
     Utils.packException(() -> stream.write(serialize));
   }
 
   public static ClusterInfo deserialize(InputStream stream) {
     byte[] bytes = Utils.packException(stream::readAllBytes);
-    return Deserializer.CLUSTER_INFO.deserialize("", List.of(), bytes);
+    return DDeserializer.CLUSTER_INFO.deserialize("", List.of(), bytes);
   }
 }
