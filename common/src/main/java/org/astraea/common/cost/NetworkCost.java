@@ -16,8 +16,6 @@
  */
 package org.astraea.common.cost;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
@@ -376,9 +374,11 @@ public abstract class NetworkCost implements HasClusterCost {
     public final Map<TopicPartition, Long> partitionIngress;
     public final Map<TopicPartition, Long> partitionEgress;
 
-    NetworkClusterCost(double score, Map<Integer, Long> brokerRate,
-                       Map<TopicPartition, Long> partitionIngress,
-                       Map<TopicPartition, Long> partitionEgress) {
+    NetworkClusterCost(
+        double score,
+        Map<Integer, Long> brokerRate,
+        Map<TopicPartition, Long> partitionIngress,
+        Map<TopicPartition, Long> partitionEgress) {
       this.score = score;
       this.brokerRate = brokerRate;
       this.partitionIngress = partitionIngress;

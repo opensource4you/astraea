@@ -24,13 +24,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import org.astraea.common.Cache;
-import org.astraea.common.Lazy;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -46,7 +41,8 @@ import org.astraea.common.metrics.collector.MetricSensor;
 /** This MetricSensor attempts to reconstruct a ClusterInfo of the kafka cluster via JMX metrics. */
 public class ClusterInfoSensor implements MetricSensor {
 
-  private final static Map<ClusterBean, CompletionStage<ClusterInfo>> cache = new ConcurrentHashMap<>();
+  private static final Map<ClusterBean, CompletionStage<ClusterInfo>> cache =
+      new ConcurrentHashMap<>();
 
   @Override
   public List<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean) {
@@ -67,7 +63,9 @@ public class ClusterInfoSensor implements MetricSensor {
    * @return a {@link ClusterInfo}.
    */
   public static ClusterInfo metricViewCluster(ClusterBean clusterBean) {
-    return cache.computeIfAbsent(clusterBean,
+    return cache
+        .computeIfAbsent(
+            clusterBean,
             (beans) -> CompletableFuture.supplyAsync(() -> calculateMetricViewCluster(beans)))
         .toCompletableFuture()
         .join();

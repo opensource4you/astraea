@@ -36,7 +36,6 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
-import org.astraea.common.balancer.algorithms.NetworkBalancer;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.NetworkEgressCost;
@@ -110,9 +109,11 @@ public class BalancerExperimentTest {
           "Final Cost: " + result.plan().map(Balancer.Plan::proposalClusterCost).orElse(null));
       var profilingFile = Utils.packException(() -> Files.createTempFile("profile-", ".csv"));
       System.out.println("Profiling File: " + profilingFile.toString());
-      System.out.println("Total affected partitions: " + ClusterInfo.findNonFulfilledAllocation(
-          clusterInfo,
-          result.plan().orElseThrow().proposal()).size());
+      System.out.println(
+          "Total affected partitions: "
+              + ClusterInfo.findNonFulfilledAllocation(
+                      clusterInfo, result.plan().orElseThrow().proposal())
+                  .size());
       System.out.println();
       try (var stream = Files.newBufferedWriter(profilingFile)) {
         var start = result.costTimeSeries().keySet().stream().mapToLong(x -> x).min().orElseThrow();
@@ -130,19 +131,18 @@ public class BalancerExperimentTest {
         e.printStackTrace();
       }
 
-
       System.out.println("Run the plan? (yes/no)");
       while (true) {
         var scanner = new Scanner(System.in);
         String next = scanner.next();
-        if(next.equals("yes")) {
+        if (next.equals("yes")) {
           System.out.println("Run the Plan");
           new StraightPlanExecutor(Configuration.EMPTY)
               .run(admin, result.plan().orElseThrow().proposal(), Duration.ofHours(1))
               .toCompletableFuture()
               .join();
           return;
-        } else if(next.equals("no")) {
+        } else if (next.equals("no")) {
           return;
         }
       }

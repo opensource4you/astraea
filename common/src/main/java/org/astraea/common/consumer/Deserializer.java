@@ -28,7 +28,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.DoubleDeserializer;
@@ -273,25 +272,25 @@ public interface Deserializer<T> {
                       @Override
                       public List<DataFolder> dataFolders() {
                         return Stream.of(
-                            "/tmp/log-folder-0",
-                            "/tmp/log-folder-1",
-                            "/tmp/log-folder-2")
-                            .map(path -> new DataFolder() {
-                              @Override
-                              public String path() {
-                                return path;
-                              }
+                                "/tmp/log-folder-0", "/tmp/log-folder-1", "/tmp/log-folder-2")
+                            .map(
+                                path ->
+                                    new DataFolder() {
+                                      @Override
+                                      public String path() {
+                                        return path;
+                                      }
 
-                              @Override
-                              public Map<TopicPartition, Long> partitionSizes() {
-                                return null;
-                              }
+                                      @Override
+                                      public Map<TopicPartition, Long> partitionSizes() {
+                                        return null;
+                                      }
 
-                              @Override
-                              public Map<TopicPartition, Long> orphanPartitionSizes() {
-                                return null;
-                              }
-                            })
+                                      @Override
+                                      public Map<TopicPartition, Long> orphanPartitionSizes() {
+                                        return null;
+                                      }
+                                    })
                             .collect(Collectors.toUnmodifiableList());
                       }
 
