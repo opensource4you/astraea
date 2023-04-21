@@ -17,16 +17,22 @@
 package org.astraea.app.web;
 
 import java.time.Duration;
-import java.util.HashSet;
+import java.util.Map;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.it.Service;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class MetricSensorHandlerTest {
+public class BeanHandlerTest {
+
   private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
+
+  @AfterAll
+  static void closeService() {
+    SERVICE.close();
+  }
 
   @Test
   void testBeans() {
@@ -34,31 +40,23 @@ class MetricSensorHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
-      var sensors = new HashSet<MetricSensor>();
-      var defaultCostHandler = new MetricSensorHandler(sensors);
-      var defaultCostResponse =
+      var handler = new BeanHandler(admin, name -> SERVICE.jmxServiceURL().getPort());
+      var response =
           Assertions.assertInstanceOf(
-              MetricSensorHandler.Response.class,
-              defaultCostHandler.get(Channel.EMPTY).toCompletableFuture().join());
-      Assertions.assertEquals(2, defaultCostResponse.costs.size());
+              BeanHandler.NodeBeans.class, handler.get(Channel.EMPTY).toCompletableFuture().join());
+      Assertions.assertNotEquals(0, response.nodeBeans.size());
 
-      var changedCostResponse =
+      var response1 =
           Assertions.assertInstanceOf(
-              MetricSensorHandler.Response.class,
-              defaultCostHandler
-                  .post(
-                      Channel.builder()
-                          .request("{\"costs\": [\"org.astraea.common.cost.ReplicaLeaderCost\"]}")
-                          .build())
-                  .toCompletableFuture()
-                  .join());
-      Assertions.assertEquals(1, changedCostResponse.costs.size());
+              BeanHandler.NodeBeans.class,
+              handler.get(Channel.ofTarget("kafka.server")).toCompletableFuture().join());
+      Assertions.assertNotEquals(0, response1.nodeBeans.size());
 
-      var changedCostGetResponse =
+      var response2 =
           Assertions.assertInstanceOf(
-              MetricSensorHandler.Response.class,
-              defaultCostHandler.get(Channel.EMPTY).toCompletableFuture().join());
-      Assertions.assertEquals(1, changedCostGetResponse.costs.size());
+              BeanHandler.NodeBeans.class,
+              handler.get(Channel.ofQueries(Map.of("topic", topic))).toCompletableFuture().join());
+      Assertions.assertNotEquals(0, response2.nodeBeans.size());
     }
   }
 }
