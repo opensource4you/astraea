@@ -36,6 +36,7 @@ import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
+import org.astraea.common.balancer.algorithms.ResourceBalancer;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.NetworkEgressCost;
@@ -78,11 +79,10 @@ public class BalancerExperimentTest {
       Map<HasClusterCost, Double> costMap =
           Map.of(
               new NetworkIngressCost(Configuration.EMPTY), 3.0,
-              new NetworkEgressCost(Configuration.EMPTY), 3.0,
-              new ReplicaNumberCost(Configuration.EMPTY), 1.0);
+              new NetworkEgressCost(Configuration.EMPTY), 3.0);
       var costFunction = HasClusterCost.of(costMap);
 
-      var balancer = new GreedyBalancer();
+      var balancer = new ResourceBalancer();
       var result =
           BalancerBenchmark.costProfiling()
               .setClusterInfo(clusterInfo)

@@ -17,7 +17,11 @@
 package org.astraea.balancer.bench;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.LongSummaryStatistics;
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +32,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.cost.CompositeClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
@@ -85,7 +90,22 @@ class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
             .clusterBean(clusterBean)
             .timeout(timeout)
             .clusterCost(
-                new HasClusterCost() {
+                new CompositeClusterCost() {
+                  @Override
+                  public Collection<? extends HasClusterCost> functions() {
+                    var queue = new LinkedList<HasClusterCost>(List.of(costFunction));
+                    var functions = new ArrayList<HasClusterCost>();
+
+                    while (!queue.isEmpty()) {
+                      var next = queue.pop();
+                      if (next instanceof CompositeClusterCost)
+                        functions.addAll(((CompositeClusterCost) next).functions());
+                      else functions.add(next);
+                    }
+
+                    return List.copyOf(functions);
+                  }
+
                   @Override
                   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
                     final var start = System.nanoTime();

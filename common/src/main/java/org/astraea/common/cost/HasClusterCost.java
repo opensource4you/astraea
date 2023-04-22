@@ -85,13 +85,13 @@ public interface HasClusterCost extends CostFunction {
 
       @Override
       public Collection<? extends HasClusterCost> functions() {
-        var queue = new LinkedList<HasClusterCost>(List.of(this));
+        var queue = new LinkedList<HasClusterCost>(costAndWeight.keySet());
         var functions = new ArrayList<HasClusterCost>();
 
         while (!queue.isEmpty()) {
-          var next = queue.poll();
+          var next = queue.pop();
           if (next instanceof CompositeClusterCost)
-            queue.addAll(((CompositeClusterCost) next).functions());
+            functions.addAll(((CompositeClusterCost) next).functions());
           else functions.add(next);
         }
 

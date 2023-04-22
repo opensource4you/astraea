@@ -16,6 +16,7 @@
  */
 package org.astraea.common.balancer.algorithms;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -144,21 +145,32 @@ public class ResourceBalancer implements Balancer {
             // if movement constraint failed, reject answer
             if (moveCost.overflow()) return;
             // if cluster cost is better, accept answer
-            if (clusterCost.value() < bestAllocationScore.get()) bestAllocation.set(newCluster);
+            if (bestAllocationScore.get() == null || clusterCost.value() < bestAllocationScore.get()) {
+              bestAllocation.set(newCluster);
+              bestAllocationScore.set(clusterCost.value());
+              System.out.println("New Best Score: " + bestAllocationScore.get());
+              System.out.println("New Best Cost: " + clusterCost);
+            } else {
+              System.out.println("New Score: " + clusterCost.value());
+              System.out.println(clusterCost);
+            }
           };
 
       // TODO: the recursion might overflow the stack under large number of replicas. use stack
-      // instead.
-      search(updateAnswer, 0, orderedReplicas, new HashMap<>(), clusterResourceUsage);
+      //  instead.
+      var currentAllocation = sourceCluster.topicPartitions()
+              .stream()
+              .collect(Collectors.toUnmodifiableMap(
+                  tp -> tp,
+                  tp -> (List<Replica>) new ArrayList<>(sourceCluster.replicas(tp))));
+      search(updateAnswer, 0, orderedReplicas, currentAllocation, clusterResourceUsage);
 
       return bestAllocation.get();
     }
 
     private int trials(int level) {
       // TODO: customize this
-      if (0 <= level && level < 3) return 6;
-      else if (level < 10) return 3;
-      else if (level < 30) return 2;
+      if (0 <= level && level < 4) return 6;
       else return 1;
     }
 
@@ -187,14 +199,12 @@ public class ResourceBalancer implements Balancer {
                           .forEach(usageAfterTweaked::removeUsage);
                       tweaks.toReplace.stream()
                           .flatMap(this::evaluateReplicaUsage)
-                          .forEach(usageAfterTweaked::removeUsage);
+                          .forEach(usageAfterTweaked::mergeUsage);
 
                       return Map.entry(usageAfterTweaked, tweaks);
                     })
                 .filter(e -> feasibleUsage.test(e.getKey()))
-                .sorted(
-                    Map.Entry.comparingByKey(
-                        usageIdealnessDominationComparator(this.resourceCapacities)))
+                .sorted(Map.Entry.comparingByKey(usageIdealnessDominationComparator(this.resourceCapacities)))
                 // TODO: maybe change to probability style
                 .limit(trials(next))
                 .collect(Collectors.toUnmodifiableList());
@@ -277,7 +287,7 @@ public class ResourceBalancer implements Balancer {
       // 4. move to other brokers/data-dirs
       var interBrokerMovement =
           this.sourceCluster.brokers().stream()
-              .filter(b -> b.id() == replica.nodeInfo().id())
+              .filter(b -> b.id() != replica.nodeInfo().id())
               .flatMap(
                   b ->
                       b.dataFolders().stream()
@@ -286,7 +296,7 @@ public class ResourceBalancer implements Balancer {
                                   new Tweak(
                                       List.of(replica),
                                       List.of(
-                                          Replica.builder()
+                                          Replica.builder(replica)
                                               .nodeInfo(b)
                                               .path(folder.path())
                                               .build()))))
@@ -307,44 +317,43 @@ public class ResourceBalancer implements Balancer {
 
     static Comparator<Replica> usageDominationComparator(
         Function<Replica, ResourceUsage> usageHints) {
+      // TODO: implement the actual dominant sort
       return (lhs, rhs) -> {
-        var resourceL = usageHints.apply(lhs);
-        var resourceR = usageHints.apply(rhs);
+        // var resourceL = usageHints.apply(lhs);
+        // var resourceR = usageHints.apply(rhs);
 
-        var dominatedByL =
-            resourceL.usage().entrySet().stream()
-                .filter(
-                    e ->
-                        !resourceR.usage().containsKey(e.getKey())
-                            || e.getValue() > resourceR.usage().get(e.getKey()))
-                .count();
-        var dominatedByR =
-            resourceR.usage().entrySet().stream()
-                .filter(
-                    e ->
-                        !resourceL.usage().containsKey(e.getKey())
-                            || e.getValue() > resourceL.usage().get(e.getKey()))
-                .count();
+        // var dominatedByL =
+        //     resourceL.usage().entrySet().stream()
+        //         .filter(e -> e.getValue() > resourceR.usage().getOrDefault(e.getKey(), 0.0))
+        //         .count();
+        // var dominatedByR =
+        //     resourceR.usage().entrySet().stream()
+        //         .filter(e -> e.getValue() > resourceL.usage().getOrDefault(e.getKey(), 0.0))
+        //         .count();
 
-        // reverse the order intentionally, we want the most dominated replica at the beginning of
-        // list.
-        int compare = Long.compare(dominatedByL, dominatedByR);
-        return -compare;
+        // // reverse the order intentionally, we want the most dominated replica at the beginning of
+        // // list.
+        // int compare = Long.compare(dominatedByL, dominatedByR);
+        // return -compare;
+
+        double lsum = usageHints.apply(lhs).usage().values().stream().mapToDouble(x -> x).sum();
+        double rsum = usageHints.apply(rhs).usage().values().stream().mapToDouble(x -> x).sum();
+        return -Double.compare(lsum, rsum);
       };
     }
 
-    static Comparator<ResourceUsage> usageIdealnessDominationComparator(
-        List<ResourceCapacity> resourceCapacities) {
+    static Comparator<ResourceUsage> usageIdealnessDominationComparator(List<ResourceCapacity> resourceCapacities) {
       var comparators =
           resourceCapacities.stream()
               .map(ResourceCapacity::usageIdealnessComparator)
               .collect(Collectors.toUnmodifiableSet());
 
       return (lhs, rhs) -> {
-        var dominatedByL = comparators.stream().filter(e -> e.compare(lhs, rhs) > 0).count();
-        var dominatedByR = comparators.stream().filter(e -> e.compare(rhs, lhs) > 0).count();
+        //  TODO: change this logic
+        var dominatedByL = comparators.stream().filter(e -> e.compare(lhs, rhs) < 0).count();
+        var dominatedByR = comparators.stream().filter(e -> e.compare(rhs, lhs) < 0).count();
 
-        return Long.compare(dominatedByL, dominatedByR);
+        return -Long.compare(dominatedByL, dominatedByR);
       };
     }
   }
