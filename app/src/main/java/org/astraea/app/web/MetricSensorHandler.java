@@ -40,7 +40,7 @@ public class MetricSensorHandler implements Handler {
   }
 
   @Override
-  public CompletionStage<org.astraea.app.web.Response> get(Channel channel) {
+  public CompletionStage<Response> get(Channel channel) {
     var costs =
         sensors.isEmpty()
             ? DEFAULT_COSTS
@@ -49,10 +49,10 @@ public class MetricSensorHandler implements Handler {
   }
 
   @Override
-  public CompletionStage<org.astraea.app.web.Response> post(Channel channel) {
+  public CompletionStage<Response> post(Channel channel) {
     var metricSensorPostRequest = channel.request(TypeRef.of(MetricSensorPostRequest.class));
     var costs = costs(metricSensorPostRequest.costs);
-    if (!costs.isEmpty()) sensors.clear();
+    sensors.clear();
     costs.forEach(costFunction -> costFunction.metricSensor().ifPresent(sensors::add));
     return CompletableFuture.completedFuture(new Response(metricSensorPostRequest.costs));
   }
