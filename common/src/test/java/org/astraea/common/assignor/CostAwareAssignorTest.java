@@ -46,9 +46,11 @@ public class CostAwareAssignorTest {
             TopicPartition.of("t3", 0),
             0.4);
 
-    var allSuitableAssignment = assignor.greedyAssign(subscription, cost1, Map.of());
-    Assertions.assertEquals(2, allSuitableAssignment.size());
-    allSuitableAssignment.forEach((c, assign) -> Assertions.assertEquals(2, assign.size()));
+    var assignment = assignor.greedyAssign(subscription, cost1);
+    Assertions.assertEquals(2, assignment.size());
+    assignment.forEach((c, assign) -> Assertions.assertEquals(2, assign.size()));
+    var finalAssignment = assignor.checkIncompatibility(subscription, assignment, Map.of(), cost1);
+    Assertions.assertEquals(assignment, finalAssignment);
 
     var incompatibility =
         Map.of(
@@ -60,15 +62,16 @@ public class CostAwareAssignorTest {
             Set.of(TopicPartition.of("t1", 1)),
             TopicPartition.of("t3", 0),
             Set.of(TopicPartition.of("t1", 0)));
-    var incompatibleAssignment = assignor.greedyAssign(subscription, cost1, incompatibility);
-    Assertions.assertEquals(2, incompatibleAssignment.size());
-    incompatibleAssignment.forEach(
-        (consumer, assignment) -> {
-          assignment.forEach(
+
+    assignment = assignor.greedyAssign(subscription, cost1);
+    Assertions.assertEquals(2, assignment.size());
+    finalAssignment =
+        assignor.checkIncompatibility(subscription, assignment, incompatibility, cost1);
+    finalAssignment.forEach(
+        (c, a) -> {
+          a.forEach(
               tp -> {
-                incompatibility
-                    .get(tp)
-                    .forEach(itp -> Assertions.assertFalse(assignment.contains(itp)));
+                incompatibility.get(tp).forEach(itp -> Assertions.assertFalse(a.contains(itp)));
               });
         });
 
@@ -84,8 +87,9 @@ public class CostAwareAssignorTest {
             create.apply("t3-0"),
             Set.of(create.apply("t1-0"), create.apply("t2-0"), create.apply("t1-1")));
 
-    var allIncompatibleAssignment = assignor.greedyAssign(subscription, cost1, allIncompatible);
-    allIncompatibleAssignment.forEach(
-        (c, assignment) -> Assertions.assertEquals(2, assignment.size()));
+    assignment = assignor.greedyAssign(subscription, cost1);
+    finalAssignment =
+        assignor.checkIncompatibility(subscription, assignment, incompatibility, cost1);
+    finalAssignment.forEach((c, a) -> Assertions.assertEquals(2, a.size()));
   }
 }

@@ -17,15 +17,12 @@
 package org.astraea.common.assignor;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -67,91 +64,147 @@ public class CostAwareAssignor extends Assignor {
             .filter(e -> subscribedTopics.contains(e.getKey().topic()))
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     var incompatiblePartition = partitionCost.incompatibility();
+    var greedyAssignment = greedyAssign(subscriptions, cost);
+    var adjustedAssignment =
+        checkIncompatibility(subscriptions, greedyAssignment, incompatiblePartition, cost);
 
-    return greedyAssign(subscriptions, cost, incompatiblePartition);
+    return adjustedAssignment;
   }
 
   /**
-   * Using the greedy strategy to assign partitions to consumers. The partitions would be evaluated
-   * based on the following steps to identify a suitable consumer for assigning.
-   *
-   * <p>1. Filter out the consumers without subscribing.
-   *
-   * <p>2. Filter out consumers that are not suitable to be assigned together with the
-   * topic-partition based on its incompatibility.
-   *
-   * <p>3. If there are consumers that are suitable for the topic-partition after filtering, the
-   * consumer with the lowest cost would be assigned the topic-partition. Otherwise, if there are no
-   * suitable consumers for the topic-partition, identify the consumers subscribed to that topic and
-   * assign the topic-partition to the consumer with the lowest cost.
+   * Using a greedy strategy to assign partitions to consumers, selecting the consumer with the
+   * lowest cost each time to assign.
    *
    * @param subscriptions the subscription of consumers
-   * @param costs partition cost evaluated by cost function
-   * @param incompatiblePartition the incompatibility of the partition
-   * @return the assignment calculated by greedy
+   * @param costs partition cost
+   * @return the assignment by greedyAssign
    */
   protected Map<String, List<TopicPartition>> greedyAssign(
-      Map<String, SubscriptionInfo> subscriptions,
-      Map<TopicPartition, Double> costs,
-      Map<TopicPartition, Set<TopicPartition>> incompatiblePartition) {
+      Map<String, SubscriptionInfo> subscriptions, Map<TopicPartition, Double> costs) {
     var tmpConsumerCost =
         subscriptions.keySet().stream()
-            .collect(Collectors.toMap(Function.identity(), ignored -> 0.0D));
-    var tmpAssignment =
-        subscriptions.keySet().stream()
-            .collect(
-                Collectors.toMap(Function.identity(), ignored -> new ArrayList<TopicPartition>()));
+            .collect(Collectors.toMap(Function.identity(), ignore -> 0.0D));
 
-    var lowestCostConsumer =
+    var lightWeightConsumer =
         (Function<TopicPartition, String>)
-            (tp) -> {
-              var subscribeConsumers =
-                  subscriptions.entrySet().stream()
-                      .filter(e -> e.getValue().topics().contains(tp.topic()))
-                      .map(Map.Entry::getKey)
-                      .collect(Collectors.toUnmodifiableSet());
-              var suitableConsumers =
-                  incompatiblePartition.isEmpty()
-                      ? subscribeConsumers
-                      : incompatiblePartition.get(tp).isEmpty()
-                          ? subscribeConsumers
-                          : subscribeConsumers.stream()
-                              .filter(
-                                  c ->
-                                      tmpAssignment.get(c).stream()
-                                          .noneMatch(
-                                              p -> incompatiblePartition.get(tp).contains(p)))
-                              .collect(Collectors.toUnmodifiableSet());
-
-              return suitableConsumers.isEmpty()
-                  ? tmpConsumerCost.entrySet().stream()
-                      .filter(e -> subscribeConsumers.contains(e.getKey()))
-                      .min(Map.Entry.comparingByValue())
-                      .get()
-                      .getKey()
-                  : tmpConsumerCost.entrySet().stream()
-                      .filter(e -> suitableConsumers.contains(e.getKey()))
-                      .min(Map.Entry.comparingByValue())
-                      .get()
-                      .getKey();
-            };
+            (tp) ->
+                tmpConsumerCost.entrySet().stream()
+                    .filter(e -> subscriptions.get(e.getKey()).topics().contains(tp.topic()))
+                    .min(Map.Entry.comparingByValue())
+                    .get()
+                    .getKey();
 
     return costs.entrySet().stream()
         .map(
             e -> {
-              var tp = e.getKey();
-              var cost = e.getValue();
-              var consumer = lowestCostConsumer.apply(tp);
-              tmpConsumerCost.compute(consumer, (ignore, totalCost) -> cost + totalCost);
-              tmpAssignment.get(consumer).add(tp);
-              return Map.entry(consumer, tp);
+              var consumer = lightWeightConsumer.apply(e.getKey());
+              tmpConsumerCost.compute(consumer, (ignore, totalCost) -> totalCost + e.getValue());
+              return Map.entry(consumer, e.getKey());
             })
         .collect(
-            Collectors.toMap(
-                Map.Entry::getKey,
-                entry -> Collections.singletonList(entry.getValue()),
-                (l1, l2) ->
-                    Stream.of(l1, l2).flatMap(Collection::stream).collect(Collectors.toList())));
+            Collectors.groupingBy(
+                Map.Entry::getKey, Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+  }
+
+  /**
+   * Try to avoid putting incompatible partitions on the same consumer.
+   *
+   * @param subscriptions the subscription of consumers
+   * @param assignment assignment
+   * @param incompatible incompatible partition calculated by cost function
+   * @param costs partition cost
+   * @return assignment that filter out most incompatible partitions
+   */
+  protected Map<String, List<TopicPartition>> checkIncompatibility(
+      Map<String, SubscriptionInfo> subscriptions,
+      Map<String, List<TopicPartition>> assignment,
+      Map<TopicPartition, Set<TopicPartition>> incompatible,
+      Map<TopicPartition, Double> costs) {
+    // if there is no incompatible, just return the assignment
+    if (incompatible.isEmpty()) return assignment;
+    // check the assignment if there are incompatible partitions were put together
+    var unsuitable =
+        assignment.entrySet().stream()
+            .map(
+                e ->
+                    Map.entry(
+                        e.getKey(),
+                        e.getValue().stream()
+                            .flatMap(tp -> incompatible.get(tp).stream())
+                            .collect(Collectors.toUnmodifiableSet())))
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+    // if there is no incompatible partition put together, just return the assignment
+    if (unsuitable.values().stream().allMatch(Set::isEmpty)) return assignment;
+
+    // filter incompatible partitions from assignment to get remaining assignment
+    var remaining =
+        assignment.keySet().stream()
+            .map(
+                consumer ->
+                    Map.entry(
+                        consumer,
+                        assignment.get(consumer).stream()
+                            .filter(tp -> !unsuitable.get(consumer).contains(tp))
+                            .collect(Collectors.toList())))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    // calculate remaining cost for further assign
+    var remainingCost =
+        remaining.entrySet().stream()
+            .map(e -> Map.entry(e.getKey(), e.getValue().stream().mapToDouble(costs::get).sum()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    var assigned =
+        remaining.values().stream().flatMap(List::stream).collect(Collectors.toUnmodifiableSet());
+    var unassigned =
+        assignment.values().stream()
+            .flatMap(Collection::stream)
+            .filter(tp -> !assigned.contains(tp))
+            .collect(Collectors.toSet());
+
+    for (var tp : unassigned) {
+      String minConsumer;
+      // find the consumers that subscribe the topic which we assign now
+      var subscribedConsumer =
+          subscriptions.entrySet().stream()
+              .filter(e -> e.getValue().topics().contains(tp.topic()))
+              .map(Map.Entry::getKey)
+              .collect(Collectors.toSet());
+      // find the consumers that are suitable with the tp
+      var suitableConsumer =
+          remaining.entrySet().stream()
+              .filter(e -> subscribedConsumer.contains(e.getKey()))
+              .map(
+                  e ->
+                      Map.entry(
+                          e.getKey(),
+                          e.getValue().stream()
+                              .flatMap(p -> incompatible.get(p).stream())
+                              .collect(Collectors.toSet())))
+              .filter(e -> !e.getValue().contains(tp))
+              .map(Map.Entry::getKey)
+              .collect(Collectors.toSet());
+
+      // if there is no suitable consumer, choose the lowest cost consumer that subscribed topic and
+      // assign the tp to it
+      // Otherwise, choose the lowest cost consumer from suitable consumers and assign the tp to it
+      minConsumer =
+          suitableConsumer.isEmpty()
+              ? remainingCost.entrySet().stream()
+                  .filter(e -> subscribedConsumer.contains(e.getKey()))
+                  .min(Map.Entry.comparingByValue())
+                  .get()
+                  .getKey()
+              : remainingCost.entrySet().stream()
+                  .filter(e -> suitableConsumer.contains(e.getKey()))
+                  .min(Map.Entry.comparingByValue())
+                  .get()
+                  .getKey();
+
+      remaining.get(minConsumer).add(tp);
+      remainingCost.compute(minConsumer, (ignore, totalCost) -> totalCost + costs.get(tp));
+    }
+
+    return remaining;
   }
 
   private void retry(ClusterInfo clusterInfo) {
