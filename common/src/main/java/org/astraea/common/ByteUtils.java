@@ -291,6 +291,8 @@ public final class ByteUtils {
     return dst;
   }
 
+  // ---------------------------------ProtoBuf Object------------------------------------------- //
+
   /** Deserialize to BeanObject with protocol buffer */
   public static BeanObject readBeanObject(byte[] bytes) {
     // Pack InvalidProtocolBufferException thrown by protoBuf
