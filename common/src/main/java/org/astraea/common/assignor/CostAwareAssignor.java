@@ -65,10 +65,8 @@ public class CostAwareAssignor extends Assignor {
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     var incompatiblePartition = partitionCost.incompatibility();
     var greedyAssignment = greedyAssign(subscriptions, cost);
-    var adjustedAssignment =
-        checkIncompatibility(subscriptions, greedyAssignment, incompatiblePartition, cost);
 
-    return adjustedAssignment;
+    return checkIncompatibility(subscriptions, greedyAssignment, incompatiblePartition, cost);
   }
 
   /**
