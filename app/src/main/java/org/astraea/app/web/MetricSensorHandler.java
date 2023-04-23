@@ -16,35 +16,36 @@
  */
 package org.astraea.app.web;
 
-import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
+import org.astraea.app.web.WebService.MetricSensors;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.cost.CostFunction;
 import org.astraea.common.json.TypeRef;
-import org.astraea.common.metrics.collector.MetricSensor;
 
 public class MetricSensorHandler implements Handler {
 
-  private final Collection<MetricSensor> sensors;
+  private final MetricSensors metricSensors;
   private static final Set<String> DEFAULT_COSTS =
       Set.of(
           "org.astraea.common.cost.ReplicaLeaderCost",
           "org.astraea.common.cost.NetworkIngressCost");
 
-  MetricSensorHandler(Collection<MetricSensor> sensors) {
-    this.sensors = sensors;
+  MetricSensorHandler(MetricSensors metricSensors) {
+    this.metricSensors = metricSensors;
   }
 
   @Override
   public CompletionStage<Response> get(Channel channel) {
     var costs =
-        sensors.isEmpty()
+        metricSensors.metricSensors().isEmpty()
             ? DEFAULT_COSTS
-            : sensors.stream().map(x -> x.getClass().getName()).collect(Collectors.toSet());
+            : metricSensors.metricSensors().stream()
+                .map(x -> x.getClass().getName())
+                .collect(Collectors.toSet());
     return CompletableFuture.completedFuture(new Response(costs));
   }
 
@@ -52,8 +53,8 @@ public class MetricSensorHandler implements Handler {
   public CompletionStage<Response> post(Channel channel) {
     var metricSensorPostRequest = channel.request(TypeRef.of(MetricSensorPostRequest.class));
     var costs = costs(metricSensorPostRequest.costs);
-    sensors.clear();
-    costs.forEach(costFunction -> costFunction.metricSensor().ifPresent(sensors::add));
+    metricSensors.clearSensors();
+    costs.forEach(costFunction -> costFunction.metricSensor().ifPresent(metricSensors::addSensors));
     return CompletableFuture.completedFuture(new Response(metricSensorPostRequest.costs));
   }
 

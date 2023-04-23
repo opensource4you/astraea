@@ -43,7 +43,7 @@ public class WebService implements AutoCloseable {
 
   private final HttpServer server;
   private final Admin admin;
-  private final Collection<MetricSensor> sensors = new ConcurrentLinkedQueue<>();
+  private final MetricSensors metricSensors = new MetricSensors();
 
   public WebService(
       Admin admin,
@@ -70,7 +70,7 @@ public class WebService implements AutoCloseable {
             .localReceiver(clientSupplier)
             .sensorsSupplier(
                 () ->
-                    sensors.stream()
+                    metricSensors.metricSensors().stream()
                         .distinct()
                         .collect(
                             Collectors.toUnmodifiableMap(
@@ -84,7 +84,7 @@ public class WebService implements AutoCloseable {
     server.createContext("/quotas", to(new QuotaHandler(admin)));
     server.createContext("/transactions", to(new TransactionHandler(admin)));
     server.createContext("/beans", to(new BeanHandler(admin, brokerIdToJmxPort)));
-    server.createContext("/metricSensors", to(new MetricSensorHandler(sensors)));
+    server.createContext("/metricSensors", to(new MetricSensorHandler(metricSensors)));
     server.createContext("/records", to(new RecordHandler(admin)));
     server.createContext("/reassignments", to(new ReassignmentHandler(admin)));
     server.createContext("/balancer", to(new BalancerHandler(admin, metricStore)));
@@ -167,5 +167,25 @@ public class WebService implements AutoCloseable {
         validateWith = DurationField.class,
         converter = DurationField.class)
     Duration beanExpiration = Duration.ofHours(1);
+  }
+
+  static class MetricSensors {
+    private final Collection<MetricSensor> sensors;
+
+    MetricSensors() {
+      sensors = new ConcurrentLinkedQueue<>();
+    }
+
+    Collection<MetricSensor> metricSensors() {
+      return sensors;
+    }
+
+    void clearSensors() {
+      sensors.clear();
+    }
+
+    void addSensors(MetricSensor metricSensor) {
+      sensors.add(metricSensor);
+    }
   }
 }

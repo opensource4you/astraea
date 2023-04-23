@@ -17,10 +17,8 @@
 package org.astraea.app.web;
 
 import java.time.Duration;
-import java.util.HashSet;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -34,7 +32,7 @@ class MetricSensorHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
-      var sensors = new HashSet<MetricSensor>();
+      var sensors = new WebService.MetricSensors();
       var defaultCostHandler = new MetricSensorHandler(sensors);
       var defaultCostResponse =
           Assertions.assertInstanceOf(
