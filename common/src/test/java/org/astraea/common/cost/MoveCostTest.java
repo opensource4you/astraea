@@ -49,7 +49,7 @@ public class MoveCostTest {
     var mergeCost = HasMoveCost.of(List.of(cost1, cost2));
     var metrics =
         mergeCost.metricSensor().stream()
-            .map(x -> x.fetch(MBeanClient.of(-1, SERVICE.jmxServiceURL()), ClusterBean.EMPTY))
+            .map(x -> x.fetch(MBeanClient.of(SERVICE.jmxServiceURL()), ClusterBean.EMPTY))
             .collect(Collectors.toSet());
     Assertions.assertEquals(3, metrics.iterator().next().size());
     Assertions.assertTrue(

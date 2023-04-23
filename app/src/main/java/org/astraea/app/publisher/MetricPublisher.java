@@ -59,7 +59,6 @@ public class MetricPublisher {
                                             NodeInfo::id,
                                             node ->
                                                 MBeanClient.jndi(
-                                                    node.id(),
                                                     node.host(),
                                                     arguments.idToJmxPort().apply(node.id()))))))
             .fetchBeanDelay(arguments.period)

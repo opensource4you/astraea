@@ -56,6 +56,11 @@ import org.astraea.common.Utils;
  * }</pre>
  */
 public interface MBeanClient extends AutoCloseable {
+
+  static MBeanClient of(Collection<BeanObject> objs) {
+    return of(-1, objs);
+  }
+
   static MBeanClient of(int identity, Collection<BeanObject> objs) {
     return new MBeanClient() {
 
@@ -103,6 +108,10 @@ public interface MBeanClient extends AutoCloseable {
     };
   }
 
+  static MBeanClient jndi(String host, int port) {
+    return jndi(-1, host, port);
+  }
+
   /**
    * @param host the address of jmx server
    * @param port the port of jmx server
@@ -118,6 +127,10 @@ public interface MBeanClient extends AutoCloseable {
     } catch (MalformedURLException e) {
       throw new IllegalArgumentException(e);
     }
+  }
+
+  static MBeanClient of(JMXServiceURL jmxServiceURL) {
+    return of(-1, jmxServiceURL);
   }
 
   static MBeanClient of(int identity, JMXServiceURL jmxServiceURL) {
@@ -138,8 +151,7 @@ public interface MBeanClient extends AutoCloseable {
   }
 
   static MBeanClient local() {
-    return new BasicMBeanClient(
-        -1, ManagementFactory.getPlatformMBeanServer(), Utils.hostname(), -1);
+    return new BasicMBeanClient(ManagementFactory.getPlatformMBeanServer(), Utils.hostname(), -1);
   }
 
   /**
@@ -188,6 +200,10 @@ public interface MBeanClient extends AutoCloseable {
     final String host;
 
     final int port;
+
+    BasicMBeanClient(MBeanServerConnection connection, String host, int port) {
+      this(-1, connection, host, port);
+    }
 
     BasicMBeanClient(int identity, MBeanServerConnection connection, String host, int port) {
       this.identity = identity;
