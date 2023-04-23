@@ -111,6 +111,6 @@ public class CostAwareAssignor extends Assignor {
 
   @Override
   public String name() {
-    return "networkIngress";
+    return "costAware";
   }
 }
