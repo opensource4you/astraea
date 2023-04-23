@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
@@ -79,29 +78,7 @@ public class CostAwareAssignor extends Assignor {
    */
   protected Map<String, List<TopicPartition>> greedyAssign(
       Map<String, SubscriptionInfo> subscriptions, Map<TopicPartition, Double> costs) {
-    var tmpConsumerCost =
-        subscriptions.keySet().stream()
-            .collect(Collectors.toMap(Function.identity(), ignore -> 0.0D));
-
-    var lightWeightConsumer =
-        (Function<TopicPartition, String>)
-            (tp) ->
-                tmpConsumerCost.entrySet().stream()
-                    .filter(e -> subscriptions.get(e.getKey()).topics().contains(tp.topic()))
-                    .min(Map.Entry.comparingByValue())
-                    .get()
-                    .getKey();
-
-    return costs.entrySet().stream()
-        .map(
-            e -> {
-              var consumer = lightWeightConsumer.apply(e.getKey());
-              tmpConsumerCost.compute(consumer, (ignore, totalCost) -> totalCost + e.getValue());
-              return Map.entry(consumer, e.getKey());
-            })
-        .collect(
-            Collectors.groupingBy(
-                Map.Entry::getKey, Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+    return Assign.greedy().strategy(subscriptions, costs);
   }
 
   /**
@@ -120,7 +97,7 @@ public class CostAwareAssignor extends Assignor {
       Map<TopicPartition, Double> costs) {
     // if there is no incompatible, just return the assignment
     if (incompatible.isEmpty()) return assignment;
-    // check the assignment if there are incompatible partitions were put together
+    // get all consumers' incompatible partitions
     var unsuitable =
         assignment.entrySet().stream()
             .map(
@@ -134,6 +111,7 @@ public class CostAwareAssignor extends Assignor {
     // if there is no incompatible partition put together, just return the assignment
     if (unsuitable.values().stream().allMatch(Set::isEmpty)) return assignment;
 
+    String minConsumer;
     // filter incompatible partitions from assignment to get remaining assignment
     var remaining =
         assignment.keySet().stream()
@@ -160,7 +138,6 @@ public class CostAwareAssignor extends Assignor {
             .collect(Collectors.toSet());
 
     for (var tp : unassigned) {
-      String minConsumer;
       // find the consumers that subscribe the topic which we assign now
       var subscribedConsumer =
           subscriptions.entrySet().stream()
