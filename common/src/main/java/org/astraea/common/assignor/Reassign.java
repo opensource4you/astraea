@@ -42,6 +42,7 @@ public interface Reassign {
 
   static Reassign incompatible() {
     return (subscriptions, assignment, incompatible, costs) -> {
+      if (incompatible.isEmpty()) return assignment;
       // get the incompatible partitions of each consumer from consumer assignment
       var unsuitable =
           assignment.entrySet().stream()

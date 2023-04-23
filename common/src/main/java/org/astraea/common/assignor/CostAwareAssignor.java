@@ -79,14 +79,12 @@ public class CostAwareAssignor extends Assignor {
    * @param incompatible incompatible partitions calculated by cost function
    * @return the assignment by greedyAssign
    */
-  protected Map<String, List<TopicPartition>> greedyAssign(
+  private Map<String, List<TopicPartition>> greedyAssign(
       Map<String, SubscriptionInfo> subscriptions,
       Map<TopicPartition, Double> costs,
       Map<TopicPartition, Set<TopicPartition>> incompatible) {
     var assignment = Assign.greedy().result(subscriptions, costs);
-    return incompatible.isEmpty()
-        ? assignment
-        : Reassign.incompatible().result(subscriptions, assignment, incompatible, costs);
+    return Reassign.incompatible().result(subscriptions, assignment, incompatible, costs);
   }
 
   private void retry(ClusterInfo clusterInfo) {
