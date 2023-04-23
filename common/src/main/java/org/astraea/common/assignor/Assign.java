@@ -24,13 +24,14 @@ import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
 public interface Assign {
-  Map<String, List<TopicPartition>> strategy(
+  Map<String, List<TopicPartition>> result(
       Map<String, SubscriptionInfo> subscriptions, Map<TopicPartition, Double> costs);
 
-    /**
-     * implement the greedy assign strategy
-     * @return the assignment by greedy strategy
-     */
+  /**
+   * implement the greedy assign strategy
+   *
+   * @return the assignment by greedy strategy
+   */
   static Assign greedy() {
     return (subscriptions, costs) -> {
       var tmpConsumerCost =
@@ -46,16 +47,21 @@ public interface Assign {
                       .get()
                       .getKey();
 
-      return costs.entrySet().stream()
-          .map(
-              e -> {
-                var consumer = lowestCostConsumer.apply(e.getKey());
-                tmpConsumerCost.compute(consumer, (ignore, totalCost) -> totalCost + e.getValue());
-                return Map.entry(consumer, e.getKey());
-              })
-          .collect(
-              Collectors.groupingBy(
-                  Map.Entry::getKey, Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+      var result =
+          costs.entrySet().stream()
+              .map(
+                  e -> {
+                    var consumer = lowestCostConsumer.apply(e.getKey());
+                    tmpConsumerCost.compute(
+                        consumer, (ignore, totalCost) -> totalCost + e.getValue());
+                    return Map.entry(consumer, e.getKey());
+                  })
+              .collect(
+                  Collectors.groupingBy(
+                      Map.Entry::getKey,
+                      Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+
+      return result;
     };
   }
 }
