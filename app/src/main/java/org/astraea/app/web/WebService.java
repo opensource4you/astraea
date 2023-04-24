@@ -43,7 +43,7 @@ public class WebService implements AutoCloseable {
 
   private final HttpServer server;
   private final Admin admin;
-  private final MetricSensors metricSensors = new MetricSensors();
+  private final Sensors sensors = new Sensors();
 
   public WebService(
       Admin admin,
@@ -70,7 +70,7 @@ public class WebService implements AutoCloseable {
             .localReceiver(clientSupplier)
             .sensorsSupplier(
                 () ->
-                    metricSensors.metricSensors().stream()
+                    sensors.metricSensors().stream()
                         .distinct()
                         .collect(
                             Collectors.toUnmodifiableMap(
@@ -84,7 +84,7 @@ public class WebService implements AutoCloseable {
     server.createContext("/quotas", to(new QuotaHandler(admin)));
     server.createContext("/transactions", to(new TransactionHandler(admin)));
     server.createContext("/beans", to(new BeanHandler(admin, brokerIdToJmxPort)));
-    server.createContext("/metricSensors", to(new MetricSensorHandler(metricSensors)));
+    server.createContext("/metricSensors", to(new MetricSensorHandler(sensors)));
     server.createContext("/records", to(new RecordHandler(admin)));
     server.createContext("/reassignments", to(new ReassignmentHandler(admin)));
     server.createContext("/balancer", to(new BalancerHandler(admin, metricStore)));
@@ -169,10 +169,10 @@ public class WebService implements AutoCloseable {
     Duration beanExpiration = Duration.ofHours(1);
   }
 
-  static class MetricSensors {
+  static class Sensors {
     private final Collection<MetricSensor> sensors;
 
-    MetricSensors() {
+    Sensors() {
       sensors = new ConcurrentLinkedQueue<>();
     }
 

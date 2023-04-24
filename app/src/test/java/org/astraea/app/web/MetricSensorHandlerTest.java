@@ -32,7 +32,7 @@ class MetricSensorHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
-      var sensors = new WebService.MetricSensors();
+      var sensors = new WebService.Sensors();
       var defaultCostHandler = new MetricSensorHandler(sensors);
       var defaultCostResponse =
           Assertions.assertInstanceOf(
