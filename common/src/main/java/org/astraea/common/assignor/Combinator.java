@@ -23,8 +23,8 @@ import java.util.stream.Collectors;
 import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
-public interface Assign {
-  Map<String, List<TopicPartition>> result(
+public interface Combinator {
+  Map<String, List<TopicPartition>> combine(
       Map<String, SubscriptionInfo> subscriptions, Map<TopicPartition, Double> costs);
 
   /**
@@ -32,7 +32,7 @@ public interface Assign {
    *
    * @return the assignment by greedy strategy
    */
-  static Assign greedy() {
+  static Combinator greedy() {
     return (subscriptions, costs) -> {
       var tmpConsumerCost =
           subscriptions.keySet().stream()

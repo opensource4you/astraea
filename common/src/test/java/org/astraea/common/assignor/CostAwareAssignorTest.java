@@ -28,8 +28,8 @@ public class CostAwareAssignorTest {
 
   @Test
   void testGreedyAssign() {
-    var assign = Assign.greedy();
-    var reassign = Reassign.incompatible();
+    var assign = Combinator.greedy();
+    var reassign = Shuffler.incompatible();
     var subscription =
         Map.of(
             "c1",
@@ -47,10 +47,10 @@ public class CostAwareAssignorTest {
             TopicPartition.of("t3", 0),
             0.4);
 
-    var assignment = assign.result(subscription, cost1);
+    var assignment = assign.combine(subscription, cost1);
     Assertions.assertEquals(2, assignment.size());
     assignment.forEach((c, a) -> Assertions.assertEquals(2, a.size()));
-    var finalAssignment = reassign.result(subscription, assignment, Map.of(), cost1);
+    var finalAssignment = reassign.shuffle(subscription, assignment, Map.of(), cost1);
     Assertions.assertEquals(assignment, finalAssignment);
 
     var incompatibility =
@@ -64,9 +64,9 @@ public class CostAwareAssignorTest {
             TopicPartition.of("t3", 0),
             Set.of(TopicPartition.of("t1", 0)));
 
-    assignment = assign.result(subscription, cost1);
+    assignment = assign.combine(subscription, cost1);
     Assertions.assertEquals(2, assignment.size());
-    finalAssignment = reassign.result(subscription, assignment, incompatibility, cost1);
+    finalAssignment = reassign.shuffle(subscription, assignment, incompatibility, cost1);
     finalAssignment.forEach(
         (c, a) -> {
           a.forEach(
@@ -87,8 +87,8 @@ public class CostAwareAssignorTest {
             create.apply("t3-0"),
             Set.of(create.apply("t1-0"), create.apply("t2-0"), create.apply("t1-1")));
 
-    assignment = assign.result(subscription, cost1);
-    finalAssignment = reassign.result(subscription, assignment, incompatibility, cost1);
+    assignment = assign.combine(subscription, cost1);
+    finalAssignment = reassign.shuffle(subscription, assignment, incompatibility, cost1);
     finalAssignment.forEach((c, a) -> Assertions.assertEquals(2, a.size()));
   }
 }

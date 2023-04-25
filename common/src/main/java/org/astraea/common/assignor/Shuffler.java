@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
-public interface Reassign {
+public interface Shuffler {
   /**
    * Try to avoid putting incompatible partitions on the same consumer.
    *
@@ -34,13 +34,13 @@ public interface Reassign {
    * @param costs partition cost
    * @return assignment that filter out most incompatible partitions
    */
-  Map<String, List<TopicPartition>> result(
+  Map<String, List<TopicPartition>> shuffle(
       Map<String, SubscriptionInfo> subscriptions,
       Map<String, List<TopicPartition>> assignment,
       Map<TopicPartition, Set<TopicPartition>> incompatible,
       Map<TopicPartition, Double> costs);
 
-  static Reassign incompatible() {
+  static Shuffler incompatible() {
     return (subscriptions, assignment, incompatible, costs) -> {
       if (incompatible.isEmpty()) return assignment;
       // get the incompatible partitions of each consumer from consumer assignment

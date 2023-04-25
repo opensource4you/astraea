@@ -83,8 +83,8 @@ public class CostAwareAssignor extends Assignor {
       Map<String, SubscriptionInfo> subscriptions,
       Map<TopicPartition, Double> costs,
       Map<TopicPartition, Set<TopicPartition>> incompatible) {
-    var assignment = Assign.greedy().result(subscriptions, costs);
-    return Reassign.incompatible().result(subscriptions, assignment, incompatible, costs);
+    var assignment = Combinator.greedy().combine(subscriptions, costs);
+    return Shuffler.incompatible().shuffle(subscriptions, assignment, incompatible, costs);
   }
 
   private void retry(ClusterInfo clusterInfo) {
