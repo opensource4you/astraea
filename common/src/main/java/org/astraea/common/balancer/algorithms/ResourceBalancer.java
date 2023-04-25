@@ -87,8 +87,8 @@ public class ResourceBalancer implements Balancer {
       // hints to estimate the resource usage of replicas
       this.usageHints =
           Stream.concat(
-              CompositeClusterCost.decompose(config.clusterCostFunction()).stream(),
-              config.moveCostFunction().resourceUsageHint().stream())
+                  CompositeClusterCost.decompose(config.clusterCostFunction()).stream(),
+                  config.moveCostFunction().resourceUsageHint().stream())
               .filter(func -> func instanceof ResourceUsageHint)
               .map(func -> (ResourceUsageHint) func)
               .collect(Collectors.toUnmodifiableSet());
@@ -110,6 +110,7 @@ public class ResourceBalancer implements Balancer {
               .flatMap(tp -> sourceCluster.replicas(tp).stream())
               .sorted(
                   usageDominationComparator(
+                      resourceCapacities,
                       (r) -> {
                         var resource = new ResourceUsage();
                         usageHints.stream()
@@ -168,10 +169,10 @@ public class ResourceBalancer implements Balancer {
       // TODO: the recursion might overflow the stack under large number of replicas. use stack
       //  instead.
       var currentAllocation = sourceCluster.topicPartitions()
-              .stream()
-              .collect(Collectors.toUnmodifiableMap(
-                  tp -> tp,
-                  tp -> (List<Replica>) new ArrayList<>(sourceCluster.replicas(tp))));
+          .stream()
+          .collect(Collectors.toUnmodifiableMap(
+              tp -> tp,
+              tp -> (List<Replica>) new ArrayList<>(sourceCluster.replicas(tp))));
       search(updateAnswer, 0, orderedReplicas, currentAllocation, clusterResourceUsage);
 
       return bestAllocation.get();
@@ -190,7 +191,7 @@ public class ResourceBalancer implements Balancer {
         List<Replica> originalReplicas,
         Map<TopicPartition, List<Replica>> currentAllocation,
         ResourceUsage currentResourceUsage) {
-      if(System.currentTimeMillis() > deadline)
+      if (System.currentTimeMillis() > deadline)
         return;
       if (originalReplicas.size() == next) {
         // if this is a complete answer, call update function and return
@@ -216,7 +217,7 @@ public class ResourceBalancer implements Balancer {
                       return Map.entry(usageAfterTweaked, tweaks);
                     })
                 .filter(e -> feasibleUsage.test(e.getKey()))
-                .sorted(Map.Entry.comparingByKey(usageIdealnessDominationComparator(this.resourceCapacities)))
+                .sorted(Map.Entry.comparingByKey(usageIdealnessDominationComparator(currentResourceUsage, this.resourceCapacities)))
                 // TODO: maybe change to probability style
                 .limit(trials(next))
                 .collect(Collectors.toUnmodifiableList());
@@ -303,6 +304,7 @@ public class ResourceBalancer implements Balancer {
               .flatMap(
                   b ->
                       b.dataFolders().stream()
+                          // TODO: add data folder back once the framework is ready to deduplicate the similar resource usage among tweaks
                           .limit(1)
                           .map(
                               folder ->
@@ -315,7 +317,8 @@ public class ResourceBalancer implements Balancer {
                                               .build()))))
               .collect(Collectors.toUnmodifiableList());
 
-      return Stream.of(noMovement, leadership, dataFolderMovement, interBrokerMovement)
+      // TODO: add data folder back once the framework is ready to deduplicate the similar resource usage among tweaks
+      return Stream.of(noMovement, leadership, interBrokerMovement)
           .flatMap(Collection::stream)
           .collect(Collectors.toUnmodifiableList());
     }
@@ -327,31 +330,41 @@ public class ResourceBalancer implements Balancer {
                   hint.evaluateClusterResourceUsage(sourceCluster, clusterBean, replica));
     }
 
+    // `static Comparator<Replica> usageDominationComparator(
+    // `    Function<Replica, ResourceUsage> usageHints) {
+    // `  // TODO: implement the actual dominant sort
+    // `  return (lhs, rhs) -> {
+    // `    // var resourceL = usageHints.apply(lhs);
+    // `    // var resourceR = usageHints.apply(rhs);
+
+    // `    // var dominatedByL =
+    // `    //     resourceL.usage().entrySet().stream()
+    // `    //         .filter(e -> e.getValue() > resourceR.usage().getOrDefault(e.getKey(), 0.0))
+    // `    //         .count();
+    // `    // var dominatedByR =
+    // `    //     resourceR.usage().entrySet().stream()
+    // `    //         .filter(e -> e.getValue() > resourceL.usage().getOrDefault(e.getKey(), 0.0))
+    // `    //         .count();
+
+    // `    // // reverse the order intentionally, we want the most dominated replica at the beginning of
+    // `    // // list.
+    // `    // int compare = Long.compare(dominatedByL, dominatedByR);
+    // `    // return -compare;
+
+    // `    double lsum = usageHints.apply(lhs).usage().values().stream().mapToDouble(x -> x).sum();
+    // `    double rsum = usageHints.apply(rhs).usage().values().stream().mapToDouble(x -> x).sum();
+    // `    return -Double.compare(lsum, rsum);
+    // `  };
+    // `}
+
     static Comparator<Replica> usageDominationComparator(
-        Function<Replica, ResourceUsage> usageHints) {
-      // TODO: implement the actual dominant sort
-      return (lhs, rhs) -> {
-        // var resourceL = usageHints.apply(lhs);
-        // var resourceR = usageHints.apply(rhs);
+        List<ResourceCapacity> resourceCapacities, Function<Replica, ResourceUsage> usageHints) {
+      var cmp = Comparator.<ResourceUsage>comparingDouble(u -> resourceCapacities.stream()
+          .mapToDouble(c -> c.idealness(u))
+          .average()
+          .orElseThrow());
 
-        // var dominatedByL =
-        //     resourceL.usage().entrySet().stream()
-        //         .filter(e -> e.getValue() > resourceR.usage().getOrDefault(e.getKey(), 0.0))
-        //         .count();
-        // var dominatedByR =
-        //     resourceR.usage().entrySet().stream()
-        //         .filter(e -> e.getValue() > resourceL.usage().getOrDefault(e.getKey(), 0.0))
-        //         .count();
-
-        // // reverse the order intentionally, we want the most dominated replica at the beginning of
-        // // list.
-        // int compare = Long.compare(dominatedByL, dominatedByR);
-        // return -compare;
-
-        double lsum = usageHints.apply(lhs).usage().values().stream().mapToDouble(x -> x).sum();
-        double rsum = usageHints.apply(rhs).usage().values().stream().mapToDouble(x -> x).sum();
-        return -Double.compare(lsum, rsum);
-      };
+      return Comparator.comparing(usageHints, cmp).reversed();
     }
 
     static Comparator<ResourceUsage> usageIdealnessDominationComparator(List<ResourceCapacity> resourceCapacities) {
@@ -369,6 +382,63 @@ public class ResourceBalancer implements Balancer {
       };
     }
 
+    static Comparator<ResourceUsage> usageIdealnessDominationComparator(ResourceUsage base, List<ResourceCapacity> resourceCapacities) {
+      var comparators =
+          resourceCapacities.stream()
+              .map(ResourceCapacity::usageIdealnessComparator)
+              .collect(Collectors.toUnmodifiableSet());
+
+      Comparator<ResourceUsage> dominatedCmp = (lhs, rhs) -> {
+        var dominatedByL = comparators.stream().filter(e -> e.compare(lhs, rhs) <= 0).count();
+        var dominatedByR = comparators.stream().filter(e -> e.compare(rhs, lhs) <= 0).count();
+
+        return -Long.compare(dominatedByL, dominatedByR);
+      };
+
+      // return usageIdealnessDominationComparator(resourceCapacities)
+      //     .thenComparingDouble(usage -> resourceCapacities.stream()
+      //         .mapToDouble(ca -> ca.idealness(usage))
+      //         .average()
+      //         .orElseThrow());
+      return dominatedCmp.thenComparingDouble(usage -> resourceCapacities.stream()
+              .mapToDouble(ca -> ca.idealness(usage))
+              .average()
+              .orElseThrow());
+    }
+
+
+    // static Comparator<ResourceUsage> usageIdealnessDominationComparator(ResourceUsage baseUsage, List<ResourceCapacity> resourceCapacities) {
+    //   var comparators =
+    //       resourceCapacities.stream()
+    //           .map(ResourceCapacity::usageIdealnessComparator)
+    //           .collect(Collectors.toUnmodifiableSet());
+    //   var baseIdealness = resourceCapacities.stream()
+    //       .collect(Collectors.toUnmodifiableMap(
+    //           ResourceCapacity::resourceName,
+    //           c -> c.idealness(baseUsage)));
+
+    //   return (lhs, rhs) -> {
+    //     var idealnessVectorL = resourceCapacities.stream()
+    //         .collect(Collectors.toUnmodifiableMap(
+    //             ResourceCapacity::resourceName,
+    //             c -> c.idealness(lhs) - baseIdealness.get(c.resourceName())));
+    //     var idealnessVectorR = resourceCapacities.stream()
+    //         .collect(Collectors.toUnmodifiableMap(
+    //             ResourceCapacity::resourceName,
+    //             c -> c.idealness(rhs) - baseIdealness.get(c.resourceName())));
+
+    //     var sumL = idealnessVectorL.entrySet()
+    //         .stream()
+    //         .mapToDouble(e -> e.getKey().startsWith("Network") ? e.getValue() / 6.0 : e.getValue())
+    //         .sum();
+    //     var sumR = idealnessVectorR.entrySet()
+    //         .stream()
+    //         .mapToDouble(e -> e.getKey().startsWith("Network") ? e.getValue() / 6.0 : e.getValue())
+    //         .sum();
+
+    //     return Double.compare(sumL, sumR);
+    //   };
+    // }
   }
 
   private static class Tweak {

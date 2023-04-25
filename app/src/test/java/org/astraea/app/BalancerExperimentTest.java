@@ -277,21 +277,13 @@ public class BalancerExperimentTest {
   @Disabled
   @Test
   void testDominantSort() {
-    int[] base = new int[] {5,5,5};
+    int[] base = new int[] {1000,300,600};
     List<int[]> collect = IntStream.range(0, 10000)
         .mapToObj(i -> new int[]{
             ThreadLocalRandom.current().nextInt(0, 10000),
             ThreadLocalRandom.current().nextInt(0, 500),
             ThreadLocalRandom.current().nextInt(0, 900)})
         .collect(Collectors.toUnmodifiableList());
-    int[] max = collect.stream()
-        .reduce(new int[3], (x, y) -> new int[]{
-            Math.max(x[0], y[0]),
-            Math.max(x[1], y[1]),
-            Math.max(x[2], y[2]),
-        });
-    collect.stream()
-        .sorted(Comparator.comparingDouble(a -> (double)(a[0])/(max[0]) + (double) a[1] / max[1] + (double) a[2] / max[2]))
-        .forEach(a -> System.out.println((double)(a[0])/(max[0]) + " " + (double) a[1] / max[1] + " " + (double) a[2] / max[2]));
+
   }
 }

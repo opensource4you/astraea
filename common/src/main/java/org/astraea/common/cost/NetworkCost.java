@@ -245,7 +245,7 @@ public abstract class NetworkCost implements HasClusterCost, ResourceUsageHint {
                     NETWORK_COST_BROKER_RESOURCE_PREFIX_INGRESS + broker.id(), avgIngressPerBroker))
         .collect(Collectors.toSet());
 
-    // a.add(new NetworkResourceCapacity(NETWORK_COST_REPLICA_RESOURCE_PREFIX_INGRESS, avgIngressPerBroker));
+    a.add(new NetworkResourceCapacity(NETWORK_COST_REPLICA_RESOURCE_PREFIX_INGRESS, 0));
     return a;
   }
 
@@ -264,7 +264,7 @@ public abstract class NetworkCost implements HasClusterCost, ResourceUsageHint {
                     NETWORK_COST_BROKER_RESOURCE_PREFIX_EGRESS + broker.id(), avgEgressPerBroker))
         .collect(Collectors.toSet());
 
-    // a.add(new NetworkResourceCapacity(NETWORK_COST_REPLICA_RESOURCE_PREFIX_EGRESS, avgEgressPerBroker));
+    a.add(new NetworkResourceCapacity(NETWORK_COST_REPLICA_RESOURCE_PREFIX_EGRESS, 0));
     return a;
   }
 
@@ -477,7 +477,7 @@ public abstract class NetworkCost implements HasClusterCost, ResourceUsageHint {
 
     @Override
     public double idealness(ResourceUsage usage) {
-      return Math.abs(usage.usage().getOrDefault(resourceName, 0.0) - optimal) / 1e15;
+      return Math.abs(usage.usage().getOrDefault(resourceName, 0.0) - optimal) / 1e12;
     }
 
     @Override

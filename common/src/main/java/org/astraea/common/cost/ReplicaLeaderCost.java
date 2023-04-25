@@ -137,12 +137,23 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
       @Override
       public double idealness(ResourceUsage usage) {
-        return usage.usage().getOrDefault(resourceName(), 0.0) / optimalUsage();
+        var a = usage.usage().getOrDefault(resourceName(), 0.0) / optimalUsage();
+        return a;
       }
 
       @Override
       public Comparator<ResourceUsage> usageIdealnessComparator() {
-        return Comparator.comparingDouble(ru -> ru.usage().getOrDefault(resourceName(), 0.0));
+        return Comparator.comparingDouble(this::idealness);
+        // return (a,b) -> {
+        //   var aa = a.usage().getOrDefault(resourceName(), 0.0);
+        //   var bb = b.usage().getOrDefault(resourceName(), 0.0);
+
+        //   if(aa >= optimalUsage() && bb >= optimalUsage()) return 0;
+        //   if(aa >= optimalUsage()) return 1;
+        //   if(bb >= optimalUsage()) return -1;
+        //   return 0;
+        // };
+        // return Comparator.comparingDouble(ru -> ru.usage().getOrDefault(resourceName(), 0.0));
       }
 
       @Override
