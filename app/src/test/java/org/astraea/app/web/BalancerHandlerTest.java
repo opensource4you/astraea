@@ -21,9 +21,10 @@ import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Executing;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.ExecutionFailed;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.SearchFailed;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Searched;
-import static org.astraea.common.cost.MigrationCost.CHANGED_LEADERS;
 import static org.astraea.common.cost.MigrationCost.TO_FETCH_BYTES;
+import static org.astraea.common.cost.MigrationCost.TO_FETCH_LEADERS;
 import static org.astraea.common.cost.MigrationCost.TO_SYNC_BYTES;
+import static org.astraea.common.cost.MigrationCost.TO_SYNC_LEADERS;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -332,7 +333,8 @@ public class BalancerHandlerTest {
                     migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
                         <= DataSize.of(sizeLimit).bytes());
                 break;
-              case CHANGED_LEADERS:
+              case TO_FETCH_LEADERS:
+              case TO_SYNC_LEADERS:
                 Assertions.assertTrue(
                     Math.max(
                             migrationCost.brokerCosts.values().stream()
