@@ -22,6 +22,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -237,12 +238,15 @@ public abstract class NetworkCost implements HasClusterCost, ResourceUsageHint {
         cachedCalculation.partitionIngressRate.values().stream().mapToDouble(x -> x).sum();
     final var avgIngressPerBroker = sumIngress / clusterInfo.brokers().size();
 
-    return clusterInfo.brokers().stream()
+    Set<ResourceCapacity> a = clusterInfo.brokers().stream()
         .map(
             broker ->
                 new NetworkResourceCapacity(
                     NETWORK_COST_BROKER_RESOURCE_PREFIX_INGRESS + broker.id(), avgIngressPerBroker))
         .collect(Collectors.toSet());
+
+    // a.add(new NetworkResourceCapacity(NETWORK_COST_REPLICA_RESOURCE_PREFIX_INGRESS, avgIngressPerBroker));
+    return a;
   }
 
   Collection<ResourceCapacity> evaluateEgressResourceCapacity(
@@ -253,12 +257,15 @@ public abstract class NetworkCost implements HasClusterCost, ResourceUsageHint {
         cachedCalculation.partitionEgressRate.values().stream().mapToDouble(x -> x).sum();
     final var avgEgressPerBroker = sumEgress / clusterInfo.brokers().size();
 
-    return clusterInfo.brokers().stream()
+    Set<ResourceCapacity> a = clusterInfo.brokers().stream()
         .map(
             broker ->
                 new NetworkResourceCapacity(
                     NETWORK_COST_BROKER_RESOURCE_PREFIX_EGRESS + broker.id(), avgEgressPerBroker))
         .collect(Collectors.toSet());
+
+    // a.add(new NetworkResourceCapacity(NETWORK_COST_REPLICA_RESOURCE_PREFIX_EGRESS, avgEgressPerBroker));
+    return a;
   }
 
   private Map<BrokerTopic, List<Replica>> mapLeaderAllocation(ClusterInfo clusterInfo) {
@@ -469,8 +476,13 @@ public abstract class NetworkCost implements HasClusterCost, ResourceUsageHint {
     }
 
     @Override
+    public double idealness(ResourceUsage usage) {
+      return Math.abs(usage.usage().getOrDefault(resourceName, 0.0) - optimal) / 1e15;
+    }
+
+    @Override
     public Comparator<ResourceUsage> usageIdealnessComparator() {
-      return Comparator.comparingDouble(ru -> Math.abs(ru.usage().get(resourceName) - optimal));
+      return Comparator.comparingDouble(ru -> Math.abs(ru.usage().getOrDefault(resourceName, 0.0) - optimal));
     }
 
     @Override

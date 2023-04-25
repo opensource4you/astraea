@@ -143,16 +143,16 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
 
   @Override
   public ResourceUsage evaluateClusterResourceUsage(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, TopicPartitionReplica target) {
-    double value = this.evaluateIngressResourceUsage(clusterBean, target);
+      ClusterInfo clusterInfo, ClusterBean clusterBean, Replica target) {
+    double value = this.evaluateIngressResourceUsage(clusterBean, target.topicPartitionReplica());
     return new ResourceUsage(
-        Map.of(NetworkCost.NETWORK_COST_BROKER_RESOURCE_PREFIX_INGRESS + target.brokerId(), value));
+        Map.of(NetworkCost.NETWORK_COST_BROKER_RESOURCE_PREFIX_INGRESS + target.nodeInfo().id(), value));
   }
 
   @Override
   public ResourceUsage evaluateReplicaResourceUsage(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, TopicPartitionReplica target) {
-    double value = this.evaluateIngressResourceUsage(clusterBean, target);
+      ClusterInfo clusterInfo, ClusterBean clusterBean, Replica target) {
+    double value = this.evaluateIngressResourceUsage(clusterBean, target.topicPartitionReplica());
     return new ResourceUsage(
         Map.of(NetworkCost.NETWORK_COST_REPLICA_RESOURCE_PREFIX_INGRESS, value));
   }

@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.LongSummaryStatistics;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.astraea.common.admin.ClusterBean;
@@ -36,6 +37,7 @@ import org.astraea.common.cost.CompositeClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.ResourceUsageHint;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
@@ -142,6 +144,11 @@ class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
                   @Override
                   public Optional<MetricSensor> metricSensor() {
                     return moveCostFunction.metricSensor();
+                  }
+
+                  @Override
+                  public Set<? extends ResourceUsageHint> resourceUsageHint() {
+                    return moveCostFunction.resourceUsageHint();
                   }
 
                   @Override

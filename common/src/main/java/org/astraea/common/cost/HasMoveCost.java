@@ -18,6 +18,7 @@ package org.astraea.common.cost;
 
 import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
@@ -54,6 +55,13 @@ public interface HasMoveCost extends CostFunction {
       }
 
       @Override
+      public Set<ResourceUsageHint> resourceUsageHint() {
+        return hasMoveCosts.stream()
+            .flatMap(x -> x.resourceUsageHint().stream())
+            .collect(Collectors.toUnmodifiableSet());
+      }
+
+      @Override
       public String toString() {
         return "MoveCosts["
             + hasMoveCosts.stream()
@@ -73,4 +81,11 @@ public interface HasMoveCost extends CostFunction {
    * @return the score of migrate cost
    */
   MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean);
+
+  default Set<? extends ResourceUsageHint> resourceUsageHint() {
+    if(this instanceof ResourceUsageHint)
+      return Set.of((ResourceUsageHint) this);
+    else
+      return Set.of();
+  }
 }

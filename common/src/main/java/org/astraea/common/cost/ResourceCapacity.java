@@ -25,6 +25,8 @@ public interface ResourceCapacity {
 
   double optimalUsage();
 
+  double idealness(ResourceUsage usage);
+
   /**
    * @return a {@link Comparator} that can rank the idealness of given usages in terms of specific
    *     resource usage.

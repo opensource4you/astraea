@@ -45,11 +45,12 @@ public class ResourceBalancer implements Balancer {
 
   @Override
   public Optional<Plan> offer(AlgorithmConfig config) {
+    var runtime = config.timeout().toMillis() + System.currentTimeMillis();
     var initialClusterInfo = config.clusterInfo();
     var initialCost =
         config.clusterCostFunction().clusterCost(config.clusterInfo(), config.clusterBean());
 
-    var algorithm = new AlgorithmContext(config);
+    var algorithm = new AlgorithmContext(config, runtime);
     var proposalClusterInfo = algorithm.execute();
     var proposalCost =
         config.clusterCostFunction().clusterCost(proposalClusterInfo, config.clusterBean());
@@ -75,17 +76,23 @@ public class ResourceBalancer implements Balancer {
     private final List<Replica> orderedReplicas;
     private final Predicate<ResourceUsage> feasibleUsage;
 
-    private AlgorithmContext(AlgorithmConfig config) {
+    private final long deadline;
+
+    private AlgorithmContext(AlgorithmConfig config, long deadline) {
       this.config = config;
       this.sourceCluster = config.clusterInfo();
       this.clusterBean = config.clusterBean();
+      this.deadline = deadline;
 
       // hints to estimate the resource usage of replicas
       this.usageHints =
-          CompositeClusterCost.decompose(config.clusterCostFunction()).stream()
+          Stream.concat(
+              CompositeClusterCost.decompose(config.clusterCostFunction()).stream(),
+              config.moveCostFunction().resourceUsageHint().stream())
               .filter(func -> func instanceof ResourceUsageHint)
               .map(func -> (ResourceUsageHint) func)
               .collect(Collectors.toUnmodifiableSet());
+
 
       // hints for the capacity of each cluster resource
       this.resourceCapacities =
@@ -108,8 +115,7 @@ public class ResourceBalancer implements Balancer {
                         usageHints.stream()
                             .map(
                                 hint ->
-                                    hint.evaluateReplicaResourceUsage(
-                                        sourceCluster, clusterBean, r.topicPartitionReplica()))
+                                    hint.evaluateReplicaResourceUsage(sourceCluster, clusterBean, r))
                             .forEach(rrr -> resource.mergeUsage(rrr));
                         return resource;
                       }))
@@ -143,7 +149,10 @@ public class ResourceBalancer implements Balancer {
                 config.moveCostFunction().moveCost(sourceCluster, newCluster, clusterBean);
 
             // if movement constraint failed, reject answer
-            if (moveCost.overflow()) return;
+            if (moveCost.overflow()) {
+              System.out.println("Overflow Score: " + clusterCost.value());
+              return;
+            }
             // if cluster cost is better, accept answer
             if (bestAllocationScore.get() == null || clusterCost.value() < bestAllocationScore.get()) {
               bestAllocation.set(newCluster);
@@ -170,7 +179,8 @@ public class ResourceBalancer implements Balancer {
 
     private int trials(int level) {
       // TODO: customize this
-      if (0 <= level && level < 4) return 6;
+      if (0 <= level && level < 3) return 8;
+      if (level < 6) return 2;
       else return 1;
     }
 
@@ -180,6 +190,8 @@ public class ResourceBalancer implements Balancer {
         List<Replica> originalReplicas,
         Map<TopicPartition, List<Replica>> currentAllocation,
         ResourceUsage currentResourceUsage) {
+      if(System.currentTimeMillis() > deadline)
+        return;
       if (originalReplicas.size() == next) {
         // if this is a complete answer, call update function and return
         updateAnswer.accept(
@@ -291,6 +303,7 @@ public class ResourceBalancer implements Balancer {
               .flatMap(
                   b ->
                       b.dataFolders().stream()
+                          .limit(1)
                           .map(
                               folder ->
                                   new Tweak(
@@ -311,8 +324,7 @@ public class ResourceBalancer implements Balancer {
       return this.usageHints.stream()
           .map(
               hint ->
-                  hint.evaluateClusterResourceUsage(
-                      sourceCluster, clusterBean, replica.topicPartitionReplica()));
+                  hint.evaluateClusterResourceUsage(sourceCluster, clusterBean, replica));
     }
 
     static Comparator<Replica> usageDominationComparator(
@@ -356,6 +368,7 @@ public class ResourceBalancer implements Balancer {
         return -Long.compare(dominatedByL, dominatedByR);
       };
     }
+
   }
 
   private static class Tweak {

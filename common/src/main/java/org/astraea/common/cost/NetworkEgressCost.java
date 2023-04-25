@@ -21,6 +21,7 @@ import java.util.Map;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartitionReplica;
 
 /**
@@ -39,16 +40,16 @@ public class NetworkEgressCost extends NetworkCost {
 
   @Override
   public ResourceUsage evaluateClusterResourceUsage(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, TopicPartitionReplica target) {
-    double value = this.evaluateEgressResourceUsage(clusterBean, target);
+      ClusterInfo clusterInfo, ClusterBean clusterBean, Replica target) {
+    double value = this.evaluateEgressResourceUsage(clusterBean, target.topicPartitionReplica());
     return new ResourceUsage(
-        Map.of(NetworkCost.NETWORK_COST_BROKER_RESOURCE_PREFIX_EGRESS + target.brokerId(), value));
+        Map.of(NetworkCost.NETWORK_COST_BROKER_RESOURCE_PREFIX_EGRESS + target.nodeInfo().id(), value));
   }
 
   @Override
   public ResourceUsage evaluateReplicaResourceUsage(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, TopicPartitionReplica target) {
-    double value = this.evaluateEgressResourceUsage(clusterBean, target);
+      ClusterInfo clusterInfo, ClusterBean clusterBean, Replica target) {
+    double value = this.evaluateEgressResourceUsage(clusterBean, target.topicPartitionReplica());
     return new ResourceUsage(
         Map.of(NetworkCost.NETWORK_COST_REPLICA_RESOURCE_PREFIX_EGRESS, value));
   }

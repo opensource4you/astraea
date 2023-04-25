@@ -18,18 +18,23 @@ package org.astraea.common.cost;
 
 import static org.astraea.common.cost.MigrationCost.replicaLeaderChanged;
 
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 /** more replica leaders -> higher cost */
-public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
+public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost, ResourceUsageHint {
   private final Dispersion dispersion = Dispersion.cov();
   private final Configuration config;
   public static final String MAX_MIGRATE_LEADER_KEY = "max.migrated.leader.number";
@@ -80,16 +85,70 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var moveCost = replicaLeaderChanged(before, after);
+    // var moveCost = replicaLeaderChanged(before, after);
     var maxMigratedLeader =
-        config.string(MAX_MIGRATE_LEADER_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
-    var overflow =
-        maxMigratedLeader < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
-    return () -> overflow;
+         config.string(MAX_MIGRATE_LEADER_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
+    // var overflow =
+    //     maxMigratedLeader < moveCost.values().stream().map(Math::abs).mapToLong(s -> s).sum();
+    long count = before.topicPartitions()
+        .stream()
+        .filter(tp -> {
+          var a = before.replicaLeader(tp).orElseThrow();
+          var b = after.replicaLeader(tp).orElseThrow();
+          return b.nodeInfo().id() != a.nodeInfo().id();
+        })
+        .count();
+    return () -> count >= maxMigratedLeader;
   }
 
   @Override
   public String toString() {
     return this.getClass().getSimpleName();
+  }
+
+  @Override
+  public ResourceUsage evaluateClusterResourceUsage(ClusterInfo clusterInfo, ClusterBean clusterBean, Replica target) {
+    return new ResourceUsage(Map.of(
+        "migrated_leaders",
+        clusterInfo.replicaLeader(target.topicPartition())
+            .map(originLeader ->
+                target.isPreferredLeader() &&
+                    originLeader.nodeInfo().id() != target.nodeInfo().id() ? 1.0 : 0.0)
+            .orElseThrow()));
+  }
+
+  @Override
+  public ResourceUsage evaluateReplicaResourceUsage(ClusterInfo clusterInfo, ClusterBean clusterBean, Replica target) {
+    return new ResourceUsage();
+  }
+
+  @Override
+  public Collection<ResourceCapacity> evaluateClusterResourceCapacity(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+    return List.of(new ResourceCapacity() {
+      @Override
+      public String resourceName() {
+        return "migrated_leaders";
+      }
+
+      @Override
+      public double optimalUsage() {
+        return config.string(MAX_MIGRATE_LEADER_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
+      }
+
+      @Override
+      public double idealness(ResourceUsage usage) {
+        return usage.usage().getOrDefault(resourceName(), 0.0) / optimalUsage();
+      }
+
+      @Override
+      public Comparator<ResourceUsage> usageIdealnessComparator() {
+        return Comparator.comparingDouble(ru -> ru.usage().getOrDefault(resourceName(), 0.0));
+      }
+
+      @Override
+      public Predicate<ResourceUsage> usageValidnessPredicate() {
+        return (ru) -> ru.usage().getOrDefault(resourceName(), 0.0) < optimalUsage();
+      }
+    });
   }
 }

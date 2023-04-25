@@ -19,15 +19,16 @@ package org.astraea.common.cost;
 import java.util.Collection;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartitionReplica;
 
 public interface ResourceUsageHint {
 
   ResourceUsage evaluateClusterResourceUsage(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, TopicPartitionReplica target);
+      ClusterInfo clusterInfo, ClusterBean clusterBean, Replica target);
 
   ResourceUsage evaluateReplicaResourceUsage(
-      ClusterInfo clusterInfo, ClusterBean clusterBean, TopicPartitionReplica target);
+      ClusterInfo clusterInfo, ClusterBean clusterBean, Replica target);
 
   Collection<ResourceCapacity> evaluateClusterResourceCapacity(
       ClusterInfo clusterInfo, ClusterBean clusterBean);

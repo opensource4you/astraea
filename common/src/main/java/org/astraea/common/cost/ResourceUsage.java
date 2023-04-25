@@ -25,7 +25,7 @@ public class ResourceUsage {
   private final Map<String, Double> usage;
 
   public ResourceUsage() {
-    this(Map.of());
+    this.usage = new HashMap<>();
   }
 
   public ResourceUsage(Map<String, Double> usage) {
