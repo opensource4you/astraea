@@ -26,6 +26,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -71,6 +72,9 @@ public class StrictCostPartitioner extends Partitioner {
   private Duration roundRobinLease = Duration.ofSeconds(4);
   HasBrokerCost brokerCost = new NodeLatencyCost();
   HasPartitionCost partitionCost = new ReplicaLeaderSizeCost();
+  // The minimum partition cost of every topic of every broker.
+  Map<String, Map<Integer, Integer>> minPartition = new HashMap<>();
+  long partitionUpdateTime = 0L;
   Function<Integer, Integer> jmxPortGetter =
       (id) -> {
         throw new NoSuchElementException("must define either broker.x.jmx.port or jmx.port");
@@ -100,31 +104,67 @@ public class StrictCostPartitioner extends Partitioner {
 
     var target = roundRobinKeeper.next();
 
+    // Choose a preferred partition from candidate by partition cost function
+    var preferredPartition =
+        tryUpdateMinPartition(
+            topic,
+            target,
+            (tp, id) -> {
+              // Update the preferred partition according to the topic and target broker id
+              // The target broker id may be determined previously by broker cost
+              // The returned value may be a special value "-1" which represents no preferred
+              // partition.
+              // There are three conditions that the special value "-1" appears:
+              //   1. the target broker id is not valid
+              //   2. the target broker id has no partition leader
+              //   3. no partition cost in the target broker id
+              if (id == -1) return -1;
+              var candidate = clusterInfo.replicaLeaders(BrokerTopic.of(target, topic));
+              if (candidate.isEmpty()) return -1;
+              var candidateSet =
+                  candidate.stream()
+                      .map(Replica::topicPartition)
+                      .collect(HashSet::new, HashSet::add, HashSet::addAll);
+              var preferred =
+                  partitionCost
+                      .partitionCost(clusterInfo, metricStore.clusterBean())
+                      .value()
+                      .entrySet()
+                      .stream()
+                      .filter(e -> candidateSet.contains(e.getKey()))
+                      .min(Comparator.comparingDouble(Map.Entry::getValue));
+
+              return preferred.map(e -> e.getKey().partition()).orElse(-1);
+            });
+    // Check if we can get preferred partition from partition cost function
+    if (preferredPartition != -1) return preferredPartition;
+
     // TODO: if the topic partitions are existent in fewer brokers, the target gets -1 in most cases
+    // Check "target valid" and the target "has partition leader".
     var candidate =
         target < 0 ? partitionLeaders : clusterInfo.replicaLeaders(BrokerTopic.of(target, topic));
     candidate = candidate.isEmpty() ? partitionLeaders : candidate;
-    // Convert the data structure to make quick "contains" check
-    var candidateSet =
-        candidate.stream()
-            .map(Replica::topicPartition)
-            .collect(HashSet::new, HashSet::add, HashSet::addAll);
-
-    var preferredPartition =
-        partitionCost
-            .partitionCost(clusterInfo, metricStore.clusterBean())
-            .value()
-            .entrySet()
-            .stream()
-            .filter(e -> candidateSet.contains(e.getKey()))
-            .min(Comparator.comparingDouble(Map.Entry::getValue));
-
-    // Choose a preferred partition from candidate by partition cost function
-    if (preferredPartition.isPresent()) return preferredPartition.get().getKey().partition();
     // Randomly choose from candidate.
     return candidate.get((int) (Math.random() * candidate.size())).partition();
   }
 
+  /**
+   * @param topic the topic we send record
+   * @param brokerId the broker id that has been determined by the broker cost function
+   * @param partition update function
+   * @return the cached partition if the update time is not expired; otherwise update the partition
+   *     by the given supplier
+   */
+  private int tryUpdateMinPartition(
+      String topic, int brokerId, BiFunction<String, Integer, Integer> partition) {
+    if (Utils.isExpired(partitionUpdateTime, roundRobinLease)) {
+      partitionUpdateTime = System.currentTimeMillis();
+      minPartition.clear();
+    }
+    return minPartition
+        .computeIfAbsent(topic, (tp) -> new HashMap<>())
+        .computeIfAbsent(brokerId, (id) -> partition.apply(topic, id));
+  }
   /**
    * The value of cost returned from cost function is conflict to score, since the higher cost
    * represents lower score. This helper reverses the cost by subtracting the cost from "max cost".
