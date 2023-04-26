@@ -84,7 +84,7 @@ public class WebService implements AutoCloseable {
     server.createContext("/quotas", to(new QuotaHandler(admin)));
     server.createContext("/transactions", to(new TransactionHandler(admin)));
     server.createContext("/beans", to(new BeanHandler(admin, brokerIdToJmxPort)));
-    server.createContext("/metricSensors", to(new MetricSensorHandler(sensors)));
+    server.createContext("/sensors", to(new SensorHandler(sensors)));
     server.createContext("/records", to(new RecordHandler(admin)));
     server.createContext("/reassignments", to(new ReassignmentHandler(admin)));
     server.createContext("/balancer", to(new BalancerHandler(admin, metricStore)));

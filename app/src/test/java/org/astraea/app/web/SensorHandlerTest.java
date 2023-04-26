@@ -23,7 +23,7 @@ import org.astraea.it.Service;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class MetricSensorHandlerTest {
+class SensorHandlerTest {
   private static final Service SERVICE = Service.builder().numberOfBrokers(3).build();
 
   @Test
@@ -33,16 +33,16 @@ class MetricSensorHandlerTest {
       admin.creator().topic(topic).numberOfPartitions(10).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var sensors = new WebService.Sensors();
-      var defaultCostHandler = new MetricSensorHandler(sensors);
+      var defaultCostHandler = new SensorHandler(sensors);
       var defaultCostResponse =
           Assertions.assertInstanceOf(
-              MetricSensorHandler.Response.class,
+              SensorHandler.Response.class,
               defaultCostHandler.get(Channel.EMPTY).toCompletableFuture().join());
       Assertions.assertEquals(2, defaultCostResponse.costs.size());
 
       var changedCostResponse =
           Assertions.assertInstanceOf(
-              MetricSensorHandler.Response.class,
+              SensorHandler.Response.class,
               defaultCostHandler
                   .post(
                       Channel.builder()
@@ -54,7 +54,7 @@ class MetricSensorHandlerTest {
 
       var changedCostGetResponse =
           Assertions.assertInstanceOf(
-              MetricSensorHandler.Response.class,
+              SensorHandler.Response.class,
               defaultCostHandler.get(Channel.EMPTY).toCompletableFuture().join());
       Assertions.assertEquals(1, changedCostGetResponse.costs.size());
     }

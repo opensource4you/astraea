@@ -26,7 +26,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.cost.CostFunction;
 import org.astraea.common.json.TypeRef;
 
-public class MetricSensorHandler implements Handler {
+public class SensorHandler implements Handler {
 
   private final Sensors sensors;
   private static final Set<String> DEFAULT_COSTS =
@@ -34,7 +34,7 @@ public class MetricSensorHandler implements Handler {
           "org.astraea.common.cost.ReplicaLeaderCost",
           "org.astraea.common.cost.NetworkIngressCost");
 
-  MetricSensorHandler(Sensors sensors) {
+  SensorHandler(Sensors sensors) {
     this.sensors = sensors;
   }
 
