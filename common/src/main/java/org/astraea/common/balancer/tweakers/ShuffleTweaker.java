@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 
@@ -81,7 +80,7 @@ public class ShuffleTweaker {
                   .map(Map.Entry::getKey)
                   .collect(Collectors.toUnmodifiableList());
 
-          final var finalCluster = ClusterInfoBuilder.builder(baseAllocation);
+          final var finalCluster = ClusterInfo.builder(baseAllocation);
           for (int i = 0, shuffled = 0; i < partitionOrder.size() && shuffled < shuffleCount; i++) {
             final var tp = partitionOrder.get(i);
             if (!eligiblePartition(baseAllocation.replicas(tp))) continue;

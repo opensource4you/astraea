@@ -76,7 +76,7 @@ public class ClusterInfoTest {
             .mapToObj(x -> Utils.randomString())
             .collect(Collectors.toUnmodifiableSet());
     var builder =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(nodes)
             .addFolders(
                 nodes.stream()

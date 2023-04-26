@@ -59,7 +59,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -545,7 +544,7 @@ public class BalancerHandlerTest {
   @Timeout(value = 60)
   void testGenerationDetectOngoing() {
     var base =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(Set.of(1, 2, 3))
             .addFolders(Map.of(1, Set.of("/f0", "/f1")))
             .addFolders(Map.of(2, Set.of("/f0", "/f1")))
@@ -558,15 +557,15 @@ public class BalancerHandlerTest {
     var iter1 = Stream.iterate(true, (i) -> false).iterator();
     var iter2 = Stream.iterate(true, (i) -> false).iterator();
     var clusterHasFuture =
-        ClusterInfoBuilder.builder(base)
+        ClusterInfo.builder(base)
             .mapLog(r -> Replica.builder(r).isFuture(iter0.next()).build())
             .build();
     var clusterHasAdding =
-        ClusterInfoBuilder.builder(base)
+        ClusterInfo.builder(base)
             .mapLog(r -> Replica.builder(r).isAdding(iter1.next()).build())
             .build();
     var clusterHasRemoving =
-        ClusterInfoBuilder.builder(base)
+        ClusterInfo.builder(base)
             .mapLog(r -> Replica.builder(r).isRemoving(iter2.next()).build())
             .build();
     var admin = Mockito.mock(Admin.class);
@@ -959,7 +958,7 @@ public class BalancerHandlerTest {
             .map(Map.Entry::getValue)
             .collect(Collectors.toUnmodifiableList());
     var base =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(Set.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9))
             .addFolders(Map.of(0, Set.of("/folder0", "/folder1", "/folder2")))
             .addFolders(Map.of(1, Set.of("/folder0", "/folder1", "/folder2")))
@@ -976,7 +975,7 @@ public class BalancerHandlerTest {
     var srcPrefIter = Stream.iterate(true, (ignore) -> false).iterator();
     var srcDirIter = Stream.generate(() -> "/folder0").iterator();
     var sourceCluster =
-        ClusterInfoBuilder.builder(base)
+        ClusterInfo.builder(base)
             .addTopic(
                 "Pipeline",
                 1,
@@ -992,7 +991,7 @@ public class BalancerHandlerTest {
     var dstPrefIter = Stream.iterate(true, (ignore) -> false).iterator();
     var dstDirIter = Stream.generate(() -> "/folder1").iterator();
     var destCluster =
-        ClusterInfoBuilder.builder(base)
+        ClusterInfo.builder(base)
             .addTopic(
                 "Pipeline",
                 1,
@@ -1037,27 +1036,15 @@ public class BalancerHandlerTest {
         IllegalArgumentException.class,
         () ->
             BalancerHandler.Change.from(
-                ClusterInfoBuilder.builder(base)
-                    .addTopic("Pipeline", 1, (short) 3)
-                    .build()
-                    .replicas(),
-                ClusterInfoBuilder.builder(base)
-                    .addTopic("Pipeline", 5, (short) 3)
-                    .build()
-                    .replicas()),
+                ClusterInfo.builder(base).addTopic("Pipeline", 1, (short) 3).build().replicas(),
+                ClusterInfo.builder(base).addTopic("Pipeline", 5, (short) 3).build().replicas()),
         "Should be a replica list");
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () ->
             BalancerHandler.Change.from(
-                ClusterInfoBuilder.builder(base)
-                    .addTopic("Pipeline", 5, (short) 3)
-                    .build()
-                    .replicas(),
-                ClusterInfoBuilder.builder(base)
-                    .addTopic("Pipeline", 1, (short) 3)
-                    .build()
-                    .replicas()),
+                ClusterInfo.builder(base).addTopic("Pipeline", 5, (short) 3).build().replicas(),
+                ClusterInfo.builder(base).addTopic("Pipeline", 1, (short) 3).build().replicas()),
         "Should be a replica list");
     Assertions.assertThrows(
         NoSuchElementException.class,
