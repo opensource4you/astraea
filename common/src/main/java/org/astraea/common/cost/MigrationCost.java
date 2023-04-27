@@ -33,21 +33,21 @@ public class MigrationCost {
   public final Map<Integer, Long> brokerCosts;
   public static final String TO_SYNC_BYTES = "record size to sync (bytes)";
   public static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
-  public static final String TO_SYNC_LEADERS = "leader number to sync";
-  public static final String TO_FETCH_LEADERS = "leader number to fetch";
+  public static final String REPLICA_LEADERS_TO_ADDED = "leader number to add";
+  public static final String REPLICA_LEADERS_TO_REMOVE = "leader number to remove";
   public static final String CHANGED_REPLICAS = "changed replicas";
 
   public static List<MigrationCost> migrationCosts(ClusterInfo before, ClusterInfo after) {
     var migrateInBytes = recordSizeToSync(before, after);
     var migrateOutBytes = recordSizeToFetch(before, after);
     var migrateReplicaNum = replicaNumChanged(before, after);
-    var migrateInLeader = replicaLeaderToFetch(before, after);
-    var migrateOutLeader = replicaLeaderToSync(before, after);
+    var migrateInLeader = replicaLeaderToAdd(before, after);
+    var migrateOutLeader = replicaLeaderToRemove(before, after);
     return List.of(
         new MigrationCost(TO_SYNC_BYTES, migrateInBytes),
         new MigrationCost(TO_FETCH_BYTES, migrateOutBytes),
-        new MigrationCost(TO_SYNC_LEADERS, migrateInLeader),
-        new MigrationCost(TO_FETCH_LEADERS, migrateOutLeader),
+        new MigrationCost(REPLICA_LEADERS_TO_ADDED, migrateInLeader),
+        new MigrationCost(REPLICA_LEADERS_TO_REMOVE, migrateOutLeader),
         new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum));
   }
 
@@ -68,11 +68,11 @@ public class MigrationCost {
     return changedReplicaNumber(before, after);
   }
 
-  static Map<Integer, Long> replicaLeaderToFetch(ClusterInfo before, ClusterInfo after) {
+  static Map<Integer, Long> replicaLeaderToAdd(ClusterInfo before, ClusterInfo after) {
     return migratedChanged(before, after, true, Replica::isLeader, ignore -> 1L);
   }
 
-  static Map<Integer, Long> replicaLeaderToSync(ClusterInfo before, ClusterInfo after) {
+  static Map<Integer, Long> replicaLeaderToRemove(ClusterInfo before, ClusterInfo after) {
     return migratedChanged(before, after, false, Replica::isLeader, ignore -> 1L);
   }
 

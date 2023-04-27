@@ -19,8 +19,8 @@ package org.astraea.common.cost;
 import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
 import static org.astraea.common.cost.MigrationCost.recordSizeToFetch;
 import static org.astraea.common.cost.MigrationCost.recordSizeToSync;
-import static org.astraea.common.cost.MigrationCost.replicaLeaderToFetch;
-import static org.astraea.common.cost.MigrationCost.replicaLeaderToSync;
+import static org.astraea.common.cost.MigrationCost.replicaLeaderToAdd;
+import static org.astraea.common.cost.MigrationCost.replicaLeaderToRemove;
 import static org.astraea.common.cost.MigrationCost.replicaNumChanged;
 
 import java.util.List;
@@ -163,8 +163,8 @@ class MigrationCostTest {
 
     var beforeClusterInfo = ClusterInfoTest.of(before);
     var afterClusterInfo = ClusterInfoTest.of(after);
-    var changedReplicaLeaderInCount = replicaLeaderToFetch(beforeClusterInfo, afterClusterInfo);
-    var changedReplicaLeaderOutCount = replicaLeaderToSync(beforeClusterInfo, afterClusterInfo);
+    var changedReplicaLeaderInCount = replicaLeaderToAdd(beforeClusterInfo, afterClusterInfo);
+    var changedReplicaLeaderOutCount = replicaLeaderToRemove(beforeClusterInfo, afterClusterInfo);
     Assertions.assertEquals(3, changedReplicaLeaderInCount.size());
     Assertions.assertEquals(1, changedReplicaLeaderInCount.get(0));
     Assertions.assertEquals(0, changedReplicaLeaderInCount.get(1));
