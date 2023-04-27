@@ -36,7 +36,7 @@ public class BeanHandler implements Handler {
 
   @Override
   public CompletionStage<Response> get(Channel channel) {
-    var builder = BeanQuery.builder().usePropertyListPattern().properties(channel.queries());
+    var builder = BeanQuery.builder().propertyListPattern(true).properties(channel.queries());
     return admin
         .brokers()
         .thenApply(

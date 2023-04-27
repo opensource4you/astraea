@@ -326,7 +326,7 @@ class MBeanClientTest {
           BeanQuery.builder()
               .domainName("java.lang")
               .property("type", "*")
-              .usePropertyListPattern()
+              .propertyListPattern(true)
               .build();
 
       // act
@@ -335,7 +335,7 @@ class MBeanClientTest {
       // assert
       /*
       It might be hard to understand what this test is testing for.
-      The keypoint is we are using BeanQueryBuilder#usePropertyListPattern()
+      The keypoint is we are using BeanQueryBuilder#propertyListPattern(true)
 
       Without it the query will be "java.lang:type=*"
       And we only match the following
