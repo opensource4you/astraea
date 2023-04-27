@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ServerMetrics;

@@ -19,7 +19,7 @@ package org.astraea.common.metrics.collector;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
 import org.junit.jupiter.api.Assertions;

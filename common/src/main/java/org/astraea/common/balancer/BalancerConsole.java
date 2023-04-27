@@ -23,7 +23,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 
 /** Offer a uniform interface to schedule/manage/execute balance plan to an actual Kafka cluster. */

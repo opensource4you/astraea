@@ -17,7 +17,7 @@
 package org.astraea.common.balancer.algorithms;
 
 import java.util.Map;
-import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.junit.jupiter.api.Assertions;
