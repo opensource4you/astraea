@@ -16,6 +16,7 @@
  */
 package org.astraea.app.web;
 
+import java.time.Duration;
 import java.util.concurrent.ThreadLocalRandom;
 import org.astraea.app.argument.Argument;
 import org.astraea.common.admin.Admin;
@@ -39,7 +40,7 @@ public class WebServiceTest {
   @Timeout(10)
   @Test
   void testClose() {
-    var web = new WebService(Mockito.mock(Admin.class), 0, id -> -1);
+    var web = new WebService(Mockito.mock(Admin.class), 0, id -> -1, Duration.ofMillis(5));
     web.close();
   }
 
