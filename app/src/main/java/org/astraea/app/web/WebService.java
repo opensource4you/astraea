@@ -98,7 +98,7 @@ public class WebService implements AutoCloseable {
 
   @Override
   public void close() {
-    Utils.swallowException(admin::close);
+    Utils.close(admin);
     server.stop(3);
   }
 

@@ -120,7 +120,7 @@ public class CsvReaderBuilder {
 
     @Override
     public void close() {
-      Utils.packException(csvReader::close);
+      Utils.close(csvReader);
     }
   }
 }

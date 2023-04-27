@@ -124,7 +124,7 @@ public interface MBeanClient extends AutoCloseable {
               jmxServiceURL.getPort()) {
             @Override
             public void close() {
-              Utils.packException(jmxConnector::close);
+              Utils.close(jmxConnector);
             }
           };
         });
