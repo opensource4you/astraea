@@ -20,7 +20,7 @@ import java.time.Duration;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
