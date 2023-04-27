@@ -26,7 +26,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.MetricsTestUtil;
+import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -96,7 +96,7 @@ public class LogMetricsTest {
     log.fetch(MBeanClient.local())
         .forEach(
             m -> {
-              MetricsTestUtil.validate(m);
+              MetricsTestUtils.validate(m);
               Assertions.assertEquals(m.type(), log);
             });
   }
@@ -137,6 +137,6 @@ public class LogMetricsTest {
   @Test
   void testAllEnumNameUnique() {
     Assertions.assertTrue(
-        MetricsTestUtil.metricDistinct(LogMetrics.Log.values(), LogMetrics.Log::metricName));
+        MetricsTestUtils.metricDistinct(LogMetrics.Log.values(), LogMetrics.Log::metricName));
   }
 }

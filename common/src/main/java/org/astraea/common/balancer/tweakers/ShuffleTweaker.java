@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartitionReplica;
 
@@ -95,7 +94,7 @@ public class ShuffleTweaker {
                   .collect(Collectors.toUnmodifiableList());
           final var forbiddenReplica = new HashSet<TopicPartitionReplica>();
 
-          final var finalCluster = ClusterInfoBuilder.builder(baseAllocation);
+          final var finalCluster = ClusterInfo.builder(baseAllocation);
           for (int i = 0, shuffled = 0; i < replicaOrder.size() && shuffled < shuffleCount; i++) {
             final var sourceReplica = replicaOrder.get(i);
 

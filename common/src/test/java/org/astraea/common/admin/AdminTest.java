@@ -584,7 +584,7 @@ public class AdminTest {
       var source = admin.clusterInfo(Set.of(topic)).toCompletableFuture().join();
       // 10 replicas, all move to another folder within the same broker. No cross broker movement.
       var target =
-          ClusterInfoBuilder.builder(source)
+          ClusterInfo.builder(source)
               .mapLog(
                   r ->
                       Replica.builder(r)

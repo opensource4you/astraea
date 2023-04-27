@@ -28,7 +28,6 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
@@ -159,7 +158,7 @@ class StraightPlanExecutorTest {
 
       var source = admin.clusterInfo(Set.of(topic)).toCompletableFuture().join();
       var target =
-          ClusterInfoBuilder.builder(source)
+          ClusterInfo.builder(source)
               .mapLog(
                   replica ->
                       Replica.builder(replica)

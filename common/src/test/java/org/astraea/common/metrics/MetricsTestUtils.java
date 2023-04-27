@@ -17,8 +17,10 @@
 package org.astraea.common.metrics;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.broker.HasCount;
 import org.astraea.common.metrics.broker.HasEventType;
 import org.astraea.common.metrics.broker.HasGauge;
@@ -28,9 +30,31 @@ import org.astraea.common.metrics.broker.HasPercentiles;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.HasStatistics;
 import org.astraea.common.metrics.broker.HasTimer;
+import org.astraea.common.metrics.collector.MetricSensor;
 import org.junit.jupiter.api.Assertions;
 
-public class MetricsTestUtil {
+public final class MetricsTestUtils {
+
+  private MetricsTestUtils() {}
+
+  /**
+   * create a cluster bean right now by fetching all beans from input clients
+   *
+   * @param clients to fetch
+   * @param sensor to generate object
+   * @return cluster bean
+   */
+  public static ClusterBean clusterBean(Map<Integer, MBeanClient> clients, MetricSensor sensor) {
+    return ClusterBean.of(
+        clients.entrySet().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Map.Entry::getKey,
+                    entry ->
+                        sensor.fetch(
+                            MBeanClient.of(entry.getValue().beans(BeanQuery.all())),
+                            ClusterBean.EMPTY))));
+  }
 
   public static <T extends Enum<T>> boolean metricDistinct(
       T[] tEnums, Function<T, String> getMetricName) {
