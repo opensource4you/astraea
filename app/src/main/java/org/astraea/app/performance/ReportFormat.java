@@ -89,7 +89,7 @@ public enum ReportFormat implements EnumInfo {
               Utils.sleep(Duration.ofSeconds(1));
             }
           } finally {
-            Utils.packException(writer::close);
+            Utils.close(writer);
           }
         };
       case JSON:
@@ -101,7 +101,7 @@ public enum ReportFormat implements EnumInfo {
               Utils.sleep(Duration.ofSeconds(1));
             }
           } finally {
-            Utils.packException(writer::close);
+            Utils.close(writer);
           }
         };
       default:

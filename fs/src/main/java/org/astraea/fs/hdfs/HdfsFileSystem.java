@@ -144,6 +144,6 @@ public class HdfsFileSystem implements FileSystem {
 
   @Override
   public void close() {
-    Utils.packException(fs::close);
+    Utils.close(fs);
   }
 }
