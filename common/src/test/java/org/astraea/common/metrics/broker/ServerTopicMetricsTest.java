@@ -16,7 +16,7 @@
  */
 package org.astraea.common.metrics.broker;
 
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
@@ -43,7 +43,7 @@ public class ServerTopicMetricsTest {
   @ParameterizedTest
   @EnumSource(value = ServerMetrics.BrokerTopic.class)
   void testRequestBrokerTopicMetrics(ServerMetrics.BrokerTopic metric) {
-    var meter = metric.fetch(MBeanClient.local());
+    var meter = metric.fetch(JndiClient.local());
     MetricsTestUtils.validate(meter);
   }
 }

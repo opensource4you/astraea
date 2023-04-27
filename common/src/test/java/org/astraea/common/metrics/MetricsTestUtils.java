@@ -43,7 +43,7 @@ public final class MetricsTestUtils {
    * @param sensor to generate object
    * @return cluster bean
    */
-  public static ClusterBean clusterBean(Map<Integer, MBeanClient> clients, MetricSensor sensor) {
+  public static ClusterBean clusterBean(Map<Integer, JndiClient> clients, MetricSensor sensor) {
     return ClusterBean.of(
         clients.entrySet().stream()
             .collect(

@@ -35,6 +35,7 @@ import org.astraea.app.argument.NonNegativeIntegerField;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.collector.MetricStore;
@@ -62,8 +63,7 @@ public class WebService implements AutoCloseable {
                                 Collectors.toUnmodifiableMap(
                                     NodeInfo::id,
                                     b ->
-                                        MBeanClient.jndi(
-                                            b.host(), brokerIdToJmxPort.apply(b.id())))));
+                                        JndiClient.of(b.host(), brokerIdToJmxPort.apply(b.id())))));
     var metricStore =
         MetricStore.builder()
             .beanExpiration(beanExpiration)

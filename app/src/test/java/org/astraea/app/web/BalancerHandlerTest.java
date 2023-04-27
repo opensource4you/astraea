@@ -76,6 +76,7 @@ import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.ClusterBean;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.collector.MetricStore;
@@ -1355,8 +1356,7 @@ public class BalancerHandlerTest {
                                 Collectors.toUnmodifiableMap(
                                     NodeInfo::id,
                                     b ->
-                                        MBeanClient.jndi(
-                                            b.host(), brokerIdToJmxPort.apply(b.id())))));
+                                        JndiClient.of(b.host(), brokerIdToJmxPort.apply(b.id())))));
     var cw = costWeights.stream().map(x -> x.cost).collect(Collectors.toSet());
     var cf = Utils.costFunctions(cw, HasClusterCost.class, Configuration.EMPTY);
     var metricSensors = cf.stream().map(c -> c.metricSensor().get()).collect(Collectors.toList());

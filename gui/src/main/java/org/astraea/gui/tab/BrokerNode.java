@@ -40,7 +40,7 @@ import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.HasStatistics;
@@ -196,10 +196,10 @@ public class BrokerNode {
                           }
                         })));
 
-    private final Function<MBeanClient, Map<String, Object>> fetcher;
+    private final Function<JndiClient, Map<String, Object>> fetcher;
     private final String display;
 
-    MetricType(String display, Function<MBeanClient, Map<String, Object>> fetcher) {
+    MetricType(String display, Function<JndiClient, Map<String, Object>> fetcher) {
       this.display = display;
       this.fetcher = fetcher;
     }
