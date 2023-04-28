@@ -229,7 +229,7 @@ public interface MetricStore extends AutoCloseable {
                 lastSensors = sensorsSupplier.get();
                 allBeans.forEach(
                     (id, bs) -> {
-                      var client = MBeanClient.of(bs);
+                      var client = BeanObjectClient.of(id, bs);
                       var clusterBean = clusterBean();
                       lastSensors.forEach(
                           (sensor, errorHandler) -> {
