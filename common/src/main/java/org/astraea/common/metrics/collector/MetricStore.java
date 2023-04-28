@@ -206,13 +206,17 @@ public interface MetricStore extends AutoCloseable {
             while (!closed.get()) {
               try {
                 var before = System.currentTimeMillis() - beanExpiration.toMillis();
-                var noUpdate =
-                    this.beans.values().stream()
-                        .noneMatch(
-                            bs ->
-                                bs.removeIf(
-                                    hasBeanObject -> hasBeanObject.createdTimestamp() < before));
-                if (!noUpdate) updateClusterBean();
+                var noUpdate = new AtomicBoolean(true);
+                this.beans
+                    .values()
+                    .forEach(
+                        beans -> {
+                          noUpdate.set(false);
+                          beans.removeIf(
+                              hasBeanObject -> hasBeanObject.createdTimestamp() < before);
+                        });
+                if (!noUpdate.get()) updateClusterBean();
+                TimeUnit.MILLISECONDS.sleep(beanExpiration.toMillis());
               } catch (Exception e) {
                 // TODO: it needs better error handling
                 e.printStackTrace();
