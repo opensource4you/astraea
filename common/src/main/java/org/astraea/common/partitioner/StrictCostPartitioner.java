@@ -73,7 +73,7 @@ public class StrictCostPartitioner extends Partitioner {
   HasBrokerCost brokerCost = new NodeLatencyCost();
   HasPartitionCost partitionCost = new ReplicaLeaderSizeCost();
   // The minimum partition cost of every topic of every broker.
-  Map<String, Map<Integer, Integer>> minPartition = new HashMap<>();
+  final Map<String, Map<Integer, Integer>> minPartition = new HashMap<>();
   long partitionUpdateTime = 0L;
   Function<Integer, Integer> jmxPortGetter =
       (id) -> {
@@ -157,13 +157,15 @@ public class StrictCostPartitioner extends Partitioner {
    */
   private int tryUpdateMinPartition(
       String topic, int brokerId, BiFunction<String, Integer, Integer> partition) {
-    if (Utils.isExpired(partitionUpdateTime, roundRobinLease)) {
-      partitionUpdateTime = System.currentTimeMillis();
-      minPartition.clear();
+    synchronized (minPartition) {
+      if (Utils.isExpired(partitionUpdateTime, roundRobinLease)) {
+        partitionUpdateTime = System.currentTimeMillis();
+        minPartition.clear();
+      }
+      return minPartition
+          .computeIfAbsent(topic, (tp) -> new HashMap<>())
+          .computeIfAbsent(brokerId, (id) -> partition.apply(topic, id));
     }
-    return minPartition
-        .computeIfAbsent(topic, (tp) -> new HashMap<>())
-        .computeIfAbsent(brokerId, (id) -> partition.apply(topic, id));
   }
   /**
    * The value of cost returned from cost function is conflict to score, since the higher cost
