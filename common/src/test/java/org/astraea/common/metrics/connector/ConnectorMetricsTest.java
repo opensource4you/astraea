@@ -17,7 +17,7 @@
 package org.astraea.common.metrics.connector;
 
 import org.astraea.common.connector.ConnectorClient;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -36,7 +36,7 @@ public class ConnectorMetricsTest {
   void testMetrics() {
     ConnectorClient.builder().url(SERVICE.workerUrl()).build();
 
-    var m0 = ConnectorMetrics.appInfo(MBeanClient.local());
+    var m0 = ConnectorMetrics.appInfo(JndiClient.local());
     Assertions.assertNotEquals(0, m0.size());
     m0.forEach(
         m -> {
@@ -45,7 +45,7 @@ public class ConnectorMetricsTest {
           Assertions.assertDoesNotThrow(m::version);
         });
 
-    var m1 = ConnectorMetrics.coordinatorInfo(MBeanClient.local());
+    var m1 = ConnectorMetrics.coordinatorInfo(JndiClient.local());
     Assertions.assertNotEquals(0, m1.size());
     m1.forEach(
         m -> {
@@ -73,7 +73,7 @@ public class ConnectorMetricsTest {
           Assertions.assertDoesNotThrow(m::assignedTasks);
         });
 
-    var m2 = ConnectorMetrics.connector(MBeanClient.local());
+    var m2 = ConnectorMetrics.connector(JndiClient.local());
     Assertions.assertNotEquals(0, m2.size());
     m2.forEach(
         m -> {
@@ -115,7 +115,7 @@ public class ConnectorMetricsTest {
           Assertions.assertDoesNotThrow(m::successfulReauthenticationTotal);
         });
 
-    var m3 = ConnectorMetrics.nodeInfo(MBeanClient.local());
+    var m3 = ConnectorMetrics.nodeInfo(JndiClient.local());
     Assertions.assertNotEquals(0, m3.size());
     m3.forEach(
         m -> {
@@ -133,7 +133,7 @@ public class ConnectorMetricsTest {
           Assertions.assertDoesNotThrow(m::responseTotal);
         });
 
-    var m4 = ConnectorMetrics.workerInfo(MBeanClient.local());
+    var m4 = ConnectorMetrics.workerInfo(JndiClient.local());
     Assertions.assertNotEquals(0, m4.size());
     m4.forEach(
         m -> {
@@ -151,7 +151,7 @@ public class ConnectorMetricsTest {
           Assertions.assertDoesNotThrow(m::taskStartupSuccessTotal);
         });
 
-    var m5 = ConnectorMetrics.workerRebalanceInfo(MBeanClient.local());
+    var m5 = ConnectorMetrics.workerRebalanceInfo(JndiClient.local());
     Assertions.assertNotEquals(0, m5.size());
     m5.forEach(
         m -> {

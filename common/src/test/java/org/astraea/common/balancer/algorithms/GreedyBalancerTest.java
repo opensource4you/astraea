@@ -28,7 +28,7 @@ import org.astraea.common.balancer.FakeClusterInfo;
 import org.astraea.common.cost.DecreasingCost;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.ClusterBean;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -65,7 +65,7 @@ class GreedyBalancerTest extends BalancerConfigTestSuite {
         Utils.construct(
             GreedyBalancer.class, Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "100")));
 
-    try (MBeanClient client = MBeanClient.local()) {
+    try (JndiClient client = JndiClient.local()) {
       IntStream.range(0, 10)
           .forEach(
               run -> {
