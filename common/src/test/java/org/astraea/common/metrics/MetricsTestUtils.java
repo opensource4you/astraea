@@ -20,7 +20,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.broker.HasCount;
 import org.astraea.common.metrics.broker.HasEventType;
 import org.astraea.common.metrics.broker.HasGauge;
@@ -44,7 +43,7 @@ public final class MetricsTestUtils {
    * @param sensor to generate object
    * @return cluster bean
    */
-  public static ClusterBean clusterBean(Map<Integer, MBeanClient> clients, MetricSensor sensor) {
+  public static ClusterBean clusterBean(Map<Integer, JndiClient> clients, MetricSensor sensor) {
     return ClusterBean.of(
         clients.entrySet().stream()
             .collect(

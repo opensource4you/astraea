@@ -20,7 +20,7 @@ import java.time.Duration;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.producer.Producer;
@@ -44,7 +44,7 @@ public class ProducerMetricsTest {
     var topic = Utils.randomString(10);
     try (var producer = Producer.of(SERVICE.bootstrapServers())) {
       producer.send(Record.builder().topic(topic).build()).toCompletableFuture().join();
-      ProducerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtils::validate);
+      ProducerMetrics.appInfo(JndiClient.local()).forEach(MetricsTestUtils::validate);
     }
   }
 
@@ -54,7 +54,7 @@ public class ProducerMetricsTest {
     try (var producer = Producer.of(SERVICE.bootstrapServers())) {
       producer.send(Record.builder().topic(topic).build()).toCompletableFuture().join();
       var metrics =
-          ProducerMetrics.producer(MBeanClient.local()).stream()
+          ProducerMetrics.producer(JndiClient.local()).stream()
               .filter(m -> m.clientId().equals(producer.clientId()))
               .findFirst()
               .get();
@@ -135,7 +135,7 @@ public class ProducerMetricsTest {
     var topic = Utils.randomString(10);
     try (var producer = Producer.of(SERVICE.bootstrapServers())) {
       producer.send(Record.builder().topic(topic).build()).toCompletableFuture().join();
-      var metrics = ProducerMetrics.topic(MBeanClient.local());
+      var metrics = ProducerMetrics.topic(JndiClient.local());
       Assertions.assertNotEquals(0, metrics.stream().filter(m -> m.topic().equals(topic)).count());
       var producerTopicMetrics =
           metrics.stream().filter(m -> m.clientId().equals(producer.clientId())).findFirst().get();
@@ -173,7 +173,7 @@ public class ProducerMetricsTest {
           .toCompletableFuture()
           .join();
 
-      var metrics = ProducerMetrics.node(MBeanClient.local());
+      var metrics = ProducerMetrics.node(JndiClient.local());
       Assertions.assertNotEquals(1, metrics.size());
       Assertions.assertTrue(
           metrics.stream()

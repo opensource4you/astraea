@@ -22,11 +22,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
 import org.astraea.common.producer.Producer;
@@ -90,7 +90,7 @@ public class NodeLatencyCostTest {
                           ClusterBean.of(
                               Map.of(
                                   -1,
-                                  ProducerMetrics.node(MBeanClient.local()).stream()
+                                  ProducerMetrics.node(JndiClient.local()).stream()
                                       .map(b -> (HasBeanObject) b)
                                       .collect(Collectors.toUnmodifiableList()))))
                       .value()
@@ -102,7 +102,7 @@ public class NodeLatencyCostTest {
   @Test
   void testSensor() {
     var function = new NodeLatencyCost();
-    var client = Mockito.mock(MBeanClient.class);
+    var client = Mockito.mock(JndiClient.class);
     Mockito.when(client.beans(Mockito.any()))
         .thenReturn(
             List.of(

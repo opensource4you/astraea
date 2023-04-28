@@ -31,7 +31,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
@@ -60,13 +60,13 @@ public class ServerMetricsTest {
 
   @Test
   void testAppInfo() {
-    ServerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtils::validate);
+    ServerMetrics.appInfo(JndiClient.local()).forEach(MetricsTestUtils::validate);
   }
 
   @ParameterizedTest()
   @EnumSource(value = ServerMetrics.DelayedOperationPurgatory.class)
   void testPurgatorySize(ServerMetrics.DelayedOperationPurgatory request) {
-    var m = request.fetch(MBeanClient.local());
+    var m = request.fetch(JndiClient.local());
     Assertions.assertDoesNotThrow(m::value);
     MetricsTestUtils.validate(m);
   }
@@ -74,17 +74,17 @@ public class ServerMetricsTest {
   @ParameterizedTest()
   @EnumSource(value = ServerMetrics.KafkaServer.class)
   void testKafkaServer(ServerMetrics.KafkaServer request) {
-    MetricsTestUtils.validate(request.fetch(MBeanClient.local()));
+    MetricsTestUtils.validate(request.fetch(JndiClient.local()));
   }
 
   @Test
   void testKafkaServerOtherMetrics() {
-    MetricsTestUtils.validate(ServerMetrics.KafkaServer.CLUSTER_ID.fetch(MBeanClient.local()));
+    MetricsTestUtils.validate(ServerMetrics.KafkaServer.CLUSTER_ID.fetch(JndiClient.local()));
   }
 
   @Test
   void testSocketMetrics() {
-    var socketMetric = ServerMetrics.Socket.socket(MBeanClient.local());
+    var socketMetric = ServerMetrics.Socket.socket(JndiClient.local());
 
     assertDoesNotThrow(socketMetric::brokerConnectionAcceptRate);
     assertDoesNotThrow(socketMetric::memoryPoolAvgDepletedPercent);
@@ -93,7 +93,7 @@ public class ServerMetricsTest {
 
   @Test
   void testSocketListenerMetrics() {
-    var socketListenerMetrics = ServerMetrics.Socket.socketListener(MBeanClient.local());
+    var socketListenerMetrics = ServerMetrics.Socket.socketListener(JndiClient.local());
     assertTrue(socketListenerMetrics.size() > 0);
     socketListenerMetrics.forEach(
         x -> {
@@ -108,7 +108,7 @@ public class ServerMetricsTest {
   @Test
   void testSocketNetworkProcessorMetrics() {
     var socketNetworkProcessorMetrics =
-        ServerMetrics.Socket.socketNetworkProcessor(MBeanClient.local());
+        ServerMetrics.Socket.socketNetworkProcessor(JndiClient.local());
     assertTrue(socketNetworkProcessorMetrics.size() > 0);
     socketNetworkProcessorMetrics.forEach(
         x -> {
@@ -160,7 +160,7 @@ public class ServerMetricsTest {
 
   @Test
   void testSocketClientMetrics() {
-    var clientMetrics = ServerMetrics.Socket.client(MBeanClient.local());
+    var clientMetrics = ServerMetrics.Socket.client(JndiClient.local());
     assertTrue(clientMetrics.size() > 0);
     clientMetrics.forEach(
         x -> {
@@ -228,7 +228,7 @@ public class ServerMetricsTest {
       var records = consumer.poll(Duration.ofSeconds(5));
       Assertions.assertEquals(1, records.size());
     }
-    var meters = topic.fetch(MBeanClient.local());
+    var meters = topic.fetch(JndiClient.local());
     Assertions.assertNotEquals(0, meters.size());
     Assertions.assertNotEquals(0, meters.stream().filter(m -> m.topic().equals(name)).count());
     meters.forEach(

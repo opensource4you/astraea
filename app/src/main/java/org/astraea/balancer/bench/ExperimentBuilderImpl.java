@@ -21,11 +21,11 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.metrics.ClusterBean;
 
 class ExperimentBuilderImpl implements BalancerBenchmark.ExperimentBuilder {
   private Balancer balancer;

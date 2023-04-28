@@ -60,7 +60,7 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
 
   @Override
   public void close() {
-    if (admin != null) Utils.packException(admin::close);
+    Utils.close(admin);
   }
 
   // -----------------------[interdependent]-----------------------//

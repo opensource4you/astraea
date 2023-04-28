@@ -26,7 +26,7 @@ import org.astraea.app.argument.StringMapField;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.collector.MetricFetcher;
 
 /** Keep fetching all kinds of metrics and publish to inner topics. */
@@ -58,7 +58,7 @@ public class MetricPublisher {
                                         Collectors.toUnmodifiableMap(
                                             NodeInfo::id,
                                             node ->
-                                                MBeanClient.jndi(
+                                                JndiClient.of(
                                                     node.host(),
                                                     arguments.idToJmxPort().apply(node.id()))))))
             .fetchBeanDelay(arguments.period)
