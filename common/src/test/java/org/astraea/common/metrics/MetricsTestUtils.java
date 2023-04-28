@@ -29,6 +29,7 @@ import org.astraea.common.metrics.broker.HasPercentiles;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.HasStatistics;
 import org.astraea.common.metrics.broker.HasTimer;
+import org.astraea.common.metrics.collector.BeanObjectClient;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.junit.jupiter.api.Assertions;
 
@@ -51,7 +52,8 @@ public final class MetricsTestUtils {
                     Map.Entry::getKey,
                     entry ->
                         sensor.fetch(
-                            MBeanClient.of(entry.getValue().beans(BeanQuery.all())),
+                            BeanObjectClient.of(
+                                entry.getKey(), entry.getValue().beans(BeanQuery.all())),
                             ClusterBean.EMPTY))));
   }
 

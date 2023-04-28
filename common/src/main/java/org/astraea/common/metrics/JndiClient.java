@@ -40,7 +40,6 @@ import org.astraea.common.Utils;
 
 /** A MBeanClient used to retrieve mbean value from remote Jmx server. */
 public interface JndiClient extends MBeanClient, AutoCloseable {
-
   /**
    * @param host the address of jmx server
    * @param port the port of jmx server

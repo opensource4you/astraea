@@ -29,6 +29,7 @@ import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
+import org.astraea.common.metrics.collector.BeanObjectClient;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
@@ -102,7 +103,7 @@ public class NodeLatencyCostTest {
   @Test
   void testSensor() {
     var function = new NodeLatencyCost();
-    var client = Mockito.mock(JndiClient.class);
+    var client = Mockito.mock(BeanObjectClient.class);
     Mockito.when(client.beans(Mockito.any()))
         .thenReturn(
             List.of(

@@ -22,8 +22,8 @@ import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.ClusterBean;
-import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.broker.ServerMetrics;
+import org.astraea.common.metrics.collector.BeanObjectClient;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
@@ -49,7 +49,11 @@ public class MoveCostTest {
     var mergeCost = HasMoveCost.of(List.of(cost1, cost2));
     var metrics =
         mergeCost.metricSensor().stream()
-            .map(x -> x.fetch(JndiClient.of(SERVICE.jmxServiceURL()), ClusterBean.EMPTY))
+            .map(
+                x ->
+                    x.fetch(
+                        BeanObjectClient.local(SERVICE.dataFolders().keySet().iterator().next()),
+                        ClusterBean.EMPTY))
             .collect(Collectors.toSet());
     Assertions.assertEquals(3, metrics.iterator().next().size());
     Assertions.assertTrue(
