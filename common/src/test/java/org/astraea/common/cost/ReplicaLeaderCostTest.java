@@ -21,11 +21,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -35,13 +34,13 @@ public class ReplicaLeaderCostTest {
   @Test
   void testLeaderCount() {
     var baseCluster =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(Set.of(1, 2))
             .addFolders(Map.of(1, Set.of("/folder")))
             .addFolders(Map.of(2, Set.of("/folder")))
             .build();
     var sourceCluster =
-        ClusterInfoBuilder.builder(baseCluster)
+        ClusterInfo.builder(baseCluster)
             .addTopic(
                 "topic1",
                 3,
@@ -54,7 +53,7 @@ public class ReplicaLeaderCostTest {
                 r -> Replica.builder(r).nodeInfo(baseCluster.node(2)).build())
             .build();
     var overFlowTargetCluster =
-        ClusterInfoBuilder.builder(baseCluster)
+        ClusterInfo.builder(baseCluster)
             .addTopic(
                 "topic1",
                 3,
