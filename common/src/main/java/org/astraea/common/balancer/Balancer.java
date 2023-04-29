@@ -25,6 +25,7 @@ import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.metrics.ClusterBean;
 
 public interface Balancer {
 
@@ -34,6 +35,7 @@ public interface Balancer {
   Optional<Plan> offer(AlgorithmConfig config);
 
   class Plan {
+    private final ClusterBean clusterBean;
     private final ClusterInfo initialClusterInfo;
     private final ClusterCost initialClusterCost;
 
@@ -42,16 +44,22 @@ public interface Balancer {
     private final MoveCost moveCost;
 
     public Plan(
+        ClusterBean clusterBean,
         ClusterInfo initialClusterInfo,
         ClusterCost initialClusterCost,
         ClusterInfo proposal,
         ClusterCost proposalClusterCost,
         MoveCost moveCost) {
+      this.clusterBean = clusterBean;
       this.initialClusterInfo = initialClusterInfo;
       this.initialClusterCost = initialClusterCost;
       this.proposal = proposal;
       this.proposalClusterCost = proposalClusterCost;
       this.moveCost = moveCost;
+    }
+
+    public ClusterBean clusterBean() {
+      return clusterBean;
     }
 
     public ClusterInfo initialClusterInfo() {

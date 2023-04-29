@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.admin;
+package org.astraea.common.metrics;
 
 import java.util.Collection;
 import java.util.List;
@@ -26,7 +26,9 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Lazy;
-import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.admin.BrokerTopic;
+import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 
 /** Used to get beanObject using a variety of different keys . */
 public interface ClusterBean {

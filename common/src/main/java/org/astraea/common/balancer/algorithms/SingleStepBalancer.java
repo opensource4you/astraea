@@ -89,6 +89,7 @@ public class SingleStepBalancer implements Balancer {
         .map(
             newAllocation ->
                 new Plan(
+                    config.clusterBean(),
                     config.clusterInfo(),
                     currentCost,
                     newAllocation,

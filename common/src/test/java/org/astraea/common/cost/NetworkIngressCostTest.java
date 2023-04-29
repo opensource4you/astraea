@@ -25,11 +25,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
-import org.astraea.common.admin.ClusterInfoBuilder;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -53,16 +53,14 @@ public class NetworkIngressCostTest {
             .mapToObj(i -> Utils.randomString(6))
             .collect(Collectors.toUnmodifiableList());
     var clusterInfo =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(Set.of(1))
             .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
             .build();
 
     for (var topic : topics) {
       clusterInfo =
-          ClusterInfoBuilder.builder(clusterInfo)
-              .addTopic(topic, 1, (short) 1, generateReplica)
-              .build();
+          ClusterInfo.builder(clusterInfo).addTopic(topic, 1, (short) 1, generateReplica).build();
     }
     var index = new AtomicInteger(1);
     var clusterBean =
@@ -99,16 +97,14 @@ public class NetworkIngressCostTest {
             .mapToObj(i -> Utils.randomString(6))
             .collect(Collectors.toUnmodifiableList());
     var clusterInfo =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(Set.of(1))
             .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
             .build();
 
     for (var topic : topics) {
       clusterInfo =
-          ClusterInfoBuilder.builder(clusterInfo)
-              .addTopic(topic, 1, (short) 1, generateReplica)
-              .build();
+          ClusterInfo.builder(clusterInfo).addTopic(topic, 1, (short) 1, generateReplica).build();
     }
     var clusterBean =
         ClusterBean.of(

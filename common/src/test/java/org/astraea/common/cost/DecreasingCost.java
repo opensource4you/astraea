@@ -17,8 +17,8 @@
 package org.astraea.common.cost;
 
 import org.astraea.common.Configuration;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.metrics.ClusterBean;
 
 public class DecreasingCost implements HasClusterCost {
 

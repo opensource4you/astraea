@@ -19,6 +19,7 @@ package org.astraea.common.admin;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.requests.DescribeLogDirsResponse;
@@ -89,6 +90,23 @@ public interface Broker extends NodeInfo {
                         .map(p -> TopicPartition.of(topic.name(), p.partition())))
             .collect(Collectors.toUnmodifiableSet());
     return new Broker() {
+
+      private final int hashCode = Objects.hash(id(), host(), port());
+
+      @Override
+      public int hashCode() {
+        return hashCode;
+      }
+
+      @Override
+      public boolean equals(Object other) {
+        if (other instanceof NodeInfo) {
+          var node = (NodeInfo) other;
+          return id() == node.id() && port() == node.port() && host().equals(node.host());
+        }
+        return false;
+      }
+
       @Override
       public String host() {
         return nodeInfo.host();

@@ -129,7 +129,7 @@ public interface ConsumerThread extends AbstractThread {
                     } catch (WakeupException ignore) {
                       // Stop polling and being ready to clean up
                     } finally {
-                      Utils.swallowException(consumer::close);
+                      Utils.close(consumer);
                       closeLatch.countDown();
                       closed.set(true);
                       CLIENT_ID_ASSIGNED_PARTITIONS.remove(clientId);

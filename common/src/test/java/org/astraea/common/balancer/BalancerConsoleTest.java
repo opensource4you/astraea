@@ -30,7 +30,6 @@ import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
@@ -41,6 +40,7 @@ import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -402,7 +402,12 @@ class BalancerConsoleTest {
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
             return Optional.of(
                 new Plan(
-                    config.clusterInfo(), () -> 0, config.clusterInfo(), () -> 0, MoveCost.EMPTY));
+                    config.clusterBean(),
+                    config.clusterInfo(),
+                    () -> 0,
+                    config.clusterInfo(),
+                    () -> 0,
+                    MoveCost.EMPTY));
           }
         };
 

@@ -19,16 +19,15 @@ package org.astraea.common.cost;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
+import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class ReplicaNumberCostTest {
 
   private static final ClusterInfo BASE =
-      ClusterInfoBuilder.builder()
+      ClusterInfo.builder()
           .addNode(Set.of(1, 2, 3, 4, 5, 6))
           .addFolders(
               Map.ofEntries(
@@ -40,7 +39,7 @@ class ReplicaNumberCostTest {
                   Map.entry(6, Set.of("/folder0", "/folder1", "/folder2"))))
           .build();
   private static final ClusterInfo BASE_1 =
-      ClusterInfoBuilder.builder()
+      ClusterInfo.builder()
           .addNode(Set.of(1))
           .addFolders(Map.of(1, Set.of("/folder0", "/folder1", "/folder2")))
           .build();
@@ -50,7 +49,7 @@ class ReplicaNumberCostTest {
     var cost = new ReplicaNumberCost();
 
     // (1,1,1,1,1,1)
-    var evenCluster = ClusterInfoBuilder.builder(BASE).addTopic("topic", 6, (short) 1).build();
+    var evenCluster = ClusterInfo.builder(BASE).addTopic("topic", 6, (short) 1).build();
     Assertions.assertEquals(0, cost.clusterCost(evenCluster, ClusterBean.EMPTY).value());
 
     // (0)
@@ -61,14 +60,14 @@ class ReplicaNumberCostTest {
 
     // (any)
     var singleNodeCluster =
-        ClusterInfoBuilder.builder(BASE_1)
+        ClusterInfo.builder(BASE_1)
             .addTopic("topic", ThreadLocalRandom.current().nextInt(1, 100), (short) 1)
             .build();
     Assertions.assertEquals(0, cost.clusterCost(singleNodeCluster, ClusterBean.EMPTY).value());
 
     // (all >= 2, 0, 0, 0, 0, 0)
     var expandedCluster =
-        ClusterInfoBuilder.builder(BASE_1)
+        ClusterInfo.builder(BASE_1)
             .addTopic("topic", ThreadLocalRandom.current().nextInt(2, 100), (short) 1)
             .addNode(Set.of(2, 3, 4, 5, 6))
             .build();
@@ -76,7 +75,7 @@ class ReplicaNumberCostTest {
 
     // (40, 30, 20, 10)
     var skewCluster0 =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(Set.of(1))
             .addFolders(Map.of(1, Set.of("/folder")))
             .addTopic("topicA", 10, (short) 1)
@@ -100,7 +99,7 @@ class ReplicaNumberCostTest {
     // Given a (1,1,1,1,1,2) this should be considered as a balance case, so 0 should be return.
     for (int i = 7; i <= 11; i++) {
       var cost = new ReplicaNumberCost();
-      var evenCluster = ClusterInfoBuilder.builder(BASE).addTopic("topic", i, (short) 1).build();
+      var evenCluster = ClusterInfo.builder(BASE).addTopic("topic", i, (short) 1).build();
       Assertions.assertEquals(0, cost.clusterCost(evenCluster, ClusterBean.EMPTY).value());
     }
   }

@@ -164,6 +164,7 @@ public class GreedyBalancer implements Balancer {
                 .map(
                     newAllocation ->
                         new Plan(
+                            config.clusterBean(),
                             config.clusterInfo(),
                             initialCost,
                             newAllocation,

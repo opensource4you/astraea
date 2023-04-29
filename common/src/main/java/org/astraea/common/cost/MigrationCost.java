@@ -24,10 +24,10 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.metrics.ClusterBean;
 
 public class MigrationCost {
 
@@ -37,8 +37,10 @@ public class MigrationCost {
   public static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
   public static final String CHANGED_REPLICAS = "changed replicas";
   public static final String CHANGED_LEADERS = "changed leaders";
+  public static final String PARTITION_MIGRATED_TIME = "partition migrated time";
 
-  public static List<MigrationCost> migrationCosts(ClusterInfo before, ClusterInfo after) {
+  public static List<MigrationCost> migrationCosts(
+      ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var migrateInBytes = recordSizeToSync(before, after);
     var migrateOutBytes = recordSizeToFetch(before, after);
     var migrateReplicaNum = replicaNumChanged(before, after);
@@ -47,7 +49,9 @@ public class MigrationCost {
         new MigrationCost(TO_SYNC_BYTES, migrateInBytes),
         new MigrationCost(TO_FETCH_BYTES, migrateOutBytes),
         new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum),
-        new MigrationCost(CHANGED_LEADERS, migrateReplicaLeader));
+        new MigrationCost(CHANGED_LEADERS, migrateReplicaLeader),
+        new MigrationCost(
+            PARTITION_MIGRATED_TIME, brokerMigrationTime(before, after, clusterBean)));
   }
 
   public MigrationCost(String name, Map<Integer, Long> brokerCosts) {
@@ -90,13 +94,7 @@ public class MigrationCost {
                 brokerSize ->
                     Map.entry(
                         brokerSize.getKey(),
-                        brokerSize.getValue()
-                            / brokerInRate
-                                .get(brokerSize.getKey())
-                                .orElseThrow(
-                                    () ->
-                                        new RuntimeException(
-                                            "No any metric for broker" + brokerSize.getKey()))))
+                        brokerSize.getValue() / brokerInRate.get(brokerSize.getKey()).orElse(0)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var brokerMigrateOutTime =
         MigrationCost.recordSizeToSync(before, after).entrySet().stream()
@@ -104,13 +102,7 @@ public class MigrationCost {
                 brokerSize ->
                     Map.entry(
                         brokerSize.getKey(),
-                        brokerSize.getValue()
-                            / brokerOutRate
-                                .get(brokerSize.getKey())
-                                .orElseThrow(
-                                    () ->
-                                        new RuntimeException(
-                                            "No any metric for broker" + brokerSize.getKey()))))
+                        brokerSize.getValue() / brokerOutRate.get(brokerSize.getKey()).orElse(0)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
         .distinct()

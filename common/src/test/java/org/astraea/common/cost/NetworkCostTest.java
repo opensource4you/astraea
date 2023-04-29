@@ -34,15 +34,14 @@ import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.MetricFactory;
 import org.astraea.common.metrics.MetricSeriesBuilder;
 import org.astraea.common.metrics.broker.LogMetrics;
@@ -165,7 +164,7 @@ class NetworkCostTest {
   @Test
   void testReplicationAware() {
     var base =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(Set.of(1, 2, 3))
             .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
             .addFolders(Map.of(2, Set.of("/folder0", "/folder1")))
@@ -178,7 +177,7 @@ class NetworkCostTest {
     var iter5 = List.of(true, false).iterator();
     var iter6 = List.of(true, false).iterator();
     var cluster =
-        ClusterInfoBuilder.builder(base)
+        ClusterInfo.builder(base)
             .addTopic(
                 "Rain",
                 1,
@@ -262,7 +261,7 @@ class NetworkCostTest {
     // metric entry on the remote Kafka MBeanServer. To work around this we should treat them as
     // zero partition ingress/egress instead of complaining no metric available.
     var cluster =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(Set.of(1, 2, 3))
             .addFolders(Map.of(1, Set.of("/folder0", "/folder1")))
             .addFolders(Map.of(2, Set.of("/folder0", "/folder1")))
@@ -406,7 +405,7 @@ class NetworkCostTest {
     var beans = testcase.clusterBean();
     var cluster = testcase.clusterInfo();
     var scaledCluster =
-        ClusterInfoBuilder.builder(cluster)
+        ClusterInfo.builder(cluster)
             .addNode(Set.of(4321))
             .addFolders(Map.of(4321, Set.of("/folder")))
             .build();
@@ -431,7 +430,7 @@ class NetworkCostTest {
     // create topic `test` and 9 partitions, the size of each partition is ( partition id +1 ) *
     // 10KB
     var clusterInfo =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(Set.of(1, 2, 3))
             .addFolders(
                 Map.of(
@@ -486,7 +485,7 @@ class NetworkCostTest {
   })
   void testEstimationMethod(ServerMetrics.Topic metric, Class<? extends NetworkCost> clz) {
     var cluster =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(Set.of(1))
             .addFolders(Map.of(1, Set.of("/folder")))
             .addTopic("Topic", 1, (short) 1)
@@ -583,7 +582,7 @@ class NetworkCostTest {
             }
           };
       this.clusterInfo =
-          ClusterInfoBuilder.builder()
+          ClusterInfo.builder()
               .addNode(IntStream.range(0, brokers).boxed().collect(Collectors.toUnmodifiableSet()))
               .addFolders(
                   IntStream.range(0, brokers)

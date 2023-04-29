@@ -181,7 +181,7 @@ public class Importer extends SourceConnector {
                   .headers(record.headers())
                   .build());
         }
-        Utils.packException(inputStream::close);
+        Utils.close(inputStream);
         switch (cleanSource) {
           case "archive":
             var archiveInput = Client.read(currentPath);
@@ -196,7 +196,7 @@ public class Importer extends SourceConnector {
               archiveWriter.append(record);
             }
             archiveWriter.close();
-            Utils.packException(archiveInput::close);
+            Utils.close(archiveInput);
           case "delete":
             Client.delete(currentPath);
           case "off":

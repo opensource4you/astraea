@@ -25,11 +25,10 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -144,7 +143,7 @@ public abstract class BalancerConfigTestSuite {
 
   private static ClusterInfo cluster(int nodes, int topics, int partitions, short replicas) {
     var builder =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(IntStream.range(0, nodes).boxed().collect(Collectors.toSet()))
             .addFolders(
                 IntStream.range(0, nodes)

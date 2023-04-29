@@ -31,6 +31,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.Argument;
 import org.astraea.it.Service;
@@ -153,6 +154,7 @@ class BalancerNodeTest {
         BalancerNode.assignmentResult(
             beforeClusterInfo,
             new Balancer.Plan(
+                ClusterBean.EMPTY,
                 beforeClusterInfo,
                 () -> 1.0D,
                 ClusterInfo.of("fake", allNodes, Map.of(), afterReplicas),
