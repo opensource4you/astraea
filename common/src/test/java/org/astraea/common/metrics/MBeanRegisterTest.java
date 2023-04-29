@@ -35,14 +35,14 @@ class MBeanRegisterTest {
         .attribute("incoming-byte-rate", Double.class, () -> 10D)
         .register();
 
-    var metrics = ProducerMetrics.node(MBeanClient.local());
+    var metrics = ProducerMetrics.node(JndiClient.local());
     Assertions.assertEquals(1, metrics.size());
     Assertions.assertEquals(10D, metrics.iterator().next().incomingByteRate());
   }
 
   @Test
   void testBuilder() {
-    try (MBeanClient client = MBeanClient.local()) {
+    try (JndiClient client = JndiClient.local()) {
       var domainName = MBeanRegisterTest.class.getPackageName();
       var id = UUID.randomUUID().toString();
       Supplier<BeanObject> bean =

@@ -24,12 +24,12 @@ import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import org.astraea.common.Configuration;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.metrics.ClusterBean;
 
 /** The generic algorithm parameter for resolving the Kafka rebalance problem. */
 public interface AlgorithmConfig {

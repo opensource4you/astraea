@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.it.Service;
@@ -50,7 +50,7 @@ public class ConsumerMetricsTest {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       consumer.poll(Duration.ofSeconds(5));
-      ConsumerMetrics.appInfo(MBeanClient.local()).forEach(MetricsTestUtils::validate);
+      ConsumerMetrics.appInfo(JndiClient.local()).forEach(MetricsTestUtils::validate);
     }
   }
 
@@ -65,7 +65,7 @@ public class ConsumerMetricsTest {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       consumer.poll(Duration.ofSeconds(5));
-      var metrics = ConsumerMetrics.node(MBeanClient.local());
+      var metrics = ConsumerMetrics.node(JndiClient.local());
       Assertions.assertNotEquals(1, metrics.size());
       Assertions.assertTrue(
           metrics.stream()

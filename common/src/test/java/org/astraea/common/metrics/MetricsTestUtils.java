@@ -20,7 +20,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.metrics.broker.HasCount;
 import org.astraea.common.metrics.broker.HasEventType;
 import org.astraea.common.metrics.broker.HasGauge;
@@ -30,6 +29,7 @@ import org.astraea.common.metrics.broker.HasPercentiles;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.HasStatistics;
 import org.astraea.common.metrics.broker.HasTimer;
+import org.astraea.common.metrics.collector.BeanObjectClient;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.junit.jupiter.api.Assertions;
 
@@ -44,7 +44,7 @@ public final class MetricsTestUtils {
    * @param sensor to generate object
    * @return cluster bean
    */
-  public static ClusterBean clusterBean(Map<Integer, MBeanClient> clients, MetricSensor sensor) {
+  public static ClusterBean clusterBean(Map<Integer, JndiClient> clients, MetricSensor sensor) {
     return ClusterBean.of(
         clients.entrySet().stream()
             .collect(
@@ -52,7 +52,8 @@ public final class MetricsTestUtils {
                     Map.Entry::getKey,
                     entry ->
                         sensor.fetch(
-                            MBeanClient.of(entry.getValue().beans(BeanQuery.all())),
+                            BeanObjectClient.of(
+                                entry.getKey(), entry.getValue().beans(BeanQuery.all())),
                             ClusterBean.EMPTY))));
   }
 

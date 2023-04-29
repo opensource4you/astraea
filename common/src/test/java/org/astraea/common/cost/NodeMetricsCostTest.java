@@ -20,8 +20,8 @@ import java.time.Duration;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.ClusterBean;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
 import org.astraea.common.producer.Producer;
@@ -64,7 +64,7 @@ public class NodeMetricsCostTest {
                   .toCompletableFuture()
                   .join(),
               ClusterBean.of(
-                  ProducerMetrics.node(MBeanClient.local()).stream()
+                  ProducerMetrics.node(JndiClient.local()).stream()
                       .collect(Collectors.groupingBy(HasNodeMetrics::brokerId))));
       Assertions.assertEquals(3, cost.value().size());
       // only 1 node has latency metrics, so all costs are equal
@@ -86,7 +86,7 @@ public class NodeMetricsCostTest {
                   .toCompletableFuture()
                   .join(),
               ClusterBean.of(
-                  ProducerMetrics.node(MBeanClient.local()).stream()
+                  ProducerMetrics.node(JndiClient.local()).stream()
                       .collect(Collectors.groupingBy(HasNodeMetrics::brokerId))));
       Assertions.assertEquals(3, cost2.value().size());
       // only 2 node has latency metrics. The other cost is equal to "max cost"
