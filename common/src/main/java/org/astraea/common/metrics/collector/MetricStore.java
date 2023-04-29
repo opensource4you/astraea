@@ -212,7 +212,7 @@ public interface MetricStore extends AutoCloseable {
                             beans ->
                                 beans.removeIf(
                                     hasBeanObject -> hasBeanObject.createdTimestamp() < before))
-                        .collect(Collectors.toList());
+                        .collect(Collectors.toSet());
                 if (needUpdate.contains(true)) updateClusterBean();
                 TimeUnit.MILLISECONDS.sleep(beanExpiration.toMillis());
               } catch (Exception e) {
