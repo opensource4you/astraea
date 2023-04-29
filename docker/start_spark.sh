@@ -81,7 +81,7 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND noninteractive
 
 # install tools
-RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
+RUN apt-get update && apt-get install -y openjdk-17-jre python3 python3-pip
 
 # copy spark
 COPY --from=build /opt/spark /opt/spark
@@ -107,7 +107,7 @@ FROM ubuntu:22.04 AS build
 ENV DEBIAN_FRONTEND noninteractive
 
 # install tools
-RUN apt-get update && apt-get install -y openjdk-11-jdk python3 python3-pip git curl
+RUN apt-get update && apt-get install -y openjdk-17-jdk python3 python3-pip git curl
 
 # build spark from source code
 RUN git clone https://github.com/apache/spark /tmp/spark
@@ -127,7 +127,7 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND noninteractive
 
 # install tools
-RUN apt-get update && apt-get install -y openjdk-11-jre python3 python3-pip
+RUN apt-get update && apt-get install -y openjdk-17-jre python3 python3-pip
 
 # copy spark
 COPY --from=build /opt/spark /opt/spark
