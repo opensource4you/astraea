@@ -242,7 +242,8 @@ class BalancerHandler implements Handler, AutoCloseable {
             "org.astraea.common.cost.ReplicaLeaderCost",
             "org.astraea.common.cost.RecordSizeCost",
             "org.astraea.common.cost.ReplicaNumberCost",
-            "org.astraea.common.cost.ReplicaLeaderSizeCost");
+            "org.astraea.common.cost.ReplicaLeaderSizeCost",
+            "org.astraea.common.cost.PartitionMigrateTimeCost");
 
     HasClusterCost clusterCost() {
       if (clusterCosts.isEmpty())

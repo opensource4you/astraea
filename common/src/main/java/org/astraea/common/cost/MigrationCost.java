@@ -84,17 +84,33 @@ public class MigrationCost {
   public static Map<Integer, Long> brokerMigrationTime(
       ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var brokerInRate =
-        brokerMaxRate(before, clusterBean, PartitionMigrateTimeCost.MaxReplicationInRateBean.class);
+        before.nodes().stream()
+            .collect(
+                Collectors.toMap(
+                    NodeInfo::id,
+                    nodeInfo ->
+                        brokerMaxRate(
+                            nodeInfo.id(),
+                            clusterBean,
+                            PartitionMigrateTimeCost.MaxReplicationInRateBean.class)));
     var brokerOutRate =
-        brokerMaxRate(
-            before, clusterBean, PartitionMigrateTimeCost.MaxReplicationOutRateBean.class);
+        before.nodes().stream()
+            .collect(
+                Collectors.toMap(
+                    NodeInfo::id,
+                    nodeInfo ->
+                        brokerMaxRate(
+                            nodeInfo.id(),
+                            clusterBean,
+                            PartitionMigrateTimeCost.MaxReplicationOutRateBean.class)));
     var brokerMigrateInTime =
         MigrationCost.recordSizeToFetch(before, after).entrySet().stream()
             .map(
                 brokerSize ->
                     Map.entry(
                         brokerSize.getKey(),
-                        brokerSize.getValue() / brokerInRate.get(brokerSize.getKey()).orElse(0)))
+                        brokerSize.getValue()
+                            / brokerInRate.get(brokerSize.getKey()).orElse(Long.MAX_VALUE)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var brokerMigrateOutTime =
         MigrationCost.recordSizeToSync(before, after).entrySet().stream()
@@ -102,7 +118,8 @@ public class MigrationCost {
                 brokerSize ->
                     Map.entry(
                         brokerSize.getKey(),
-                        brokerSize.getValue() / brokerOutRate.get(brokerSize.getKey()).orElse(0)))
+                        brokerSize.getValue()
+                            / brokerOutRate.get(brokerSize.getKey()).orElse(Long.MAX_VALUE)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
         .distinct()
