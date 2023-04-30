@@ -19,7 +19,8 @@ package org.astraea.common.cost;
 import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
 import static org.astraea.common.cost.MigrationCost.recordSizeToFetch;
 import static org.astraea.common.cost.MigrationCost.recordSizeToSync;
-import static org.astraea.common.cost.MigrationCost.replicaLeaderChanged;
+import static org.astraea.common.cost.MigrationCost.replicaLeaderToAdd;
+import static org.astraea.common.cost.MigrationCost.replicaLeaderToRemove;
 import static org.astraea.common.cost.MigrationCost.replicaNumChanged;
 
 import java.util.List;
@@ -143,16 +144,34 @@ class MigrationCostTest {
                 .isPreferredLeader(false)
                 .path("")
                 .build());
+    /*
+       before:
+         topic1-0 : 0,1
+         topic1-1 : 0,1
+       after:
+         topic1-0 : 2,1
+         topic1-1 : 0,2
+       leader migrate out:
+         0: 1
+         1: 0
+         2: 0
+       leader migrate in:
+         0: 0
+         1: 0
+         2: 1
+    */
+
     var beforeClusterInfo = ClusterInfoTest.of(before);
     var afterClusterInfo = ClusterInfoTest.of(after);
-    var changedReplicaLeaderCount = replicaLeaderChanged(beforeClusterInfo, afterClusterInfo);
-    Assertions.assertEquals(3, changedReplicaLeaderCount.size());
-    Assertions.assertTrue(changedReplicaLeaderCount.containsKey(0));
-    Assertions.assertTrue(changedReplicaLeaderCount.containsKey(1));
-    Assertions.assertTrue(changedReplicaLeaderCount.containsKey(2));
-    Assertions.assertEquals(-1, changedReplicaLeaderCount.get(0));
-    Assertions.assertEquals(0, changedReplicaLeaderCount.get(1));
-    Assertions.assertEquals(1, changedReplicaLeaderCount.get(2));
+    var changedReplicaLeaderInCount = replicaLeaderToAdd(beforeClusterInfo, afterClusterInfo);
+    var changedReplicaLeaderOutCount = replicaLeaderToRemove(beforeClusterInfo, afterClusterInfo);
+    Assertions.assertEquals(3, changedReplicaLeaderInCount.size());
+    Assertions.assertEquals(1, changedReplicaLeaderInCount.get(0));
+    Assertions.assertEquals(0, changedReplicaLeaderInCount.get(1));
+    Assertions.assertEquals(0, changedReplicaLeaderInCount.get(2));
+    Assertions.assertEquals(0, changedReplicaLeaderOutCount.get(0));
+    Assertions.assertEquals(0, changedReplicaLeaderOutCount.get(1));
+    Assertions.assertEquals(1, changedReplicaLeaderOutCount.get(2));
   }
 
   @Test

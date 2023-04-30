@@ -21,7 +21,8 @@ import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Executing;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.ExecutionFailed;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.SearchFailed;
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Searched;
-import static org.astraea.common.cost.MigrationCost.CHANGED_LEADERS;
+import static org.astraea.common.cost.MigrationCost.REPLICA_LEADERS_TO_ADDED;
+import static org.astraea.common.cost.MigrationCost.REPLICA_LEADERS_TO_REMOVE;
 import static org.astraea.common.cost.MigrationCost.TO_FETCH_BYTES;
 import static org.astraea.common.cost.MigrationCost.TO_SYNC_BYTES;
 
@@ -336,19 +337,11 @@ public class BalancerHandlerTest {
                     migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
                         <= DataSize.of(sizeLimit).bytes());
                 break;
-              case CHANGED_LEADERS:
+              case REPLICA_LEADERS_TO_ADDED:
+              case REPLICA_LEADERS_TO_REMOVE:
                 Assertions.assertTrue(
-                    Math.max(
-                            migrationCost.brokerCosts.values().stream()
-                                .filter(x -> x >= 0)
-                                .mapToLong(Long::byteValue)
-                                .sum(),
-                            migrationCost.brokerCosts.values().stream()
-                                .filter(x -> x < 0)
-                                .map(Math::abs)
-                                .mapToLong(Long::byteValue)
-                                .sum())
-                        <= Integer.parseInt(leaderLimit));
+                    migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
+                        <= Long.parseLong(leaderLimit));
                 break;
             }
           });
