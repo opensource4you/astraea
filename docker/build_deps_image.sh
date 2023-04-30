@@ -28,7 +28,7 @@ FROM ubuntu:22.04
 # install tools
 RUN apt-get update && apt-get install -y \
   git \
-  openjdk-11-jdk \
+  openjdk-17-jdk \
   wget \
   unzip \
   curl
