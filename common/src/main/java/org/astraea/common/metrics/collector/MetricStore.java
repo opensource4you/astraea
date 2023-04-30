@@ -19,7 +19,6 @@ package org.astraea.common.metrics.collector;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,19 +71,7 @@ public interface MetricStore extends AutoCloseable {
   Map<MetricSensor, BiConsumer<Integer, Exception>> sensors();
 
   /** Wait for the checker to be true or timeout. */
-  default void wait(Predicate<ClusterBean> checker, Duration timeout) {
-    // Keep checking the checker until it is true or timeout.
-    var start = System.currentTimeMillis();
-    while (System.currentTimeMillis() - start < timeout.toMillis()) {
-      try {
-        if (checker.test(clusterBean())) return;
-      } catch (NoSufficientMetricsException noe) {
-        // keep trying
-      }
-      Utils.sleep(Duration.ofSeconds(1));
-    }
-    throw new IllegalStateException("Timeout waiting for the checker");
-  }
+  void wait(Predicate<ClusterBean> checker, Duration timeout);
 
   @Override
   void close();
@@ -212,7 +199,8 @@ public interface MetricStore extends AutoCloseable {
     private final Set<Integer> identities = new ConcurrentSkipListSet<>();
 
     private volatile Map<MetricSensor, BiConsumer<Integer, Exception>> lastSensors = Map.of();
-    private final Map<CountDownLatch, Predicate<ClusterBean>> waitingList = new HashMap<>();
+    private final Map<CountDownLatch, Predicate<ClusterBean>> waitingList =
+        new ConcurrentHashMap<>();
 
     private MetricStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier,
@@ -303,11 +291,16 @@ public interface MetricStore extends AutoCloseable {
     /** User thread will "wait" until being awakened by the metric store or being timeout. */
     @Override
     public void wait(Predicate<ClusterBean> checker, Duration timeout) {
-      if (checker.test(clusterBean())) return;
+      try {
+        if (checker.test(clusterBean())) return;
+      } catch (NoSufficientMetricsException e) {
+        // Check failed. Need to wait for more metrics.
+      }
 
       var latch = new CountDownLatch(1);
       try {
         waitingList.put(latch, checker);
+        // Wait until being awake or timeout
         if (!latch.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
           throw new IllegalStateException("Timeout waiting for the checker");
         }
@@ -332,8 +325,10 @@ public interface MetricStore extends AutoCloseable {
     private void checkWaitingList() {
       waitingList.forEach(
           (latch, checker) -> {
-            if (checker.test(clusterBean())) {
-              latch.countDown();
+            try {
+              if (checker.test(clusterBean())) latch.countDown();
+            } catch (NoSufficientMetricsException e) {
+              // Check failed. Try again next time.
             }
           });
     }
