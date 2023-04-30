@@ -80,4 +80,32 @@ public class MetricStoreTest {
       Assertions.assertEquals(0, store.clusterBean().all().size());
     }
   }
+
+  @Test
+  void testWait() {
+    var queue = new LinkedBlockingQueue<Map<Integer, Collection<BeanObject>>>();
+
+    try (var store =
+        MetricStore.builder()
+            .receiver(timeout -> Utils.packException(queue::take))
+            .sensorsSupplier(
+                // Metric sensor provide fake hasBeanObject
+                () ->
+                    Map.of(
+                        (client, bean) ->
+                            List.of(() -> new BeanObject(Utils.randomString(), Map.of(), Map.of())),
+                        (id, exception) -> {}))
+            .build()) {
+      Assertions.assertThrows(
+          IllegalStateException.class, () -> store.wait((ignore) -> false, Duration.ofSeconds(1)));
+      Assertions.assertDoesNotThrow(() -> store.wait((ignore) -> true, Duration.ofSeconds(1)));
+
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () -> store.wait((clusterBean) -> !clusterBean.all().isEmpty(), Duration.ofSeconds(1)));
+      queue.add(Map.of(1000, List.of(new BeanObject(Utils.randomString(), Map.of(), Map.of()))));
+      Assertions.assertDoesNotThrow(
+          () -> store.wait((clusterBean) -> !clusterBean.all().isEmpty(), Duration.ofSeconds(1)));
+    }
+  }
 }
