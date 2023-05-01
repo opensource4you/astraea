@@ -53,7 +53,7 @@ public class ProducerTest {
     var topicName = "testSender-" + System.currentTimeMillis();
     var key = "key";
     var timestamp = System.currentTimeMillis() + 10;
-    var header = Header.of("a", "b".getBytes());
+    var header = new Header("a", "b".getBytes());
     try (var producer =
         Producer.builder()
             .bootstrapServers(SERVICE.bootstrapServers())
@@ -100,7 +100,7 @@ public class ProducerTest {
     var topicName = "testTransaction-" + System.currentTimeMillis();
     var key = "key";
     var timestamp = System.currentTimeMillis() + 10;
-    var header = Header.of("a", "b".getBytes());
+    var header = new Header("a", "b".getBytes());
     try (var producer =
         Producer.builder()
             .bootstrapServers(SERVICE.bootstrapServers())

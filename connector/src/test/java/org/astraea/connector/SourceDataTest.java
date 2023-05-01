@@ -158,7 +158,7 @@ public class SourceDataTest {
                       .key(KEY)
                       .value(VALUE)
                       .topic(t)
-                      .headers(List.of(Header.of(HEADER_KEY, HEADER_VALUE)))
+                      .headers(List.of(new Header(HEADER_KEY, HEADER_VALUE)))
                       .build())
           .collect(Collectors.toList());
     }
