@@ -302,6 +302,117 @@ public abstract class NetworkCost implements HasClusterCost {
     return value;
   }
 
+  ResourceUsageHint ingressUsageHint(ClusterInfo sourceCluster, ClusterBean clusterBean) {
+    final var cachedCalculation =
+        calculationCache.computeIfAbsent(clusterBean, CachedCalculation::new);
+    final var ingressMax =
+        cachedCalculation.partitionIngressRate.values().stream()
+            .mapToDouble(x -> x)
+            .max()
+            .orElse(1);
+    final var ingressSum =
+        cachedCalculation.partitionIngressRate.values().stream().mapToDouble(x -> x).sum();
+    final var ingressAvgPerBroker = ingressSum / sourceCluster.brokers().size();
+
+    return new ResourceUsageHint() {
+      @Override
+      public String description() {
+        return "balance network ingress usage of kafka brokers";
+      }
+
+      @Override
+      public ResourceUsage evaluateReplicaResourceUsage(Replica target) {
+        return new ResourceUsage(
+            Map.of("NetworkIngress", (double) ingress(cachedCalculation, target.topicPartition())));
+      }
+
+      @Override
+      public ResourceUsage evaluateClusterResourceUsage(Replica target) {
+        return new ResourceUsage(
+            Map.of(
+                "NetworkIngress_Broker_" + target.nodeInfo().id(),
+                (double) ingress(cachedCalculation, target.topicPartition())));
+      }
+
+      @Override
+      public double importance(ResourceUsage replicaResourceUsage) {
+        return 1 - replicaResourceUsage.usage().getOrDefault("NetworkIngress", 0.0) / ingressMax;
+      }
+
+      @Override
+      public double idealness(ResourceUsage clusterResourceUsage) {
+        return sourceCluster.brokers().stream()
+            .map(b -> "NetworkIngress_Broker_" + b.id())
+            .mapToDouble(name -> clusterResourceUsage.usage().getOrDefault(name, 0.0))
+            .map(ingress -> Math.abs(ingress - ingressAvgPerBroker))
+            .map(ingressDiff -> ingressDiff / ingressSum)
+            .average()
+            .orElseThrow();
+      }
+    };
+  }
+
+  ResourceUsageHint egressUsageHint(ClusterInfo sourceCluster, ClusterBean clusterBean) {
+    final var cachedCalculation =
+        calculationCache.computeIfAbsent(clusterBean, CachedCalculation::new);
+    final var egressMax =
+        cachedCalculation.partitionEgressRate.values().stream().mapToDouble(x -> x).max().orElse(1);
+    final var replicationSum =
+        cachedCalculation.partitionIngressRate.entrySet().stream()
+            .mapToDouble(e -> e.getValue() * (sourceCluster.replicas(e.getKey()).size() - 1))
+            .sum();
+    final var fetchSum =
+        cachedCalculation.partitionEgressRate.values().stream().mapToDouble(x -> x).sum();
+    final var egressAvgPerBroker = (fetchSum + replicationSum) / sourceCluster.brokers().size();
+
+    return new ResourceUsageHint() {
+      @Override
+      public String description() {
+        return "balance network egress usage of kafka brokers";
+      }
+
+      @Override
+      public ResourceUsage evaluateReplicaResourceUsage(Replica target) {
+        if (target.isLeader())
+          return new ResourceUsage(
+              Map.of(
+                  "NetworkEgress",
+                  (double) egress(cachedCalculation, target.topicPartition())
+                      + ingress(cachedCalculation, target.topicPartition())
+                          * (sourceCluster.replicas(target.topicPartition()).size() - 1)));
+        else return new ResourceUsage(Map.of());
+      }
+
+      @Override
+      public ResourceUsage evaluateClusterResourceUsage(Replica target) {
+        if (target.isLeader())
+          return new ResourceUsage(
+              Map.of(
+                  "NetworkEgress_Broker_" + target.nodeInfo().id(),
+                  (double) egress(cachedCalculation, target.topicPartition())
+                      + ingress(cachedCalculation, target.topicPartition())
+                          * (sourceCluster.replicas(target.topicPartition()).size() - 1)));
+        else return new ResourceUsage(Map.of());
+      }
+
+      @Override
+      public double importance(ResourceUsage replicaResourceUsage) {
+        return 1 - replicaResourceUsage.usage().getOrDefault("NetworkEgress", 0.0) / egressMax;
+      }
+
+      @Override
+      public double idealness(ResourceUsage clusterResourceUsage) {
+        return sourceCluster.brokers().stream()
+            .map(b -> "NetworkEgress_Broker_" + b.id())
+            .mapToDouble(name -> clusterResourceUsage.usage().getOrDefault(name, 0.0))
+            .map(egress -> Math.abs(egress - egressAvgPerBroker))
+            .map(egressDiff -> egressDiff / (fetchSum + replicationSum))
+            .average()
+            .orElseThrow();
+      }
+    };
+  }
+
   private <T> T fail(String reason) {
     throw new NoSufficientMetricsException(this, Duration.ofSeconds(1), reason);
   }

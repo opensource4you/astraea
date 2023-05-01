@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -41,6 +42,12 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
     super(config, BandwidthType.Ingress);
     this.config = config;
     this.trafficInterval = config.dataSize(TRAFFIC_INTERVAL).orElse(DataSize.MB.of(10));
+  }
+
+  @Override
+  public List<ResourceUsageHint> clusterResourceHint(
+      ClusterInfo sourceCluster, ClusterBean clusterBean) {
+    return List.of(ingressUsageHint(sourceCluster, clusterBean));
   }
 
   @Override

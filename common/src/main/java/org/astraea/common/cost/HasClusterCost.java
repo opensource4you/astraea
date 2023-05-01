@@ -16,6 +16,8 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -37,6 +39,7 @@ public interface HasClusterCost extends CostFunction {
                 .collect(Collectors.toUnmodifiableList()));
 
     return new HasClusterCost() {
+
       @Override
       public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
         var scores =
@@ -79,6 +82,14 @@ public interface HasClusterCost extends CostFunction {
       }
 
       @Override
+      public Collection<ResourceUsageHint> clusterResourceHint(
+          ClusterInfo sourceCluster, ClusterBean clusterBean) {
+        return costAndWeight.keySet().stream()
+            .flatMap(func -> func.clusterResourceHint(sourceCluster, clusterBean).stream())
+            .toList();
+      }
+
+      @Override
       public Optional<MetricSensor> metricSensor() {
         return sensor;
       }
@@ -104,4 +115,13 @@ public interface HasClusterCost extends CostFunction {
    * @return the score of cluster.
    */
   ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean);
+
+  /**
+   * @return a collection of {@link ResourceUsageHint} that associated with this cluster cost
+   *     function.
+   */
+  default Collection<ResourceUsageHint> clusterResourceHint(
+      ClusterInfo sourceCluster, ClusterBean clusterBean) {
+    return List.of();
+  }
 }

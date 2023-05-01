@@ -16,7 +16,10 @@
  */
 package org.astraea.common.cost;
 
+import java.util.List;
 import org.astraea.common.Configuration;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.metrics.ClusterBean;
 
 /**
  * A cost function to evaluate cluster load balance score in terms of message egress data rate. See
@@ -25,6 +28,12 @@ import org.astraea.common.Configuration;
 public class NetworkEgressCost extends NetworkCost {
   public NetworkEgressCost(Configuration config) {
     super(config, BandwidthType.Egress);
+  }
+
+  @Override
+  public List<ResourceUsageHint> clusterResourceHint(
+      ClusterInfo sourceCluster, ClusterBean clusterBean) {
+    return List.of(egressUsageHint(sourceCluster, clusterBean));
   }
 
   @Override

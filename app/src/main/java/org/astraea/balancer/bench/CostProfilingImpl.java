@@ -17,6 +17,7 @@
 package org.astraea.balancer.bench;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LongSummaryStatistics;
 import java.util.Map;
@@ -30,6 +31,7 @@ import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.cost.ResourceUsageHint;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.collector.MetricSensor;
 
@@ -94,6 +96,12 @@ class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
                     costTimeSeries.put(stop, clusterCost);
                     clusterCostProcessingTimeNs.accept((stop - start));
                     return clusterCost;
+                  }
+
+                  @Override
+                  public Collection<ResourceUsageHint> clusterResourceHint(
+                      ClusterInfo sourceCluster, ClusterBean clusterBean) {
+                    return costFunction.clusterResourceHint(sourceCluster, clusterBean);
                   }
 
                   @Override
