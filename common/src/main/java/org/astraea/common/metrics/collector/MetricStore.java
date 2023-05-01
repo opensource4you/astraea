@@ -253,7 +253,7 @@ public interface MetricStore extends AutoCloseable {
                 if (!allBeans.isEmpty()) {
                   // generate new cluster bean
                   updateClusterBean();
-                  checkWaitingList(this.waitingList);
+                  checkWaitingList(this.waitingList, clusterBean());
                 }
               } catch (Exception e) {
                 // TODO: it needs better error handling
@@ -295,7 +295,7 @@ public interface MetricStore extends AutoCloseable {
       try {
         waitingList.put(latch, checker);
         // Check the newly added checker immediately
-        checkWaitingList(Map.of(latch, checker));
+        checkWaitingList(Map.of(latch, checker), clusterBean());
         // Wait until being awake or timeout
         if (!latch.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
           throw new IllegalStateException("Timeout waiting for the checker");
@@ -320,11 +320,12 @@ public interface MetricStore extends AutoCloseable {
     /**
      * Check the checkers in the waiting list. If the checker returns true, count down the latch.
      */
-    private void checkWaitingList(Map<CountDownLatch, Predicate<ClusterBean>> waitingList) {
+    private static void checkWaitingList(
+        Map<CountDownLatch, Predicate<ClusterBean>> waitingList, ClusterBean clusterBean) {
       waitingList.forEach(
           (latch, checker) -> {
             try {
-              if (checker.test(clusterBean())) latch.countDown();
+              if (checker.test(clusterBean)) latch.countDown();
             } catch (NoSufficientMetricsException e) {
               // Check failed. Try again next time.
             }
