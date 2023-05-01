@@ -109,7 +109,7 @@ class MBeanClientTest {
   @Test
   void testFetchAttributes() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = JndiClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
 
@@ -126,7 +126,7 @@ class MBeanClientTest {
   @Test
   void testFetchMbeanWithMultipleProperties() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = JndiClient.of(jmxServer.getAddress())) {
       BeanQuery query1 =
           BeanQuery.builder()
               .domainName("java.lang")
@@ -168,7 +168,7 @@ class MBeanClientTest {
           AttributeNotFoundException,
           MBeanException {
     // arrange
-    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (JndiClient.BasicMBeanClient) JndiClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Memory").build();
       List<String> selectedAttribute = List.of("HeapMemoryUsage");
@@ -186,7 +186,7 @@ class MBeanClientTest {
   @Test
   void testQueryBeans() {
     // arrange 1 query beans
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = JndiClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "C*").build();
 
@@ -224,7 +224,7 @@ class MBeanClientTest {
   @Test
   void testQueryNonExistsBeans() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = JndiClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Something").build();
 
@@ -239,7 +239,7 @@ class MBeanClientTest {
   @Test
   void testFetchNonExistsBeans() {
     // arrange
-    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (JndiClient.BasicMBeanClient) JndiClient.of(jmxServer.getAddress())) {
       BeanQuery beanQuery =
           BeanQuery.builder().domainName("java.lang").property("type", "Something").build();
 
@@ -254,7 +254,7 @@ class MBeanClientTest {
   @Test
   void testCloseOnceMore() {
     // arrange
-    var client = MBeanClient.of(jmxServer.getAddress());
+    var client = JndiClient.of(jmxServer.getAddress());
 
     // act
     client.close();
@@ -270,7 +270,7 @@ class MBeanClientTest {
   @Test
   void testGetAllMBeans() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = JndiClient.of(jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> beanObjects = client.beans(BeanQuery.all());
@@ -284,7 +284,7 @@ class MBeanClientTest {
   @Test
   void testGetAllMBeansUnderSpecificDomainName() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = JndiClient.of(jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> beanObjects = client.beans(BeanQuery.all("java.lang"));
@@ -298,7 +298,7 @@ class MBeanClientTest {
   @Test
   void testGetAllMBeansUnderSpecificDomainNamePattern() {
     // arrange
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = JndiClient.of(jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> beanObjects = client.beans(BeanQuery.all("java.*"));
@@ -311,22 +311,22 @@ class MBeanClientTest {
 
   @Test
   void testUsePropertyListPatternForRemote() {
-    testUsePropertyListPattern(MBeanClient.of(jmxServer.getAddress()));
+    testUsePropertyListPattern(JndiClient.of(jmxServer.getAddress()));
   }
 
   @Test
   void testUsePropertyListPatternForLocal() {
-    testUsePropertyListPattern(MBeanClient.local());
+    testUsePropertyListPattern(JndiClient.local());
   }
 
-  private void testUsePropertyListPattern(MBeanClient client) {
+  private void testUsePropertyListPattern(JndiClient client) {
     // arrange
     try (client) {
       BeanQuery patternQuery =
           BeanQuery.builder()
               .domainName("java.lang")
               .property("type", "*")
-              .usePropertyListPattern()
+              .propertyListPattern(true)
               .build();
 
       // act
@@ -335,7 +335,7 @@ class MBeanClientTest {
       // assert
       /*
       It might be hard to understand what this test is testing for.
-      The keypoint is we are using BeanQueryBuilder#usePropertyListPattern()
+      The keypoint is we are using BeanQueryBuilder#propertyListPattern(true)
 
       Without it the query will be "java.lang:type=*"
       And we only match the following
@@ -374,7 +374,7 @@ class MBeanClientTest {
   @Test
   void testListDomains() {
     // arrange
-    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (JndiClient.BasicMBeanClient) JndiClient.of(jmxServer.getAddress())) {
 
       // act
       List<String> domains = client.domains();
@@ -388,7 +388,7 @@ class MBeanClientTest {
   @Test
   void testHostAndPort() {
     // arrange
-    try (var client = (MBeanClient.BasicMBeanClient) MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = (JndiClient.BasicMBeanClient) JndiClient.of(jmxServer.getAddress())) {
       assertEquals(jmxServer.getAddress().getHost(), client.host);
       assertEquals(jmxServer.getAddress().getPort(), client.port);
     }
@@ -404,7 +404,7 @@ class MBeanClientTest {
 
     register(objectName0, customMBean0);
 
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = JndiClient.of(jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> all =
@@ -431,7 +431,7 @@ class MBeanClientTest {
       register(objectName, mbean);
     }
 
-    try (var client = MBeanClient.of(jmxServer.getAddress())) {
+    try (var client = JndiClient.of(jmxServer.getAddress())) {
 
       // act
       Collection<BeanObject> all =
@@ -469,7 +469,7 @@ class MBeanClientTest {
 
   @Test
   void testLocal() {
-    var client = MBeanClient.local();
+    var client = JndiClient.local();
     Assertions.assertNotEquals(0, client.beans(BeanQuery.all()).size());
   }
 

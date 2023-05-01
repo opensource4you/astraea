@@ -113,7 +113,7 @@ class BeanQueryTest {
         BeanQuery.builder()
             .domainName("java.lang")
             .property("type", "MemoryManager")
-            .usePropertyListPattern()
+            .propertyListPattern(true)
             .build();
     assertTrue(withPattern.objectName().isPropertyListPattern());
 

@@ -24,12 +24,12 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MetricFactory;
 import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.common.metrics.broker.ClusterMetrics;
@@ -74,7 +74,7 @@ class ClusterInfoSensorTest {
             .forEach(i -> i.toCompletableFuture().join());
       }
 
-      var cb = MetricsTestUtils.clusterBean(Map.of(aBroker.id(), MBeanClient.local()), sensor);
+      var cb = MetricsTestUtils.clusterBean(Map.of(aBroker.id(), JndiClient.local()), sensor);
 
       // assert contains that metrics
       cb.all()

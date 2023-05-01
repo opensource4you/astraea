@@ -20,9 +20,9 @@ import java.lang.management.MemoryUsage;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.ClusterBean;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.common.metrics.platform.HasJvmMemory;
 import org.astraea.common.metrics.platform.JvmMemory;
@@ -54,7 +54,7 @@ public class MemoryCostTest {
   void testSensor() {
     var f = new MemoryCost();
     var clusterBean =
-        MetricsTestUtils.clusterBean(Map.of(0, MBeanClient.local()), f.metricSensor().get());
+        MetricsTestUtils.clusterBean(Map.of(0, JndiClient.local()), f.metricSensor().get());
     Assertions.assertTrue(clusterBean.brokerMetrics(0, JvmMemory.class).allMatch(Objects::nonNull));
 
     // Test if we can get "used memory" and "max memory".

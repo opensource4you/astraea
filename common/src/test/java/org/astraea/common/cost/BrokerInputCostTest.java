@@ -18,10 +18,10 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.ClusterBean;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.producer.Producer;
@@ -66,7 +66,7 @@ public class BrokerInputCostTest {
     var f = new BrokerInputCost();
     var clusterBean =
         MetricsTestUtils.clusterBean(
-            Map.of(0, MBeanClient.of(SERVICE.jmxServiceURL())), f.metricSensor().get());
+            Map.of(0, JndiClient.of(SERVICE.jmxServiceURL())), f.metricSensor().get());
 
     Assertions.assertNotEquals(
         0, clusterBean.brokerMetrics(0, ServerMetrics.BrokerTopic.Meter.class).count());

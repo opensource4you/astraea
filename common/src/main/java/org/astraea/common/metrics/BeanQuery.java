@@ -53,9 +53,17 @@ import org.astraea.common.Utils;
  * BeanQuery.all("java.*")
  * }</pre>
  */
-public class BeanQuery {
+public interface BeanQuery {
 
-  public static Builder builder() {
+  static BeanQuery fromObjectName(ObjectName objectName) {
+    return BeanQuery.builder()
+        .domainName(objectName.getDomain())
+        .properties(objectName.getKeyPropertyList())
+        .propertyListPattern(objectName.isPropertyListPattern())
+        .build();
+  }
+
+  static Builder builder() {
     return new Builder();
   }
 
@@ -64,8 +72,8 @@ public class BeanQuery {
    *
    * @return a {@link BeanQuery} object that target all MBeans under every domain name
    */
-  public static BeanQuery all() {
-    return builder().usePropertyListPattern().build();
+  static BeanQuery all() {
+    return builder().propertyListPattern(true).build();
   }
 
   /**
@@ -74,58 +82,21 @@ public class BeanQuery {
    * @param domainName the domain name to query
    * @return a {@link BeanQuery} object that target all MBeans under specific domain name
    */
-  public static BeanQuery all(String domainName) {
-    return builder().domainName(domainName).usePropertyListPattern().build();
+  static BeanQuery all(String domainName) {
+    return builder().domainName(domainName).propertyListPattern(true).build();
   }
 
-  private final String domainName;
-  private final Map<String, String> properties;
-  private final ObjectName objectName;
+  String domainName();
 
-  /**
-   * Initialize a BeanQuery.
-   *
-   * @param domainName the target MBeans's domain name
-   * @param properties the target MBeans's properties
-   * @param usePropertyListPattern use property list pattern or not. If used, a ",*" or "*" string
-   *     will be appended to ObjectName.
-   */
-  public BeanQuery(
-      String domainName, Map<String, String> properties, boolean usePropertyListPattern) {
-    this.domainName = Objects.requireNonNull(domainName);
-    this.properties = Map.copyOf(Objects.requireNonNull(properties));
-    this.objectName =
-        Utils.packException(
-            () -> {
-              if (usePropertyListPattern) {
-                var propertyList =
-                    properties.entrySet().stream()
-                        .map((entry -> String.format("%s=%s", entry.getKey(), entry.getValue())))
-                        .collect(Collectors.joining(","));
-                return ObjectName.getInstance(
-                    domainName + ":" + propertyList + ((properties.isEmpty()) ? "*" : ",*"));
-              }
-              return ObjectName.getInstance(domainName, new Hashtable<>(this.properties));
-            });
-  }
+  Map<String, String> properties();
 
-  public String domainName() {
-    return domainName;
-  }
+  ObjectName objectName();
 
-  public Map<String, String> properties() {
-    return Map.copyOf(properties);
-  }
-
-  ObjectName objectName() {
-    return this.objectName;
-  }
-
-  public static class Builder {
+  class Builder {
 
     private String domainName = "*";
     private final Map<String, String> properties = new HashMap<>();
-    private boolean usePropertyListPattern = false;
+    private boolean propertyListPattern = false;
 
     private Builder() {}
 
@@ -179,8 +150,8 @@ public class BeanQuery {
      *     for explanation of property list pattern from Oracle documentation.
      * @return the current {@link Builder} instance with property list pattern applied.
      */
-    public Builder usePropertyListPattern() {
-      this.usePropertyListPattern = true;
+    public Builder propertyListPattern(boolean propertyListPattern) {
+      this.propertyListPattern = propertyListPattern;
       return this;
     }
 
@@ -191,14 +162,38 @@ public class BeanQuery {
      *     previous calling to {@link Builder#property(String, String)}.
      */
     public BeanQuery build() {
-      return new BeanQuery(domainName, properties, usePropertyListPattern);
-    }
-  }
+      var domainName = Objects.requireNonNull(this.domainName);
+      var properties = Map.copyOf(Objects.requireNonNull(this.properties));
+      var objectName =
+          Utils.packException(
+              () -> {
+                if (propertyListPattern) {
+                  var propertyList =
+                      properties.entrySet().stream()
+                          .map((entry -> String.format("%s=%s", entry.getKey(), entry.getValue())))
+                          .collect(Collectors.joining(","));
+                  return ObjectName.getInstance(
+                      domainName + ":" + propertyList + ((properties.isEmpty()) ? "*" : ",*"));
+                }
+                return ObjectName.getInstance(domainName, new Hashtable<>(this.properties));
+              });
+      return new BeanQuery() {
 
-  static BeanQuery fromObjectName(ObjectName objectName) {
-    return new BeanQuery(
-        objectName.getDomain(),
-        new HashMap<>(objectName.getKeyPropertyList()),
-        objectName.isPropertyListPattern());
+        @Override
+        public String domainName() {
+          return domainName;
+        }
+
+        @Override
+        public Map<String, String> properties() {
+          return properties;
+        }
+
+        @Override
+        public ObjectName objectName() {
+          return objectName;
+        }
+      };
+    }
   }
 }
