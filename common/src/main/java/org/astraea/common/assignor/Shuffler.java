@@ -16,10 +16,15 @@
  */
 package org.astraea.common.assignor;
 
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.TopicPartition;
 
@@ -40,7 +45,7 @@ public interface Shuffler {
       Map<TopicPartition, Set<TopicPartition>> incompatible,
       Map<TopicPartition, Double> costs);
 
-  static Shuffler incompatible() {
+  static Shuffler incompatible(long maxTime) {
     return (subscriptions, assignment, incompatible, costs) -> {
       if (incompatible.isEmpty()) return assignment;
       // get the incompatible partitions of each consumer from consumer assignment
@@ -54,82 +59,113 @@ public interface Shuffler {
                               .flatMap(tp -> incompatible.get(tp).stream())
                               .collect(Collectors.toUnmodifiableSet())))
               .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-
-      // filter incompatible partitions from assignment to get remaining assignment
-      var remaining =
-          assignment.keySet().stream()
-              .map(
-                  consumer ->
-                      Map.entry(
-                          consumer,
-                          assignment.get(consumer).stream()
-                              .filter(tp -> !unsuitable.get(consumer).contains(tp))
-                              .collect(Collectors.toList())))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-      // calculate remaining cost for further assign
-      var remainingCost =
-          remaining.entrySet().stream()
-              .map(e -> Map.entry(e.getKey(), e.getValue().stream().mapToDouble(costs::get).sum()))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-      // the partitions have been assigned
-      var assigned =
-          remaining.values().stream().flatMap(List::stream).collect(Collectors.toUnmodifiableSet());
-      // the partitions need to be reassigned
-      var unassigned =
-          assignment.values().stream()
-              .flatMap(Collection::stream)
-              .filter(tp -> !assigned.contains(tp))
-              .collect(Collectors.toSet());
-
-      if (unassigned.isEmpty()) return assignment;
-
-      String minConsumer;
-      for (var tp : unassigned) {
-        // find the consumers that subscribe the topic which we assign now
-        var subscribedConsumer =
-            subscriptions.entrySet().stream()
-                .filter(e -> e.getValue().topics().contains(tp.topic()))
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toSet());
-        // find the consumers that are suitable with the tp
-        var suitableConsumer =
-            remaining.entrySet().stream()
-                .filter(e -> subscribedConsumer.contains(e.getKey()))
-                .map(
-                    e ->
-                        Map.entry(
-                            e.getKey(),
-                            e.getValue().stream()
-                                .flatMap(p -> incompatible.get(p).stream())
-                                .collect(Collectors.toSet())))
-                .filter(e -> !e.getValue().contains(tp))
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toSet());
-
-        // if there is no suitable consumer, choose the lowest cost consumer that subscribed topic
-        // and assign the tp to it.
-        // Otherwise, choose the lowest cost consumer from suitable consumers and assign the tp to
-        // it
-        minConsumer =
-            suitableConsumer.isEmpty()
-                ? remainingCost.entrySet().stream()
-                    .filter(e -> subscribedConsumer.contains(e.getKey()))
-                    .min(Map.Entry.comparingByValue())
-                    .get()
-                    .getKey()
-                : remainingCost.entrySet().stream()
-                    .filter(e -> suitableConsumer.contains(e.getKey()))
-                    .min(Map.Entry.comparingByValue())
-                    .get()
-                    .getKey();
-
-        remaining.get(minConsumer).add(tp);
-        remainingCost.compute(minConsumer, (ignore, totalCost) -> totalCost + costs.get(tp));
+      System.out.println("unsuitable = " + unsuitable);
+      System.out.println("assignment = " + assignment);
+      if (assignment.entrySet().stream()
+          .noneMatch(
+              e -> e.getValue().stream().anyMatch(tp -> unsuitable.get(e.getKey()).contains(tp)))) {
+        System.out.println("none match");
+        return assignment;
       }
 
-      return remaining;
+      var tmpCost = new HashMap<>(costs);
+      var submitHeavyCost =
+          (Function<String, TopicPartition>)
+              (c) -> {
+                var tpCost =
+                    tmpCost.entrySet().stream()
+                        .filter(tc -> subscriptions.get(c).topics().contains(tc.getKey().topic()))
+                        .max(Map.Entry.comparingByValue())
+                        .get();
+                tmpCost.remove(tpCost);
+                return tpCost.getKey();
+              };
+      var result =
+          subscriptions.keySet().stream()
+              .map(c -> Map.entry(c, new ArrayList<TopicPartition>()))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+      result.forEach((c, r) -> r.add(submitHeavyCost.apply(c)));
+
+      var possibleAssignments = new HashSet<Map<String, List<TopicPartition>>>();
+      var randomAssign =
+          (Function<TopicPartition, String>)
+              (tp) -> {
+                var subsConsumer =
+                    subscriptions.entrySet().stream()
+                        .filter(e -> e.getValue().topics().contains(tp.topic()))
+                        .collect(Collectors.toUnmodifiableList());
+                return subsConsumer
+                    .get(ThreadLocalRandom.current().nextInt(subsConsumer.size()))
+                    .getKey();
+              };
+
+      var start = System.currentTimeMillis();
+      while (System.currentTimeMillis() - start < maxTime) {
+        possibleAssignments.add(
+            tmpCost.keySet().stream()
+                .map(tp -> Map.entry(randomAssign.apply(tp), tp))
+                .collect(
+                    Collectors.groupingBy(
+                        Map.Entry::getKey,
+                        Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList()))));
+      }
+
+      var incompatibility =
+          (Function<Map<String, List<TopicPartition>>, Long>)
+              (possibleAssignment) -> {
+                var unsuit =
+                    possibleAssignment.entrySet().stream()
+                        .map(
+                            e ->
+                                Map.entry(
+                                    e.getKey(),
+                                    e.getValue().stream()
+                                        .flatMap(tp -> incompatible.get(tp).stream())
+                                        .collect(Collectors.toUnmodifiableSet())))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+                return possibleAssignment.entrySet().stream()
+                    .mapToLong(
+                        e ->
+                            e.getValue().stream()
+                                    .filter(tp -> unsuit.get(e.getKey()).contains(tp))
+                                    .count()
+                                / 2)
+                    .sum();
+              };
+
+      var sigma =
+          (Function<Map<String, List<TopicPartition>>, Double>)
+              (r) -> {
+                var totalCost =
+                    r.entrySet().stream()
+                        .map(
+                            e ->
+                                Map.entry(
+                                    e.getKey(),
+                                    e.getValue().stream().mapToDouble(costs::get).sum()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                var avg = totalCost.values().stream().mapToDouble(d -> d).average().getAsDouble();
+
+                return Math.sqrt(
+                    totalCost.values().stream().mapToDouble(c -> Math.pow(avg - c, 2)).sum()
+                        / totalCost.size());
+              };
+      var w =
+          possibleAssignments.stream()
+              .map(r -> Map.entry(incompatibility.apply(r), r))
+              .collect(
+                  Collectors.groupingBy(
+                      Map.Entry::getKey,
+                      Collectors.mapping(Map.Entry::getValue, Collectors.toSet())));
+      System.out.println("w = " + w);
+      var resu =
+          w.entrySet().stream().min(Map.Entry.comparingByKey()).get().getValue().stream()
+              .min(Comparator.comparingDouble(sigma::apply))
+              .get();
+      System.out.println("resu = " + resu);
+      return resu;
     };
   }
 }

@@ -29,7 +29,7 @@ public class CostAwareAssignorTest {
   @Test
   void testGreedyAssign() {
     var assign = Combinator.greedy();
-    var reassign = Shuffler.incompatible();
+    var reassign = Shuffler.incompatible(1000);
     var subscription =
         Map.of(
             "c1",
