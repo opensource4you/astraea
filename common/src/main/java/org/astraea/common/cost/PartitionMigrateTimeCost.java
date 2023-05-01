@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.function.Function;
-import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.BeanObject;
@@ -109,9 +108,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var brokerMigrateTime = MigrationCost.brokerMigrationTime(before, after, clusterBean);
     var maxMigrateTime =
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .distinct()
-            .map(nodeInfo -> brokerMigrateTime.get(nodeInfo.id()))
+        brokerMigrateTime.values().stream()
             .max(Comparator.comparing(Function.identity()))
             .orElse(Long.MAX_VALUE);
     return () -> maxMigrateTime > this.maxMigrateTime;

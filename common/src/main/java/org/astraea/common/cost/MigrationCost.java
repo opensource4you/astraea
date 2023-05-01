@@ -116,8 +116,7 @@ public class MigrationCost {
                 brokerSize ->
                     Map.entry(
                         brokerSize.getKey(),
-                        brokerSize.getValue()
-                            / brokerInRate.get(brokerSize.getKey()).orElse(Long.MAX_VALUE)))
+                        brokerSize.getValue() / brokerInRate.get(brokerSize.getKey()).orElse(0)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     var brokerMigrateOutTime =
         MigrationCost.recordSizeToSync(before, after).entrySet().stream()
@@ -125,8 +124,7 @@ public class MigrationCost {
                 brokerSize ->
                     Map.entry(
                         brokerSize.getKey(),
-                        brokerSize.getValue()
-                            / brokerOutRate.get(brokerSize.getKey()).orElse(Long.MAX_VALUE)))
+                        brokerSize.getValue() / brokerOutRate.get(brokerSize.getKey()).orElse(0)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
         .distinct()
