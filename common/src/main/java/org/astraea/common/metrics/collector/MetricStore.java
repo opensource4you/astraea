@@ -27,11 +27,13 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
@@ -39,6 +41,7 @@ import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.Record;
+import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.ClusterBean;
@@ -66,6 +69,9 @@ public interface MetricStore extends AutoCloseable {
    * @return the last used sensors
    */
   Map<MetricSensor, BiConsumer<Integer, Exception>> sensors();
+
+  /** Wait for the checker to be true or timeout. */
+  void wait(Predicate<ClusterBean> checker, Duration timeout);
 
   @Override
   void close();
@@ -193,6 +199,8 @@ public interface MetricStore extends AutoCloseable {
     private final Set<Integer> identities = new ConcurrentSkipListSet<>();
 
     private volatile Map<MetricSensor, BiConsumer<Integer, Exception>> lastSensors = Map.of();
+    private final Map<CountDownLatch, Predicate<ClusterBean>> waitingList =
+        new ConcurrentHashMap<>();
 
     private MetricStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier,
@@ -243,8 +251,11 @@ public interface MetricStore extends AutoCloseable {
                             }
                           });
                     });
-                // generate new cluster bean
-                if (!allBeans.isEmpty()) updateClusterBean();
+                if (!allBeans.isEmpty()) {
+                  // generate new cluster bean
+                  updateClusterBean();
+                  checkWaitingList(this.waitingList, clusterBean());
+                }
               } catch (Exception e) {
                 // TODO: it needs better error handling
                 e.printStackTrace();
@@ -278,6 +289,25 @@ public interface MetricStore extends AutoCloseable {
       receiver.close();
     }
 
+    /** User thread will "wait" until being awakened by the metric store or being timeout. */
+    @Override
+    public void wait(Predicate<ClusterBean> checker, Duration timeout) {
+      var latch = new CountDownLatch(1);
+      try {
+        waitingList.put(latch, checker);
+        // Check the newly added checker immediately
+        checkWaitingList(Map.of(latch, checker), clusterBean());
+        // Wait until being awake or timeout
+        if (!latch.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+          throw new IllegalStateException("Timeout waiting for the checker");
+        }
+      } catch (InterruptedException ie) {
+        throw new IllegalStateException("Interrupted while waiting for the checker");
+      } finally {
+        waitingList.remove(latch);
+      }
+    }
+
     private void updateClusterBean() {
       lastClusterBean =
           ClusterBean.of(
@@ -286,6 +316,21 @@ public interface MetricStore extends AutoCloseable {
                   .collect(
                       Collectors.toUnmodifiableMap(
                           Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
+    }
+
+    /**
+     * Check the checkers in the waiting list. If the checker returns true, count down the latch.
+     */
+    private static void checkWaitingList(
+        Map<CountDownLatch, Predicate<ClusterBean>> waitingList, ClusterBean clusterBean) {
+      waitingList.forEach(
+          (latch, checker) -> {
+            try {
+              if (checker.test(clusterBean)) latch.countDown();
+            } catch (NoSufficientMetricsException e) {
+              // Check failed. Try again next time.
+            }
+          });
     }
   }
 }
