@@ -55,11 +55,9 @@ public class CostAwareAssignor extends Assignor {
             .collect(Collectors.toUnmodifiableSet());
 
     metricStore.wait(
-        (ignore) -> {
-          var bean = metricStore.clusterBean();
-          var c = costFunction.partitionCost(clusterInfo, bean);
-          if (c.value().values().stream().noneMatch(v -> Double.isNaN(v))) return true;
-          return false;
+        (clusterBean) -> {
+          return costFunction.partitionCost(clusterInfo, clusterBean).value().values().stream()
+              .noneMatch(v -> Double.isNaN(v));
         },
         shuffleTime);
 
