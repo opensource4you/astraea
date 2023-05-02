@@ -16,14 +16,16 @@
  */
 package org.astraea.common.cost;
 
+import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 /**
@@ -33,10 +35,10 @@ import org.astraea.common.metrics.collector.MetricSensor;
  */
 public class ReplicaLeaderSizeCost
     implements HasMoveCost, HasBrokerCost, HasClusterCost, HasPartitionCost {
-
   private final Configuration config;
 
   public static final String COST_LIMIT_KEY = "max.migrated.leader.size";
+  public static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
 
   public ReplicaLeaderSizeCost() {
     this.config = Configuration.of(Map.of());
@@ -61,8 +63,7 @@ public class ReplicaLeaderSizeCost
     var maxMigratedLeaderSize =
         config.string(COST_LIMIT_KEY).map(DataSize::of).map(DataSize::bytes).orElse(Long.MAX_VALUE);
     var overflow =
-        CostUtils.changedRecordSizeOverflow(
-            before, after, Replica::isLeader, maxMigratedLeaderSize);
+        changedRecordSizeOverflow(before, after, Replica::isLeader, maxMigratedLeaderSize);
     return () -> overflow;
   }
 

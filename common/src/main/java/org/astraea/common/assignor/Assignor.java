@@ -39,6 +39,7 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.cost.HasPartitionCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricStore;
 import org.astraea.common.partitioner.PartitionerUtils;
@@ -67,7 +68,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    * @return Map from each member to the list of partitions assigned to them.
    */
   protected abstract Map<String, List<TopicPartition>> assign(
-      Map<String, org.astraea.common.assignor.Subscription> subscriptions, ClusterInfo clusterInfo);
+      Map<String, SubscriptionInfo> subscriptions, ClusterInfo clusterInfo);
   // TODO: replace the topicPartitions by ClusterInfo after Assignor is able to handle Admin
   // https://github.com/skiptests/astraea/issues/1409
 
@@ -107,8 +108,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   public final GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
     var clusterInfo = updateClusterInfo();
     // convert Kafka's data structure to ours
-    var subscriptionsPerMember =
-        org.astraea.common.assignor.GroupSubscription.from(groupSubscription).groupSubscription();
+    var subscriptionsPerMember = GroupSubscriptionInfo.from(groupSubscription).groupSubscription();
 
     // TODO: Detected if consumers subscribed to the same topics.
     // For now, assume that the consumers only subscribed to identical topics
@@ -160,13 +160,13 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                 .brokers()
                 .thenApply(
                     brokers -> {
-                      var map = new HashMap<Integer, MBeanClient>();
+                      var map = new HashMap<Integer, JndiClient>();
                       brokers.forEach(
                           b ->
                               map.put(
-                                  b.id(), MBeanClient.jndi(b.host(), jmxPortGetter.apply(b.id()))));
+                                  b.id(), JndiClient.of(b.host(), jmxPortGetter.apply(b.id()))));
                       // add local client to fetch consumer metrics
-                      map.put(-1, MBeanClient.local());
+                      map.put(-1, JndiClient.local());
                       return Collections.unmodifiableMap(map);
                     });
     metricStore =

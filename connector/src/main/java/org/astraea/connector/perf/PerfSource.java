@@ -16,24 +16,21 @@
  */
 package org.astraea.connector.perf;
 
-import java.util.Arrays;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Random;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import org.apache.kafka.common.config.ConfigException;
+import java.util.stream.LongStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
-import org.astraea.common.DataUnit;
 import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
-import org.astraea.common.metrics.stats.Rate;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Record;
+import org.astraea.common.producer.RecordGenerator;
 import org.astraea.connector.Definition;
 import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
@@ -58,9 +55,18 @@ public class PerfSource extends SourceConnector {
           .documentation(
               "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
           .build();
-  static Definition KEY_LENGTH_DEF =
+  static Definition KEY_SIZE_DISTRIBUTION_DEF =
       Definition.builder()
-          .name("key.length")
+          .name("key.size.distribution")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DistributionType.ofAlias(obj.toString()))
+          .defaultValue(DistributionType.FIXED.alias())
+          .documentation(
+              "Distribution name for key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: fixed")
+          .build();
+  static Definition KEY_SIZE_DEF =
+      Definition.builder()
+          .name("key.size")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
           .defaultValue(DataSize.Byte.of(50).toString())
@@ -78,9 +84,9 @@ public class PerfSource extends SourceConnector {
           .documentation(
               "Distribution name for value and value size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
           .build();
-  static Definition VALUE_LENGTH_DEF =
+  static Definition VALUE_SIZE_DEF =
       Definition.builder()
-          .name("value.length")
+          .name("value.size")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
           .defaultValue(DataSize.KB.of(1).toString())
@@ -88,22 +94,35 @@ public class PerfSource extends SourceConnector {
               "the max length of value. The distribution of length is defined by "
                   + VALUE_DISTRIBUTION_DEF.name())
           .build();
-
-  static Definition SPECIFY_PARTITIONS_DEF =
+  static Definition VALUE_SIZE_DISTRIBUTION_DEF =
       Definition.builder()
-          .name("specify.partitions")
+          .name("value.size.distribution")
           .type(Definition.Type.STRING)
-          .validator(
-              (name, obj) -> {
-                if (obj == null) return;
-                if (obj instanceof String) {
-                  Arrays.stream(((String) obj).split(",")).forEach(Integer::parseInt);
-                  return;
-                }
-                throw new ConfigException(name, obj, "there are non-number strings");
-              })
+          .validator((name, obj) -> DistributionType.ofAlias(obj.toString()))
+          .defaultValue(DistributionType.FIXED.alias())
           .documentation(
-              "If this config is defined, all records will be sent to those given partitions")
+              "Distribution name for value size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: fixed")
+          .build();
+  static Definition BATCH_SIZE_DEF =
+      Definition.builder()
+          .name("batch.size")
+          .type(Definition.Type.INT)
+          .defaultValue(1)
+          .documentation("the max length of batching messages.")
+          .build();
+  static Definition KEY_TABLE_SEED =
+      Definition.builder()
+          .name("key.table.seed")
+          .type(Definition.Type.LONG)
+          .defaultValue(ThreadLocalRandom.current().nextLong())
+          .documentation("The random seed for internal record key candidate generation.")
+          .build();
+  static Definition VALUE_TABLE_SEED =
+      Definition.builder()
+          .name("value.table.seed")
+          .type(Definition.Type.LONG)
+          .defaultValue(ThreadLocalRandom.current().nextLong())
+          .documentation("The random seed for internal record value candidate generation.")
           .build();
 
   private Configuration config;
@@ -120,155 +139,124 @@ public class PerfSource extends SourceConnector {
 
   @Override
   protected List<Configuration> takeConfiguration(int maxTasks) {
-    var ps = specifyPartitions(config);
-    if (ps.isEmpty())
-      return IntStream.range(0, maxTasks).mapToObj(i -> config).collect(Collectors.toList());
-    return Utils.chunk(ps, maxTasks).stream()
+    var topics = config.list(SourceConnector.TOPICS_KEY, ",");
+    if (topics.size() <= maxTasks)
+      return topics.stream()
+          .map(
+              t -> {
+                var copy = new HashMap<>(config.raw());
+                copy.put(SourceConnector.TOPICS_KEY, t);
+                return Configuration.of(copy);
+              })
+          .collect(Collectors.toUnmodifiableList());
+    return Utils.chunk(topics, maxTasks).stream()
         .map(
-            partitions -> {
-              var c = new HashMap<>(config.raw());
-              c.put(
-                  SPECIFY_PARTITIONS_DEF.name(),
-                  partitions.stream().map(String::valueOf).collect(Collectors.joining(",")));
-              return Configuration.of(c);
+            tps -> {
+              var copy = new HashMap<>(config.raw());
+              copy.put(SourceConnector.TOPICS_KEY, String.join(",", tps));
+              return Configuration.of(copy);
             })
-        .collect(Collectors.toList());
+        .collect(Collectors.toUnmodifiableList());
   }
 
   @Override
   protected List<Definition> definitions() {
     return List.of(
         THROUGHPUT_DEF,
-        KEY_LENGTH_DEF,
+        KEY_SIZE_DEF,
         KEY_DISTRIBUTION_DEF,
-        VALUE_LENGTH_DEF,
+        KEY_SIZE_DISTRIBUTION_DEF,
+        VALUE_SIZE_DEF,
         VALUE_DISTRIBUTION_DEF,
-        SPECIFY_PARTITIONS_DEF);
-  }
-
-  private static Set<Integer> specifyPartitions(Configuration configuration) {
-    return configuration
-        .string(SPECIFY_PARTITIONS_DEF.name())
-        .map(s -> Arrays.stream(s.split(",")).map(Integer::parseInt).collect(Collectors.toSet()))
-        .orElse(Set.of());
+        VALUE_SIZE_DISTRIBUTION_DEF,
+        BATCH_SIZE_DEF,
+        KEY_TABLE_SEED,
+        VALUE_TABLE_SEED);
   }
 
   public static class Task extends SourceTask {
+    Set<TopicPartition> specifyPartitions = Set.of();
 
-    final Random rand = new Random();
-    Set<String> topics = Set.of();
-    DataSize throughput;
-    Supplier<Long> keySelector;
-    Supplier<Long> keySizeGenerator;
-    final Map<Long, byte[]> keys = new HashMap<>();
-    Supplier<Long> valueSelector;
-    Supplier<Long> valueSizeGenerator;
-    final Map<Long, byte[]> values = new HashMap<>();
-
-    Set<Integer> specifyPartitions = Set.of();
-
-    final Rate<DataSize> sizeRate = Rate.sizeRate();
+    RecordGenerator recordGenerator = null;
 
     @Override
     protected void init(Configuration configuration, MetadataStorage storage) {
-      this.topics = Set.copyOf(configuration.list(SourceConnector.TOPICS_KEY, ","));
-      this.throughput =
+      var throughput =
           DataSize.of(
               configuration
                   .string(THROUGHPUT_DEF.name())
                   .orElse(THROUGHPUT_DEF.defaultValue().toString()));
-      var keyLength =
+      var KeySize =
           DataSize.of(
               configuration
-                  .string(KEY_LENGTH_DEF.name())
-                  .orElse(KEY_LENGTH_DEF.defaultValue().toString()));
-      var valueLength =
-          DataSize.of(
-              configuration
-                  .string(VALUE_LENGTH_DEF.name())
-                  .orElse(VALUE_LENGTH_DEF.defaultValue().toString()));
+                  .string(KEY_SIZE_DEF.name())
+                  .orElse(KEY_SIZE_DEF.defaultValue().toString()));
       var keyDistribution =
           DistributionType.ofAlias(
               configuration
                   .string(KEY_DISTRIBUTION_DEF.name())
                   .orElse(KEY_DISTRIBUTION_DEF.defaultValue().toString()));
+      var keySizeDistribution =
+          DistributionType.ofAlias(
+              configuration
+                  .string(KEY_SIZE_DISTRIBUTION_DEF.name())
+                  .orElse(KEY_SIZE_DISTRIBUTION_DEF.defaultValue().toString()));
+      var valueSize =
+          DataSize.of(
+              configuration
+                  .string(VALUE_SIZE_DEF.name())
+                  .orElse(VALUE_SIZE_DEF.defaultValue().toString()));
       var valueDistribution =
           DistributionType.ofAlias(
               configuration
                   .string(VALUE_DISTRIBUTION_DEF.name())
                   .orElse(VALUE_DISTRIBUTION_DEF.defaultValue().toString()));
-      keySelector = keyDistribution.create(10000, Configuration.EMPTY);
-      keySizeGenerator =
-          keyDistribution.create(
-              keyLength.measurement(DataUnit.Byte).intValue(), Configuration.EMPTY);
-      valueSelector = valueDistribution.create(10000, Configuration.EMPTY);
-      valueSizeGenerator =
-          valueDistribution.create(
-              valueLength.measurement(DataUnit.Byte).intValue(), Configuration.EMPTY);
-      specifyPartitions = specifyPartitions(configuration);
-    }
+      var valueSizeDistribution =
+          DistributionType.ofAlias(
+              configuration
+                  .string(VALUE_SIZE_DISTRIBUTION_DEF.name())
+                  .orElse(VALUE_SIZE_DISTRIBUTION_DEF.defaultValue().toString()));
 
-    byte[] key() {
-      var size = keySizeGenerator.get().intValue();
-      // user can define zero size for key
-      if (size == 0) return null;
-      return keys.computeIfAbsent(
-          keySelector.get(),
-          ignored -> {
-            var value = new byte[size];
-            rand.nextBytes(value);
-            return value;
-          });
-    }
+      var batchSize =
+          configuration
+              .integer(BATCH_SIZE_DEF.name())
+              .orElse((Integer) BATCH_SIZE_DEF.defaultValue());
+      var keyTableSeed =
+          configuration
+              .longInteger(KEY_TABLE_SEED.name())
+              .orElse((Long) KEY_TABLE_SEED.defaultValue());
+      var valueTableSeed =
+          configuration
+              .longInteger(VALUE_TABLE_SEED.name())
+              .orElse((Long) VALUE_TABLE_SEED.defaultValue());
 
-    byte[] value() {
-      var size = valueSizeGenerator.get().intValue();
-      // user can define zero size for value
-      if (size == 0) return null;
-      return values.computeIfAbsent(
-          valueSelector.get(),
-          ignored -> {
-            var value = new byte[size];
-            rand.nextBytes(value);
-            return value;
-          });
-    }
-
-    private Collection<Record<byte[], byte[]>> records() {
-      if (specifyPartitions.isEmpty())
-        return topics.stream()
-            .map(t -> Record.builder().topic(t).key(key()).value(value()).build())
-            .collect(Collectors.toList());
-      return topics.stream()
-          .flatMap(
-              t ->
-                  specifyPartitions.stream()
-                      .map(
-                          p ->
-                              Record.builder()
-                                  .topic(t)
-                                  .partition(p)
-                                  .key(key())
-                                  .value(value())
-                                  .build()))
-          .collect(Collectors.toList());
+      specifyPartitions =
+          configuration.list(SourceConnector.TOPICS_KEY, ",").stream()
+              .map(t -> TopicPartition.of(t, -1))
+              .collect(Collectors.toUnmodifiableSet());
+      recordGenerator =
+          RecordGenerator.builder()
+              .batchSize(batchSize)
+              .keyTableSeed(keyTableSeed)
+              .keyRange(
+                  LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
+              .keyDistribution(keyDistribution.create(10000, configuration))
+              .keySizeDistribution(keySizeDistribution.create((int) KeySize.bytes(), configuration))
+              .valueTableSeed(valueTableSeed)
+              .valueRange(
+                  LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
+              .valueDistribution(valueDistribution.create(10000, configuration))
+              .valueSizeDistribution(
+                  valueSizeDistribution.create((int) valueSize.bytes(), configuration))
+              .throughput(tp -> throughput.dataRate(Duration.ofSeconds(1)))
+              .build();
     }
 
     @Override
     protected Collection<Record<byte[], byte[]>> take() {
-      var size = sizeRate.measure();
-      if (size.greaterThan(throughput)) return List.of();
-      var records = records();
-      records.forEach(r -> sizeRate.record(DataSize.Byte.of(estimatedSize(r))));
-      return records;
-    }
-
-    private static int estimatedSize(Record<byte[], byte[]> record) {
-      return (record.key() == null ? 0 : record.key().length)
-          + (record.value() == null ? 0 : record.value().length)
-          + record.headers().stream()
-              .mapToInt(h -> h.key().length() + (h.value() == null ? 0 : record.value().length))
-              .sum();
+      return specifyPartitions.stream()
+          .flatMap(tp -> recordGenerator.apply(tp).stream())
+          .collect(Collectors.toUnmodifiableList());
     }
   }
 }

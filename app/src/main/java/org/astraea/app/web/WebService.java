@@ -21,22 +21,61 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.IntegerMapField;
 import org.astraea.app.argument.NonNegativeIntegerField;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.metrics.JndiClient;
+import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.collector.MetricSensor;
+import org.astraea.common.metrics.collector.MetricStore;
 
 public class WebService implements AutoCloseable {
 
   private final HttpServer server;
   private final Admin admin;
+  private final Sensors sensors = new Sensors();
 
-  public WebService(Admin admin, int port, Function<Integer, Integer> brokerIdToJmxPort) {
+  public WebService(
+      Admin admin,
+      int port,
+      Function<Integer, Integer> brokerIdToJmxPort,
+      Duration beanExpiration) {
     this.admin = admin;
+    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+        () ->
+            admin
+                .brokers()
+                .thenApply(
+                    brokers ->
+                        brokers.stream()
+                            .collect(
+                                Collectors.toUnmodifiableMap(
+                                    NodeInfo::id,
+                                    b ->
+                                        JndiClient.of(b.host(), brokerIdToJmxPort.apply(b.id())))));
+    var metricStore =
+        MetricStore.builder()
+            .beanExpiration(beanExpiration)
+            .localReceiver(clientSupplier)
+            .sensorsSupplier(
+                () ->
+                    sensors.metricSensors().stream()
+                        .distinct()
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                Function.identity(), ignored -> (id, ee) -> {})))
+            .build();
     server = Utils.packException(() -> HttpServer.create(new InetSocketAddress(port), 0));
     server.createContext("/topics", to(new TopicHandler(admin)));
     server.createContext("/groups", to(new GroupHandler(admin)));
@@ -45,9 +84,10 @@ public class WebService implements AutoCloseable {
     server.createContext("/quotas", to(new QuotaHandler(admin)));
     server.createContext("/transactions", to(new TransactionHandler(admin)));
     server.createContext("/beans", to(new BeanHandler(admin, brokerIdToJmxPort)));
+    server.createContext("/sensors", to(new SensorHandler(sensors)));
     server.createContext("/records", to(new RecordHandler(admin)));
     server.createContext("/reassignments", to(new ReassignmentHandler(admin)));
-    server.createContext("/balancer", to(new BalancerHandler(admin, brokerIdToJmxPort)));
+    server.createContext("/balancer", to(new BalancerHandler(admin, metricStore)));
     server.createContext("/throttles", to(new ThrottleHandler(admin)));
     server.start();
   }
@@ -58,13 +98,15 @@ public class WebService implements AutoCloseable {
 
   @Override
   public void close() {
-    Utils.swallowException(admin::close);
+    Utils.close(admin);
     server.stop(3);
   }
 
   public static void main(String[] args) throws Exception {
     var arg = org.astraea.app.argument.Argument.parse(new Argument(), args);
-    try (var service = new WebService(Admin.of(arg.configs()), arg.port, arg::jmxPortMapping)) {
+    try (var service =
+        new WebService(
+            Admin.of(arg.configs()), arg.port, arg::jmxPortMapping, arg.beanExpiration)) {
       if (arg.ttl == null) {
         System.out.println("enter ctrl + c to terminate web service");
         TimeUnit.MILLISECONDS.sleep(Long.MAX_VALUE);
@@ -118,5 +160,32 @@ public class WebService implements AutoCloseable {
         validateWith = DurationField.class,
         converter = DurationField.class)
     Duration ttl = null;
+
+    @Parameter(
+        names = {"--bean.expiration"},
+        description = "Duration: the life of collected metrics",
+        validateWith = DurationField.class,
+        converter = DurationField.class)
+    Duration beanExpiration = Duration.ofHours(1);
+  }
+
+  static class Sensors {
+    private final Collection<MetricSensor> sensors;
+
+    Sensors() {
+      sensors = new ConcurrentLinkedQueue<>();
+    }
+
+    Collection<MetricSensor> metricSensors() {
+      return sensors;
+    }
+
+    void clearSensors() {
+      sensors.clear();
+    }
+
+    void addSensors(MetricSensor metricSensor) {
+      sensors.add(metricSensor);
+    }
   }
 }

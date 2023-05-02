@@ -33,7 +33,9 @@ import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.HasBrokerCost;
+import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.NodeLatencyCost;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricStore;
 
@@ -76,9 +78,17 @@ public class StrictCostPartitioner extends Partitioner {
     // just return the only one available partition
     if (partitionLeaders.size() == 1) return partitionLeaders.get(0).partition();
 
-    roundRobinKeeper.tryToUpdate(
-        clusterInfo,
-        () -> costToScore(costFunction.brokerCost(clusterInfo, metricStore.clusterBean())));
+    try {
+      roundRobinKeeper.tryToUpdate(
+          clusterInfo,
+          () -> costToScore(costFunction.brokerCost(clusterInfo, metricStore.clusterBean())));
+    } catch (NoSufficientMetricsException e) {
+      // There is not enough metrics for the cost functions computing teh broker cost. We should not
+      // update the round-robin keeper. Reuse the weights that were kept in the round-robin keeper.
+
+      // Let the user know the cost-functions were complaining.
+      e.printStackTrace();
+    }
 
     var target = roundRobinKeeper.next();
 
@@ -136,13 +146,13 @@ public class StrictCostPartitioner extends Partitioner {
                 .brokers()
                 .thenApply(
                     brokers -> {
-                      var map = new HashMap<Integer, MBeanClient>();
+                      var map = new HashMap<Integer, JndiClient>();
                       brokers.forEach(
                           b ->
                               map.put(
-                                  b.id(), MBeanClient.jndi(b.host(), jmxPortGetter.apply(b.id()))));
+                                  b.id(), JndiClient.of(b.host(), jmxPortGetter.apply(b.id()))));
                       // add local client to fetch consumer metrics
-                      map.put(-1, MBeanClient.local());
+                      map.put(-1, JndiClient.local());
                       return Collections.unmodifiableMap(map);
                     });
 

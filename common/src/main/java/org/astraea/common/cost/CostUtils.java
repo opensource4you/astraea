@@ -25,7 +25,9 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 
-class CostUtils {
+final class CostUtils {
+
+  private CostUtils() {}
 
   static boolean brokerDiskUsageSizeOverflow(
       ClusterInfo before, ClusterInfo after, Map<Integer, DataSize> brokerMoveCostLimit) {

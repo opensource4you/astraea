@@ -18,10 +18,8 @@ package org.astraea.connector.perf;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
@@ -30,9 +28,10 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.connector.MetadataStorage;
+import org.astraea.connector.SourceConnector;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -49,20 +48,16 @@ public class PerfSourceTest {
   }
 
   @Test
-  void testTaskConfiguration() {
+  void testDistributeConfigs() {
     var s = new PerfSource();
-    var config = Configuration.of(Map.of(PerfSource.SPECIFY_PARTITIONS_DEF.name(), "0,1,2,3"));
+    var config = Configuration.of(Map.of(SourceConnector.TOPICS_KEY, "a,b,c,d"));
     s.init(config, MetadataStorage.EMPTY);
     var configs = s.takeConfiguration(10);
     Assertions.assertEquals(4, configs.size());
-    Assertions.assertEquals(
-        0, configs.get(0).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
-    Assertions.assertEquals(
-        1, configs.get(1).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
-    Assertions.assertEquals(
-        2, configs.get(2).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
-    Assertions.assertEquals(
-        3, configs.get(3).requireInteger(PerfSource.SPECIFY_PARTITIONS_DEF.name()));
+    Assertions.assertEquals("a", configs.get(0).requireString(SourceConnector.TOPICS_KEY));
+    Assertions.assertEquals("b", configs.get(1).requireString(SourceConnector.TOPICS_KEY));
+    Assertions.assertEquals("c", configs.get(2).requireString(SourceConnector.TOPICS_KEY));
+    Assertions.assertEquals("d", configs.get(3).requireString(SourceConnector.TOPICS_KEY));
   }
 
   @Test
@@ -92,12 +87,12 @@ public class PerfSourceTest {
 
   @Test
   void testKeyLength() {
-    testConfig(PerfSource.KEY_LENGTH_DEF.name(), "a");
+    testConfig(PerfSource.KEY_SIZE_DEF.name(), "a");
   }
 
   @Test
   void testValueLength() {
-    testConfig(PerfSource.VALUE_LENGTH_DEF.name(), "a");
+    testConfig(PerfSource.VALUE_SIZE_DEF.name(), "a");
   }
 
   @Test
@@ -156,53 +151,6 @@ public class PerfSourceTest {
     for (var d : DistributionType.values())
       Assertions.assertDoesNotThrow(
           () -> PerfSource.VALUE_DISTRIBUTION_DEF.validator().accept("a", d.alias()));
-  }
-
-  @Test
-  void testSpecifyPartition() {
-    testConfig(PerfSource.SPECIFY_PARTITIONS_DEF.name(), "a");
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> PerfSource.SPECIFY_PARTITIONS_DEF.validator().accept("aa", "bbb"));
-    Assertions.assertDoesNotThrow(
-        () -> PerfSource.SPECIFY_PARTITIONS_DEF.validator().accept("a", "1,2,10"));
-
-    var name = Utils.randomString();
-    var topicName = Utils.randomString();
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      admin.creator().topic(topicName).numberOfPartitions(10).run().toCompletableFuture().join();
-      Utils.sleep(Duration.ofSeconds(3));
-      var client = ConnectorClient.builder().url(SERVICE.workerUrl()).build();
-      client
-          .createConnector(
-              name,
-              Map.of(
-                  ConnectorConfigs.CONNECTOR_CLASS_KEY,
-                  PerfSource.class.getName(),
-                  ConnectorConfigs.TASK_MAX_KEY,
-                  "1",
-                  ConnectorConfigs.TOPICS_KEY,
-                  topicName,
-                  PerfSource.SPECIFY_PARTITIONS_DEF.name(),
-                  "0"))
-          .toCompletableFuture()
-          .join();
-      Utils.sleep(Duration.ofSeconds(3));
-      Assertions.assertNotEquals(
-          0,
-          admin
-              .latestOffsets(Set.of(TopicPartition.of(topicName, 0)))
-              .toCompletableFuture()
-              .join()
-              .get(TopicPartition.of(topicName, 0)));
-      Assertions.assertEquals(
-          0,
-          admin
-              .latestOffsets(Set.of(TopicPartition.of(topicName, 1)))
-              .toCompletableFuture()
-              .join()
-              .get(TopicPartition.of(topicName, 1)));
-    }
   }
 
   private void testConfig(String name, String errorValue) {
@@ -293,7 +241,7 @@ public class PerfSourceTest {
     Utils.sleep(Duration.ofSeconds(3));
 
     var m0 =
-        ConnectorMetrics.sourceTaskInfo(MBeanClient.local()).stream()
+        ConnectorMetrics.sourceTaskInfo(JndiClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertNotEquals(0, m0.size());
@@ -314,7 +262,7 @@ public class PerfSourceTest {
         });
 
     var m1 =
-        ConnectorMetrics.taskError(MBeanClient.local()).stream()
+        ConnectorMetrics.taskError(JndiClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertNotEquals(0, m1.size());
@@ -331,7 +279,7 @@ public class PerfSourceTest {
         });
 
     var m2 =
-        ConnectorMetrics.connectorTaskInfo(MBeanClient.local()).stream()
+        ConnectorMetrics.connectorTaskInfo(JndiClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertEquals(1, m2.size());
@@ -351,7 +299,7 @@ public class PerfSourceTest {
         });
 
     var m3 =
-        ConnectorMetrics.workerConnectorInfo(MBeanClient.local()).stream()
+        ConnectorMetrics.workerConnectorInfo(JndiClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertEquals(1, m3.size());
@@ -367,7 +315,7 @@ public class PerfSourceTest {
         });
 
     var m4 =
-        ConnectorMetrics.connectorInfo(MBeanClient.local()).stream()
+        ConnectorMetrics.connectorInfo(JndiClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertEquals(1, m4.size());
@@ -384,15 +332,8 @@ public class PerfSourceTest {
   void testInit() {
     var task = new PerfSource.Task();
     task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")), MetadataStorage.EMPTY);
-    Assertions.assertNotNull(task.rand);
-    Assertions.assertNotNull(task.topics);
-    Assertions.assertNotNull(task.throughput);
-    Assertions.assertNotNull(task.keySelector);
-    Assertions.assertNotNull(task.keySizeGenerator);
-    Assertions.assertNotNull(task.keys);
-    Assertions.assertNotNull(task.valueSelector);
-    Assertions.assertNotNull(task.valueSizeGenerator);
-    Assertions.assertNotNull(task.values);
+    Assertions.assertNotNull(task.recordGenerator);
+    Assertions.assertEquals(1, task.specifyPartitions.size());
   }
 
   @Test
@@ -408,20 +349,13 @@ public class PerfSourceTest {
                 PerfSource.VALUE_DISTRIBUTION_DEF.name(),
                 "uniform")),
         MetadataStorage.EMPTY);
-    var keys =
-        IntStream.range(0, 100)
-            .mapToObj(ignored -> Optional.ofNullable(task.key()))
-            .flatMap(Optional::stream)
-            .collect(Collectors.toSet());
-    Assertions.assertEquals(keys.size(), task.keys.size());
-    Assertions.assertNotEquals(0, keys.size());
-    var values =
-        IntStream.range(0, 100)
-            .mapToObj(ignored -> Optional.ofNullable(task.value()))
-            .flatMap(Optional::stream)
-            .collect(Collectors.toSet());
-    Assertions.assertEquals(values.size(), task.values.size());
-    Assertions.assertNotEquals(0, values.size());
+    var records = task.take();
+    var keySizes =
+        records.stream().map(r -> r.key().length).collect(Collectors.toUnmodifiableSet());
+    Assertions.assertEquals(1, keySizes.size());
+    var valueSizes =
+        records.stream().map(r -> r.value().length).collect(Collectors.toUnmodifiableSet());
+    Assertions.assertEquals(1, valueSizes.size());
   }
 
   @Test
@@ -429,10 +363,11 @@ public class PerfSourceTest {
     var task = new PerfSource.Task();
     task.init(
         Configuration.of(
-            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_LENGTH_DEF.name(), "0Byte")),
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_SIZE_DEF.name(), "0Byte")),
         MetadataStorage.EMPTY);
-    Assertions.assertNull(task.key());
-    Assertions.assertEquals(0, task.keys.size());
+    var records = task.take();
+    Assertions.assertNotEquals(0, records.size());
+    records.forEach(r -> Assertions.assertNull(r.key()));
   }
 
   @Test
@@ -440,9 +375,10 @@ public class PerfSourceTest {
     var task = new PerfSource.Task();
     task.init(
         Configuration.of(
-            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_LENGTH_DEF.name(), "0Byte")),
+            Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_SIZE_DEF.name(), "0Byte")),
         MetadataStorage.EMPTY);
-    Assertions.assertNull(task.value());
-    Assertions.assertEquals(0, task.values.size());
+    var records = task.take();
+    Assertions.assertNotEquals(0, records.size());
+    records.forEach(r -> Assertions.assertNull(r.value()));
   }
 }

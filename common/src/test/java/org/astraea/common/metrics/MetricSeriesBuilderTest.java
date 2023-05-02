@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,7 +29,7 @@ import org.junit.jupiter.api.Test;
 class MetricSeriesBuilderTest {
 
   private static final ClusterInfo cluster =
-      ClusterInfoBuilder.builder()
+      ClusterInfo.builder()
           .addNode(Set.of(1, 2, 3))
           .addFolders(
               Map.ofEntries(

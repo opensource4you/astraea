@@ -100,7 +100,7 @@ public interface MetricFetcher extends AutoCloseable {
           Producer.builder()
               .bootstrapServers(bootstrapServer)
               .keySerializer(Serializer.INTEGER)
-              .valueSerializer(Serializer.STRING)
+              .valueSerializer(Serializer.BEAN_OBJECT)
               .build();
       String METRIC_TOPIC = "__metrics";
       return new Sender() {
@@ -108,13 +108,7 @@ public interface MetricFetcher extends AutoCloseable {
         public CompletionStage<Void> send(int id, Collection<BeanObject> beans) {
           var records =
               beans.stream()
-                  .map(
-                      bean ->
-                          Record.builder()
-                              .topic(METRIC_TOPIC)
-                              .key(id)
-                              .value(bean.toString())
-                              .build())
+                  .map(bean -> Record.builder().topic(METRIC_TOPIC).key(id).value(bean).build())
                   .collect(Collectors.toUnmodifiableList());
           return FutureUtils.sequence(
                   producer.send(records).stream()
@@ -264,7 +258,7 @@ public interface MetricFetcher extends AutoCloseable {
                 } finally {
                   lock.writeLock().unlock();
                 }
-                old.values().forEach(c -> Utils.swallowException(c::close));
+                old.values().forEach(Utils::close);
               });
     }
 
@@ -298,7 +292,7 @@ public interface MetricFetcher extends AutoCloseable {
       closed.set(true);
       executor.shutdownNow();
       Utils.packException(() -> executor.awaitTermination(30, TimeUnit.SECONDS));
-      clients.values().forEach(c -> Utils.swallowException(c::close));
+      clients.values().forEach(Utils::close);
       sender.close();
     }
   }

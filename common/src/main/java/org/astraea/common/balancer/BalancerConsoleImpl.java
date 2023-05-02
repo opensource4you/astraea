@@ -32,11 +32,11 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.NoSufficientMetricsException;
+import org.astraea.common.metrics.ClusterBean;
 
 public class BalancerConsoleImpl implements BalancerConsole {
 
@@ -309,7 +309,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
               if (!mismatchPartitions.isEmpty())
                 throw new IllegalStateException(
                     "The cluster state has been changed significantly. "
-                        + "The following topic/partitions have different replica list(lookup the moment of plan generation): "
+                        + "The following topic/partitions have different replica list: "
                         + mismatchPartitions);
             });
   }

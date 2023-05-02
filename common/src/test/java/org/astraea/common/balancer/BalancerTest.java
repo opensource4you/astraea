@@ -31,7 +31,6 @@ import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
@@ -43,6 +42,7 @@ import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
@@ -122,7 +122,7 @@ class BalancerTest {
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(10))
                       .clusterCost(new ReplicaLeaderCost())
-                      .topicFilter(topic -> topic.equals(topicName))
+                      .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, "(" + topicName + ")")
                       .build())
               .orElseThrow();
       new StraightPlanExecutor(Configuration.EMPTY)
@@ -174,7 +174,7 @@ class BalancerTest {
                       .clusterInfo(clusterInfo)
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(3))
-                      .topicFilter(t -> t.equals(theTopic))
+                      .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, "(" + theTopic + ")")
                       .clusterCost(randomScore)
                       .build())
               .get()

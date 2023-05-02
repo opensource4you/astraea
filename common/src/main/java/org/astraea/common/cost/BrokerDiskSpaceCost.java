@@ -20,10 +20,11 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.metrics.ClusterBean;
 
 public class BrokerDiskSpaceCost implements HasMoveCost {
 
@@ -57,7 +58,12 @@ public class BrokerDiskSpaceCost implements HasMoveCost {
                           var brokerPathAndLimit = idAndPath.split(":");
                           var brokerPath = brokerPathAndLimit[0].split("-");
                           return Map.entry(
-                              BrokerPath.of(Integer.parseInt(brokerPath[0]), brokerPath[1]),
+                              BrokerPath.of(
+                                  Integer.parseInt(brokerPath[0]),
+                                  IntStream.range(1, brokerPath.length)
+                                      .boxed()
+                                      .map(x -> brokerPath[x])
+                                      .collect(Collectors.joining("-"))),
                               DataSize.of(brokerPathAndLimit[1]));
                         })
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))

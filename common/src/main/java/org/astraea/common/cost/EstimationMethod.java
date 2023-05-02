@@ -14,33 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.database;
+package org.astraea.common.cost;
 
-public interface DatabaseClient extends AutoCloseable {
+import org.astraea.common.EnumInfo;
 
-  static Builder builder() {
-    return new Builder();
+/** Method to estimate the partition bandwidth */
+enum EstimationMethod implements EnumInfo {
+  BROKER_TOPIC_ONE_MINUTE_RATE,
+  BROKER_TOPIC_FIVE_MINUTE_RATE,
+  BROKER_TOPIC_FIFTEEN_MINUTE_RATE;
+
+  static EstimationMethod ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(EstimationMethod.class, alias);
   }
 
-  /**
-   * start to query tables
-   *
-   * @return Table Query
-   */
-  TableQuery query();
-
-  /**
-   * start to create new table
-   *
-   * @return Table Creator
-   */
-  TableCreator tableCreator();
-
-  /**
-   * @param name to delete
-   */
-  void deleteTable(String name);
+  @Override
+  public String alias() {
+    return name();
+  }
 
   @Override
-  void close();
+  public String toString() {
+    return alias();
+  }
 }

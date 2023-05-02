@@ -25,25 +25,28 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javafx.scene.Node;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
+import org.astraea.common.balancer.BalancerConfigs;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
+import org.astraea.common.cost.MigrationCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.cost.ReplicaNumberCost;
 import org.astraea.common.function.Bi3Function;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.gui.Context;
 import org.astraea.gui.Logger;
 import org.astraea.gui.button.SelectBox;
@@ -87,34 +90,22 @@ class BalancerNode {
   static List<Map<String, Object>> costResult(Balancer.Plan plan) {
     var map = new HashMap<Integer, LinkedHashMap<String, Object>>();
 
-    BiConsumer<String, Map<Integer, ?>> process =
-        (name, m) ->
-            m.forEach(
-                (id, count) ->
-                    map.computeIfAbsent(
-                            id,
-                            ignored -> {
-                              var r = new LinkedHashMap<String, Object>();
-                              r.put("id", id);
-                              return r;
-                            })
-                        .put(name, count));
+    Consumer<List<MigrationCost>> process =
+        (migrationCosts) ->
+            migrationCosts.forEach(
+                migrationCost ->
+                    migrationCost.brokerCosts.forEach(
+                        (id, count) ->
+                            map.computeIfAbsent(
+                                    id,
+                                    ignored -> {
+                                      var r = new LinkedHashMap<String, Object>();
+                                      r.put("id", id);
+                                      return r;
+                                    })
+                                .put(migrationCost.name, count)));
 
-    process.accept(
-        "changed replicas",
-        ClusterInfo.changedReplicaNumber(
-            plan.initialClusterInfo(), plan.proposal(), ignored -> true));
-    process.accept(
-        "changed leaders",
-        ClusterInfo.changedReplicaNumber(
-            plan.initialClusterInfo(), plan.proposal(), Replica::isLeader));
-    process.accept(
-        "record size to fetch",
-        ClusterInfo.recordSizeToSync(plan.initialClusterInfo(), plan.proposal()));
-    process.accept(
-        "record size to sync",
-        ClusterInfo.recordSizeToFetch(plan.initialClusterInfo(), plan.proposal()));
-
+    process.accept(MigrationCost.migrationCosts(plan.initialClusterInfo(), plan.proposal()));
     return List.copyOf(map.values());
   }
 
@@ -213,7 +204,7 @@ class BalancerNode {
             .thenCompose(context.admin()::clusterInfo)
             .thenApply(
                 clusterInfo -> {
-                  var patterns =
+                  var pattern =
                       argument
                           .texts()
                           .get(TOPIC_NAME_KEY)
@@ -221,8 +212,9 @@ class BalancerNode {
                               ss ->
                                   Arrays.stream(ss.split(","))
                                       .map(Utils::wildcardToPattern)
-                                      .collect(Collectors.toList()))
-                          .orElse(List.of());
+                                      .map(Pattern::pattern)
+                                      .collect(Collectors.joining("|", "(", ")")))
+                          .orElse(".*");
                   logger.log("searching better assignments ... ");
                   return Map.entry(
                       clusterInfo,
@@ -241,11 +233,7 @@ class BalancerNode {
                                           List.of(
                                               new ReplicaLeaderSizeCost(),
                                               new ReplicaLeaderCost())))
-                                  .topicFilter(
-                                      topic ->
-                                          patterns.isEmpty()
-                                              || patterns.stream()
-                                                  .anyMatch(p -> p.matcher(topic).matches()))
+                                  .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, pattern)
                                   .build()));
                 })
             .thenApply(

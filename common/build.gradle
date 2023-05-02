@@ -17,6 +17,7 @@
 plugins {
     id 'java'
     id 'maven-publish'
+    id "com.google.protobuf" version "0.9.2"
 }
 
 apply from: "$rootDir/gradle/dependencies.gradle"
@@ -42,11 +43,12 @@ dependencies {
     implementation libs["slf4j-nop"]
     implementation libs["opencsv"]
     implementation libs["commons-math3"]
+    implementation 'com.google.protobuf:protobuf-java:3.22.2'
 }
 
 java {
-    sourceCompatibility = 11
-    targetCompatibility = 11
+    sourceCompatibility = 17
+    targetCompatibility = 17
 }
 
 ext {
@@ -54,6 +56,14 @@ ext {
 }
 
 archivesBaseName = "astraea-common"
+
+protobuf {
+    // Configure the protoc executable
+    protoc {
+        // Download from repositories
+        artifact = 'com.google.protobuf:protoc:3.22.2'
+    }
+}
 
 tasks.named('test') {
     // Use JUnit Platform for unit tests.

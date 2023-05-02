@@ -17,7 +17,7 @@
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source $DOCKER_FOLDER/docker_build_common.sh
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/deps}
-declare -r VERSION=${VERSION:-latest}
+declare -r VERSION="latest"
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/deps.dockerfile
 # ===================================[functions]===================================
@@ -28,12 +28,9 @@ FROM ubuntu:22.04
 # install tools
 RUN apt-get update && apt-get install -y \
   git \
-  openjdk-11-jdk \
+  openjdk-17-jdk \
   wget \
   unzip \
-  libaio1 \
-  numactl \
-  libncurses5 \
   curl
 
 # download gradle 5 for previous kafka having no built-in gradlew
@@ -47,8 +44,6 @@ RUN git clone https://github.com/skiptests/astraea.git /astraea
 RUN ./gradlew clean build -x test
 # download test dependencies
 RUN ./gradlew clean build testClasses -x test --no-daemon
-# download database
-RUN ./gradlew cleanTest it:test --tests DatabaseTest --no-daemon
 
 WORKDIR /root
 " >"$DOCKERFILE"

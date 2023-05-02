@@ -14,33 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.database;
+package org.astraea.common.balancer;
 
-public interface TableCreator {
+/**
+ * A collection of official balancer capabilities. Noted that all these capabilities are optional,
+ * the concrete balancer implementation might not support it. All the capability names must start
+ * with a "balancer." prefix, and when the implementation sees an unsupported capability, it should
+ * raise an exception.
+ */
+public final class BalancerConfigs {
+  // TODO: Add tests for the above requirement described in javadoc.
 
-  /**
-   * @param name table name
-   * @return this creator
-   */
-  TableCreator name(String name);
-
-  /**
-   * create a normal column
-   *
-   * @param name column name
-   * @param type column type
-   * @return this creator
-   */
-  TableCreator column(String name, String type);
+  private BalancerConfigs() {}
 
   /**
-   * create a primary key
-   *
-   * @param name primary key name
-   * @param type primary key type
-   * @return this creator
+   * A regular expression indicates which topics are eligible for rebalancing. When specified,
+   * topics that don't match this expression cannot be altered and must stay at their original
+   * position.
    */
-  TableCreator primaryKey(String name, String type);
-
-  void run();
+  public static final String BALANCER_ALLOWED_TOPICS_REGEX = "balancer.allowed.topics.regex";
 }

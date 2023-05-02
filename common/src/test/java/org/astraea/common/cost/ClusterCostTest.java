@@ -20,10 +20,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.broker.ServerMetrics;
+import org.astraea.common.metrics.collector.BeanObjectClient;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -63,7 +63,11 @@ class ClusterCostTest {
     var mergeCost = HasClusterCost.of(Map.of(cost1, 1.0, cost2, 1.0));
     var metrics =
         mergeCost.metricSensor().stream()
-            .map(x -> x.fetch(MBeanClient.of(SERVICE.jmxServiceURL()), ClusterBean.EMPTY))
+            .map(
+                x ->
+                    x.fetch(
+                        BeanObjectClient.local(SERVICE.dataFolders().keySet().iterator().next()),
+                        ClusterBean.EMPTY))
             .collect(Collectors.toSet());
     Assertions.assertTrue(
         metrics.iterator().next().stream()

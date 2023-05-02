@@ -18,7 +18,7 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
-declare -r VERSION=${VERSION:-3.3.4}
+declare -r VERSION=${VERSION:-3.3.5}
 declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/hadoop}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/hadoop.dockerfile
@@ -52,6 +52,7 @@ function showHelp() {
   echo "    VERSION=3.3.4              set version of hadoop distribution"
   echo "    BUILD=false                set true if you want to build image locally"
   echo "    RUN=false                  set false if you want to build/pull image only"
+  echo "    DATA_FOLDERS=/tmp/astraea/hadoop  set host folders used by datanode"
 }
 
 function generateDockerfile() {
@@ -77,6 +78,7 @@ RUN tar -zxvf hadoop-${VERSION}.tar.gz -C /opt/hadoop --strip-components=1
 FROM ubuntu:22.04
 
 #install tools
+# TODO: upgrade to jdk 11 (https://github.com/skiptests/astraea/issues/1681)
 RUN apt-get update && apt-get install -y openjdk-11-jre
 
 #copy hadoop
@@ -131,6 +133,28 @@ function setProperty() {
 function completeConfigFile() {
   echo "</configuration>" >> "$HDFS_SITE_XML"
   echo "</configuration>" >> "$CORE_SITE_XML"
+}
+
+function setLogDirs() {
+  if [[ -n "$DATA_FOLDERS" ]]; then
+    IFS=',' read -ra folders <<<"$DATA_FOLDERS"
+    for folder in "${folders[@]}"; do
+      # create the folder if it is nonexistent
+      mkdir -p "$folder"
+    done
+  fi
+}
+
+function generateDataFolderMountCommand() {
+  local mount=""
+  if [[ -n "$DATA_FOLDERS" ]]; then
+    IFS=',' read -ra folders <<<"$DATA_FOLDERS"
+
+    for folder in "${folders[@]}"; do
+      mount="$mount -v $folder:/tmp/hadoop-astraea"
+    done
+  fi
+  echo "$mount"
 }
 
 function initArg() {
@@ -223,6 +247,7 @@ function startDatanode() {
   setProperty dfs.datanode.use.datanode.hostname true $HDFS_SITE_XML
   setProperty dfs.client.use.datanode.hostname true $HDFS_SITE_XML
   setProperty dfs.datanode.hostname $ADDRESS $HDFS_SITE_XML
+  setLogDirs
 
   completeConfigFile
   docker run -d --init \
@@ -236,9 +261,11 @@ function startDatanode() {
     -p $HADOOP_PORT:$HADOOP_PORT \
     -p $HADOOP_JMX_PORT:$HADOOP_JMX_PORT \
     -p $EXPORTER_PORT:$EXPORTER_PORT \
+    $(generateDataFolderMountCommand) \
     "$IMAGE_NAME" /bin/bash -c "./bin/hdfs datanode"
 
   echo "================================================="
+  [[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to path: /tmp/hadoop-astraea in container"
   echo "configs: ${CORE_SITE_XML} ${HDFS_SITE_XML}"
   echo "http address: ${ADDRESS}:$HADOOP_HTTP_PORT"
   echo "jmx address: ${ADDRESS}:$HADOOP_JMX_PORT"

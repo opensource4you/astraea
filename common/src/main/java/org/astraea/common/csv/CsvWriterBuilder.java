@@ -84,7 +84,7 @@ public class CsvWriterBuilder {
 
     @Override
     public void close() {
-      Utils.packException(csvWriter::close);
+      Utils.close(csvWriter);
     }
   }
 }

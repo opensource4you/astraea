@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
@@ -33,10 +32,13 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.BrokerInputCost;
 import org.astraea.common.cost.HasBrokerCost;
+import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.NodeThroughputCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
+import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 public class StrictCostPartitionerTest {
 
@@ -261,6 +263,32 @@ public class StrictCostPartitionerTest {
       partitioner.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
       // rr is updated already
       Assertions.assertNotEquals(t, partitioner.roundRobinKeeper.lastUpdated.get());
+    }
+  }
+
+  @Test
+  void testCostNoSufficientMetricException() {
+    try (var partitioner = new StrictCostPartitioner()) {
+      partitioner.configure(Configuration.EMPTY);
+      // The cost function always throws exception
+      partitioner.costFunction =
+          new HasBrokerCost() {
+            @Override
+            public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+              throw new NoSufficientMetricsException(this, Duration.ZERO);
+            }
+          };
+      var clusterInfo = Mockito.mock(ClusterInfo.class);
+      var replicaLeader1 = Mockito.mock(Replica.class);
+      var replicaLeader2 = Mockito.mock(Replica.class);
+      Mockito.when(clusterInfo.replicaLeaders("topicA"))
+          .thenReturn(List.of(replicaLeader1, replicaLeader2));
+
+      try {
+        partitioner.partition("topic", new byte[0], new byte[0], clusterInfo);
+      } catch (NoSufficientMetricsException e) {
+        Assertions.fail();
+      }
     }
   }
 }

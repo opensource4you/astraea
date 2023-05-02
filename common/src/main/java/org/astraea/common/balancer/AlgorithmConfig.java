@@ -17,16 +17,19 @@
 package org.astraea.common.balancer;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
-import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.metrics.ClusterBean;
 
 /** The generic algorithm parameter for resolving the Kafka rebalance problem. */
 public interface AlgorithmConfig {
@@ -66,9 +69,9 @@ public interface AlgorithmConfig {
   Predicate<MoveCost> movementConstraint();
 
   /**
-   * @return a {@link Predicate} that can indicate which topic is eligible for rebalance.
+   * @return the configuration of this balancer run
    */
-  Predicate<String> topicFilter();
+  Configuration balancerConfig();
 
   /**
    * @return the initial cluster state of this optimization problem
@@ -93,7 +96,7 @@ public interface AlgorithmConfig {
     private BiPredicate<ClusterCost, ClusterCost> clusterConstraint =
         (before, after) -> after.value() < before.value();
     private Predicate<MoveCost> movementConstraint = moveCost -> !moveCost.overflow();
-    private Predicate<String> topicFilter = ignore -> true;
+    private Map<String, String> balancerConfig = new HashMap<>();
 
     private ClusterInfo clusterInfo;
     private ClusterBean clusterBean = ClusterBean.EMPTY;
@@ -106,7 +109,7 @@ public interface AlgorithmConfig {
         this.moveCostFunction = config.moveCostFunction();
         this.clusterConstraint = config.clusterConstraint();
         this.movementConstraint = config.movementConstraint();
-        this.topicFilter = config.topicFilter();
+        this.balancerConfig.putAll(config.balancerConfig().raw());
         this.clusterInfo = config.clusterInfo();
         this.clusterBean = config.clusterBean();
         this.timeout = config.timeout();
@@ -164,14 +167,22 @@ public interface AlgorithmConfig {
     }
 
     /**
-     * Specify the topics that are eligible for rebalance.
+     * Put a set of key/value configuration for balancer.
      *
-     * @param topicFilter the {@link Predicate} what can indicate which topic is eligible for
-     *     rebalance.
      * @return this
      */
-    public Builder topicFilter(Predicate<String> topicFilter) {
-      this.topicFilter = topicFilter;
+    public Builder configs(Map<String, String> config) {
+      this.balancerConfig.putAll(config);
+      return this;
+    }
+
+    /**
+     * Put a key/value configuration for balancer.
+     *
+     * @return this
+     */
+    public Builder config(String key, String value) {
+      this.balancerConfig.put(key, value);
       return this;
     }
 
@@ -206,6 +217,7 @@ public interface AlgorithmConfig {
     }
 
     public AlgorithmConfig build() {
+      var config = Configuration.of(balancerConfig);
 
       return new AlgorithmConfig() {
         @Override
@@ -234,8 +246,8 @@ public interface AlgorithmConfig {
         }
 
         @Override
-        public Predicate<String> topicFilter() {
-          return topicFilter;
+        public Configuration balancerConfig() {
+          return config;
         }
 
         @Override

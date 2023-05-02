@@ -24,10 +24,10 @@ import org.apache.kafka.common.requests.DescribeLogDirsResponse;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.Broker;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

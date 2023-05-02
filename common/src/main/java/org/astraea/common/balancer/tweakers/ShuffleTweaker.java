@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 
@@ -47,11 +46,15 @@ import org.astraea.common.admin.Replica;
 public class ShuffleTweaker {
 
   private final Supplier<Integer> numberOfShuffle;
-  private final Predicate<String> topicFilter;
+  private final Predicate<String> allowedTopics;
 
-  public ShuffleTweaker(Supplier<Integer> numberOfShuffle, Predicate<String> topicFilter) {
+  public ShuffleTweaker(Supplier<Integer> numberOfShuffle, Predicate<String> allowedTopics) {
     this.numberOfShuffle = numberOfShuffle;
-    this.topicFilter = topicFilter;
+    this.allowedTopics = allowedTopics;
+  }
+
+  public static Builder builder() {
+    return new Builder();
   }
 
   public Stream<ClusterInfo> generate(ClusterInfo baseAllocation) {
@@ -71,13 +74,13 @@ public class ShuffleTweaker {
           final var shuffleCount = numberOfShuffle.get();
           final var partitionOrder =
               baseAllocation.topicPartitions().stream()
-                  .filter(tp -> topicFilter.test(tp.topic()))
+                  .filter(tp -> this.allowedTopics.test(tp.topic()))
                   .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
                   .sorted(Map.Entry.comparingByValue())
                   .map(Map.Entry::getKey)
                   .collect(Collectors.toUnmodifiableList());
 
-          final var finalCluster = ClusterInfoBuilder.builder(baseAllocation);
+          final var finalCluster = ClusterInfo.builder(baseAllocation);
           for (int i = 0, shuffled = 0; i < partitionOrder.size() && shuffled < shuffleCount; i++) {
             final var tp = partitionOrder.get(i);
             if (!eligiblePartition(baseAllocation.replicas(tp))) continue;
@@ -171,6 +174,28 @@ public class ShuffleTweaker {
     @Override
     public String toString() {
       return alias();
+    }
+  }
+
+  public static class Builder {
+
+    private Supplier<Integer> numberOfShuffle = () -> ThreadLocalRandom.current().nextInt(1, 5);
+    private Predicate<String> allowedTopics = (name) -> true;
+
+    private Builder() {}
+
+    public Builder numberOfShuffle(Supplier<Integer> numberOfShuffle) {
+      this.numberOfShuffle = numberOfShuffle;
+      return this;
+    }
+
+    public Builder allowedTopics(Predicate<String> allowedTopics) {
+      this.allowedTopics = allowedTopics;
+      return this;
+    }
+
+    public ShuffleTweaker build() {
+      return new ShuffleTweaker(numberOfShuffle, allowedTopics);
     }
   }
 }

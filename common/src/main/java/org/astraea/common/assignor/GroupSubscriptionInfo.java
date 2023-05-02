@@ -20,22 +20,23 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerPartitionAssignor;
 
-public final class GroupSubscription {
-  private final Map<String, Subscription> subscriptions;
+public final class GroupSubscriptionInfo {
+  private final Map<String, SubscriptionInfo> subscriptions;
 
-  public GroupSubscription(Map<String, Subscription> subscriptions) {
+  public GroupSubscriptionInfo(Map<String, SubscriptionInfo> subscriptions) {
     this.subscriptions = subscriptions;
   }
 
-  public Map<String, Subscription> groupSubscription() {
+  public Map<String, SubscriptionInfo> groupSubscription() {
     return subscriptions;
   }
 
-  public static GroupSubscription from(
+  public static GroupSubscriptionInfo from(
       ConsumerPartitionAssignor.GroupSubscription groupSubscription) {
-    return new GroupSubscription(
+    return new GroupSubscriptionInfo(
         groupSubscription.groupSubscription().entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> Subscription.from(e.getValue()))));
+            .collect(
+                Collectors.toMap(Map.Entry::getKey, e -> SubscriptionInfo.from(e.getValue()))));
   }
 
   @Override

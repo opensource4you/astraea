@@ -20,7 +20,11 @@ source $DOCKER_FOLDER/docker_build_common.sh
 # ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-main}}
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
-declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/app:$VERSION"
+if [[ "$VERSION" == "main" ]]; then
+  declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/app:latest"
+else
+  declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/app:$VERSION"
+fi  
 declare -r DOCKERFILE=$DOCKER_FOLDER/app.dockerfile
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
 # for web service
@@ -56,7 +60,7 @@ RUN tar -xvf \$(find ./app/build/distributions/ -maxdepth 1 -type f -name app-*.
 FROM ubuntu:22.04
 
 # install tools
-RUN apt-get update && apt-get install -y openjdk-11-jre
+RUN apt-get update && apt-get install -y openjdk-17-jre
 
 # copy astraea
 COPY --from=build /opt/astraea /opt/astraea

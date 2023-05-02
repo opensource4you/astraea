@@ -23,7 +23,7 @@ import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
@@ -63,7 +63,7 @@ public class HasConsumerMetricsTest {
             .build()) {
       Assertions.assertEquals(10, consumer.poll(Duration.ofSeconds(5)).size());
       consumer.commitOffsets(Duration.ofSeconds(2));
-      var metrics = ConsumerMetrics.consumer(MBeanClient.local());
+      var metrics = ConsumerMetrics.consumer(JndiClient.local());
       Assertions.assertEquals(1, metrics.size());
       var m = metrics.iterator().next();
       Assertions.assertNotNull(m.clientId());

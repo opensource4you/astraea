@@ -16,11 +16,6 @@
  */
 package org.astraea.connector.backup;
 
-import static org.astraea.fs.ftp.FtpFileSystem.HOSTNAME_KEY;
-import static org.astraea.fs.ftp.FtpFileSystem.PASSWORD_KEY;
-import static org.astraea.fs.ftp.FtpFileSystem.PORT_KEY;
-import static org.astraea.fs.ftp.FtpFileSystem.USER_KEY;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -50,32 +45,32 @@ public class Importer extends SourceConnector {
       Definition.builder()
           .name("fs.schema")
           .type(Definition.Type.STRING)
-          .documentation("decide which file system to use, such as FTP.")
+          .documentation("decide which file system to use, such as local, ftp, hdfs.")
           .required()
           .build();
-  static Definition HOSTNAME =
+  static Definition HOSTNAME_KEY =
       Definition.builder()
-          .name(HOSTNAME_KEY)
+          .name("fs.<schema>.hostname")
           .type(Definition.Type.STRING)
-          .documentation("the host name of the ftp server used.")
+          .documentation("the host name of the <schema> server used.")
           .build();
-  static Definition PORT =
+  static Definition PORT_KEY =
       Definition.builder()
-          .name(PORT_KEY)
+          .name("fs.<schema>.port")
           .type(Definition.Type.STRING)
-          .documentation("the port of the ftp server used.")
+          .documentation("the port of the <schema> server used.")
           .build();
-  static Definition USER =
+  static Definition USER_KEY =
       Definition.builder()
-          .name(USER_KEY)
+          .name("fs.<schema>.user")
           .type(Definition.Type.STRING)
-          .documentation("the user name required to login to the FTP server.")
+          .documentation("the user name required to login to the <schema> server.")
           .build();
-  static Definition PASSWORD =
+  static Definition PASSWORD_KEY =
       Definition.builder()
-          .name(PASSWORD_KEY)
+          .name("fs.<schema>.password")
           .type(Definition.Type.STRING)
-          .documentation("the password required to login to the ftp server.")
+          .documentation("the password required to login to the <schema> server.")
           .build();
   static Definition PATH_KEY =
       Definition.builder()
@@ -128,7 +123,14 @@ public class Importer extends SourceConnector {
   @Override
   protected List<Definition> definitions() {
     return List.of(
-        SCHEMA_KEY, HOSTNAME, PORT, USER, PASSWORD, PATH_KEY, CLEAN_SOURCE_KEY, ARCHIVE_DIR_KEY);
+        SCHEMA_KEY,
+        HOSTNAME_KEY,
+        PORT_KEY,
+        USER_KEY,
+        PASSWORD_KEY,
+        PATH_KEY,
+        CLEAN_SOURCE_KEY,
+        ARCHIVE_DIR_KEY);
   }
 
   public static class Task extends SourceTask {
@@ -179,7 +181,7 @@ public class Importer extends SourceConnector {
                   .headers(record.headers())
                   .build());
         }
-        Utils.packException(inputStream::close);
+        Utils.close(inputStream);
         switch (cleanSource) {
           case "archive":
             var archiveInput = Client.read(currentPath);
@@ -194,7 +196,7 @@ public class Importer extends SourceConnector {
               archiveWriter.append(record);
             }
             archiveWriter.close();
-            Utils.packException(archiveInput::close);
+            Utils.close(archiveInput);
           case "delete":
             Client.delete(currentPath);
           case "off":
