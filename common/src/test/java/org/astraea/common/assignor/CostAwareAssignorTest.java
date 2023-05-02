@@ -16,6 +16,7 @@
  */
 package org.astraea.common.assignor;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,7 +29,7 @@ public class CostAwareAssignorTest {
   @Test
   void testCombineAndShuffle() {
     var combinator = Combinator.greedy();
-    var shuffler = Shuffler.incompatible(3000);
+    var shuffler = Shuffler.incompatible(Duration.ofSeconds(1));
     var subscription =
         Map.of(
             "c1",

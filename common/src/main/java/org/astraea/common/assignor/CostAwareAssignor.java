@@ -22,10 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
-import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.cost.NoSufficientMetricsException;
 
 /**
  * This assignor scores the partitions by cost function(s) that user given. Each cost function
@@ -55,10 +53,9 @@ public class CostAwareAssignor extends Assignor {
             .collect(Collectors.toUnmodifiableSet());
 
     metricStore.wait(
-        (clusterBean) -> {
-          return costFunction.partitionCost(clusterInfo, clusterBean).value().values().stream()
-              .noneMatch(v -> Double.isNaN(v));
-        },
+        (clusterBean) ->
+            costFunction.partitionCost(clusterInfo, clusterBean).value().values().stream()
+                .noneMatch(v -> Double.isNaN(v)),
         shuffleTime);
 
     var clusterBean = metricStore.clusterBean();
@@ -72,21 +69,6 @@ public class CostAwareAssignor extends Assignor {
     var assignment = Combinator.greedy().combine(subscriptions, cost);
     return Shuffler.incompatible(shuffleTime)
         .shuffle(subscriptions, assignment, incompatiblePartition, cost);
-  }
-
-  private void retry(ClusterInfo clusterInfo) {
-    var timeoutMs = System.currentTimeMillis() + maxRetryTime.toMillis();
-    while (System.currentTimeMillis() < timeoutMs) {
-      try {
-        var clusterBean = metricStore.clusterBean();
-        var partitionCost = costFunction.partitionCost(clusterInfo, clusterBean);
-        if (partitionCost.value().values().stream().noneMatch(v -> Double.isNaN(v))) return;
-      } catch (NoSufficientMetricsException e) {
-        e.printStackTrace();
-        Utils.sleep(Duration.ofSeconds(1));
-      }
-    }
-    throw new RuntimeException("Failed to fetch clusterBean due to timeout");
   }
 
   @Override
