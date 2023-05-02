@@ -33,4 +33,11 @@ public final class BalancerConfigs {
    * position.
    */
   public static final String BALANCER_ALLOWED_TOPICS_REGEX = "balancer.allowed.topics.regex";
+
+  /**
+   * A regular expression indicates which brokers are eligible for moving loading. When specified, a
+   * broker with an id that doesn't match this expression cannot accept a partition from the other
+   * broker or move its partition to other brokers.
+   */
+  public static final String BALANCER_ALLOWED_BROKERS_REGEX = "balancer.allowed.brokers.regex";
 }

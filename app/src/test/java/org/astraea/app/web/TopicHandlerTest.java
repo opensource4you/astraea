@@ -66,7 +66,10 @@ public class TopicHandlerTest {
 
       try (var service =
           new WebService(
-              Admin.of(SERVICE.bootstrapServers()), 0, id -> SERVICE.jmxServiceURL().getPort())) {
+              Admin.of(SERVICE.bootstrapServers()),
+              0,
+              id -> SERVICE.jmxServiceURL().getPort(),
+              Duration.ofMillis(5))) {
         Response<TopicHandler.Topics> response =
             HttpExecutor.builder()
                 .build()

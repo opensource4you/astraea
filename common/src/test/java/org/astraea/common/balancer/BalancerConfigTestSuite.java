@@ -25,11 +25,10 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -37,42 +36,17 @@ import org.junit.jupiter.api.Test;
 public abstract class BalancerConfigTestSuite {
 
   private final Class<? extends Balancer> balancerClass;
+  private final Configuration customConfig;
 
-  public BalancerConfigTestSuite(Class<? extends Balancer> balancerClass) {
+  public BalancerConfigTestSuite(Class<? extends Balancer> balancerClass, Configuration custom) {
     this.balancerClass = balancerClass;
+    this.customConfig = custom;
   }
 
   @Test
-  public void testBalancerAllowedTopicRegex() {
+  public void testBalancerAllowedTopicsRegex() {
     final var balancer = Utils.construct(balancerClass, Configuration.EMPTY);
-    final var cluster = cluster(10, 10, 10, (short) 5);
-    final var AssertionsHelper =
-        new Object() {
-          void assertSomeMovement(ClusterInfo source, ClusterInfo target, String name) {
-            Assertions.assertNotEquals(
-                Set.of(),
-                ClusterInfo.findNonFulfilledAllocation(source, target),
-                name + ": Should have movements");
-          }
-
-          void assertOnlyAllowedMovement(
-              ClusterInfo source, ClusterInfo target, Pattern allowed, String name) {
-            assertSomeMovement(source, target, name);
-            Assertions.assertEquals(
-                Set.of(),
-                ClusterInfo.findNonFulfilledAllocation(source, target).stream()
-                    .filter(Predicate.not((tp) -> allowed.asMatchPredicate().test(tp.topic())))
-                    .collect(Collectors.toUnmodifiableSet()),
-                name + ": Only allowed topics been altered.");
-          }
-
-          void assertNoMovement(ClusterInfo source, ClusterInfo target, String name) {
-            Assertions.assertEquals(
-                Set.of(),
-                ClusterInfo.findNonFulfilledAllocation(source, target),
-                name + ": Should have no movement");
-          }
-        };
+    final var cluster = cluster(20, 10, 10, (short) 5);
 
     {
       var testName = "[test no limit]";
@@ -82,8 +56,9 @@ public abstract class BalancerConfigTestSuite {
                   .clusterInfo(cluster)
                   .clusterCost(decreasingCost())
                   .timeout(Duration.ofSeconds(2))
+                  .configs(customConfig.raw())
                   // This argument is not applied
-                  // .config(BalancerCapabilities.BALANCER_ALLOWED_TOPIC_REGEX, regexRaw)
+                  // .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, regexRaw)
                   .build());
       AssertionsHelper.assertSomeMovement(cluster, plan.orElseThrow().proposal(), testName);
     }
@@ -102,9 +77,10 @@ public abstract class BalancerConfigTestSuite {
                   .clusterInfo(cluster)
                   .clusterCost(decreasingCost())
                   .timeout(Duration.ofSeconds(2))
+                  .configs(customConfig.raw())
                   .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, regexRaw)
                   .build());
-      AssertionsHelper.assertOnlyAllowedMovement(
+      AssertionsHelper.assertOnlyAllowedTopicMovement(
           cluster, plan.orElseThrow().proposal(), regex, testName);
     }
 
@@ -122,6 +98,7 @@ public abstract class BalancerConfigTestSuite {
                   .clusterInfo(cluster)
                   .clusterCost(decreasingCost())
                   .timeout(Duration.ofSeconds(2))
+                  .configs(customConfig.raw())
                   .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, regexRaw)
                   .build());
       AssertionsHelper.assertNoMovement(cluster, plan.orElseThrow().proposal(), testName);
@@ -136,15 +113,72 @@ public abstract class BalancerConfigTestSuite {
                   .clusterInfo(cluster)
                   .clusterCost(decreasingCost())
                   .timeout(Duration.ofSeconds(2))
+                  .configs(customConfig.raw())
                   .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, regexRaw)
                   .build());
       AssertionsHelper.assertNoMovement(cluster, plan.orElseThrow().proposal(), testName);
     }
   }
 
+  @Test
+  public void testBalancerAllowedBrokersRegex() {
+    final var balancer = Utils.construct(balancerClass, Configuration.EMPTY);
+    final var cluster = cluster(10, 10, 10, (short) 5);
+
+    {
+      var testName = "[test all match]";
+      var plan =
+          balancer.offer(
+              AlgorithmConfig.builder()
+                  .clusterInfo(cluster)
+                  .clusterCost(decreasingCost())
+                  .timeout(Duration.ofSeconds(2))
+                  .configs(customConfig.raw())
+                  .config(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, "[0-9]*")
+                  .build());
+      AssertionsHelper.assertSomeMovement(cluster, plan.orElseThrow().proposal(), testName);
+    }
+
+    {
+      var testName = "[test no match]";
+      var plan =
+          balancer.offer(
+              AlgorithmConfig.builder()
+                  .clusterInfo(cluster)
+                  .clusterCost(decreasingCost())
+                  .timeout(Duration.ofSeconds(2))
+                  .configs(customConfig.raw())
+                  .config(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, "NoMatch")
+                  .build());
+      // since nothing can be moved. It is ok to return no plan.
+      if (plan.isPresent()) {
+        // But if we have a plan here. It must contain no movement.
+        AssertionsHelper.assertNoMovement(cluster, plan.orElseThrow().proposal(), testName);
+      }
+    }
+
+    {
+      var testName = "[test some match]";
+      var allowedBrokers = IntStream.range(1, 6).boxed().collect(Collectors.toUnmodifiableSet());
+      var rawRegex =
+          allowedBrokers.stream().map(Object::toString).collect(Collectors.joining("|", "(", ")"));
+      var plan =
+          balancer.offer(
+              AlgorithmConfig.builder()
+                  .clusterInfo(cluster)
+                  .clusterCost(decreasingCost())
+                  .timeout(Duration.ofSeconds(2))
+                  .configs(customConfig.raw())
+                  .config(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, rawRegex)
+                  .build());
+      AssertionsHelper.assertOnlyAllowedBrokerMovement(
+          cluster, plan.orElseThrow().proposal(), allowedBrokers::contains, testName);
+    }
+  }
+
   private static ClusterInfo cluster(int nodes, int topics, int partitions, short replicas) {
     var builder =
-        ClusterInfoBuilder.builder()
+        ClusterInfo.builder()
             .addNode(IntStream.range(0, nodes).boxed().collect(Collectors.toSet()))
             .addFolders(
                 IntStream.range(0, nodes)
@@ -171,5 +205,58 @@ public abstract class BalancerConfigTestSuite {
             () -> "DecreasingCost");
       }
     };
+  }
+
+  private static class AssertionsHelper {
+    static void assertSomeMovement(ClusterInfo source, ClusterInfo target, String name) {
+      Assertions.assertNotEquals(
+          Set.of(),
+          ClusterInfo.findNonFulfilledAllocation(source, target),
+          name + ": Should have movements");
+    }
+
+    static void assertNoMovement(ClusterInfo source, ClusterInfo target, String name) {
+      Assertions.assertEquals(
+          Set.of(),
+          ClusterInfo.findNonFulfilledAllocation(source, target),
+          name + ": Should have no movement");
+    }
+
+    static void assertOnlyAllowedTopicMovement(
+        ClusterInfo source, ClusterInfo target, Pattern allowedTopic, String name) {
+      assertSomeMovement(source, target, name);
+      Assertions.assertEquals(
+          Set.of(),
+          ClusterInfo.findNonFulfilledAllocation(source, target).stream()
+              .filter(Predicate.not((tp) -> allowedTopic.asMatchPredicate().test(tp.topic())))
+              .collect(Collectors.toUnmodifiableSet()),
+          name + ": Only allowed topics been altered.");
+    }
+
+    static void assertOnlyAllowedBrokerMovement(
+        ClusterInfo source, ClusterInfo target, Predicate<Integer> allowedBroker, String name) {
+      assertSomeMovement(source, target, name);
+      source
+          .replicaStream()
+          // for those replicas that are not allowed to move
+          .filter(r -> !allowedBroker.test(r.nodeInfo().id()))
+          // they should exist as-is in the target allocation
+          .forEach(
+              fixedReplica -> {
+                target
+                    .replicaStream()
+                    .filter(targetReplica -> targetReplica.equals(fixedReplica))
+                    .findFirst()
+                    .ifPresentOrElse(
+                        (r) -> {},
+                        () -> {
+                          Assertions.fail(
+                              name
+                                  + ": Expect replica "
+                                  + fixedReplica
+                                  + " not moved, but it appears to disappear from the target allocation");
+                        });
+              });
+    }
   }
 }

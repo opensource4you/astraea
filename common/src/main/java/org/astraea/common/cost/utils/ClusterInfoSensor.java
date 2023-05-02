@@ -22,23 +22,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ClusterMetrics;
 import org.astraea.common.metrics.broker.HasGauge;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
+import org.astraea.common.metrics.collector.BeanObjectClient;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 /** This MetricSensor attempts to reconstruct a ClusterInfo of the kafka cluster via JMX metrics. */
 public class ClusterInfoSensor implements MetricSensor {
 
   @Override
-  public List<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean) {
+  public List<? extends HasBeanObject> fetch(BeanObjectClient client, ClusterBean bean) {
     return Stream.of(
             List.of(ServerMetrics.KafkaServer.CLUSTER_ID.fetch(client)),
             LogMetrics.Log.SIZE.fetch(client),

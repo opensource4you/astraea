@@ -16,6 +16,8 @@
  */
 package org.astraea.common.balancer.algorithms;
 
+import java.util.Map;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.balancer.BalancerConfigTestSuite;
 import org.junit.jupiter.api.Assertions;
@@ -24,7 +26,12 @@ import org.junit.jupiter.api.Test;
 class SingleStepBalancerTest extends BalancerConfigTestSuite {
 
   public SingleStepBalancerTest() {
-    super(SingleStepBalancer.class);
+    super(
+        SingleStepBalancer.class,
+        Configuration.of(
+            Map.of(
+                "shuffle.tweaker.min.step", "1000",
+                "shuffle.tweaker.max.step", "2000")));
   }
 
   @Test

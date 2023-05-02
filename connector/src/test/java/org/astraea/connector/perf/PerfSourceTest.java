@@ -28,7 +28,7 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
@@ -241,7 +241,7 @@ public class PerfSourceTest {
     Utils.sleep(Duration.ofSeconds(3));
 
     var m0 =
-        ConnectorMetrics.sourceTaskInfo(MBeanClient.local()).stream()
+        ConnectorMetrics.sourceTaskInfo(JndiClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertNotEquals(0, m0.size());
@@ -262,7 +262,7 @@ public class PerfSourceTest {
         });
 
     var m1 =
-        ConnectorMetrics.taskError(MBeanClient.local()).stream()
+        ConnectorMetrics.taskError(JndiClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertNotEquals(0, m1.size());
@@ -279,7 +279,7 @@ public class PerfSourceTest {
         });
 
     var m2 =
-        ConnectorMetrics.connectorTaskInfo(MBeanClient.local()).stream()
+        ConnectorMetrics.connectorTaskInfo(JndiClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertEquals(1, m2.size());
@@ -299,7 +299,7 @@ public class PerfSourceTest {
         });
 
     var m3 =
-        ConnectorMetrics.workerConnectorInfo(MBeanClient.local()).stream()
+        ConnectorMetrics.workerConnectorInfo(JndiClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertEquals(1, m3.size());
@@ -315,7 +315,7 @@ public class PerfSourceTest {
         });
 
     var m4 =
-        ConnectorMetrics.connectorInfo(MBeanClient.local()).stream()
+        ConnectorMetrics.connectorInfo(JndiClient.local()).stream()
             .filter(m -> m.connectorName().equals(name))
             .collect(Collectors.toList());
     Assertions.assertEquals(1, m4.size());

@@ -27,7 +27,7 @@ import java.util.function.ToDoubleFunction;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.common.metrics.client.consumer.HasConsumerCoordinatorMetrics;
 import org.astraea.common.metrics.client.producer.HasProducerTopicMetrics;
@@ -37,7 +37,7 @@ import org.astraea.common.metrics.client.producer.ProducerMetrics;
 public interface TrackerThread extends AbstractThread {
 
   class ProducerPrinter {
-    private final MBeanClient mBeanClient = MBeanClient.local();
+    private final JndiClient mBeanClient = JndiClient.local();
     private final Supplier<List<Report>> reportSupplier;
     private long lastRecords = 0;
 
@@ -97,7 +97,7 @@ public interface TrackerThread extends AbstractThread {
   }
 
   class ConsumerPrinter {
-    private final MBeanClient mBeanClient = MBeanClient.local();
+    private final JndiClient mBeanClient = JndiClient.local();
     private final Supplier<List<Report>> reportSupplier;
     private long lastRecords = 0;
 

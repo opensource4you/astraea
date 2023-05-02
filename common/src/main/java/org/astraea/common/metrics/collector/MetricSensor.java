@@ -21,9 +21,8 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.admin.ClusterBean;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.MBeanClient;
 
 @FunctionalInterface
 public interface MetricSensor {
@@ -66,9 +65,9 @@ public interface MetricSensor {
    * fetch metrics from remote/local mbean server. Or the implementation can generate custom metrics
    * according to existent cluster bean
    *
-   * @param client mbean client (don't close it!)
+   * @param client mbean client
    * @param bean current cluster bean
    * @return java metrics
    */
-  Collection<? extends HasBeanObject> fetch(MBeanClient client, ClusterBean bean);
+  Collection<? extends HasBeanObject> fetch(BeanObjectClient client, ClusterBean bean);
 }

@@ -21,9 +21,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 @FunctionalInterface
