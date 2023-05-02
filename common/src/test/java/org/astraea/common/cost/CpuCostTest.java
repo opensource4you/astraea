@@ -54,8 +54,7 @@ public class CpuCostTest {
   @Test
   void testSensor() {
     var f = new CpuCost();
-    var clusterBean =
-        MetricsTestUtils.clusterBean(Map.of(0, JndiClient.local()), f.metricSensor().get());
+    var clusterBean = MetricsTestUtils.clusterBean(Map.of(0, JndiClient.local()), f.metricSensor());
     Assertions.assertFalse(
         clusterBean.brokerMetrics(0, OperatingSystemInfo.class).findAny().isEmpty());
     Assertions.assertTrue(

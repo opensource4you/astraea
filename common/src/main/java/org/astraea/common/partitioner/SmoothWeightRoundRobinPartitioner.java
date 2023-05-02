@@ -24,7 +24,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -135,16 +134,11 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
                       return Collections.unmodifiableMap(map);
                     });
 
-    // put local mbean client first
     metricStore =
         MetricStore.builder()
             .localReceiver(clientSupplier)
             .sensorsSupplier(
-                () ->
-                    this.neutralIntegratedCost
-                        .metricSensor()
-                        .map(s -> Map.of(s, (BiConsumer<Integer, Exception>) (integer, e) -> {}))
-                        .orElse(Map.of()))
+                () -> Map.of(this.neutralIntegratedCost.metricSensor(), (integer, e) -> {}))
             .build();
   }
 

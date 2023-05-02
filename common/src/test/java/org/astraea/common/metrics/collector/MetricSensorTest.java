@@ -34,7 +34,7 @@ public class MetricSensorTest {
     var mbean1 = Mockito.mock(HasBeanObject.class);
     MetricSensor metricSensor1 = (client, ignored) -> List.of(mbean1);
 
-    var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1)).get();
+    var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1));
 
     var result = sensor.fetch(Mockito.mock(BeanObjectClient.class), ClusterBean.EMPTY);
 
@@ -58,13 +58,12 @@ public class MetricSensorTest {
         };
     var sensor =
         MetricSensor.of(
-                List.of(badMetricSensor, goodMetricSensor),
-                e -> {
-                  if (e instanceof RuntimeException) {
-                    throw new RuntimeException();
-                  }
-                })
-            .get();
+            List.of(badMetricSensor, goodMetricSensor),
+            e -> {
+              if (e instanceof RuntimeException) {
+                throw new RuntimeException();
+              }
+            });
     Assertions.assertThrows(
         RuntimeException.class,
         () -> sensor.fetch(Mockito.mock(BeanObjectClient.class), ClusterBean.EMPTY));
@@ -83,7 +82,7 @@ public class MetricSensorTest {
           throw new RuntimeException();
         };
 
-    var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1)).get();
+    var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1));
     Assertions.assertDoesNotThrow(
         () -> sensor.fetch(Mockito.mock(BeanObjectClient.class), ClusterBean.EMPTY));
     Assertions.assertEquals(
@@ -92,7 +91,6 @@ public class MetricSensorTest {
     Assertions.assertDoesNotThrow(
         () ->
             MetricSensor.of(List.of(metricSensor0, metricSensor2))
-                .get()
                 .fetch(Mockito.mock(BeanObjectClient.class), ClusterBean.EMPTY));
     Assertions.assertThrows(
         NoSuchElementException.class,
@@ -102,7 +100,6 @@ public class MetricSensorTest {
                     e -> {
                       if (e instanceof NoSuchElementException) throw new NoSuchElementException();
                     })
-                .get()
                 .fetch(Mockito.mock(BeanObjectClient.class), ClusterBean.EMPTY));
   }
 }

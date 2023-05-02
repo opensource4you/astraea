@@ -17,7 +17,6 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
-import java.util.Optional;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -38,12 +37,12 @@ public class HasClusterCostTest {
           }
 
           @Override
-          public Optional<MetricSensor> metricSensor() {
-            return Optional.of(sensor);
+          public MetricSensor metricSensor() {
+            return sensor;
           }
         };
 
     var f2 = HasClusterCost.of(Map.of(function, 1D));
-    Assertions.assertTrue(f2.metricSensor().isPresent());
+    Assertions.assertNotEquals(MetricSensor.EMPTY, f2.metricSensor());
   }
 }

@@ -172,11 +172,7 @@ public class WebService implements AutoCloseable {
   }
 
   static class Sensors {
-    private final Collection<MetricSensor> sensors;
-
-    Sensors() {
-      sensors = new ConcurrentLinkedQueue<>();
-    }
+    private final Collection<MetricSensor> sensors = new ConcurrentLinkedQueue<>();
 
     Collection<MetricSensor> metricSensors() {
       return sensors;

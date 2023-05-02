@@ -69,6 +69,7 @@ import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.cost.CostFunction;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
@@ -1205,8 +1206,8 @@ public class BalancerHandlerTest {
     }
 
     @Override
-    public Optional<MetricSensor> metricSensor() {
-      return Optional.of((c, ignored) -> List.of(HostMetrics.jvmMemory(c)));
+    public MetricSensor metricSensor() {
+      return (c, ignored) -> List.of(HostMetrics.jvmMemory(c));
     }
 
     @Override
@@ -1352,7 +1353,7 @@ public class BalancerHandlerTest {
                                         JndiClient.of(b.host(), brokerIdToJmxPort.apply(b.id())))));
     var cw = costWeights.stream().map(x -> x.cost).collect(Collectors.toSet());
     var cf = Utils.costFunctions(cw, HasClusterCost.class, Configuration.EMPTY);
-    var metricSensors = cf.stream().map(c -> c.metricSensor().get()).collect(Collectors.toList());
+    var metricSensors = cf.stream().map(CostFunction::metricSensor).toList();
     return MetricStore.builder()
         .beanExpiration(Duration.ofMinutes(2))
         .localReceiver(clientSupplier)

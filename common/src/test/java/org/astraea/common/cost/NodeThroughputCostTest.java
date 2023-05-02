@@ -74,7 +74,7 @@ public class NodeThroughputCostTest {
   @Test
   void testSensor() {
     var throughputCost = new NodeThroughputCost();
-    var sensor = throughputCost.metricSensor().get();
+    var sensor = throughputCost.metricSensor();
     var bean = new BeanObject("aaa", Map.of("node-id", "node-1"), Map.of());
     var client = Mockito.mock(BeanObjectClient.class);
     Mockito.when(client.beans(Mockito.any())).thenReturn(List.of(bean));
