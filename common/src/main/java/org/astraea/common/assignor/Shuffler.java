@@ -70,7 +70,7 @@ public interface Shuffler {
                 var subsConsumer =
                     subscriptions.entrySet().stream()
                         .filter(e -> e.getValue().topics().contains(tp.topic()))
-                        .collect(Collectors.toUnmodifiableList());
+                        .toList();
                 return subsConsumer
                     .get(ThreadLocalRandom.current().nextInt(subsConsumer.size()))
                     .getKey();
