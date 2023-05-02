@@ -104,6 +104,7 @@ public class BalancerHandlerTest {
   @AfterAll
   static void closeService() {
     SERVICE.close();
+    SERVICE2.close();
   }
 
   static final String TIMEOUT_KEY = "timeout";
