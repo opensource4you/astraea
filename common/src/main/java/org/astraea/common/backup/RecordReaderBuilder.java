@@ -75,7 +75,7 @@ public class RecordReaderBuilder {
       @Override
       public List<Header> headers() {
         return outerRecord.getHeadersList().stream()
-            .map(header -> Header.of(header.getKey(), header.getValue().toByteArray()))
+            .map(header -> new Header(header.getKey(), header.getValue().toByteArray()))
             .collect(Collectors.toUnmodifiableList());
       }
 
