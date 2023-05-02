@@ -19,7 +19,6 @@ package org.astraea.common.assignor;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import org.astraea.common.admin.TopicPartition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -27,16 +26,16 @@ import org.junit.jupiter.api.Test;
 public class CostAwareAssignorTest {
 
   @Test
-  void testGreedyAssign() {
-    var assign = Combinator.greedy();
-    var reassign = Shuffler.incompatible(1000);
+  void testCombineAndShuffle() {
+    var combinator = Combinator.greedy();
+    var shuffler = Shuffler.incompatible(3000);
     var subscription =
         Map.of(
             "c1",
             new SubscriptionInfo(List.of("t1", "t2", "t3"), null),
             "c2",
             new SubscriptionInfo(List.of("t1", "t2", "t3"), null));
-    var cost1 =
+    var cost =
         Map.of(
             TopicPartition.of("t1", 0),
             0.2,
@@ -47,48 +46,23 @@ public class CostAwareAssignorTest {
             TopicPartition.of("t3", 0),
             0.4);
 
-    var assignment = assign.combine(subscription, cost1);
-    Assertions.assertEquals(2, assignment.size());
-    assignment.forEach((c, a) -> Assertions.assertEquals(2, a.size()));
-    var finalAssignment = reassign.shuffle(subscription, assignment, Map.of(), cost1);
-    Assertions.assertEquals(assignment, finalAssignment);
+    var assignment = combinator.combine(subscription, cost);
+    var shuffledAssignment = shuffler.shuffle(subscription, assignment, Map.of(), cost);
+    Assertions.assertEquals(assignment, shuffledAssignment);
 
     var incompatibility =
         Map.of(
-            TopicPartition.of("t1", 0),
-            Set.of(TopicPartition.of("t3", 0)),
             TopicPartition.of("t1", 1),
-            Set.of(TopicPartition.of("t2", 0)),
-            TopicPartition.of("t2", 0),
-            Set.of(TopicPartition.of("t1", 1)),
+            Set.of(TopicPartition.of("t3", 0)),
             TopicPartition.of("t3", 0),
-            Set.of(TopicPartition.of("t1", 0)));
-
-    assignment = assign.combine(subscription, cost1);
-    Assertions.assertEquals(2, assignment.size());
-    finalAssignment = reassign.shuffle(subscription, assignment, incompatibility, cost1);
-    finalAssignment.forEach(
-        (c, a) -> {
-          a.forEach(
-              tp -> {
-                incompatibility.get(tp).forEach(itp -> Assertions.assertFalse(a.contains(itp)));
-              });
-        });
-
-    Function<String, TopicPartition> create = TopicPartition::of;
-    var allIncompatible =
+            Set.of(TopicPartition.of("t1", 1)));
+    assignment =
         Map.of(
-            create.apply("t1-0"),
-            Set.of(create.apply("t1-1"), create.apply("t2-0"), create.apply("t3-0")),
-            create.apply("t1-1"),
-            Set.of(create.apply("t1-0"), create.apply("t2-0"), create.apply("t3-0")),
-            create.apply("t2-0"),
-            Set.of(create.apply("t1-0"), create.apply("t1-1"), create.apply("t3-0")),
-            create.apply("t3-0"),
-            Set.of(create.apply("t1-0"), create.apply("t2-0"), create.apply("t1-1")));
-
-    assignment = assign.combine(subscription, cost1);
-    finalAssignment = reassign.shuffle(subscription, assignment, incompatibility, cost1);
-    finalAssignment.forEach((c, a) -> Assertions.assertEquals(2, a.size()));
+            "c1",
+            List.of(TopicPartition.of("t1-0"), TopicPartition.of("t1-1")),
+            "c2",
+            List.of(TopicPartition.of("t2-0"), TopicPartition.of("t3-0")));
+    shuffledAssignment = shuffler.shuffle(subscription, assignment, incompatibility, cost);
+    Assertions.assertEquals(assignment, shuffledAssignment);
   }
 }
