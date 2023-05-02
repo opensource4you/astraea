@@ -104,6 +104,8 @@ public class WebService implements AutoCloseable {
 
   public static void main(String[] args) throws Exception {
     var arg = org.astraea.app.argument.Argument.parse(new Argument(), args);
+    if (arg.jmxPort < 0 && arg.jmxPorts.isEmpty())
+      throw new IllegalArgumentException("you must define either --jmx.port or --jmx.ports");
     try (var service =
         new WebService(
             Admin.of(arg.configs()), arg.port, arg::jmxPortMapping, arg.beanExpiration)) {
