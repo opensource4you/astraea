@@ -117,7 +117,7 @@ public class PartitionerTest {
     var key = "tainan";
     var value = "shanghai";
     var timestamp = System.currentTimeMillis() + 10;
-    var header = Header.of("a", "b".getBytes());
+    var header = new Header("a", "b".getBytes());
     try (var producer =
         Producer.builder()
             .keySerializer(Serializer.STRING)
@@ -173,7 +173,7 @@ public class PartitionerTest {
     var key = "tainan";
     var value = "shanghai";
     var timestamp = System.currentTimeMillis() + 10;
-    var header = Header.of("a", "b".getBytes());
+    var header = new Header("a", "b".getBytes());
     try (var producer =
         Producer.builder()
             .keySerializer(Serializer.STRING)
