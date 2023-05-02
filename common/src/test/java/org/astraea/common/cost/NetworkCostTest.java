@@ -336,9 +336,11 @@ class NetworkCostTest {
     var clusterInfo = testCase.clusterInfo();
     var clusterBean = testCase.clusterBean();
     var smallShuffle =
-        new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 6), (x) -> true);
+        new ShuffleTweaker(
+            () -> ThreadLocalRandom.current().nextInt(1, 6), (x) -> true, (x) -> true);
     var largeShuffle =
-        new ShuffleTweaker(() -> ThreadLocalRandom.current().nextInt(1, 31), (x) -> true);
+        new ShuffleTweaker(
+            () -> ThreadLocalRandom.current().nextInt(1, 31), (x) -> true, (x) -> true);
     var costFunction =
         HasClusterCost.of(
             Map.of(

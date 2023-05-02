@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import org.astraea.common.Utils;
@@ -139,6 +140,14 @@ public class GreedyBalancer implements Balancer {
             .regexString(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX)
             .map(Pattern::asMatchPredicate)
             .orElse((ignore) -> true);
+    final var allowedBrokers =
+        config
+            .balancerConfig()
+            .regexString(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX)
+            .map(Pattern::asMatchPredicate)
+            .<Predicate<Integer>>map(
+                predicate -> (brokerId) -> predicate.test(Integer.toString(brokerId)))
+            .orElse((ignore) -> true);
 
     final var currentClusterInfo = config.clusterInfo();
     final var clusterBean = config.clusterBean();
@@ -146,6 +155,7 @@ public class GreedyBalancer implements Balancer {
         ShuffleTweaker.builder()
             .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(minStep, maxStep))
             .allowedTopics(allowedTopics)
+            .allowedBrokers(allowedBrokers)
             .build();
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
