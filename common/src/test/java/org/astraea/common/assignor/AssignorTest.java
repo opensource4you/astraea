@@ -99,7 +99,7 @@ public class AssignorTest {
     randomAssignor.configure(
         Map.of(
             "jmx.port",
-            "8000",
+            String.valueOf(SERVICE.jmxServiceURL().getPort()),
             "broker.1000.jmx.port",
             "12345",
             ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
@@ -110,7 +110,7 @@ public class AssignorTest {
     random2.configure(
         Map.of(
             "jmx.port",
-            "8000",
+            String.valueOf(SERVICE.jmxServiceURL().getPort()),
             "broker.1002.jmx.port",
             "8888",
             ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
