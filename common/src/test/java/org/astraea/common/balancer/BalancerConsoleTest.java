@@ -38,7 +38,6 @@ import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
-import org.astraea.common.cost.MoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.it.Service;
@@ -401,8 +400,7 @@ class BalancerConsoleTest {
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
             return Optional.of(
-                new Plan(
-                    config.clusterInfo(), () -> 0, config.clusterInfo(), () -> 0, MoveCost.EMPTY));
+                new Plan(config.clusterInfo(), () -> 0, config.clusterInfo(), () -> 0));
           }
         };
 
