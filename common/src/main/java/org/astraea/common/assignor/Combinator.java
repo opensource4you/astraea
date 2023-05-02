@@ -28,7 +28,8 @@ public interface Combinator {
       Map<String, SubscriptionInfo> subscriptions, Map<TopicPartition, Double> costs);
 
   /**
-   * implement the greedy assign strategy
+   * Using a greedy strategy to assign partitions to consumers, selecting the consumer with the
+   * lowest cost each time to assign.
    *
    * @return the assignment by greedy strategy
    */

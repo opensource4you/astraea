@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
@@ -42,7 +41,9 @@ import org.astraea.common.cost.NoSufficientMetricsException;
  */
 public class CostAwareAssignor extends Assignor {
   protected static final String MAX_RETRY_TIME = "max.retry.time";
+  protected static final String SHUFFLE_TIME = "shuffle.time";
   Duration maxRetryTime = Duration.ofSeconds(30);
+  Duration shuffleTime = Duration.ofSeconds(5);
 
   @Override
   protected Map<String, List<TopicPartition>> assign(
@@ -53,8 +54,14 @@ public class CostAwareAssignor extends Assignor {
             .flatMap(Collection::stream)
             .collect(Collectors.toUnmodifiableSet());
 
-    // wait for clusterBean
-    retry(clusterInfo);
+    metricStore.wait(
+        (ignore) -> {
+          var bean = metricStore.clusterBean();
+          var c = costFunction.partitionCost(clusterInfo, bean);
+          if (c.value().values().stream().noneMatch(v -> Double.isNaN(v))) return true;
+          return false;
+        },
+        shuffleTime);
 
     var clusterBean = metricStore.clusterBean();
     var partitionCost = costFunction.partitionCost(clusterInfo, clusterBean);
@@ -64,27 +71,9 @@ public class CostAwareAssignor extends Assignor {
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     var incompatiblePartition = partitionCost.incompatibility();
 
-    return greedyAssign(subscriptions, cost, incompatiblePartition);
-  }
-
-  /**
-   * Using a greedy strategy to assign partitions to consumers, selecting the consumer with the
-   * lowest cost each time to assign.
-   *
-   * <p>If there are incompatible partitions assigned to the same consumer, perform the reassigning
-   * to avoid assigning incompatible partitions to the same consumer.
-   *
-   * @param subscriptions the subscription of consumers
-   * @param costs partition cost
-   * @param incompatible incompatible partitions calculated by cost function
-   * @return the assignment by greedyAssign
-   */
-  private Map<String, List<TopicPartition>> greedyAssign(
-      Map<String, SubscriptionInfo> subscriptions,
-      Map<TopicPartition, Double> costs,
-      Map<TopicPartition, Set<TopicPartition>> incompatible) {
-    var assignment = Combinator.greedy().combine(subscriptions, costs);
-    return Shuffler.incompatible(4000).shuffle(subscriptions, assignment, incompatible, costs);
+    var assignment = Combinator.greedy().combine(subscriptions, cost);
+    return Shuffler.incompatible(shuffleTime)
+        .shuffle(subscriptions, assignment, incompatiblePartition, cost);
   }
 
   private void retry(ClusterInfo clusterInfo) {
@@ -105,6 +94,7 @@ public class CostAwareAssignor extends Assignor {
   @Override
   protected void configure(Configuration config) {
     config.duration(MAX_RETRY_TIME).ifPresent(v -> this.maxRetryTime = v);
+    config.duration(SHUFFLE_TIME).ifPresent(v -> this.shuffleTime = v);
   }
 
   @Override
