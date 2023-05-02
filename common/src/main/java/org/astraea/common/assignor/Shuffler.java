@@ -16,9 +16,7 @@
  */
 package org.astraea.common.assignor;
 
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -59,33 +57,10 @@ public interface Shuffler {
                               .flatMap(tp -> incompatible.get(tp).stream())
                               .collect(Collectors.toUnmodifiableSet())))
               .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-      System.out.println("unsuitable = " + unsuitable);
-      System.out.println("assignment = " + assignment);
       if (assignment.entrySet().stream()
           .noneMatch(
-              e -> e.getValue().stream().anyMatch(tp -> unsuitable.get(e.getKey()).contains(tp)))) {
-        System.out.println("none match");
+              e -> e.getValue().stream().anyMatch(tp -> unsuitable.get(e.getKey()).contains(tp))))
         return assignment;
-      }
-
-      var tmpCost = new HashMap<>(costs);
-      var submitHeavyCost =
-          (Function<String, TopicPartition>)
-              (c) -> {
-                var tpCost =
-                    tmpCost.entrySet().stream()
-                        .filter(tc -> subscriptions.get(c).topics().contains(tc.getKey().topic()))
-                        .max(Map.Entry.comparingByValue())
-                        .get();
-                tmpCost.remove(tpCost);
-                return tpCost.getKey();
-              };
-      var result =
-          subscriptions.keySet().stream()
-              .map(c -> Map.entry(c, new ArrayList<TopicPartition>()))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-      result.forEach((c, r) -> r.add(submitHeavyCost.apply(c)));
 
       var possibleAssignments = new HashSet<Map<String, List<TopicPartition>>>();
       var randomAssign =
@@ -103,7 +78,7 @@ public interface Shuffler {
       var start = System.currentTimeMillis();
       while (System.currentTimeMillis() - start < maxTime) {
         possibleAssignments.add(
-            tmpCost.keySet().stream()
+            costs.keySet().stream()
                 .map(tp -> Map.entry(randomAssign.apply(tp), tp))
                 .collect(
                     Collectors.groupingBy(
@@ -111,31 +86,7 @@ public interface Shuffler {
                         Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList()))));
       }
 
-      var incompatibility =
-          (Function<Map<String, List<TopicPartition>>, Long>)
-              (possibleAssignment) -> {
-                var unsuit =
-                    possibleAssignment.entrySet().stream()
-                        .map(
-                            e ->
-                                Map.entry(
-                                    e.getKey(),
-                                    e.getValue().stream()
-                                        .flatMap(tp -> incompatible.get(tp).stream())
-                                        .collect(Collectors.toUnmodifiableSet())))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-                return possibleAssignment.entrySet().stream()
-                    .mapToLong(
-                        e ->
-                            e.getValue().stream()
-                                    .filter(tp -> unsuit.get(e.getKey()).contains(tp))
-                                    .count()
-                                / 2)
-                    .sum();
-              };
-
-      var sigma =
+      var standardSigma =
           (Function<Map<String, List<TopicPartition>>, Double>)
               (r) -> {
                 var totalCost =
@@ -152,20 +103,37 @@ public interface Shuffler {
                     totalCost.values().stream().mapToDouble(c -> Math.pow(avg - c, 2)).sum()
                         / totalCost.size());
               };
-      var w =
-          possibleAssignments.stream()
-              .map(r -> Map.entry(incompatibility.apply(r), r))
-              .collect(
-                  Collectors.groupingBy(
-                      Map.Entry::getKey,
-                      Collectors.mapping(Map.Entry::getValue, Collectors.toSet())));
-      System.out.println("w = " + w);
-      var resu =
-          w.entrySet().stream().min(Map.Entry.comparingByKey()).get().getValue().stream()
-              .min(Comparator.comparingDouble(sigma::apply))
-              .get();
-      System.out.println("resu = " + resu);
-      return resu;
+      var numberOfIncompatibility =
+          (Function<Map<String, List<TopicPartition>>, Integer>)
+              (possibleAssignment) -> {
+                var unsuit =
+                    possibleAssignment.entrySet().stream()
+                        .map(
+                            e ->
+                                Map.entry(
+                                    e.getKey(),
+                                    e.getValue().stream()
+                                        .flatMap(tp -> incompatible.get(tp).stream())
+                                        .collect(Collectors.toUnmodifiableSet())))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+                return possibleAssignment.entrySet().stream()
+                    .mapToInt(
+                        e ->
+                            (int)
+                                e.getValue().stream()
+                                    .filter(tp -> unsuit.get(e.getKey()).contains(tp))
+                                    .count())
+                    .sum();
+              };
+
+      return possibleAssignments.stream()
+          .map(e -> Map.entry(e, standardSigma.apply(e)))
+          .sorted(Map.Entry.comparingByValue())
+          .map(Map.Entry::getKey)
+          .limit((int) Math.floor((double) possibleAssignments.size() / 10))
+          .min(Comparator.comparingLong(numberOfIncompatibility::apply))
+          .get();
     };
   }
 }
