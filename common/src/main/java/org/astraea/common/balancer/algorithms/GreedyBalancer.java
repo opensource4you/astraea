@@ -171,19 +171,23 @@ public class GreedyBalancer implements Balancer {
             allocationTweaker
                 .generate(currentAllocation)
                 .takeWhile(ignored -> moreRoom.get())
+                .filter(
+                    newAllocation ->
+                        config
+                            .movementConstraint()
+                            .test(
+                                moveCostFunction.moveCost(
+                                    currentClusterInfo, newAllocation, clusterBean)))
                 .map(
                     newAllocation ->
                         new Plan(
                             config.clusterInfo(),
                             initialCost,
                             newAllocation,
-                            clusterCostFunction.clusterCost(newAllocation, clusterBean),
-                            moveCostFunction.moveCost(
-                                currentClusterInfo, newAllocation, clusterBean)))
+                            clusterCostFunction.clusterCost(newAllocation, clusterBean)))
                 .filter(
                     plan ->
                         config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
-                .filter(plan -> config.movementConstraint().test(plan.moveCost()))
                 .findFirst();
     var currentCost = initialCost;
     var currentAllocation = currentClusterInfo;
