@@ -45,7 +45,7 @@ public class MetricSensorTest {
 
   @Test
   void testEmpty() {
-    Assertions.assertEquals(Optional.empty(), MetricSensor.of(List.of()));
+    Assertions.assertEquals(MetricSensor.EMPTY, MetricSensor.of(List.of()));
   }
 
   @Test

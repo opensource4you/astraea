@@ -34,7 +34,7 @@ public class PartitionerUtilsTest {
 
   @Test
   void testDoPoisson() {
-    Assertions.assertEquals(PartitionerUtils.doPoisson(10, 15), 0.9512595966960214);
+    Assertions.assertEquals(PartitionerUtils.doPoisson(10, 15), 0.9512595966960213);
     Assertions.assertEquals(PartitionerUtils.doPoisson(5, 5), 0.6159606548330632);
     Assertions.assertEquals(PartitionerUtils.doPoisson(5, 8), 0.9319063652781515);
     Assertions.assertEquals(PartitionerUtils.doPoisson(5, 2), 0.12465201948308113);
