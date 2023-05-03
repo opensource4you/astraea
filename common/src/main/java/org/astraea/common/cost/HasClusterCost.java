@@ -17,7 +17,6 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.function.Bi3Function;
@@ -29,12 +28,7 @@ public interface HasClusterCost extends CostFunction {
 
   static HasClusterCost of(Map<HasClusterCost, Double> costAndWeight) {
     var sensor =
-        MetricSensor.of(
-            costAndWeight.keySet().stream()
-                .map(CostFunction::metricSensor)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(Collectors.toUnmodifiableList()));
+        MetricSensor.of(costAndWeight.keySet().stream().map(CostFunction::metricSensor).toList());
 
     return new HasClusterCost() {
       @Override
@@ -79,7 +73,7 @@ public interface HasClusterCost extends CostFunction {
       }
 
       @Override
-      public Optional<MetricSensor> metricSensor() {
+      public MetricSensor metricSensor() {
         return sensor;
       }
 

@@ -97,7 +97,7 @@ class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
                   }
 
                   @Override
-                  public Optional<MetricSensor> metricSensor() {
+                  public MetricSensor metricSensor() {
                     return costFunction.metricSensor();
                   }
 
@@ -120,7 +120,7 @@ class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
                   }
 
                   @Override
-                  public Optional<MetricSensor> metricSensor() {
+                  public MetricSensor metricSensor() {
                     return moveCostFunction.metricSensor();
                   }
 

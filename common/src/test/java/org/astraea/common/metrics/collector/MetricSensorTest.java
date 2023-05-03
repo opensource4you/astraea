@@ -18,7 +18,6 @@ package org.astraea.common.metrics.collector;
 
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.junit.jupiter.api.Assertions;
@@ -34,7 +33,7 @@ public class MetricSensorTest {
     var mbean1 = Mockito.mock(HasBeanObject.class);
     MetricSensor metricSensor1 = (client, ignored) -> List.of(mbean1);
 
-    var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1)).get();
+    var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1));
 
     var result = sensor.fetch(Mockito.mock(BeanObjectClient.class), ClusterBean.EMPTY);
 
@@ -45,7 +44,7 @@ public class MetricSensorTest {
 
   @Test
   void testEmpty() {
-    Assertions.assertEquals(Optional.empty(), MetricSensor.of(List.of()));
+    Assertions.assertEquals(MetricSensor.EMPTY, MetricSensor.of(List.of()));
   }
 
   @Test
@@ -58,13 +57,12 @@ public class MetricSensorTest {
         };
     var sensor =
         MetricSensor.of(
-                List.of(badMetricSensor, goodMetricSensor),
-                e -> {
-                  if (e instanceof RuntimeException) {
-                    throw new RuntimeException();
-                  }
-                })
-            .get();
+            List.of(badMetricSensor, goodMetricSensor),
+            e -> {
+              if (e instanceof RuntimeException) {
+                throw new RuntimeException();
+              }
+            });
     Assertions.assertThrows(
         RuntimeException.class,
         () -> sensor.fetch(Mockito.mock(BeanObjectClient.class), ClusterBean.EMPTY));
@@ -83,7 +81,7 @@ public class MetricSensorTest {
           throw new RuntimeException();
         };
 
-    var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1)).get();
+    var sensor = MetricSensor.of(List.of(metricSensor0, metricSensor1));
     Assertions.assertDoesNotThrow(
         () -> sensor.fetch(Mockito.mock(BeanObjectClient.class), ClusterBean.EMPTY));
     Assertions.assertEquals(
@@ -92,7 +90,6 @@ public class MetricSensorTest {
     Assertions.assertDoesNotThrow(
         () ->
             MetricSensor.of(List.of(metricSensor0, metricSensor2))
-                .get()
                 .fetch(Mockito.mock(BeanObjectClient.class), ClusterBean.EMPTY));
     Assertions.assertThrows(
         NoSuchElementException.class,
@@ -102,7 +99,6 @@ public class MetricSensorTest {
                     e -> {
                       if (e instanceof NoSuchElementException) throw new NoSuchElementException();
                     })
-                .get()
                 .fetch(Mockito.mock(BeanObjectClient.class), ClusterBean.EMPTY));
   }
 }
