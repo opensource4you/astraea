@@ -271,7 +271,6 @@ public class RecordGeneratorTest {
                 LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
             .valueDistribution(() -> Math.abs(valueRandom0.nextLong() % size))
             .valueSizeDistribution(() -> 256L)
-            .throughput(ignored -> DataRate.MB.of(1000))
             .build();
     var gen1 =
         RecordGenerator.builder()
@@ -286,7 +285,6 @@ public class RecordGeneratorTest {
                 LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
             .valueDistribution(() -> Math.abs(valueRandom1.nextLong() % size))
             .valueSizeDistribution(() -> 256L)
-            .throughput(ignored -> DataRate.MB.of(1000))
             .build();
 
     var tp = TopicPartition.of("A", -1);
