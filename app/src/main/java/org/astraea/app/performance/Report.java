@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.metrics.BeanQuery;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.common.metrics.client.consumer.HasConsumerFetchMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
@@ -28,7 +28,7 @@ import org.astraea.common.metrics.client.producer.ProducerMetrics;
 public interface Report {
 
   static long recordsConsumedTotal() {
-    var client = MBeanClient.local();
+    var client = JndiClient.local();
     return (long)
         ConsumerMetrics.fetch(client).stream()
             .mapToDouble(HasConsumerFetchMetrics::recordsConsumedTotal)
@@ -37,7 +37,7 @@ public interface Report {
 
   static List<Report> consumers() {
 
-    return ConsumerMetrics.fetch(MBeanClient.local()).stream()
+    return ConsumerMetrics.fetch(JndiClient.local()).stream()
         .map(
             m ->
                 new Report() {
@@ -74,7 +74,7 @@ public interface Report {
                   @Override
                   public Optional<Double> e2eLatency() {
                     return Optional.ofNullable(
-                            MBeanClient.local()
+                            JndiClient.local()
                                 .bean(
                                     BeanQuery.builder()
                                         .domainName(ConsumerThread.DOMAIN_NAME)
@@ -91,7 +91,7 @@ public interface Report {
   }
 
   static List<Report> producers() {
-    return ProducerMetrics.producer(MBeanClient.local()).stream()
+    return ProducerMetrics.producer(JndiClient.local()).stream()
         .map(
             m ->
                 new Report() {
@@ -113,7 +113,7 @@ public interface Report {
                   @Override
                   public Optional<Double> e2eLatency() {
                     return Optional.ofNullable(
-                            MBeanClient.local()
+                            JndiClient.local()
                                 .bean(
                                     BeanQuery.builder()
                                         .domainName(ProducerThread.DOMAIN_NAME)

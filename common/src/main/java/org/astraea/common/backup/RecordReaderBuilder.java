@@ -19,106 +19,107 @@ package org.astraea.common.backup;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import org.astraea.common.ByteUtils;
 import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;
+import org.astraea.common.generated.RecordOuterClass;
 
 public class RecordReaderBuilder {
 
   private static final Function<InputStream, RecordReader> V0 =
       inputStream ->
           new RecordReader() {
-            private int recordSize;
+            private Record<byte[], byte[]> current = null;
 
             @Override
             public boolean hasNext() {
-              recordSize = ByteUtils.readInt(inputStream);
-              return recordSize != -1;
+              // Try to parse a record from the inputStream. And store the parsed record for
+              // RecordReader#next().
+              if (current == null) current = readRecord(inputStream);
+
+              // nextCache is null if the stream reach EOF.
+              return current != null;
             }
 
             @Override
             public Record<byte[], byte[]> next() {
-              var recordBuffer = ByteBuffer.allocate(recordSize);
-              var actualSize =
-                  Utils.packException(
-                      () -> inputStream.readNBytes(recordBuffer.array(), 0, recordSize));
-              if (actualSize != recordSize)
-                throw new IllegalStateException(
-                    "expected size is " + recordSize + ", but actual size is " + actualSize);
-              var topic = ByteUtils.readString(recordBuffer, recordBuffer.getShort());
-              var partition = recordBuffer.getInt();
-              var offset = recordBuffer.getLong();
-              var timestamp = recordBuffer.getLong();
-              var key = ByteUtils.readBytes(recordBuffer, recordBuffer.getInt());
-              var value = ByteUtils.readBytes(recordBuffer, recordBuffer.getInt());
-              var headerCnt = recordBuffer.getInt();
-              var headers = new ArrayList<Header>(headerCnt);
-              for (int headerIndex = 0; headerIndex < headerCnt; headerIndex++) {
-                var headerKey = ByteUtils.readString(recordBuffer, recordBuffer.getShort());
-                var headerValue = ByteUtils.readBytes(recordBuffer, recordBuffer.getInt());
-                headers.add(Header.of(headerKey, headerValue));
+              if (hasNext()) {
+                var next = current;
+                current = null;
+                return next;
               }
-
-              return new Record<>() {
-                @Override
-                public String topic() {
-                  return topic;
-                }
-
-                @Override
-                public List<Header> headers() {
-                  return headers;
-                }
-
-                @Override
-                public byte[] key() {
-                  return key;
-                }
-
-                @Override
-                public byte[] value() {
-                  return value;
-                }
-
-                @Override
-                public long offset() {
-                  return offset;
-                }
-
-                @Override
-                public long timestamp() {
-                  return timestamp;
-                }
-
-                @Override
-                public int partition() {
-                  return partition;
-                }
-
-                @Override
-                public int serializedKeySize() {
-                  return key == null ? 0 : key.length;
-                }
-
-                @Override
-                public int serializedValueSize() {
-                  return value == null ? 0 : value.length;
-                }
-
-                @Override
-                public Optional<Integer> leaderEpoch() {
-                  return Optional.empty();
-                }
-              };
+              throw new NoSuchElementException("RecordReader has no more elements.");
             }
           };
+
+  /** Parsed message if successful, or null if the stream is at EOF. */
+  private static Record<byte[], byte[]> readRecord(InputStream inputStream) {
+    var outerRecord =
+        Utils.packException(() -> RecordOuterClass.Record.parseDelimitedFrom(inputStream));
+    // inputStream reaches EOF
+    if (outerRecord == null) return null;
+
+    return new Record<>() {
+      @Override
+      public String topic() {
+        return outerRecord.getTopic();
+      }
+
+      @Override
+      public List<Header> headers() {
+        return outerRecord.getHeadersList().stream()
+            .map(header -> new Header(header.getKey(), header.getValue().toByteArray()))
+            .collect(Collectors.toUnmodifiableList());
+      }
+
+      @Override
+      public byte[] key() {
+        return outerRecord.getKey().toByteArray();
+      }
+
+      @Override
+      public byte[] value() {
+        return outerRecord.getValue().toByteArray();
+      }
+
+      @Override
+      public long offset() {
+        return outerRecord.getOffset();
+      }
+
+      @Override
+      public long timestamp() {
+        return outerRecord.getTimestamp();
+      }
+
+      @Override
+      public int partition() {
+        return outerRecord.getPartition();
+      }
+
+      @Override
+      public int serializedKeySize() {
+        return outerRecord.getKey().size();
+      }
+
+      @Override
+      public int serializedValueSize() {
+        return outerRecord.getValue().size();
+      }
+
+      @Override
+      public Optional<Integer> leaderEpoch() {
+        return Optional.empty();
+      }
+    };
+  }
 
   private InputStream fs;
 

@@ -16,8 +16,8 @@
  */
 package org.astraea.common.metrics.broker;
 
-import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.MetricsTestUtil;
+import org.astraea.common.metrics.JndiClient;
+import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -44,16 +44,16 @@ public class ReplicaManagerMetricsTest {
   @ParameterizedTest
   @EnumSource(ServerMetrics.ReplicaManager.class)
   void testBrokerTopic(ServerMetrics.ReplicaManager rm) {
-    var gauge = rm.fetch(MBeanClient.local());
+    var gauge = rm.fetch(JndiClient.local());
     Assertions.assertEquals(0, gauge.value());
-    MetricsTestUtil.validate(gauge);
+    MetricsTestUtils.validate(gauge);
     Assertions.assertEquals(rm, gauge.type());
   }
 
   @Test
   void testAllEnumNameUnique() {
     Assertions.assertTrue(
-        MetricsTestUtil.metricDistinct(
+        MetricsTestUtils.metricDistinct(
             ServerMetrics.ReplicaManager.values(), ServerMetrics.ReplicaManager::metricName));
   }
 }

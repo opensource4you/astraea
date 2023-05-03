@@ -78,6 +78,7 @@ RUN tar -zxvf hadoop-${VERSION}.tar.gz -C /opt/hadoop --strip-components=1
 FROM ubuntu:22.04
 
 #install tools
+# TODO: upgrade to jdk 11 (https://github.com/skiptests/astraea/issues/1681)
 RUN apt-get update && apt-get install -y openjdk-11-jre
 
 #copy hadoop

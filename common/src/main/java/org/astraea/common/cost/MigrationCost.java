@@ -33,19 +33,22 @@ public class MigrationCost {
   public final Map<Integer, Long> brokerCosts;
   public static final String TO_SYNC_BYTES = "record size to sync (bytes)";
   public static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
+  public static final String REPLICA_LEADERS_TO_ADDED = "leader number to add";
+  public static final String REPLICA_LEADERS_TO_REMOVE = "leader number to remove";
   public static final String CHANGED_REPLICAS = "changed replicas";
-  public static final String CHANGED_LEADERS = "changed leaders";
 
   public static List<MigrationCost> migrationCosts(ClusterInfo before, ClusterInfo after) {
     var migrateInBytes = recordSizeToSync(before, after);
     var migrateOutBytes = recordSizeToFetch(before, after);
     var migrateReplicaNum = replicaNumChanged(before, after);
-    var migrateReplicaLeader = replicaLeaderChanged(before, after);
+    var migrateInLeader = replicaLeaderToAdd(before, after);
+    var migrateOutLeader = replicaLeaderToRemove(before, after);
     return List.of(
         new MigrationCost(TO_SYNC_BYTES, migrateInBytes),
         new MigrationCost(TO_FETCH_BYTES, migrateOutBytes),
-        new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum),
-        new MigrationCost(CHANGED_LEADERS, migrateReplicaLeader));
+        new MigrationCost(REPLICA_LEADERS_TO_ADDED, migrateInLeader),
+        new MigrationCost(REPLICA_LEADERS_TO_REMOVE, migrateOutLeader),
+        new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum));
   }
 
   public MigrationCost(String name, Map<Integer, Long> brokerCosts) {
@@ -54,35 +57,49 @@ public class MigrationCost {
   }
 
   static Map<Integer, Long> recordSizeToFetch(ClusterInfo before, ClusterInfo after) {
-    return changedRecordSize(before, after, true);
+    return migratedChanged(before, after, true, (ignore) -> true, Replica::size);
   }
 
   static Map<Integer, Long> recordSizeToSync(ClusterInfo before, ClusterInfo after) {
-    return changedRecordSize(before, after, false);
+    return migratedChanged(before, after, false, (ignore) -> true, Replica::size);
   }
 
   static Map<Integer, Long> replicaNumChanged(ClusterInfo before, ClusterInfo after) {
-    return changedReplicaNumber(before, after, ignore -> true);
+    return changedReplicaNumber(before, after);
   }
 
-  static Map<Integer, Long> replicaLeaderChanged(ClusterInfo before, ClusterInfo after) {
-    return changedReplicaNumber(before, after, Replica::isLeader);
+  static Map<Integer, Long> replicaLeaderToAdd(ClusterInfo before, ClusterInfo after) {
+    return migratedChanged(before, after, true, Replica::isLeader, ignore -> 1L);
+  }
+
+  static Map<Integer, Long> replicaLeaderToRemove(ClusterInfo before, ClusterInfo after) {
+    return migratedChanged(before, after, false, Replica::isLeader, ignore -> 1L);
   }
 
   /**
    * @param before the ClusterInfo before migrated replicas
    * @param after the ClusterInfo after migrated replicas
    * @param migrateOut if data log need fetch from replica leader, set this true
+   * @param predicate used to filter replicas
+   * @param replicaFunction decide what information you want to calculate for the replica
    * @return the data size to migrated by all brokers
    */
-  private static Map<Integer, Long> changedRecordSize(
-      ClusterInfo before, ClusterInfo after, boolean migrateOut) {
+  private static Map<Integer, Long> migratedChanged(
+      ClusterInfo before,
+      ClusterInfo after,
+      boolean migrateOut,
+      Predicate<Replica> predicate,
+      Function<Replica, Long> replicaFunction) {
     var source = migrateOut ? after : before;
     var dest = migrateOut ? before : after;
     var changePartitions = ClusterInfo.findNonFulfilledAllocation(source, dest);
     var cost =
         changePartitions.stream()
-            .flatMap(p -> dest.replicas(p).stream().filter(r -> !source.replicas(p).contains(r)))
+            .flatMap(
+                p ->
+                    dest.replicas(p).stream()
+                        .filter(predicate)
+                        .filter(r -> !source.replicas(p).contains(r)))
             .map(
                 r -> {
                   if (migrateOut) return dest.replicaLeader(r.topicPartition()).orElse(r);
@@ -92,7 +109,7 @@ public class MigrationCost {
                 Collectors.groupingBy(
                     r -> r.nodeInfo().id(),
                     Collectors.mapping(
-                        Function.identity(), Collectors.summingLong(Replica::size))));
+                        Function.identity(), Collectors.summingLong(replicaFunction::apply))));
     return Stream.concat(dest.nodes().stream(), source.nodes().stream())
         .map(NodeInfo::id)
         .distinct()
@@ -133,8 +150,7 @@ public class MigrationCost {
     return Math.max(totalRemovedSize, totalAddedSize) > limit;
   }
 
-  private static Map<Integer, Long> changedReplicaNumber(
-      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate) {
+  private static Map<Integer, Long> changedReplicaNumber(ClusterInfo before, ClusterInfo after) {
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
         .map(NodeInfo::id)
         .distinct()
@@ -146,22 +162,22 @@ public class MigrationCost {
                   var removedLeaders =
                       before
                           .replicaStream(id)
-                          .filter(predicate)
                           .filter(
                               r ->
                                   after
                                       .replicaStream(r.topicPartitionReplica())
-                                      .noneMatch(predicate))
+                                      .findAny()
+                                      .isEmpty())
                           .count();
                   var newLeaders =
                       after
                           .replicaStream(id)
-                          .filter(predicate)
                           .filter(
                               r ->
                                   before
                                       .replicaStream(r.topicPartitionReplica())
-                                      .noneMatch(predicate))
+                                      .findAny()
+                                      .isEmpty())
                           .count();
                   return newLeaders - removedLeaders;
                 }));

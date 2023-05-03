@@ -58,6 +58,9 @@ ext {
 archivesBaseName = "astraea-etl"
 
 tasks.named('test') {
+    // spark can't run with JDK 17 as it uses internal class
+    // see https://lists.apache.org/thread/814cpb1rpp73zkhtv9t4mkzzrznl82yn
+    jvmArgs '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED'
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
 

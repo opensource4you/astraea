@@ -136,7 +136,7 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
     var hs = new ArrayList<Header>(headers.size());
     headers
         .iterator()
-        .forEachRemaining(h -> hs.add(Header.of(h.key(), toBytes(h.schema(), h.value()))));
+        .forEachRemaining(h -> hs.add(new Header(h.key(), toBytes(h.schema(), h.value()))));
     return Collections.unmodifiableList(hs);
   }
 

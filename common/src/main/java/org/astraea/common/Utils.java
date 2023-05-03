@@ -144,6 +144,12 @@ public final class Utils {
     }
   }
 
+  public static void close(Object obj) {
+    if (obj instanceof AutoCloseable) {
+      packException(() -> ((AutoCloseable) obj).close());
+    }
+  }
+
   /**
    * Convert the exception thrown by getter to RuntimeException. This method can eliminate the
    * exception from Java signature.
