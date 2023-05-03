@@ -115,9 +115,9 @@ public class AssignorTest {
             "8888",
             ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG,
             SERVICE.bootstrapServers()));
-    Assertions.assertEquals(8000, random2.jmxPortGetter.apply(0));
-    Assertions.assertEquals(8000, random2.jmxPortGetter.apply(1));
-    Assertions.assertEquals(8000, random2.jmxPortGetter.apply(2));
+    Assertions.assertEquals(SERVICE.jmxServiceURL().getPort(), random2.jmxPortGetter.apply(0));
+    Assertions.assertEquals(SERVICE.jmxServiceURL().getPort(), random2.jmxPortGetter.apply(1));
+    Assertions.assertEquals(SERVICE.jmxServiceURL().getPort(), random2.jmxPortGetter.apply(2));
     Assertions.assertEquals(8888, random2.jmxPortGetter.apply(1002));
   }
 
