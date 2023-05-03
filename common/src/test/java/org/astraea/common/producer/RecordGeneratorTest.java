@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import org.astraea.common.DataRate;
@@ -262,42 +261,30 @@ public class RecordGeneratorTest {
         RecordGenerator.builder()
             .batchSize(10)
             .keyTableSeed(keyContentSeed)
-            .keyRange(
-                LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
+            .keyRange(LongStream.rangeClosed(0, size).boxed().toList())
             .keyDistribution(() -> Math.abs(keyRandom0.nextLong() % size))
             .keySizeDistribution(() -> 32L)
             .valueTableSeed(valueContentSeed)
-            .valueRange(
-                LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
+            .valueRange(LongStream.rangeClosed(0, size).boxed().toList())
             .valueDistribution(() -> Math.abs(valueRandom0.nextLong() % size))
             .valueSizeDistribution(() -> 256L)
-            .throughput(ignored -> DataRate.MB.of(1000))
             .build();
     var gen1 =
         RecordGenerator.builder()
             .batchSize(10)
             .keyTableSeed(keyContentSeed)
-            .keyRange(
-                LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
+            .keyRange(LongStream.rangeClosed(0, size).boxed().toList())
             .keyDistribution(() -> Math.abs(keyRandom1.nextLong() % size))
             .keySizeDistribution(() -> 32L)
             .valueTableSeed(valueContentSeed)
-            .valueRange(
-                LongStream.rangeClosed(0, size).boxed().collect(Collectors.toUnmodifiableList()))
+            .valueRange(LongStream.rangeClosed(0, size).boxed().toList())
             .valueDistribution(() -> Math.abs(valueRandom1.nextLong() % size))
             .valueSizeDistribution(() -> 256L)
-            .throughput(ignored -> DataRate.MB.of(1000))
             .build();
 
     var tp = TopicPartition.of("A", -1);
-    var series0 =
-        IntStream.range(0, 10000)
-            .mapToObj(i -> gen0.apply(tp))
-            .collect(Collectors.toUnmodifiableList());
-    var series1 =
-        IntStream.range(0, 10000)
-            .mapToObj(i -> gen1.apply(tp))
-            .collect(Collectors.toUnmodifiableList());
+    var series0 = IntStream.range(0, 10000).mapToObj(i -> gen0.apply(tp)).toList();
+    var series1 = IntStream.range(0, 10000).mapToObj(i -> gen1.apply(tp)).toList();
     for (int i = 0; i < 10000; i++) {
       for (int j = 0; j < 10; j++) {
         Assertions.assertArrayEquals(series0.get(i).get(j).key(), series1.get(i).get(j).key());
