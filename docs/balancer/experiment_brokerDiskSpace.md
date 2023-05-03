@@ -5,12 +5,13 @@
 
 ## 測試情境
 
-我們透過專案內的 [WebAPI](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/web_server/web_api_topics_chinese.md#%E5%BB%BA%E7%AB%8B-topic)
-工具來對測試叢集產生一個 Leader 數量不平衡的情境。WebAPI 在建立 topic 時能夠透過特定參數來以 Binomial Distribution 營造 topic logs 
-在叢集內分佈不均的情況。這最終形成的分佈類似於對生產環境 Kafka 叢集不斷加減 topics/partitions/nodes 所導致的資料配置不均勻狀態。
+我們透過專案內的 [WebAPI](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/web_server/web_api_topics_chinese.md#%E5%BB%BA%E7%AB%8B-topic) 工具來對測試叢集產生一個 Leader 數量不平衡的情境，主要的原因如下:
 
-> 由於 Binomial Distribution 本身沒有 Uniform Distribution 這種非常平衡&理想的分佈狀況，因此我們可以預期最終會有一些 Kafka 節點承受
-> 相對多的 Leader。由於預設的 Kafka 參數會使讀取和寫入都發生在 Leader 身上，服務越多 Leader 的節點有機會承受較大網路負載和責任。
+* leader為主要寫入資料的partition, 當leader在數量在節點間不平衡時，可能會導致某些節點的寫入流量特別大
+* leader為預設讀取資料的partition, 當leader在數量在節點間不平衡時，可能會導致某些節點的讀取流量特別大
+* leader不平衡時可能會在某些節點會同時有大量的連線
+
+
 
 ## 叢集硬體環境
 
@@ -20,19 +21,23 @@
                                      [500 Mbits Router]
                                     ┌──────────────────┐
                [10 Gbits Switch]    │                  │
-   ┌─────┬─────┬─────┬─────┬─────┬──┴──┐               │
-   B0    B1    B2    B3    B4    B5    P1          Balancer
+   ┌─────┬─────┬─────┬─────┬─────┬──┴──┬──┬──┬──┬──┐   │
+   B1   B2    B3    B4    B5    B6   P1 P2 P3 P4 P5 Balancer
 ```
 
 每個機器負責執行的軟體：
 
-* B0: Kafka Broker, Zookeeper, Prometheus, Node Exporter
-* B1: Kafka Broker, Node Exporter
+* B1: Kafka Broker, Zookeeper, Prometheus, Node Exporter
 * B2: Kafka Broker, Node Exporter
 * B3: Kafka Broker, Node Exporter
 * B4: Kafka Broker, Node Exporter
 * B5: Kafka Broker, Node Exporter
+* B6: Kafka Broker, Node Exporter
 * P1: Performance Tool, Node Exporter
+* P2: Performance Tool, Node Exporter
+* P3: Performance Tool, Node Exporter
+* P4: Performance Tool, Node Exporter
+* P5: Performance Tool, Node Exporter
 * Balancer: 執行 Astraea Balancer 的機器
 
 下表為 B0, B1, B2, B3, B4, B5, P1 的硬體規格：
@@ -57,10 +62,10 @@
 
 這個實驗中包含：
 
-* 6 個 Apache Kafka Broker 節點（version 3.1.0）。
+* 6 個 Apache Kafka Broker 節點（version 3.4.0）。
   * 各個節點包含 3 個 log dir，每個有 844GB 空間的 SSD
-* 1 個 Zookeeper 節點（version 3.7.1）。
-* 1 個 Performance Tool 施打資料
+* 1 個 kraft controller 節點（version 3.4.0）。
+* 5 個 Performance Tool 施打資料
 
 以下為建構環境的步驟：
 
@@ -85,19 +90,19 @@
 
 ## 執行實驗
 
-首先取得 Astraea Project
+1. 首先取得 Astraea Project
 
 ```script
 git clone https://github.com/skiptests/astraea.git
 cd astraea
 ```
 
-接著執行 Astraea Web Service，Astraea Web Service 提供一系列的功能，能幫助我們對 Kafka 進行管理和操作。
+2. 接著執行 Astraea Web Service，Astraea Web Service 提供一系列的功能，能幫助我們對 Kafka 進行管理和操作。
 
-執行 `./gradlew run --args="web --bootstrap.servers <broker-addresses>"` 來使用 web service，其中 `<broker-addresses>` 是
-Kafka 對外服務的網路位置。
+3. 執行 `./gradlew run --args="web --bootstrap.servers <broker-addresses>"` 來使用 web service，其中 `<broker-addresses>` 是
+   Kafka 對外服務的網路位置。
 
-完成後執行 
+4. 完成後執行 
 
 ```shell
 curl -X POST http://localhost:8001/topics \
@@ -105,23 +110,22 @@ curl -X POST http://localhost:8001/topics \
   -d '{ "topics": [ { "name":"imbalance-topic", "partitions": 250, "replicas": 2, "probability": 0.5 } ] }'
 ```
 
-對 web service 請求建立一個 leader 數量不平衡的 topic，其名為 `imbalance-topic`，在這個情境中我們設定其有 500 個 partitions。 
+對 web service 請求建立一個 leader 數量不平衡的 topic，其名為 `imbalance-topic`，在這個情境中我們設定其有250個leader，replica備份數量為2，總共500 個 partitions。 
 打開 Grafana Dashboard，能夠看到每個節點有著類似下圖的 Leader 數量分佈。
 
-![image-20230502170638212](/home/sean/.config/Typora/typora-user-images/image-20230502170638212.png)
+![image-20230502170638212](resources/experiment_brokerDiskSpace_1.png)
 
-接着要開始對叢集輸入資料，我們在 P1 設備上執行下面的指令以啓動 
-[Astraea Performance Tool](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/performance_benchmark.md)
+5. 接着要開始對叢集輸入資料，我們在 P1 設備上執行下面的指令以啓動 [Astraea Performance Tool](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/performance_benchmark.md)
 
 ```shell
-./start_app.sh performance --bootstrap.servers 192.168.103.177:25655 --topics imbalance-topic --run.until 10m --producers 10 --consumers 0 --value.size 10KiB --configs acks=0
+./start_app.sh performance --bootstrap.servers 192.168.103.177:25655 --topics imbalance-topic --run.until 5m --producers 10 --consumers 0 --value.size 10KiB --configs acks=0
 ```
 
 
 
 ### 未套用成本限制
 
-等待producer打完資料後，執行下面指令來針對leader進行負載平衡
+1. 等待producer打完資料後，執行下面指令來針對leader進行負載平衡
 
 ```shell
 curl -X POST http://localhost:8001/topics \
@@ -144,13 +148,13 @@ curl -X POST http://localhost:8001/topics \
 
 執行負載平衡後，可以發現leader數量已經平衡
 
-![image-20230502172113843](/home/sean/.config/Typora/typora-user-images/image-20230502172113843.png)
+![image-20230502172113843](resources/experiment_brokerDiskSpace_2.png)
 
 
 
 觀察broker上的log資料量的變化，可以發現每個broker在搬移後，持有的log資料量有變接近的狀況
 
-![image-20230502173023117](/home/sean/.config/Typora/typora-user-images/image-20230502173023117.png)
+![image-20230502173023117](resources/experiment_brokerDiskSpace_3.png)
 
 
 
@@ -158,9 +162,9 @@ curl -X POST http://localhost:8001/topics \
 
 搬移前的分佈:
 
-![image-20230502174304405](/home/sean/.config/Typora/typora-user-images/image-20230502174304405.png)
+![image-20230502174304405](resources/experiment_brokerDiskSpace_4.png)
 
-等待producer打完資料後，進行下面指令，這次不同的是會對其broker可用空間進行限制，將broker3限制搬移過程中最多只能佔用50GB，使用costConfig來對其做限制
+1. 等待producer打完資料後，進行下面指令，這次不同的是會對其broker可用空間進行限制，將broker4限制搬移過程中最多只能佔用50GB，使用costConfig來對其做限制
 
 ```shell
 curl -X POST http://localhost:8001/topics \
@@ -179,20 +183,24 @@ curl -X POST http://localhost:8001/topics \
         }
     ],
     "costConfig": {
-    	"max.broker.total.disk.space": "3:50GB"
+    	"max.broker.total.disk.space": "4:80GB"
     }
 }'
 ```
 
 
 
+執行負載平衡後，可以發現leader數量已經平衡，除了受到限制的broker4，因為資料量的限制導致沒辦法移入更多partition
+
+![image-20230502183604348](resources/experiment_brokerDiskSpace_11.png)
+
 搬移後的狀況分佈如下，可以明顯的看出broker3因為磁碟資料量的限制(沒辦法移出太多資料量)，leader數量沒辦法與其他broker平衡
 
-![image-20230502183604348](/home/sean/.config/Typora/typora-user-images/image-20230502183604348.png)
+![image-20230502183604348](resources/experiment_brokerDiskSpace_5.png)
 
-而從資料量變化可以明顯的看出，broker3(橘色)明顯的被限制住，使其不會佔用太多磁碟空間(從原本的30G到搬移過程中大約佔用到40G)
+而從資料量變化可以明顯的看出，broker4(橘色)明顯的被限制住，使其不會佔用太多磁碟空間(從原本的70GB到搬移過程中大約佔用到51GB)
 
-![image-20230502183914811](/home/sean/.config/Typora/typora-user-images/image-20230502183914811.png)
+![image-20230502183914811](resources/experiment_brokerDiskSpace_6.png)
 
 
 
@@ -200,9 +208,9 @@ curl -X POST http://localhost:8001/topics \
 
 搬移前的分佈:
 
-![image-20230502185042773](/home/sean/.config/Typora/typora-user-images/image-20230502185042773.png)
+![image-20230502185042773](resources/experiment_brokerDiskSpace_7.png)
 
-等待producer打完資料後，進行下面指令，這次不同的是會對其broker可用空間進行限制，將broker3的/tmp/log-folder-1限制搬移過程中最多只能佔用15GB，使用costConfig來對其做限制
+1. 等待producer打完資料後，進行下面指令，這次不同的是會對其broker可用空間進行限制，將broker4的/tmp/log-folder-1限制搬移過程中最多只能佔用35GB，使用costConfig來對其做限制
 
 ```shell
 curl -X POST http://localhost:8001/topics \
@@ -221,17 +229,23 @@ curl -X POST http://localhost:8001/topics \
         }
     ],
     "costConfig": {
-    	"max.broker.total.disk.space":"3-/tmp/log-folder-1:15GB"
+    	"max.broker.path.disk.space":"4-/tmp/log-folder-1:35GB"
     }
 }'
 ```
 
 
 
+執行負載平衡後，可以發現leader數量已經平衡，除了受到限制的broker4，因為資料量的限制導致沒辦法移入更多partition
+
+![image-20230504001537225](resources/experiment_brokerDiskSpace_10.png)
+
+
+
 搬移後的狀況分佈如下，可以明顯的看出broker3因為磁碟資料量的限制(沒辦法移出太多資料量)，leader數量沒辦法與其他broker平衡
 
-![image-20230502195530646](/home/sean/.config/Typora/typora-user-images/image-20230502195530646.png)
+![image-20230502195530646](resources/experiment_brokerDiskSpace_8.png)
 
-而從資料量變化可以明顯的看出，broker3(橘色)明顯的被限制住，使其不會佔用太多磁碟空間(從原本的12.3G到7.14G)
+而從資料量變化可以明顯的看出，broker3(橘色)明顯的被限制住，使其不會佔用太多磁碟空間(從原本的30.9GB到28.5GB)
 
-![image-20230502195813708](/home/sean/.config/Typora/typora-user-images/image-20230502195813708.png)
+![image-20230502195813708](resources/experiment_brokerDiskSpace_9.png)
