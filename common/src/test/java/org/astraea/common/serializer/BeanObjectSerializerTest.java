@@ -63,10 +63,15 @@ public class BeanObjectSerializerTest {
   public void testUnsupportedType() {
     var domain = "domain";
     var properties = Map.of("name", "wrongType");
-    var attributes = Map.of("map", (Object) Map.of("k", "v"));
+    var attributes = Map.of("unsupportedType", new Object());
+
     var bean = new BeanObject(domain, properties, attributes);
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> Serializer.BEAN_OBJECT.serialize("ignore", List.of(), bean));
+    var serializedBean = Serializer.BEAN_OBJECT.serialize("ignore", List.of(), bean);
+    var deserializedBean =
+        Deserializer.BEAN_OBJECT.deserialize("ignore", List.of(), serializedBean);
+    // The "map" attribute should be ignored on serialization
+    Assertions.assertNotNull(bean.attributes().get("unsupportedType"));
+    Assertions.assertNull(deserializedBean.attributes().get("unsupportedType"));
+    Assertions.assertNotEquals(bean, deserializedBean);
   }
 }

@@ -162,12 +162,21 @@ public final class ByteUtils {
     return new byte[] {0};
   }
 
-  /** Serialize BeanObject by protocol buffer. */
+  /** Serialize BeanObject by protocol buffer. The unsupported value will be ignored. */
   public static byte[] toBytes(BeanObject value) {
     var beanBuilder = BeanObjectOuterClass.BeanObject.newBuilder();
     beanBuilder.setDomain(value.domainName());
     beanBuilder.putAllProperties(value.properties());
-    value.attributes().forEach((key, val) -> beanBuilder.putAttributes(key, primitive(val)));
+    value
+        .attributes()
+        .forEach(
+            (key, val) -> {
+              try {
+                beanBuilder.putAttributes(key, primitive(val));
+              } catch (IllegalArgumentException ignore) {
+                // Bean attribute may contain non-primitive value. e.g. TimeUnit, Byte.
+              }
+            });
     return beanBuilder.build().toByteArray();
   }
 
