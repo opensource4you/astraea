@@ -24,7 +24,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -238,56 +237,17 @@ public abstract class Builder<Key, Value> {
   }
 
   private static <Key, Value> Record<Key, Value> toRecord(ConsumerRecord<Key, Value> record) {
-    return new Record<>() {
-      @Override
-      public String topic() {
-        return record.topic();
-      }
-
-      @Override
-      public List<Header> headers() {
-        return Header.of(record.headers());
-      }
-
-      @Override
-      public Key key() {
-        return record.key();
-      }
-
-      @Override
-      public Value value() {
-        return record.value();
-      }
-
-      @Override
-      public long offset() {
-        return record.offset();
-      }
-
-      @Override
-      public long timestamp() {
-        return record.timestamp();
-      }
-
-      @Override
-      public int partition() {
-        return record.partition();
-      }
-
-      @Override
-      public int serializedKeySize() {
-        return record.serializedKeySize();
-      }
-
-      @Override
-      public int serializedValueSize() {
-        return record.serializedValueSize();
-      }
-
-      @Override
-      public Optional<Integer> leaderEpoch() {
-        return record.leaderEpoch();
-      }
-    };
+    return Record.builder()
+        .topic(record.topic())
+        .headers(Header.of(record.headers()))
+        .key(record.key())
+        .value(record.value())
+        .offset(record.offset())
+        .timestamp(record.timestamp())
+        .partition(record.partition())
+        .serializedKeySize(record.serializedKeySize())
+        .serializedValueSize(record.serializedValueSize())
+        .leaderEpoch(record.leaderEpoch())
+        .build();
   }
 }
