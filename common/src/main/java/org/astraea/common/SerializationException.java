@@ -16,10 +16,8 @@
  */
 package org.astraea.common;
 
-import com.google.protobuf.InvalidProtocolBufferException;
-
 public class SerializationException extends IllegalArgumentException {
-  public SerializationException(InvalidProtocolBufferException ex) {
+  public SerializationException(Exception ex) {
     super(ex);
   }
 

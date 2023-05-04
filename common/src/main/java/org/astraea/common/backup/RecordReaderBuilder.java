@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import org.astraea.common.ByteUtils;
 import org.astraea.common.Header;
-import org.astraea.common.Utils;
+import org.astraea.common.SerializationException;
 import org.astraea.common.consumer.Record;
 import org.astraea.common.generated.RecordOuterClass;
 
@@ -61,64 +61,68 @@ public class RecordReaderBuilder {
 
   /** Parsed message if successful, or null if the stream is at EOF. */
   private static Record<byte[], byte[]> readRecord(InputStream inputStream) {
-    var outerRecord =
-        Utils.packException(() -> RecordOuterClass.Record.parseDelimitedFrom(inputStream));
-    // inputStream reaches EOF
-    if (outerRecord == null) return null;
+    try {
+      var outerRecord = RecordOuterClass.Record.parseDelimitedFrom(inputStream);
+      // inputStream reaches EOF
+      if (outerRecord == null) return null;
 
-    return new Record<>() {
-      @Override
-      public String topic() {
-        return outerRecord.getTopic();
-      }
+      return new Record<>() {
+        @Override
+        public String topic() {
+          return outerRecord.getTopic();
+        }
 
-      @Override
-      public List<Header> headers() {
-        return outerRecord.getHeadersList().stream()
-            .map(header -> new Header(header.getKey(), header.getValue().toByteArray()))
-            .collect(Collectors.toUnmodifiableList());
-      }
+        @Override
+        public List<Header> headers() {
+          return outerRecord.getHeadersList().stream()
+              .map(header -> new Header(header.getKey(), header.getValue().toByteArray()))
+              .collect(Collectors.toUnmodifiableList());
+        }
 
-      @Override
-      public byte[] key() {
-        return outerRecord.getKey().toByteArray();
-      }
+        @Override
+        public byte[] key() {
+          return outerRecord.getKey().toByteArray();
+        }
 
-      @Override
-      public byte[] value() {
-        return outerRecord.getValue().toByteArray();
-      }
+        @Override
+        public byte[] value() {
+          return outerRecord.getValue().toByteArray();
+        }
 
-      @Override
-      public long offset() {
-        return outerRecord.getOffset();
-      }
+        @Override
+        public long offset() {
+          return outerRecord.getOffset();
+        }
 
-      @Override
-      public long timestamp() {
-        return outerRecord.getTimestamp();
-      }
+        @Override
+        public long timestamp() {
+          return outerRecord.getTimestamp();
+        }
 
-      @Override
-      public int partition() {
-        return outerRecord.getPartition();
-      }
+        @Override
+        public int partition() {
+          return outerRecord.getPartition();
+        }
 
-      @Override
-      public int serializedKeySize() {
-        return outerRecord.getKey().size();
-      }
+        @Override
+        public int serializedKeySize() {
+          return outerRecord.getKey().size();
+        }
 
-      @Override
-      public int serializedValueSize() {
-        return outerRecord.getValue().size();
-      }
+        @Override
+        public int serializedValueSize() {
+          return outerRecord.getValue().size();
+        }
 
-      @Override
-      public Optional<Integer> leaderEpoch() {
-        return Optional.empty();
-      }
-    };
+        @Override
+        public Optional<Integer> leaderEpoch() {
+          return Optional.empty();
+        }
+      };
+    } catch (IOException ex) {
+      // Thrown by protobuf parsing byte array.
+      throw new SerializationException(ex);
+    }
   }
 
   private InputStream fs;
