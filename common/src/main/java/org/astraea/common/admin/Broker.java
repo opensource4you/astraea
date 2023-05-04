@@ -100,8 +100,7 @@ public interface Broker extends NodeInfo {
 
       @Override
       public boolean equals(Object other) {
-        if (other instanceof NodeInfo) {
-          var node = (NodeInfo) other;
+        if (other instanceof NodeInfo node) {
           return id() == node.id() && port() == node.port() && host().equals(node.host());
         }
         return false;

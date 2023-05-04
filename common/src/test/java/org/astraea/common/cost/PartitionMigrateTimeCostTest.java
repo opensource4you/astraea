@@ -50,44 +50,33 @@ class PartitionMigrateTimeCostTest {
     // before(partition-broker): p10-1, p11-2, p12-0, p12-0
     // after(partition-broker):  p10-0, p11-1, p12-2, p12-0
     // p10:777, p11:700, p12:500
-    List<NodeInfo> brokers =
-        before().stream()
-            .map(Replica::nodeInfo)
-            .distinct()
-            .map(
-                nodeInfo ->
-                    Broker.of(
-                        false,
-                        new Node(nodeInfo.id(), "", nodeInfo.port()),
-                        Map.of(),
-                        Map.of(),
-                        List.of()))
-            .collect(Collectors.toList());
-    var before = of(before(), brokers);
-    var after = of(after(), brokers);
+    var before = of(before(), brokers());
+    var after = of(after(), brokers());
     var migrationCost = MigrationCost.brokerMigrationTime(before, after, clusterBean());
     Assertions.assertEquals(Math.max(10000000 / 1000, 30000000 / 1500), migrationCost.get(0));
     Assertions.assertEquals(Math.max(20000000 / 2000, 10000000 / 2500), migrationCost.get(1));
     Assertions.assertEquals(Math.max(30000000 / 3000, 20000000 / 3500), migrationCost.get(2));
   }
 
+  private List<NodeInfo> brokers() {
+    return before().stream()
+        .map(Replica::nodeInfo)
+        .distinct()
+        .map(
+            nodeInfo ->
+                Broker.of(
+                    false,
+                    new Node(nodeInfo.id(), "", nodeInfo.port()),
+                    Map.of(),
+                    Map.of(),
+                    List.of()))
+        .collect(Collectors.toList());
+  }
+
   @Test
   void testMostCost() {
-    List<NodeInfo> brokers =
-        before().stream()
-            .map(Replica::nodeInfo)
-            .distinct()
-            .map(
-                nodeInfo ->
-                    Broker.of(
-                        false,
-                        new Node(nodeInfo.id(), "", nodeInfo.port()),
-                        Map.of(),
-                        Map.of(),
-                        List.of()))
-            .collect(Collectors.toList());
-    var before = of(before(), brokers);
-    var after = of(after(), brokers);
+    var before = of(before(), brokers());
+    var after = of(after(), brokers());
     var timeLimit =
         Configuration.of(Map.of(PartitionMigrateTimeCost.MAX_MIGRATE_TIME_KEY, "20000"));
     var overFlowTimeLimit =

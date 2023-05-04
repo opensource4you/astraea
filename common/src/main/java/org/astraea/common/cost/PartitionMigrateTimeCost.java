@@ -19,7 +19,6 @@ package org.astraea.common.cost;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -31,7 +30,6 @@ import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.broker.HasMeter;
-import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.stats.Max;
@@ -41,6 +39,8 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
   private static final String REPLICATION_IN_RATE = "replication_in_rate";
   private static final String REPLICATION_OUT_RATE = "replication_out_rate";
   public static final String MAX_MIGRATE_TIME_KEY = "max.migrated.time.limit";
+  public static final String STATISTICS_RATE_KEY = "statistics.rate.key";
+
   // metrics windows size
   private final long maxMigrateTime;
 
@@ -82,7 +82,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
                       new BeanObject(
                           newInMetrics.beanObject().domainName(),
                           newInMetrics.beanObject().properties(),
-                          Map.of(HasRate.ONE_MIN_RATE_KEY, Math.max(oldInRate.orElse(0), inRate)),
+                          Map.of(STATISTICS_RATE_KEY, Math.max(oldInRate.orElse(0), inRate)),
                           current.toMillis()));
           metrics.add(
               (MaxReplicationOutRateBean)
@@ -90,7 +90,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
                       new BeanObject(
                           newOutMetrics.beanObject().domainName(),
                           newOutMetrics.beanObject().properties(),
-                          Map.of(HasRate.ONE_MIN_RATE_KEY, Math.max(oldOutRate.orElse(0), outRate)),
+                          Map.of(STATISTICS_RATE_KEY, Math.max(oldOutRate.orElse(0), outRate)),
                           current.toMillis()));
           return metrics;
         });
@@ -98,8 +98,8 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
 
   public static OptionalDouble brokerMaxRate(
       int identity, ClusterBean clusterBean, Class<? extends HasBeanObject> statisticMetrics) {
-    return clusterBean.all().getOrDefault(identity, List.of()).stream()
-        .filter(x -> statisticMetrics.isAssignableFrom(x.getClass()))
+    return clusterBean
+        .brokerMetrics(identity, statisticMetrics)
         .mapToDouble(x -> ((HasMeter) x).oneMinuteRate())
         .max();
   }
