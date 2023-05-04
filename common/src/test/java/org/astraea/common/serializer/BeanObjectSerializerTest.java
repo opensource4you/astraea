@@ -18,6 +18,7 @@ package org.astraea.common.serializer;
 
 import java.util.List;
 import java.util.Map;
+import org.astraea.common.SerializationException;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.producer.Serializer;
@@ -73,5 +74,13 @@ public class BeanObjectSerializerTest {
     Assertions.assertNotNull(bean.attributes().get("unsupportedType"));
     Assertions.assertNull(deserializedBean.attributes().get("unsupportedType"));
     Assertions.assertNotEquals(bean, deserializedBean);
+  }
+
+  @Test
+  public void testInvalidBytes() {
+    byte[] malformed = new byte[5];
+    Assertions.assertThrows(
+        SerializationException.class,
+        () -> Deserializer.BEAN_OBJECT.deserialize("ignore", List.of(), malformed));
   }
 }
