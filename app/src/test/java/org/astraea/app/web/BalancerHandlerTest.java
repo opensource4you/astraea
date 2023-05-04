@@ -87,8 +87,9 @@ import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -98,17 +99,11 @@ import org.mockito.Mockito;
 public class BalancerHandlerTest {
 
   private static final int numberOfBrokers = 3;
-  private static final Service SERVICE = Service.builder().numberOfBrokers(numberOfBrokers).build();
-
-  @AfterAll
-  static void closeService() {
-    SERVICE.close();
-  }
-
   static final String TIMEOUT_KEY = "timeout";
   static final String CLUSTER_COSTS_KEY = "clusterCosts";
   static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
   static final int TIMEOUT_DEFAULT = 3;
+  private Service SERVICE;
 
   private static final List<BalancerHandler.CostWeight> defaultIncreasing =
       List.of(costWeight(IncreasingCost.class.getName(), 1));
@@ -117,10 +112,20 @@ public class BalancerHandlerTest {
   private static final Channel defaultPostPlan =
       httpRequest(Map.of(CLUSTER_COSTS_KEY, defaultDecreasing));
 
+  @BeforeEach
+  public void initService() {
+    SERVICE = Service.builder().numberOfBrokers(numberOfBrokers).build();
+  }
+
+  @AfterEach
+  public void closeService() {
+    SERVICE.close();
+  }
+
   @Test
   @Timeout(value = 60)
   void testReport() {
-    var topics = createAndProduceTopic(3);
+    var topics = createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new BalancerHandler(admin, metricStore(admin, List.of()));
       // make sure all replicas have
@@ -166,13 +171,13 @@ public class BalancerHandlerTest {
     }
   }
 
-  private static Set<String> createAndProduceTopic(int topicCount) {
-    return createAndProduceTopic(topicCount, 3, (short) 1, true);
+  private static Set<String> createAndProduceTopic(int topicCount, Service service) {
+    return createAndProduceTopic(topicCount, 3, (short) 1, true, service);
   }
 
   private static Set<String> createAndProduceTopic(
-      int topicCount, int partitions, short replicas, boolean skewed) {
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      int topicCount, int partitions, short replicas, boolean skewed, Service service) {
+    try (var admin = Admin.of(service.bootstrapServers())) {
       var topics =
           IntStream.range(0, topicCount)
               .mapToObj(ignored -> Utils.randomString(10))
@@ -190,7 +195,7 @@ public class BalancerHandlerTest {
             if (skewed) {
               Utils.sleep(Duration.ofSeconds(1));
               var placement =
-                  SERVICE.dataFolders().keySet().stream()
+                  service.dataFolders().keySet().stream()
                       .limit(replicas)
                       .collect(Collectors.toUnmodifiableList());
               admin
@@ -202,7 +207,7 @@ public class BalancerHandlerTest {
             }
           });
       Utils.sleep(Duration.ofSeconds(3));
-      try (var producer = Producer.of(SERVICE.bootstrapServers())) {
+      try (var producer = Producer.of(service.bootstrapServers())) {
         IntStream.range(0, 30)
             .forEach(
                 index ->
@@ -313,7 +318,7 @@ public class BalancerHandlerTest {
   @CsvSource(value = {"5,500Byte", "10,500Byte", "5,1GB"})
   @ParameterizedTest
   void testMoveCost(String leaderLimit, String sizeLimit) {
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
       var request = new BalancerHandler.BalancerPostRequest();
@@ -347,6 +352,7 @@ public class BalancerHandlerTest {
             }
           });
     }
+    SERVICE.close();
   }
 
   @Test
@@ -394,13 +400,14 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(SearchFailed, progress1.phase, "No plan");
       Assertions.assertNotNull(progress1.exception);
     }
+    SERVICE.close();
   }
 
   @Test
   @Timeout(value = 60)
   void testPut() {
     // arrange
-    createAndProduceTopic(3, 10, (short) 2, false);
+    createAndProduceTopic(3, 10, (short) 2, false, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
       var request = new BalancerHandler.BalancerPostRequest();
@@ -424,12 +431,13 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(Response.ACCEPT.code(), response.code());
       Assertions.assertEquals(thePlanId, response.id);
     }
+    SERVICE.close();
   }
 
   @Test
   @Timeout(value = 60)
   void testBadPut() {
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
 
@@ -494,6 +502,7 @@ public class BalancerHandlerTest {
       // the rebalance task is triggered in async manner, it may take some time to getting schedule
       Utils.sleep(Duration.ofSeconds(2));
     }
+    SERVICE.close();
   }
 
   @Test
@@ -537,6 +546,7 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(ExecutionFailed, progress1.phase, "Ongoing Migration");
       Assertions.assertNotNull(progress1.exception);
     }
+    SERVICE.close();
   }
 
   @Test
@@ -617,7 +627,7 @@ public class BalancerHandlerTest {
   @Test
   @Timeout(value = 60)
   void testPutSanityCheck() {
-    var topic = createAndProduceTopic(1).iterator().next();
+    var topic = createAndProduceTopic(1, SERVICE).iterator().next();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
       var request = new BalancerHandler.BalancerPostRequest();
@@ -652,12 +662,13 @@ public class BalancerHandlerTest {
       Assertions.assertNotNull(
           result.exception, "The cluster state has changed, prevent the plan from execution");
     }
+    SERVICE.close();
   }
 
   @Test
   @Timeout(value = 60)
   void testLookupRebalanceProgress() {
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
       var progress = submitPlanGeneration(handler, new BalancerPostRequest());
@@ -711,7 +722,7 @@ public class BalancerHandlerTest {
   @Test
   @Timeout(value = 60)
   void testLookupBadExecutionProgress() {
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
       var post =
@@ -765,7 +776,7 @@ public class BalancerHandlerTest {
   @Test
   @Timeout(value = 60)
   void testBadLookupRequest() {
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
       Assertions.assertEquals(
@@ -782,7 +793,7 @@ public class BalancerHandlerTest {
   @Test
   @Timeout(value = 60)
   void testPutIdempotent() {
-    var topics = createAndProduceTopic(3);
+    var topics = createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
       var request = new BalancerHandler.BalancerPostRequest();
@@ -888,7 +899,7 @@ public class BalancerHandlerTest {
 
   @Test
   void testTimeout() {
-    createAndProduceTopic(5);
+    createAndProduceTopic(5, SERVICE);
     var costFunction = Collections.singleton(costWeight(TimeoutCost.class.getName(), 1));
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
@@ -908,7 +919,7 @@ public class BalancerHandlerTest {
 
   @Test
   void testCostWithSensor() {
-    var topics = createAndProduceTopic(3);
+    var topics = createAndProduceTopic(3, SERVICE);
     var function = List.of(costWeight(SensorAndCost.class.getName(), 1));
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, function))) {
@@ -1057,7 +1068,7 @@ public class BalancerHandlerTest {
 
   @Test
   void testExecutorConfig() {
-    var topic = createAndProduceTopic(1).iterator().next();
+    var topic = createAndProduceTopic(1, SERVICE).iterator().next();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
       var request = new BalancerHandler.BalancerPostRequest();
@@ -1091,7 +1102,7 @@ public class BalancerHandlerTest {
 
   @Test
   void testBalancerConfig() {
-    createAndProduceTopic(1);
+    createAndProduceTopic(1, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
         var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
       var request = new BalancerPostRequest();
