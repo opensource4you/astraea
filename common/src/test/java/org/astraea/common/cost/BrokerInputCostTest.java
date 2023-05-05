@@ -66,7 +66,7 @@ public class BrokerInputCostTest {
     var f = new BrokerInputCost();
     var clusterBean =
         MetricsTestUtils.clusterBean(
-            Map.of(0, JndiClient.of(SERVICE.jmxServiceURL())), f.metricSensor().get());
+            Map.of(0, JndiClient.of(SERVICE.jmxServiceURL())), f.metricSensor());
 
     Assertions.assertNotEquals(
         0, clusterBean.brokerMetrics(0, ServerMetrics.BrokerTopic.Meter.class).count());

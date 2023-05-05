@@ -54,7 +54,7 @@ public class SensorHandler implements Handler {
     var metricSensorPostRequest = channel.request(TypeRef.of(MetricSensorPostRequest.class));
     var costs = costs(metricSensorPostRequest.costs);
     sensors.clearSensors();
-    costs.forEach(costFunction -> costFunction.metricSensor().ifPresent(sensors::addSensors));
+    costs.forEach(costFunction -> sensors.addSensors(costFunction.metricSensor()));
     return CompletableFuture.completedFuture(new Response(metricSensorPostRequest.costs));
   }
 

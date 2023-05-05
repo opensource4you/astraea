@@ -17,8 +17,6 @@
 package org.astraea.common.cost;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.ClusterBean;
@@ -48,16 +46,14 @@ public class MoveCostTest {
     var cost2 = new FakeCf();
     var mergeCost = HasMoveCost.of(List.of(cost1, cost2));
     var metrics =
-        mergeCost.metricSensor().stream()
-            .map(
-                x ->
-                    x.fetch(
-                        BeanObjectClient.local(SERVICE.dataFolders().keySet().iterator().next()),
-                        ClusterBean.EMPTY))
-            .collect(Collectors.toSet());
-    Assertions.assertEquals(3, metrics.iterator().next().size());
+        mergeCost
+            .metricSensor()
+            .fetch(
+                BeanObjectClient.local(SERVICE.dataFolders().keySet().iterator().next()),
+                ClusterBean.EMPTY);
+    Assertions.assertEquals(3, metrics.size());
     Assertions.assertTrue(
-        metrics.iterator().next().stream()
+        metrics.stream()
             .anyMatch(
                 x ->
                     x.beanObject()
@@ -65,7 +61,7 @@ public class MoveCostTest {
                         .get("name")
                         .equals(ServerMetrics.ReplicaManager.LEADER_COUNT.metricName())));
     Assertions.assertTrue(
-        metrics.iterator().next().stream()
+        metrics.stream()
             .anyMatch(
                 x ->
                     x.beanObject()
@@ -74,7 +70,7 @@ public class MoveCostTest {
                         .equals(
                             ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC.metricName())));
     Assertions.assertTrue(
-        metrics.iterator().next().stream()
+        metrics.stream()
             .anyMatch(
                 x ->
                     x.beanObject()
@@ -85,7 +81,7 @@ public class MoveCostTest {
 
   class FakeCf implements HasMoveCost {
     @Override
-    public Optional<MetricSensor> metricSensor() {
+    public MetricSensor metricSensor() {
       return MetricSensor.of(
           List.of(
               (c, ignored) ->

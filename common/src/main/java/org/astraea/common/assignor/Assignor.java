@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -172,12 +171,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     metricStore =
         MetricStore.builder()
             .localReceiver(clientSupplier)
-            .sensorsSupplier(
-                () ->
-                    this.costFunction
-                        .metricSensor()
-                        .map(s -> Map.of(s, (BiConsumer<Integer, Exception>) (integer, e) -> {}))
-                        .orElse(Map.of()))
+            .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
             .build();
     configure(config);
   }
