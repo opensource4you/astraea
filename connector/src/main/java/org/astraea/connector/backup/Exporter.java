@@ -19,9 +19,11 @@ package org.astraea.connector.backup;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -35,6 +37,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.consumer.Record;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
 import org.astraea.connector.SinkTask;
@@ -159,6 +163,117 @@ public class Exporter extends SinkConnector {
 
     private long bufferSizeLimit;
 
+    private final AtomicBoolean targetSet = new AtomicBoolean(false);
+
+    final ConcurrentHashMap<String, TargetStatus> targetForTopicPartition =
+        new ConcurrentHashMap<>();
+
+    //  package public for test
+    static class TargetStatus {
+
+      private final Map<String, List<Long>> targets;
+
+      private final Map<String, Boolean> initExclude;
+
+      TargetStatus() {
+        this.targets = new HashMap<>();
+        this.targets.put("offset", new ArrayList<>());
+        this.targets.put("timestamp", new ArrayList<>());
+        this.initExclude = new HashMap<>();
+      }
+
+      TargetStatus(Map<String, List<Long>> targets, Map<String, Boolean> initExclude) {
+
+        this.targets = new HashMap<>();
+        for (Map.Entry<String, List<Long>> entry : targets.entrySet()) {
+          String key = entry.getKey();
+          List<Long> value = entry.getValue();
+          this.targets.put(key, new ArrayList<>(value));
+        }
+        this.initExclude = new HashMap<>(initExclude);
+      }
+
+      boolean calStatus(boolean initStatus, int index) {
+        if (index % 2 == 1) return !initStatus;
+        return initStatus;
+      }
+
+      /**
+       * Inserts a range of values into the target list for a given type. The range starts from the
+       * "from" value (inclusive) and ends at the "to" value (inclusive). If "exclude" is true, the
+       * range is excluded from the target list. If the target list for the given type is empty, a
+       * default value of 0 is added at the beginning, and the exclude flag is set to the opposite
+       * of the given "exclude" value.
+       *
+       * @param type the type of target list to modify
+       * @param from the starting value of the range to insert (inclusive)
+       * @param to the ending value of the range to insert (inclusive)
+       * @param exclude whether to exclude the inserted range from the target list
+       */
+      void insertRange(String type, Long from, Long to, boolean exclude) {
+        to++;
+        var target = this.targets.get(type);
+        if (target.isEmpty()) {
+          target.add(0L);
+          this.initExclude.put(type, !exclude);
+        }
+
+        int indexBeforeFromShouldBe = 0;
+        int indexAfterToShouldBe = target.size();
+
+        for (var i = 1; i < target.size(); i++) {
+          if (target.get(i) > from) {
+            indexBeforeFromShouldBe = i - 1;
+            break;
+          }
+        }
+
+        for (var i = indexBeforeFromShouldBe + 1; i < target.size(); i++) {
+          if (target.get(i) > to) {
+            indexAfterToShouldBe = i;
+            break;
+          }
+        }
+
+        var deletedIndexFrom = indexBeforeFromShouldBe + 1;
+        var deletedIndexTo = indexAfterToShouldBe;
+
+        if (exclude == calStatus(this.initExclude.get(type), indexAfterToShouldBe)) {
+          target.add(indexAfterToShouldBe, to);
+        }
+
+        if (from == 0 && from == indexBeforeFromShouldBe) {
+          this.initExclude.put(type, exclude);
+        } else {
+          if (exclude != calStatus(this.initExclude.get(type), indexBeforeFromShouldBe)) {
+            target.add(indexBeforeFromShouldBe + 1, from);
+            deletedIndexFrom++;
+            deletedIndexTo++;
+          }
+        }
+
+        if (indexAfterToShouldBe - indexBeforeFromShouldBe != 1) {
+          target.subList(deletedIndexFrom, deletedIndexTo).clear();
+        }
+      }
+
+      Map<String, List<Long>> targets() {
+        return this.targets;
+      }
+
+      List<Long> targets(String type) {
+        return this.targets.get(type);
+      }
+
+      Map<String, Boolean> initExcludes() {
+        return this.initExclude;
+      }
+
+      Boolean initialExclude(String type) {
+        return this.initExclude.get(type);
+      }
+    }
+
     FileSystem fs;
     String path;
     DataSize size;
@@ -251,6 +366,49 @@ public class Exporter extends SinkConnector {
       return list;
     }
 
+    void updateTargetRangesForTopicPartitions(List<HashMap<String, Object>> targets) {
+      this.targetSet.set(true);
+      targets.forEach(
+          target -> {
+            var topic = target.get("topic");
+            var partition = target.get("partition");
+
+            if (partition == null) {
+              partition = "all";
+            }
+
+            if (target.get("range") instanceof Map<?, ?>) {
+              Map<String, Object> range = (Map<String, Object>) target.get("range");
+              var type = (String) range.get("type");
+              var from = Long.parseLong((String) range.get("from"));
+              var to = Long.parseLong((String) range.get("to"));
+              var exclude = (boolean) range.get("exclude");
+              // Get the TargetStatus for the topic-partition or create a new one if it doesn't
+              // exist
+              this.targetForTopicPartition
+                  .computeIfAbsent(
+                      topic + "-" + partition,
+                      tp -> {
+                        var base = this.targetForTopicPartition.get(topic + "-all");
+                        if (base == null) {
+                          return new TargetStatus();
+                        }
+                        return new TargetStatus(base.targets(), base.initExcludes());
+                      })
+                  .insertRange(type, from, to, exclude);
+              // If the partition is "all", insert the range into all the TargetStatus
+              if (partition == "all") {
+                this.targetForTopicPartition
+                    .entrySet()
+                    .forEach(
+                        entry -> {
+                          entry.getValue().insertRange(type, from, to, exclude);
+                        });
+              }
+            }
+          });
+    }
+
     @Override
     protected void init(Configuration configuration) {
       this.path = configuration.requireString(PATH_KEY.name());
@@ -270,6 +428,14 @@ public class Exporter extends SinkConnector {
                       .string(BUFFER_SIZE_KEY.name())
                       .orElse(BUFFER_SIZE_KEY.defaultValue().toString()))
               .bytes();
+
+      List<HashMap<String, Object>> targets =
+          JsonConverter.jackson()
+              .fromJson(configuration.string("targets").orElse("[]"), new TypeRef<>() {});
+
+      if (targets.size() > 0) {
+        updateTargetRangesForTopicPartitions(targets);
+      }
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture = CompletableFuture.runAsync(createWriter());

@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,8 @@ import org.astraea.common.connector.Config;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.connector.Value;
+import org.astraea.common.json.JsonConverter;
+import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Producer;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
@@ -840,5 +844,106 @@ public class ExporterTest {
 
       Assertions.assertEquals(0, task.recordsQueue.size());
     }
+  }
+
+  @Test
+  void testInsertRange() {
+
+    var targetStatus1 = new Exporter.Task.TargetStatus();
+    targetStatus1.insertRange("offset", 0L, 100L, true);
+    Assertions.assertEquals(
+        new ArrayList<>(Arrays.asList(0L, 101L)), targetStatus1.targets("offset"));
+    Assertions.assertTrue(targetStatus1.initialExclude("offset"));
+
+    targetStatus1.insertRange("offset", 0L, 100L, false);
+    Assertions.assertEquals(new ArrayList<>(List.of(0L)), targetStatus1.targets("offset"));
+    Assertions.assertFalse(targetStatus1.initialExclude("offset"));
+
+    targetStatus1.insertRange("offset", 5L, 10L, false);
+    Assertions.assertEquals(new ArrayList<>(List.of(0L)), targetStatus1.targets("offset"));
+    Assertions.assertFalse(targetStatus1.initialExclude("offset"));
+
+    targetStatus1.insertRange("offset", 5L, 10L, true);
+    Assertions.assertEquals(
+        new ArrayList<>(Arrays.asList(0L, 5L, 11L)), targetStatus1.targets("offset"));
+    Assertions.assertFalse(targetStatus1.initialExclude("offset"));
+
+    var targetStatus2 =
+        new Exporter.Task.TargetStatus(targetStatus1.targets(), targetStatus1.initExcludes());
+    var targetStatus3 =
+        new Exporter.Task.TargetStatus(targetStatus1.targets(), targetStatus1.initExcludes());
+
+    targetStatus1.insertRange("offset", 2L, 7L, true);
+    Assertions.assertEquals(
+        new ArrayList<>(Arrays.asList(0L, 2L, 11L)), targetStatus1.targets("offset"));
+    Assertions.assertFalse(targetStatus1.initialExclude("offset"));
+
+    targetStatus2.insertRange("offset", 7L, 12L, true);
+    Assertions.assertEquals(
+        new ArrayList<>(Arrays.asList(0L, 5L, 13L)), targetStatus2.targets("offset"));
+    Assertions.assertFalse(targetStatus2.initialExclude("offset"));
+
+    targetStatus3.insertRange("offset", 7L, 8L, false);
+    Assertions.assertEquals(
+        new ArrayList<>(Arrays.asList(0L, 5L, 7L, 9L, 11L)), targetStatus3.targets("offset"));
+    Assertions.assertFalse(targetStatus3.initialExclude("offset"));
+  }
+
+  @Test
+  void testMapTpToTarget() {
+    var configs = new HashMap<String, String>();
+
+    var rangesInConfigs1 =
+        List.of(
+            Map.of(
+                "topic",
+                "test",
+                "range",
+                Map.of("from", "0", "to", "100", "exclude", false, "type", "offset")),
+            Map.of(
+                "topic",
+                "test",
+                "partition",
+                "0",
+                "range",
+                Map.of("from", "10", "to", "50", "exclude", true, "type", "offset")),
+            Map.of(
+                "topic",
+                "test",
+                "partition",
+                "1",
+                "range",
+                Map.of("from", "20", "to", "50", "exclude", true, "type", "offset")),
+            Map.of(
+                "topic",
+                "test",
+                "range",
+                Map.of("from", "30", "to", "50", "exclude", false, "type", "offset")));
+
+    configs.put("targets", JsonConverter.jackson().toJson(rangesInConfigs1));
+
+    var configuration = Configuration.of(configs);
+
+    var task = new Exporter.Task();
+
+    List<HashMap<String, Object>> targets =
+        JsonConverter.jackson()
+            .fromJson(configuration.string("targets").orElse("[]"), new TypeRef<>() {});
+
+    task.updateTargetRangesForTopicPartitions(targets);
+
+    var target0 = task.targetForTopicPartition.get("test-0");
+    var target1 = task.targetForTopicPartition.get("test-1");
+    var targetAll = task.targetForTopicPartition.get("test-all");
+
+    Assertions.assertFalse(target0.initialExclude("offset"));
+    Assertions.assertFalse(target1.initialExclude("offset"));
+    Assertions.assertFalse(targetAll.initialExclude("offset"));
+
+    Assertions.assertEquals(
+        new ArrayList<>(Arrays.asList(0L, 10L, 30L, 101L)), target0.targets("offset"));
+    Assertions.assertEquals(
+        new ArrayList<>(Arrays.asList(0L, 20L, 30L, 101L)), target1.targets("offset"));
+    Assertions.assertEquals(new ArrayList<>(Arrays.asList(0L, 101L)), targetAll.targets("offset"));
   }
 }
