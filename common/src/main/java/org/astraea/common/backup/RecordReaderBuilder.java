@@ -24,7 +24,7 @@ import java.util.function.Function;
 import java.util.zip.GZIPInputStream;
 import org.astraea.common.ByteUtils;
 import org.astraea.common.Header;
-import org.astraea.common.Utils;
+import org.astraea.common.SerializationException;
 import org.astraea.common.consumer.Record;
 import org.astraea.common.generated.RecordOuterClass;
 
@@ -58,24 +58,27 @@ public class RecordReaderBuilder {
 
   /** Parsed message if successful, or null if the stream is at EOF. */
   private static Record<byte[], byte[]> readRecord(InputStream inputStream) {
-    var outerRecord =
-        Utils.packException(() -> RecordOuterClass.Record.parseDelimitedFrom(inputStream));
-    // inputStream reaches EOF
-    if (outerRecord == null) return null;
-    return Record.builder()
-        .topic(outerRecord.getTopic())
-        .headers(
-            outerRecord.getHeadersList().stream()
-                .map(header -> new Header(header.getKey(), header.getValue().toByteArray()))
-                .toList())
-        .key(outerRecord.getKey().toByteArray())
-        .value(outerRecord.getValue().toByteArray())
-        .offset(outerRecord.getOffset())
-        .timestamp(outerRecord.getTimestamp())
-        .partition(outerRecord.getPartition())
-        .serializedKeySize(outerRecord.getKey().size())
-        .serializedValueSize(outerRecord.getValue().size())
-        .build();
+    try {
+      var outerRecord = RecordOuterClass.Record.parseDelimitedFrom(inputStream);
+      // inputStream reaches EOF
+      if (outerRecord == null) return null;
+      return Record.builder()
+          .topic(outerRecord.getTopic())
+          .headers(
+              outerRecord.getHeadersList().stream()
+                  .map(header -> new Header(header.getKey(), header.getValue().toByteArray()))
+                  .toList())
+          .key(outerRecord.getKey().toByteArray())
+          .value(outerRecord.getValue().toByteArray())
+          .offset(outerRecord.getOffset())
+          .timestamp(outerRecord.getTimestamp())
+          .partition(outerRecord.getPartition())
+          .serializedKeySize(outerRecord.getKey().size())
+          .serializedValueSize(outerRecord.getValue().size())
+          .build();
+    } catch (IOException e) {
+      throw new SerializationException(e);
+    }
   }
 
   private InputStream fs;
