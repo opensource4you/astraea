@@ -29,11 +29,11 @@ import org.astraea.common.DataSize;
 import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.producer.Record;
 import org.astraea.common.producer.RecordGenerator;
 import org.astraea.connector.Definition;
 import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
+import org.astraea.connector.SourceRecord;
 import org.astraea.connector.SourceTask;
 
 public class PerfSource extends SourceConnector {
@@ -253,10 +253,11 @@ public class PerfSource extends SourceConnector {
     }
 
     @Override
-    protected Collection<Record<byte[], byte[]>> take() {
+    protected Collection<SourceRecord> take() {
       return specifyPartitions.stream()
           .flatMap(tp -> recordGenerator.apply(tp).stream())
-          .collect(Collectors.toUnmodifiableList());
+          .map(r -> SourceRecord.builder().record(r).build())
+          .toList();
     }
   }
 }
