@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
@@ -82,7 +81,7 @@ public class ShuffleTweaker {
             .filter(tp -> eligiblePartition(baseAllocation.replicas(tp)))
             .flatMap(baseAllocation::replicaStream)
             .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
     return Stream.generate(
         () -> {
@@ -162,16 +161,11 @@ public class ShuffleTweaker {
                 Operation.randomStream()
                     .sequential()
                     .map(
-                        operation -> {
-                          switch (operation) {
-                            case LEADERSHIP_CHANGE:
-                              return leadershipChange.get();
-                            case REPLICA_LIST_CHANGE:
-                              return replicaListChange.get();
-                            default:
-                              throw new RuntimeException("Unexpected Condition: " + operation);
-                          }
-                        })
+                        operation ->
+                            switch (operation) {
+                              case LEADERSHIP_CHANGE -> leadershipChange.get();
+                              case REPLICA_LIST_CHANGE -> replicaListChange.get();
+                            })
                     .filter(finished -> finished)
                     .findFirst()
                     .orElse(false);
@@ -203,12 +197,7 @@ public class ShuffleTweaker {
     LEADERSHIP_CHANGE,
     REPLICA_LIST_CHANGE;
 
-    private static final List<Operation> OPERATIONS =
-        Arrays.stream(Operation.values()).collect(Collectors.toUnmodifiableList());
-
-    public static Operation random() {
-      return OPERATIONS.get(ThreadLocalRandom.current().nextInt(OPERATIONS.size()));
-    }
+    private static final List<Operation> OPERATIONS = Arrays.stream(Operation.values()).toList();
 
     public static Stream<Operation> randomStream() {
       return OPERATIONS.stream()
