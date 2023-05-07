@@ -258,7 +258,7 @@ public interface MetricFetcher extends AutoCloseable {
                 } finally {
                   lock.writeLock().unlock();
                 }
-                old.values().forEach(c -> Utils.swallowException(c::close));
+                old.values().forEach(Utils::close);
               });
     }
 
@@ -292,7 +292,7 @@ public interface MetricFetcher extends AutoCloseable {
       closed.set(true);
       executor.shutdownNow();
       Utils.packException(() -> executor.awaitTermination(30, TimeUnit.SECONDS));
-      clients.values().forEach(c -> Utils.swallowException(c::close));
+      clients.values().forEach(Utils::close);
       sender.close();
     }
   }

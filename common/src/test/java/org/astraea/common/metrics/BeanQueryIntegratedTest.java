@@ -35,7 +35,7 @@ class BeanQueryIntegratedTest {
 
   @Test
   void testAllBuiltInQueries() {
-    try (var client = MBeanClient.of(SERVICE.jmxServiceURL())) {
+    try (var client = JndiClient.of(SERVICE.jmxServiceURL())) {
       var exist = new HashSet<Map<String, String>>();
       MetricFetcher.QUERIES.forEach(
           q ->

@@ -37,6 +37,7 @@ import org.astraea.common.connector.Config;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.connector.Value;
+import org.astraea.common.consumer.Record;
 import org.astraea.common.producer.Producer;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
@@ -194,14 +195,14 @@ public class ExporterTest {
 
       var records =
           List.of(
-              RecordBuilder.of()
+              Record.builder()
                   .topic(topicName)
                   .key("test".getBytes())
                   .value("test0".getBytes())
                   .partition(0)
                   .timestamp(System.currentTimeMillis())
                   .build(),
-              RecordBuilder.of()
+              Record.builder()
                   .topic(topicName)
                   .key("test".getBytes())
                   .value("test1".getBytes())
@@ -280,7 +281,7 @@ public class ExporterTest {
       task.start(configs);
 
       var records1 =
-          RecordBuilder.of()
+          Record.builder()
               .topic(topicName)
               .key("test".getBytes())
               .value("test0".getBytes())
@@ -355,7 +356,7 @@ public class ExporterTest {
       task.start(configs);
 
       var record1 =
-          RecordBuilder.of()
+          Record.builder()
               .topic(topicName)
               .key("test".getBytes())
               .value("test0".getBytes())
@@ -365,7 +366,7 @@ public class ExporterTest {
               .build();
 
       var record2 =
-          RecordBuilder.of()
+          Record.builder()
               .topic(topicName)
               .key("test".getBytes())
               .value("test1".getBytes())
@@ -375,7 +376,7 @@ public class ExporterTest {
               .build();
 
       var record3 =
-          RecordBuilder.of()
+          Record.builder()
               .topic(topicName)
               .key("test".getBytes())
               .value("test2".getBytes())
@@ -461,14 +462,14 @@ public class ExporterTest {
 
       var records =
           List.of(
-              RecordBuilder.of()
+              Record.builder()
                   .topic(topicName)
                   .key("test".getBytes())
                   .value("test0".getBytes())
                   .partition(0)
                   .timestamp(System.currentTimeMillis())
                   .build(),
-              RecordBuilder.of()
+              Record.builder()
                   .topic(topicName)
                   .key("test".getBytes())
                   .value("test1".getBytes())
@@ -545,7 +546,7 @@ public class ExporterTest {
       task.start(configs);
 
       var records1 =
-          RecordBuilder.of()
+          Record.builder()
               .topic(topicName)
               .key("test".getBytes())
               .value("test0".getBytes())
@@ -618,7 +619,7 @@ public class ExporterTest {
       task.start(configs);
 
       var record1 =
-          RecordBuilder.of()
+          Record.builder()
               .topic(topicName)
               .key("test".getBytes())
               .value("test0".getBytes())
@@ -628,7 +629,7 @@ public class ExporterTest {
               .build();
 
       var record2 =
-          RecordBuilder.of()
+          Record.builder()
               .topic(topicName)
               .key("test".getBytes())
               .value("test1".getBytes())
@@ -638,7 +639,7 @@ public class ExporterTest {
               .build();
 
       var record3 =
-          RecordBuilder.of()
+          Record.builder()
               .topic(topicName)
               .key("test".getBytes())
               .value("test2".getBytes())
@@ -697,7 +698,7 @@ public class ExporterTest {
     var topicName = Utils.randomString(10);
     var records =
         List.of(
-            RecordBuilder.of()
+            Record.builder()
                 .topic(topicName)
                 .key("test".getBytes())
                 .value("test0".getBytes())
@@ -705,7 +706,7 @@ public class ExporterTest {
                 .offset(0)
                 .timestamp(System.currentTimeMillis())
                 .build(),
-            RecordBuilder.of()
+            Record.builder()
                 .topic(topicName)
                 .key("test".getBytes())
                 .value("test1".getBytes())
@@ -770,7 +771,7 @@ public class ExporterTest {
       writers.put(tp, recordWriter);
 
       recordWriter.append(
-          RecordBuilder.of()
+          Record.builder()
               .topic(topicName)
               .key("test".getBytes())
               .value("test0".getBytes())
@@ -825,7 +826,7 @@ public class ExporterTest {
       task.size = DataSize.of("100MB");
       task.bufferSize.reset();
       task.recordsQueue.add(
-          RecordBuilder.of()
+          Record.builder()
               .topic(topicName)
               .key("test".getBytes())
               .value("test0".getBytes())

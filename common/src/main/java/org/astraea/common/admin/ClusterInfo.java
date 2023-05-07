@@ -30,6 +30,15 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public interface ClusterInfo {
+
+  static ClusterInfoBuilder builder() {
+    return builder(empty());
+  }
+
+  static ClusterInfoBuilder builder(ClusterInfo clusterInfo) {
+    return new ClusterInfoBuilder(clusterInfo);
+  }
+
   static ClusterInfo empty() {
     return of("unknown", List.of(), Map.of(), List.of());
   }

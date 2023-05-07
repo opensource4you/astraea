@@ -19,7 +19,7 @@ package org.astraea.common.metrics.platform;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.condition.OS.WINDOWS;
 
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 
@@ -27,7 +27,7 @@ public class HostMetricsTest {
 
   @Test
   void operatingSystem() {
-    var operatingSystemInfo = HostMetrics.operatingSystem(MBeanClient.local());
+    var operatingSystemInfo = HostMetrics.operatingSystem(JndiClient.local());
     assertDoesNotThrow(operatingSystemInfo::arch);
     assertDoesNotThrow(operatingSystemInfo::availableProcessors);
     assertDoesNotThrow(operatingSystemInfo::committedVirtualMemorySize);
@@ -46,20 +46,20 @@ public class HostMetricsTest {
   @Test
   @DisabledOnOs(WINDOWS)
   void maxFileDescriptorCount() {
-    OperatingSystemInfo operatingSystemInfo = HostMetrics.operatingSystem(MBeanClient.local());
+    OperatingSystemInfo operatingSystemInfo = HostMetrics.operatingSystem(JndiClient.local());
     assertDoesNotThrow(operatingSystemInfo::maxFileDescriptorCount);
   }
 
   @Test
   @DisabledOnOs(WINDOWS)
   void openFileDescriptorCount() {
-    OperatingSystemInfo operatingSystemInfo = HostMetrics.operatingSystem(MBeanClient.local());
+    OperatingSystemInfo operatingSystemInfo = HostMetrics.operatingSystem(JndiClient.local());
     assertDoesNotThrow(operatingSystemInfo::openFileDescriptorCount);
   }
 
   @Test
   void testJvmMemory() {
-    JvmMemory jvmMemory = HostMetrics.jvmMemory(MBeanClient.local());
+    JvmMemory jvmMemory = HostMetrics.jvmMemory(JndiClient.local());
     assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getCommitted());
     assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getMax());
     assertDoesNotThrow(() -> jvmMemory.heapMemoryUsage().getUsed());

@@ -139,7 +139,7 @@ public final class LogMetrics {
                             // done.
                             // We use the BeanQuery property list pattern to work around this issue.
                             // See https://github.com/apache/kafka/pull/12979
-                            .usePropertyListPattern()
+                            .propertyListPattern(true)
                             .build()));
 
     public static Log ofAlias(String alias) {

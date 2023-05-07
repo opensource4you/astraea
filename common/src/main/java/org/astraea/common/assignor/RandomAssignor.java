@@ -29,14 +29,13 @@ public class RandomAssignor extends Assignor {
 
   @Override
   public Map<String, List<TopicPartition>> assign(
-      Map<String, org.astraea.common.assignor.Subscription> subscriptions,
-      ClusterInfo clusterInfo) {
+      Map<String, SubscriptionInfo> subscriptions, ClusterInfo clusterInfo) {
     var assignments = new HashMap<String, List<TopicPartition>>();
     var consumers = new ArrayList<>(subscriptions.keySet());
     Set<String> topics = new HashSet<>();
     consumers.forEach(consumer -> assignments.put(consumer, new ArrayList<>()));
 
-    for (org.astraea.common.assignor.Subscription subscription : subscriptions.values())
+    for (SubscriptionInfo subscription : subscriptions.values())
       topics.addAll(subscription.topics());
 
     clusterInfo.topicPartitions().stream()

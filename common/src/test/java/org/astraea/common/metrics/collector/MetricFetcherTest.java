@@ -33,6 +33,7 @@ import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
@@ -51,7 +52,7 @@ public class MetricFetcherTest {
   @Test
   void testPublishAndClose() {
     var beans = List.of(new BeanObject(Utils.randomString(), Map.of(), Map.of()));
-    var client = Mockito.mock(MBeanClient.class);
+    var client = Mockito.mock(JndiClient.class);
     Mockito.when(client.beans(Mockito.any(), Mockito.any())).thenReturn(beans);
     var sender = Mockito.mock(MetricFetcher.Sender.class);
     var queue = new ConcurrentHashMap<Integer, Collection<BeanObject>>();
@@ -105,7 +106,7 @@ public class MetricFetcherTest {
 
   @Test
   void testFetchBeanDelay() {
-    var client = Mockito.mock(MBeanClient.class);
+    var client = Mockito.mock(JndiClient.class);
     try (var fetcher =
         MetricFetcher.builder()
             .sender(MetricFetcher.Sender.local())

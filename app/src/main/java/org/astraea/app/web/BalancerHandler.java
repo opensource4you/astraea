@@ -28,7 +28,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -36,7 +35,6 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
@@ -48,8 +46,6 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MigrationCost;
 import org.astraea.common.json.TypeRef;
-import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.collector.MetricStore;
 
 class BalancerHandler implements Handler, AutoCloseable {
@@ -61,35 +57,12 @@ class BalancerHandler implements Handler, AutoCloseable {
       new ConcurrentHashMap<>();
   private final Map<String, CompletionStage<Void>> planExecutions = new ConcurrentHashMap<>();
 
-  private final Collection<MetricSensor> sensors = new ConcurrentLinkedQueue<>();
-
   private final MetricStore metricStore;
 
-  BalancerHandler(Admin admin, Function<Integer, Integer> jmxPortMapper) {
+  BalancerHandler(Admin admin, MetricStore metricStore) {
     this.admin = admin;
     this.balancerConsole = BalancerConsole.create(admin);
-    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
-        () ->
-            admin
-                .brokers()
-                .thenApply(
-                    brokers ->
-                        brokers.stream()
-                            .collect(
-                                Collectors.toUnmodifiableMap(
-                                    NodeInfo::id,
-                                    b -> MBeanClient.jndi(b.host(), jmxPortMapper.apply(b.id())))));
-    this.metricStore =
-        MetricStore.builder()
-            .beanExpiration(Duration.ofSeconds(90))
-            .localReceiver(clientSupplier)
-            .sensorsSupplier(
-                () ->
-                    sensors.stream()
-                        .collect(
-                            Collectors.toUnmodifiableMap(
-                                Function.identity(), ignored -> (id, ee) -> {})))
-            .build();
+    this.metricStore = metricStore;
   }
 
   @Override
@@ -117,9 +90,6 @@ class BalancerHandler implements Handler, AutoCloseable {
         Utils.construct(request.balancerClasspath, Balancer.class, request.balancerConfig);
     synchronized (this) {
       var taskId = UUID.randomUUID().toString();
-      request.algorithmConfig.clusterCostFunction().metricSensor().ifPresent(sensors::add);
-      request.algorithmConfig.moveCostFunction().metricSensor().ifPresent(sensors::add);
-
       var task =
           balancerConsole
               .launchRebalancePlanGeneration()
@@ -262,7 +232,6 @@ class BalancerHandler implements Handler, AutoCloseable {
   static class BalancerPostRequest implements Request {
 
     String balancer = GreedyBalancer.class.getName();
-
     Map<String, String> balancerConfig = Map.of();
     Map<String, String> costConfig = Map.of();
     Duration timeout = Duration.ofSeconds(3);

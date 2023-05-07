@@ -19,10 +19,9 @@ package org.astraea.common.cost;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.platform.HostMetrics;
@@ -56,8 +55,8 @@ public class CpuCost implements HasBrokerCost {
   }
 
   @Override
-  public Optional<MetricSensor> metricSensor() {
-    return Optional.of((client, ignored) -> List.of(HostMetrics.operatingSystem(client)));
+  public MetricSensor metricSensor() {
+    return (client, ignored) -> List.of(HostMetrics.operatingSystem(client));
   }
 
   @Override
