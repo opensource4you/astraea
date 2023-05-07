@@ -27,6 +27,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -86,17 +87,12 @@ public class ShuffleTweaker {
     return Stream.generate(
         () -> {
           final var shuffleCount = numberOfShuffle.get();
-          final var replicaOrder =
-              legalReplicas.stream()
-                  .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
-                  .sorted(Map.Entry.comparingByValue())
-                  .map(Map.Entry::getKey)
-                  .collect(Collectors.toUnmodifiableList());
+          final var replicaOrder = Utils.shuffledPermutation(legalReplicas);
           final var forbiddenReplica = new HashSet<TopicPartitionReplica>();
 
           final var finalCluster = ClusterInfo.builder(baseAllocation);
-          for (int i = 0, shuffled = 0; i < replicaOrder.size() && shuffled < shuffleCount; i++) {
-            final var sourceReplica = replicaOrder.get(i);
+          for (int shuffled = 0; replicaOrder.hasNext() && shuffled < shuffleCount; ) {
+            final var sourceReplica = replicaOrder.next();
 
             // the leadership change operation will not only affect source target but also the
             // target replica. To prevent mutating one replica twice in the tweaking loop. We have
