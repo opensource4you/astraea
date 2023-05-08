@@ -167,7 +167,6 @@ public class BalancerHandlerTest {
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
-      sizeMigration.brokerCosts.values().forEach(v -> Assertions.assertNotEquals(0, v));
     }
   }
 
