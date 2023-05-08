@@ -23,11 +23,11 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /** Snapshot of remote MBean value */
-public class BeanObject {
-  private final String domainName;
-  private final Map<String, String> properties;
-  private final Map<String, Object> attributes;
-  private final long createdTimestamp;
+public record BeanObject(
+    String domainName,
+    Map<String, String> properties,
+    Map<String, Object> attributes,
+    long createdTimestamp) {
 
   /**
    * construct a {@link BeanObject}
@@ -62,45 +62,5 @@ public class BeanObject {
             .filter(entry -> entry.getKey() != null && entry.getValue() != null)
             .collect(Collectors.toUnmodifiableMap(Entry::getKey, Entry::getValue));
     this.createdTimestamp = createdTimestamp;
-  }
-
-  public String domainName() {
-    return domainName;
-  }
-
-  public Map<String, String> properties() {
-    return properties;
-  }
-
-  public Map<String, Object> attributes() {
-    return attributes;
-  }
-
-  public long createdTimestamp() {
-    return createdTimestamp;
-  }
-
-  @Override
-  public String toString() {
-    String propertyList =
-        properties.entrySet().stream()
-            .map((entry -> entry.getKey() + "=" + entry.getValue()))
-            .collect(Collectors.joining(","));
-    return "[" + domainName + ":" + propertyList + "]\n" + attributes;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    BeanObject that = (BeanObject) o;
-    return domainName.equals(that.domainName)
-        && properties.equals(that.properties)
-        && attributes.equals(that.attributes);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(domainName, properties, attributes);
   }
 }
