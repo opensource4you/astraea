@@ -146,25 +146,29 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
 
   @Override
   public final GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
-    establishResource();
-    var clusterInfo = updateClusterInfo();
-    // convert Kafka's data structure to ours
-    var subscriptionsPerMember = GroupSubscriptionInfo.from(groupSubscription).groupSubscription();
+    GroupAssignment result = null;
+    try {
+      establishResource();
+      var clusterInfo = updateClusterInfo();
+      // convert Kafka's data structure to ours
+      var subscriptionsPerMember =
+          GroupSubscriptionInfo.from(groupSubscription).groupSubscription();
 
-    // TODO: Detected if consumers subscribed to the same topics.
-    // For now, assume that the consumers only subscribed to identical topics
-    var assignment =
-        assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        new Assignment(
-                            e.getValue().stream()
-                                .map(TopicPartition::to)
-                                .collect(Collectors.toUnmodifiableList()))));
-    releaseResource();
-    return new GroupAssignment(assignment);
+      // TODO: Detected if consumers subscribed to the same topics.
+      // For now, assume that the consumers only subscribed to identical topics
+      var assignment =
+          assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
+              .collect(
+                  Collectors.toMap(
+                      Map.Entry::getKey,
+                      e -> new Assignment(e.getValue().stream().map(TopicPartition::to).toList())));
+      result = new GroupAssignment(assignment);
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      releaseResource();
+    }
+    return result;
   }
 
   @Override
