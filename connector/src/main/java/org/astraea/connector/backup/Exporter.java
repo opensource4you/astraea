@@ -163,10 +163,14 @@ public class Exporter extends SinkConnector {
 
     private long bufferSizeLimit;
 
-    private final AtomicBoolean targetSet = new AtomicBoolean(false);
+    FileSystem fs;
+    String path;
+    DataSize size;
+    long interval;
+    private final Map<String, Boolean> topicWithTarget = new HashMap<>();
 
     final ConcurrentHashMap<String, TargetStatus> targetForTopicPartition =
-        new ConcurrentHashMap<>();
+            new ConcurrentHashMap<>();
 
     //  package public for test
     static class TargetStatus {
@@ -174,6 +178,8 @@ public class Exporter extends SinkConnector {
       private final Map<String, List<Long>> targets;
 
       private final Map<String, Boolean> initExclude;
+
+      private Long nextInvalidOffset = 0L;
 
       TargetStatus() {
         this.targets = new HashMap<>();
@@ -193,7 +199,7 @@ public class Exporter extends SinkConnector {
         this.initExclude = new HashMap<>(initExclude);
       }
 
-      boolean calStatus(boolean initStatus, int index) {
+      private boolean calStatus(boolean initStatus, int index) {
         if (index % 2 == 1) return !initStatus;
         return initStatus;
       }
@@ -257,6 +263,10 @@ public class Exporter extends SinkConnector {
         }
       }
 
+      void updateNextInvalidOffset(Long offset) {
+        this.nextInvalidOffset = this.nextInvalidOffset(offset);
+      }
+
       Map<String, List<Long>> targets() {
         return this.targets;
       }
@@ -272,12 +282,36 @@ public class Exporter extends SinkConnector {
       Boolean initialExclude(String type) {
         return this.initExclude.get(type);
       }
-    }
 
-    FileSystem fs;
-    String path;
-    DataSize size;
-    long interval;
+      Boolean isTargetOffset(Long offset) {
+        for (var i = 0; i < targets("offset").size(); i++) {
+          if (targets("offset").get(i) > offset) {
+            return !calStatus(initialExclude("offset"), i - 1);
+          }
+        }
+        return !calStatus(initialExclude("offset"), targets("offset").size() - 1);
+      }
+
+      // Finds the next valid offset given a current offset
+      Long nextValidOffset(Long currentOffset) {
+        // find the next offset in targets.offset which value greater or equal to currentOffset.
+        return targets("offset").stream()
+            .filter(offset -> offset > currentOffset)
+            .filter(
+                offset -> !calStatus(initialExclude("offset"), targets("offset").indexOf(offset)))
+            .findFirst()
+            .orElse(Long.MAX_VALUE);
+      }
+
+      Long nextInvalidOffset(Long currentOffset) {
+        return targets("offset").stream()
+            .filter(offset -> offset > currentOffset)
+            .filter(
+                offset -> calStatus(initialExclude("offset"), targets("offset").indexOf(offset)))
+            .findFirst()
+            .orElse(Long.MAX_VALUE);
+      }
+    }
 
     RecordWriter createRecordWriter(TopicPartition tp, long offset) {
       var fileName = String.valueOf(offset);
@@ -367,7 +401,6 @@ public class Exporter extends SinkConnector {
     }
 
     void updateTargetRangesForTopicPartitions(List<HashMap<String, Object>> targets) {
-      this.targetSet.set(true);
       targets.forEach(
           target -> {
             var topic = target.get("topic");
@@ -376,6 +409,8 @@ public class Exporter extends SinkConnector {
             if (partition == null) {
               partition = "all";
             }
+
+            this.topicWithTarget.put((String) topic, true);
 
             if (target.get("range") instanceof Map<?, ?>) {
               Map<String, Object> range = (Map<String, Object>) target.get("range");
@@ -434,7 +469,13 @@ public class Exporter extends SinkConnector {
               .fromJson(configuration.string("targets").orElse("[]"), new TypeRef<>() {});
 
       if (targets.size() > 0) {
+        System.out.println("before updateTargetRangesForTopicPartitions");
         updateTargetRangesForTopicPartitions(targets);
+        System.out.println("---------------");
+        this.targetForTopicPartition.entrySet().forEach(entry -> {
+          var target = entry.getValue();
+          System.out.println("offset target: " + target.targets("offset"));
+        });
       }
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
@@ -447,6 +488,17 @@ public class Exporter extends SinkConnector {
           r ->
               Utils.packException(
                   () -> {
+                    System.out.println("topic: " + r.topic() + ", put offset: " + r.offset());
+
+                    var isV = isValid(r, true);
+                    System.out.println("isValid: " + isV);
+                    if (!isV) {
+                      this.context.requestCommit();
+                      return;
+                    }
+
+                    System.out.println("really put data offset: " + r.offset());
+                    System.out.println("\n");
                     int recordLength =
                         Stream.of(r.key(), r.value())
                             .filter(Objects::nonNull)
@@ -462,6 +514,48 @@ public class Exporter extends SinkConnector {
 
                     this.bufferSize.add(recordLength);
                   }));
+    }
+
+    boolean isValid(Record<byte[], byte[]> r) {
+      return isValid(r, false);
+    }
+
+    private boolean isValid(Record<byte[], byte[]> r, boolean contextOperation) {
+      if (this.topicWithTarget.get(r.topic()) != null) {
+        // this topic has user target, we should check this offset is valid.
+        var target = this.targetForTopicPartition.get(r.topic() + "-" + r.partition());
+        if (target == null) {
+          target = this.targetForTopicPartition.get(r.topic() + "-all");
+        }
+        if (r.offset() >= target.nextInvalidOffset) {
+          // this record is not in the previous valid target range, we should check this offset is
+          // valid or not.
+
+          System.out.println("enter offset >= nextInvalidOffset");
+
+
+          if (target.isTargetOffset(r.offset())) {
+            // we are in 1 of the range, we just update the nextInvalidOffset.
+            target.updateNextInvalidOffset(r.offset());
+          } else {
+            // we are not in the valid target rang, we should seek the next valid offset.
+            System.out.println("enter else in target.isTargetOffset");
+            var nextValidOffset = target.nextValidOffset(r.offset());
+            if (nextValidOffset != Long.MAX_VALUE) {
+              //todo have to check the max offset of this topic partition before we reset
+              // the offset.
+              if (contextOperation) this.context.offset(new org.apache.kafka.common.TopicPartition(r.topic(), r.partition())
+                      , nextValidOffset);
+            } else {
+              // subsequent offsets are not within the user-specified range, so ew should stop
+              // consuming to avoid consuming more unnecessary data.
+              if (contextOperation) this.context.pause();
+            }
+            return false;
+          }
+        }
+      }
+      return true;
     }
 
     @Override

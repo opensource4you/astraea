@@ -39,6 +39,7 @@ import org.astraea.common.connector.Config;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.connector.Value;
+import org.astraea.common.consumer.Record;
 import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Producer;
@@ -945,5 +946,82 @@ public class ExporterTest {
     Assertions.assertEquals(
         new ArrayList<>(Arrays.asList(0L, 20L, 30L, 101L)), target1.targets("offset"));
     Assertions.assertEquals(new ArrayList<>(Arrays.asList(0L, 101L)), targetAll.targets("offset"));
+
+    Assertions.assertTrue(target0.isTargetOffset(0L));
+    Assertions.assertTrue(target0.isTargetOffset(9L));
+    Assertions.assertTrue(target0.isTargetOffset(100L));
+    Assertions.assertFalse(target0.isTargetOffset(10L));
+    Assertions.assertFalse(target0.isTargetOffset(29L));
+    Assertions.assertFalse(target0.isTargetOffset(101L));
+
+    Assertions.assertEquals(10L, target0.nextInvalidOffset(9L));
+    Assertions.assertEquals(101L, target0.nextInvalidOffset(10L));
+    Assertions.assertEquals(30L, target0.nextValidOffset(0L));
+    Assertions.assertEquals(30L, target0.nextValidOffset(10L));
+  }
+
+  @Test
+  void test() {
+    var configs = new HashMap<String, String>();
+
+    var rangesInConfigs1 =
+        List.of(
+            Map.of(
+                "topic",
+                "test",
+                "range",
+                Map.of("from", "0", "to", "20", "exclude", false, "type", "offset")),
+            Map.of(
+                "topic",
+                "test",
+                "partition",
+                "0",
+                "range",
+                Map.of("from", "10", "to", "18", "exclude", true, "type", "offset")),
+            Map.of(
+                "topic",
+                "test",
+                "range",
+                Map.of("from", "15", "to", "18", "exclude", false, "type", "offset")));
+
+    configs.put("targets", JsonConverter.jackson().toJson(rangesInConfigs1));
+
+    var configuration = Configuration.of(configs);
+    var task = new Exporter.Task();
+    List<HashMap<String, Object>> targets =
+        JsonConverter.jackson()
+            .fromJson(configuration.string("targets").orElse("[]"), new TypeRef<>() {});
+
+    task.updateTargetRangesForTopicPartitions(targets);
+
+    List<Record<byte[], byte[]>> records = new ArrayList<>();
+
+    for (var i = 0; i <= 21; i++) {
+      records.add(
+          RecordBuilder.of()
+              .topic("test")
+              .key("test".getBytes())
+              .value("test".getBytes())
+              .partition(0)
+              .offset(i)
+              .timestamp(System.currentTimeMillis())
+              .build());
+    }
+
+    records.stream()
+        .filter(record -> record.offset() < 10)
+        .forEach(record -> Assertions.assertTrue(task.isValid(record)));
+
+    records.stream()
+        .filter(record -> record.offset() >= 10)
+        .filter(record -> record.offset() < 15)
+        .forEach(record -> Assertions.assertFalse(task.isValid(record)));
+
+    records.stream()
+        .filter(record -> record.offset() >= 15)
+        .filter(record -> record.offset() <= 20)
+        .forEach(record -> Assertions.assertTrue(task.isValid(record)));
+
+    Assertions.assertFalse(task.isValid(records.get(21)));
   }
 }
