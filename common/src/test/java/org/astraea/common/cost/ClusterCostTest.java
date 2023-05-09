@@ -17,7 +17,6 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
@@ -62,15 +61,13 @@ class ClusterCostTest {
     var cost2 = new ReplicaLeaderCost();
     var mergeCost = HasClusterCost.of(Map.of(cost1, 1.0, cost2, 1.0));
     var metrics =
-        mergeCost.metricSensor().stream()
-            .map(
-                x ->
-                    x.fetch(
-                        BeanObjectClient.local(SERVICE.dataFolders().keySet().iterator().next()),
-                        ClusterBean.EMPTY))
-            .collect(Collectors.toSet());
+        mergeCost
+            .metricSensor()
+            .fetch(
+                BeanObjectClient.local(SERVICE.dataFolders().keySet().iterator().next()),
+                ClusterBean.EMPTY);
     Assertions.assertTrue(
-        metrics.iterator().next().stream()
+        metrics.stream()
             .anyMatch(
                 x ->
                     x.beanObject()

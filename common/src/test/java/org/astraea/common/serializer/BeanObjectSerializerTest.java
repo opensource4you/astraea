@@ -18,6 +18,7 @@ package org.astraea.common.serializer;
 
 import java.util.List;
 import java.util.Map;
+import org.astraea.common.SerializationException;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.producer.Serializer;
@@ -63,10 +64,23 @@ public class BeanObjectSerializerTest {
   public void testUnsupportedType() {
     var domain = "domain";
     var properties = Map.of("name", "wrongType");
-    var attributes = Map.of("map", (Object) Map.of("k", "v"));
+    var attributes = Map.of("unsupportedType", new Object());
+
     var bean = new BeanObject(domain, properties, attributes);
+    var serializedBean = Serializer.BEAN_OBJECT.serialize("ignore", List.of(), bean);
+    var deserializedBean =
+        Deserializer.BEAN_OBJECT.deserialize("ignore", List.of(), serializedBean);
+    // The "map" attribute should be ignored on serialization
+    Assertions.assertNotNull(bean.attributes().get("unsupportedType"));
+    Assertions.assertNull(deserializedBean.attributes().get("unsupportedType"));
+    Assertions.assertNotEquals(bean, deserializedBean);
+  }
+
+  @Test
+  public void testInvalidBytes() {
+    byte[] malformed = new byte[5];
     Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () -> Serializer.BEAN_OBJECT.serialize("ignore", List.of(), bean));
+        SerializationException.class,
+        () -> Deserializer.BEAN_OBJECT.deserialize("ignore", List.of(), malformed));
   }
 }

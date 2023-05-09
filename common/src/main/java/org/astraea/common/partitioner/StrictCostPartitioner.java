@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -156,16 +155,10 @@ public class StrictCostPartitioner extends Partitioner {
                       return Collections.unmodifiableMap(map);
                     });
 
-    // put local mbean client first
     metricStore =
         MetricStore.builder()
             .localReceiver(clientSupplier)
-            .sensorsSupplier(
-                () ->
-                    this.costFunction
-                        .metricSensor()
-                        .map(s -> Map.of(s, (BiConsumer<Integer, Exception>) (integer, e) -> {}))
-                        .orElse(Map.of()))
+            .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
             .build();
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
   }
