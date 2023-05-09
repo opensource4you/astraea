@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.function.Function;
 import org.astraea.common.Configuration;
@@ -50,50 +49,48 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
   }
 
   @Override
-  public Optional<MetricSensor> metricSensor() {
-    return Optional.of(
-        (client, clusterBean) -> {
-          var oldInRate =
-              brokerMaxRate(
-                  client.identity(),
-                  clusterBean,
-                  PartitionMigrateTimeCost.MaxReplicationInRateBean.class);
-          var oldOutRate =
-              brokerMaxRate(
-                  client.identity(),
-                  clusterBean,
-                  PartitionMigrateTimeCost.MaxReplicationOutRateBean.class);
-          var newInMetrics = ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC.fetch(client);
-          var newOutMetrics = ServerMetrics.BrokerTopic.REPLICATION_BYTES_OUT_PER_SEC.fetch(client);
-          var current = Duration.ofMillis(System.currentTimeMillis());
-          var maxInRateSensor =
-              Sensor.builder().addStat(REPLICATION_IN_RATE, Max.<Double>of()).build();
-          var maxOutRateSensor =
-              Sensor.builder().addStat(REPLICATION_OUT_RATE, Max.<Double>of()).build();
-          maxInRateSensor.record(newInMetrics.oneMinuteRate());
-          maxOutRateSensor.record(newOutMetrics.oneMinuteRate());
-          var inRate = maxInRateSensor.measure(REPLICATION_IN_RATE);
-          var outRate = maxOutRateSensor.measure(REPLICATION_OUT_RATE);
+  public MetricSensor metricSensor() {
+    return (client, clusterBean) -> {
+      var oldInRate =
+          brokerMaxRate(
+              client.identity(),
+              clusterBean,
+              PartitionMigrateTimeCost.MaxReplicationInRateBean.class);
+      var oldOutRate =
+          brokerMaxRate(
+              client.identity(),
+              clusterBean,
+              PartitionMigrateTimeCost.MaxReplicationOutRateBean.class);
+      var newInMetrics = ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC.fetch(client);
+      var newOutMetrics = ServerMetrics.BrokerTopic.REPLICATION_BYTES_OUT_PER_SEC.fetch(client);
+      var current = Duration.ofMillis(System.currentTimeMillis());
+      var maxInRateSensor = Sensor.builder().addStat(REPLICATION_IN_RATE, Max.<Double>of()).build();
+      var maxOutRateSensor =
+          Sensor.builder().addStat(REPLICATION_OUT_RATE, Max.<Double>of()).build();
+      maxInRateSensor.record(newInMetrics.oneMinuteRate());
+      maxOutRateSensor.record(newOutMetrics.oneMinuteRate());
+      var inRate = maxInRateSensor.measure(REPLICATION_IN_RATE);
+      var outRate = maxOutRateSensor.measure(REPLICATION_OUT_RATE);
 
-          var metrics = new ArrayList<HasBeanObject>();
-          metrics.add(
-              (MaxReplicationInRateBean)
-                  () ->
-                      new BeanObject(
-                          newInMetrics.beanObject().domainName(),
-                          newInMetrics.beanObject().properties(),
-                          Map.of(STATISTICS_RATE_KEY, Math.max(oldInRate.orElse(0), inRate)),
-                          current.toMillis()));
-          metrics.add(
-              (MaxReplicationOutRateBean)
-                  () ->
-                      new BeanObject(
-                          newOutMetrics.beanObject().domainName(),
-                          newOutMetrics.beanObject().properties(),
-                          Map.of(STATISTICS_RATE_KEY, Math.max(oldOutRate.orElse(0), outRate)),
-                          current.toMillis()));
-          return metrics;
-        });
+      var metrics = new ArrayList<HasBeanObject>();
+      metrics.add(
+          (MaxReplicationInRateBean)
+              () ->
+                  new BeanObject(
+                      newInMetrics.beanObject().domainName(),
+                      newInMetrics.beanObject().properties(),
+                      Map.of(STATISTICS_RATE_KEY, Math.max(oldInRate.orElse(0), inRate)),
+                      current.toMillis()));
+      metrics.add(
+          (MaxReplicationOutRateBean)
+              () ->
+                  new BeanObject(
+                      newOutMetrics.beanObject().domainName(),
+                      newOutMetrics.beanObject().properties(),
+                      Map.of(STATISTICS_RATE_KEY, Math.max(oldOutRate.orElse(0), outRate)),
+                      current.toMillis()));
+      return metrics;
+    };
   }
 
   public static OptionalDouble brokerMaxRate(

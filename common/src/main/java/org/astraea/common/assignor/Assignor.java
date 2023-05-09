@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -34,7 +33,6 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.cost.HasPartitionCost;
@@ -46,6 +44,7 @@ import org.astraea.common.partitioner.PartitionerUtils;
 
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
 public abstract class Assignor implements ConsumerPartitionAssignor, Configurable {
+  private Configuration config;
   public static final String COST_PREFIX = "assignor.cost";
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Integer> jmxPortGetter =
@@ -82,18 +81,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   // -----------------------[helper]-----------------------//
 
   /**
-   * check the nodes which wasn't register yet.
-   *
-   * @param nodes List of node information
-   * @return Map from each broker id to broker host
-   */
-  protected Map<Integer, String> checkUnregister(List<NodeInfo> nodes) {
-    return nodes.stream()
-        .filter(i -> (metricStore == null || !metricStore.identities().contains(i.id())))
-        .collect(Collectors.toMap(NodeInfo::id, NodeInfo::host));
-  }
-
-  /**
    * update cluster information
    *
    * @return cluster information
@@ -102,35 +89,8 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     return admin.topicNames(false).thenCompose(admin::clusterInfo).toCompletableFuture().join();
   }
 
-  // -----------------------[kafka method]-----------------------//
-
-  @Override
-  public final GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
-    var clusterInfo = updateClusterInfo();
-    // convert Kafka's data structure to ours
-    var subscriptionsPerMember = GroupSubscriptionInfo.from(groupSubscription).groupSubscription();
-
-    // TODO: Detected if consumers subscribed to the same topics.
-    // For now, assume that the consumers only subscribed to identical topics
-
-    return new GroupAssignment(
-        assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e ->
-                        new Assignment(
-                            e.getValue().stream()
-                                .map(TopicPartition::to)
-                                .collect(Collectors.toUnmodifiableList())))));
-  }
-
-  @Override
-  public final void configure(Map<String, ?> configs) {
-    var config =
-        Configuration.of(
-            configs.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
+  /** establish the Admin and MetricStore to get ClusterInfo and ClusterBean */
+  private void establishResource() {
     admin =
         config
             .string(ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG)
@@ -139,21 +99,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                 () ->
                     new IllegalArgumentException(
                         ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG + " must be defined"));
-    var costFunctions =
-        Utils.costFunctions(
-            config.filteredPrefixConfigs(COST_PREFIX).raw(), HasPartitionCost.class, config);
-    var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
-    var defaultJMXPort = config.integer(JMX_PORT);
-    this.costFunction =
-        costFunctions.isEmpty()
-            ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
-            : HasPartitionCost.of(costFunctions);
-    this.jmxPortGetter =
-        id ->
-            Optional.ofNullable(customJMXPort.get(id))
-                .or(() -> defaultJMXPort)
-                .orElseThrow(
-                    () -> new NoSuchElementException("failed to get jmx port for broker: " + id));
     Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
         () ->
             admin
@@ -172,13 +117,68 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     metricStore =
         MetricStore.builder()
             .localReceiver(clientSupplier)
-            .sensorsSupplier(
-                () ->
-                    this.costFunction
-                        .metricSensor()
-                        .map(s -> Map.of(s, (BiConsumer<Integer, Exception>) (integer, e) -> {}))
-                        .orElse(Map.of()))
+            .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
             .build();
+  }
+
+  /** release the unused resource after assigning */
+  private void releaseResource() {
+    this.admin.close();
+    this.metricStore.close();
+    this.admin = null;
+    this.metricStore = null;
+  }
+
+  // -----------------------[kafka method]-----------------------//
+
+  @Override
+  public final GroupAssignment assign(Cluster metadata, GroupSubscription groupSubscription) {
+    GroupAssignment result = null;
+    try {
+      establishResource();
+      var clusterInfo = updateClusterInfo();
+      // convert Kafka's data structure to ours
+      var subscriptionsPerMember =
+          GroupSubscriptionInfo.from(groupSubscription).groupSubscription();
+
+      // TODO: Detected if consumers subscribed to the same topics.
+      // For now, assume that the consumers only subscribed to identical topics
+      var assignment =
+          assign(subscriptionsPerMember, clusterInfo).entrySet().stream()
+              .collect(
+                  Collectors.toMap(
+                      Map.Entry::getKey,
+                      e -> new Assignment(e.getValue().stream().map(TopicPartition::to).toList())));
+      result = new GroupAssignment(assignment);
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      releaseResource();
+    }
+    return result;
+  }
+
+  @Override
+  public final void configure(Map<String, ?> configs) {
+    this.config =
+        Configuration.of(
+            configs.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
+    var costFunctions =
+        Utils.costFunctions(
+            config.filteredPrefixConfigs(COST_PREFIX).raw(), HasPartitionCost.class, config);
+    var customJMXPort = PartitionerUtils.parseIdJMXPort(config);
+    var defaultJMXPort = config.integer(JMX_PORT);
+    this.costFunction =
+        costFunctions.isEmpty()
+            ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
+            : HasPartitionCost.of(costFunctions);
+    this.jmxPortGetter =
+        id ->
+            Optional.ofNullable(customJMXPort.get(id))
+                .or(() -> defaultJMXPort)
+                .orElseThrow(
+                    () -> new NoSuchElementException("failed to get jmx port for broker: " + id));
     configure(config);
   }
 }

@@ -20,7 +20,6 @@ import static org.astraea.common.cost.MigrationCost.replicaLeaderToAdd;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
@@ -69,9 +68,8 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   }
 
   @Override
-  public Optional<MetricSensor> metricSensor() {
-    return Optional.of(
-        (client, ignored) -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(client)));
+  public MetricSensor metricSensor() {
+    return (client, ignored) -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(client));
   }
 
   public Configuration config() {

@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import org.astraea.common.Utils;
 import org.astraea.common.balancer.AlgorithmConfig;
@@ -67,6 +68,14 @@ public class SingleStepBalancer implements Balancer {
             .regexString(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX)
             .map(Pattern::asMatchPredicate)
             .orElse((ignore) -> true);
+    final var allowedBrokers =
+        config
+            .balancerConfig()
+            .regexString(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX)
+            .map(Pattern::asMatchPredicate)
+            .<Predicate<Integer>>map(
+                predicate -> (brokerId) -> predicate.test(Integer.toString(brokerId)))
+            .orElse((ignore) -> true);
 
     final var currentClusterInfo = config.clusterInfo();
     final var clusterBean = config.clusterBean();
@@ -74,6 +83,7 @@ public class SingleStepBalancer implements Balancer {
         ShuffleTweaker.builder()
             .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(minStep, maxStep))
             .allowedTopics(allowedTopics)
+            .allowedBrokers(allowedBrokers)
             .build();
     final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
@@ -86,6 +96,11 @@ public class SingleStepBalancer implements Balancer {
         .parallel()
         .limit(iteration)
         .takeWhile(ignored -> System.currentTimeMillis() - start <= config.timeout().toMillis())
+        .filter(
+            newAllocation ->
+                !moveCostFunction
+                    .moveCost(currentClusterInfo, newAllocation, clusterBean)
+                    .overflow())
         .map(
             newAllocation ->
                 new Plan(
@@ -93,10 +108,8 @@ public class SingleStepBalancer implements Balancer {
                     config.clusterInfo(),
                     currentCost,
                     newAllocation,
-                    clusterCostFunction.clusterCost(newAllocation, clusterBean),
-                    moveCostFunction.moveCost(currentClusterInfo, newAllocation, clusterBean)))
-        .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
-        .filter(plan -> config.movementConstraint().test(plan.moveCost()))
+                    clusterCostFunction.clusterCost(newAllocation, clusterBean)))
+        .filter(plan -> plan.proposalClusterCost().value() < currentCost.value())
         .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()));
   }
 }

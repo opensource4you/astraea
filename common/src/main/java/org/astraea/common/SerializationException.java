@@ -16,23 +16,12 @@
  */
 package org.astraea.common;
 
-import java.util.List;
-import java.util.Spliterators;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-import org.apache.kafka.common.header.Headers;
-
-public record Header(String key, byte[] value) {
-  public static List<Header> of(Headers headers) {
-    var iter = headers.iterator();
-    // a minor optimization to avoid create extra collection.
-    if (!iter.hasNext()) return List.of();
-    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iter, 0), false)
-        .map(h -> new Header(h.key(), h.value()))
-        .collect(Collectors.toUnmodifiableList());
+public class SerializationException extends IllegalArgumentException {
+  public SerializationException(Exception ex) {
+    super(ex);
   }
 
-  public static Header of(String key, byte[] value) {
-    return new Header(key, value);
+  public SerializationException(String message) {
+    super(message);
   }
 }
