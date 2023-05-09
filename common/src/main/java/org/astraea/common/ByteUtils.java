@@ -21,11 +21,13 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Config;
 import org.astraea.common.admin.NodeInfo;
@@ -185,14 +187,60 @@ public final class ByteUtils {
   public static byte[] toBytes(ClusterInfo value) {
     return ClusterInfoOuterClass.ClusterInfo.newBuilder()
         .setClusterId(value.clusterId())
-        .addAllNodeInfo(
-            value.nodes().stream()
+        .addAllBroker(
+            value.brokers().stream()
                 .map(
-                    nodeInfo ->
-                        ClusterInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()
-                            .setId(nodeInfo.id())
-                            .setHost(nodeInfo.host())
-                            .setPort(nodeInfo.port())
+                    broker ->
+                        ClusterInfoOuterClass.ClusterInfo.Broker.newBuilder()
+                            .setId(broker.id())
+                            .setHost(broker.host())
+                            .setPort(broker.port())
+                            .setIsController(broker.isController())
+                            .putAllConfig(broker.config().raw())
+                            .addAllDatafolder(
+                                broker.dataFolders().stream()
+                                    .map(
+                                        dataFolder ->
+                                            ClusterInfoOuterClass.ClusterInfo.Broker.Datafolder
+                                                .newBuilder()
+                                                .setPath(dataFolder.path())
+                                                .putAllPartitionSizes(
+                                                    dataFolder.partitionSizes().entrySet().stream()
+                                                        .collect(
+                                                            Collectors.toMap(
+                                                                entry -> entry.getKey().toString(),
+                                                                Map.Entry::getValue)))
+                                                .putAllOrphanPartitionSizes(
+                                                    dataFolder
+                                                        .orphanPartitionSizes()
+                                                        .entrySet()
+                                                        .stream()
+                                                        .collect(
+                                                            Collectors.toMap(
+                                                                entry -> entry.getKey().toString(),
+                                                                Map.Entry::getValue)))
+                                                .build())
+                                    .collect(Collectors.toList()))
+                            .addAllTopicPartitions(
+                                broker.topicPartitions().stream()
+                                    .map(
+                                        tp ->
+                                            ClusterInfoOuterClass.ClusterInfo.Broker.TopicPartition
+                                                .newBuilder()
+                                                .setPartition(tp.partition())
+                                                .setTopic(tp.topic())
+                                                .build())
+                                    .collect(Collectors.toList()))
+                            .addAllTopicPartitionLeaders(
+                                broker.topicPartitionLeaders().stream()
+                                    .map(
+                                        tp ->
+                                            ClusterInfoOuterClass.ClusterInfo.Broker.TopicPartition
+                                                .newBuilder()
+                                                .setPartition(tp.partition())
+                                                .setTopic(tp.topic())
+                                                .build())
+                                    .collect(Collectors.toList()))
                             .build())
                 .collect(Collectors.toList()))
         .addAllTopic(
@@ -326,9 +374,87 @@ public final class ByteUtils {
       var outerClusterInfo = ClusterInfoOuterClass.ClusterInfo.parseFrom(bytes);
       return ClusterInfo.of(
           outerClusterInfo.getClusterId(),
-          outerClusterInfo.getNodeInfoList().stream()
+          outerClusterInfo.getBrokerList().stream()
               .map(
-                  nodeInfo -> NodeInfo.of(nodeInfo.getId(), nodeInfo.getHost(), nodeInfo.getPort()))
+                  broker ->
+                      new Broker() {
+                        @Override
+                        public boolean isController() {
+                          return broker.getIsController();
+                        }
+
+                        @Override
+                        public Config config() {
+                          return Config.of(broker.getConfigMap());
+                        }
+
+                        @Override
+                        public List<DataFolder> dataFolders() {
+                          return broker.getDatafolderList().stream()
+                              .map(
+                                  datafolder ->
+                                      new DataFolder() {
+                                        @Override
+                                        public String path() {
+                                          return datafolder.getPath();
+                                        }
+
+                                        @Override
+                                        public Map<TopicPartition, Long> partitionSizes() {
+                                          return datafolder
+                                              .getPartitionSizesMap()
+                                              .entrySet()
+                                              .stream()
+                                              .collect(
+                                                  Collectors.toMap(
+                                                      entry -> TopicPartition.of(entry.getKey()),
+                                                      Map.Entry::getValue));
+                                        }
+
+                                        @Override
+                                        public Map<TopicPartition, Long> orphanPartitionSizes() {
+                                          return datafolder
+                                              .getOrphanPartitionSizesMap()
+                                              .entrySet()
+                                              .stream()
+                                              .collect(
+                                                  Collectors.toMap(
+                                                      entry -> TopicPartition.of(entry.getKey()),
+                                                      Map.Entry::getValue));
+                                        }
+                                      })
+                              .collect(Collectors.toList());
+                        }
+
+                        @Override
+                        public Set<TopicPartition> topicPartitions() {
+                          return broker.getTopicPartitionsList().stream()
+                              .map(tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
+                              .collect(Collectors.toSet());
+                        }
+
+                        @Override
+                        public Set<TopicPartition> topicPartitionLeaders() {
+                          return broker.getTopicPartitionLeadersList().stream()
+                              .map(tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
+                              .collect(Collectors.toSet());
+                        }
+
+                        @Override
+                        public String host() {
+                          return broker.getHost();
+                        }
+
+                        @Override
+                        public int port() {
+                          return broker.getPort();
+                        }
+
+                        @Override
+                        public int id() {
+                          return broker.getId();
+                        }
+                      })
               .collect(Collectors.toList()),
           outerClusterInfo.getTopicList().stream()
               .map(

@@ -94,9 +94,28 @@ public class ByteUtilsTest {
         var bytes = ByteUtils.toBytes(clusterInfo);
         Assertions.assertDoesNotThrow(() -> ByteUtils.readClusterInfo(bytes));
         var deserializedClusterInfo = ByteUtils.readClusterInfo(bytes);
-
         Assertions.assertEquals(clusterInfo.clusterId(), deserializedClusterInfo.clusterId());
-        Assertions.assertTrue(clusterInfo.nodes().containsAll(deserializedClusterInfo.nodes()));
+        for (var i = 0; i < clusterInfo.brokers().size(); ++i) {
+          var broker = clusterInfo.brokers().get(i);
+          var deserializedBroker = deserializedClusterInfo.brokers().get(i);
+          Assertions.assertEquals(broker.id(), deserializedBroker.id());
+          Assertions.assertEquals(broker.host(), deserializedBroker.host());
+          Assertions.assertEquals(broker.port(), deserializedBroker.port());
+          Assertions.assertEquals(broker.isController(), deserializedBroker.isController());
+          Assertions.assertEquals(broker.config().raw(), deserializedBroker.config().raw());
+          Assertions.assertEquals(broker.topicPartitions(), deserializedBroker.topicPartitions());
+          Assertions.assertEquals(
+              broker.topicPartitionLeaders(), deserializedBroker.topicPartitionLeaders());
+          for (var j = 0; j < broker.dataFolders().size(); ++j) {
+            var dataFolder = broker.dataFolders().get(j);
+            var deserializedDataFolder = deserializedBroker.dataFolders().get(j);
+            Assertions.assertEquals(dataFolder.path(), deserializedDataFolder.path());
+            Assertions.assertEquals(
+                dataFolder.partitionSizes(), deserializedDataFolder.partitionSizes());
+            Assertions.assertEquals(
+                dataFolder.orphanPartitionSizes(), deserializedDataFolder.orphanPartitionSizes());
+          }
+        }
         Assertions.assertEquals(clusterInfo.topics(), deserializedClusterInfo.topics());
         Assertions.assertEquals(clusterInfo.replicas(), deserializedClusterInfo.replicas());
       }
