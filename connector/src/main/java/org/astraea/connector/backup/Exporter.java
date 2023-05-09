@@ -170,7 +170,9 @@ public class Exporter extends SinkConnector {
     private final Map<String, Boolean> topicWithTarget = new HashMap<>();
 
     final ConcurrentHashMap<String, TargetStatus> targetForTopicPartition =
-            new ConcurrentHashMap<>();
+        new ConcurrentHashMap<>();
+
+    private final Map<TopicPartition, Long> seekOffset = new HashMap<>();
 
     //  package public for test
     static class TargetStatus {
@@ -469,13 +471,7 @@ public class Exporter extends SinkConnector {
               .fromJson(configuration.string("targets").orElse("[]"), new TypeRef<>() {});
 
       if (targets.size() > 0) {
-        System.out.println("before updateTargetRangesForTopicPartitions");
         updateTargetRangesForTopicPartitions(targets);
-        System.out.println("---------------");
-        this.targetForTopicPartition.entrySet().forEach(entry -> {
-          var target = entry.getValue();
-          System.out.println("offset target: " + target.targets("offset"));
-        });
       }
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
@@ -488,17 +484,8 @@ public class Exporter extends SinkConnector {
           r ->
               Utils.packException(
                   () -> {
-                    System.out.println("topic: " + r.topic() + ", put offset: " + r.offset());
+                    if (!isValid(r, true)) return;
 
-                    var isV = isValid(r, true);
-                    System.out.println("isValid: " + isV);
-                    if (!isV) {
-                      this.context.requestCommit();
-                      return;
-                    }
-
-                    System.out.println("really put data offset: " + r.offset());
-                    System.out.println("\n");
                     int recordLength =
                         Stream.of(r.key(), r.value())
                             .filter(Objects::nonNull)
@@ -514,6 +501,15 @@ public class Exporter extends SinkConnector {
 
                     this.bufferSize.add(recordLength);
                   }));
+      if (this.seekOffset.size() != 0) {
+        this.seekOffset.forEach(
+            (tp, offset) -> {
+              this.context.offset(
+                  new org.apache.kafka.common.TopicPartition(tp.topic(), tp.partition()), offset);
+              this.seekOffset.remove(tp);
+            });
+        this.context.requestCommit();
+      }
     }
 
     boolean isValid(Record<byte[], byte[]> r) {
@@ -531,29 +527,30 @@ public class Exporter extends SinkConnector {
           // this record is not in the previous valid target range, we should check this offset is
           // valid or not.
 
-          System.out.println("enter offset >= nextInvalidOffset");
-
-
           if (target.isTargetOffset(r.offset())) {
             // we are in 1 of the range, we just update the nextInvalidOffset.
             target.updateNextInvalidOffset(r.offset());
           } else {
             // we are not in the valid target rang, we should seek the next valid offset.
-            System.out.println("enter else in target.isTargetOffset");
             var nextValidOffset = target.nextValidOffset(r.offset());
             if (nextValidOffset != Long.MAX_VALUE) {
-              //todo have to check the max offset of this topic partition before we reset
+              // todo have to check the max offset of this topic partition before we reset
               // the offset.
-              if (contextOperation) this.context.offset(new org.apache.kafka.common.TopicPartition(r.topic(), r.partition())
-                      , nextValidOffset);
+              if (contextOperation) this.seekOffset.put(r.topicPartition(), nextValidOffset);
             } else {
               // subsequent offsets are not within the user-specified range, so ew should stop
               // consuming to avoid consuming more unnecessary data.
+              this.seekOffset.remove(r.topicPartition());
               if (contextOperation) this.context.pause();
             }
             return false;
           }
         }
+      }
+      var seekOffset = this.seekOffset.get(r.topicPartition());
+      if (seekOffset != null) {
+        this.seekOffset.put(
+            r.topicPartition(), Math.max(r.offset() + 1, this.seekOffset.get(r.topicPartition())));
       }
       return true;
     }
