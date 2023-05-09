@@ -16,26 +16,16 @@
  */
 package org.astraea.common.assignor;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 import org.astraea.common.admin.TopicPartition;
 
-public class PossibleAssignments implements Iterable<Map<String, List<TopicPartition>>> {
-  private final Set<Map<String, List<TopicPartition>>> assignments;
+@FunctionalInterface
+public interface Limiter {
+  boolean accept(Map<String, List<TopicPartition>> combinator);
 
-  PossibleAssignments(Set<Map<String, List<TopicPartition>>> assignments) {
-    this.assignments = assignments;
-  }
-
-  @Override
-  public Iterator<Map<String, List<TopicPartition>>> iterator() {
-    return this.assignments.iterator();
-  }
-
-  public Stream<Map<String, List<TopicPartition>>> stream() {
-    return this.assignments.stream();
+  static Limiter of(Set<Limiter> limiters) {
+    return (combinator) -> limiters.stream().allMatch(l -> l.accept(combinator));
   }
 }

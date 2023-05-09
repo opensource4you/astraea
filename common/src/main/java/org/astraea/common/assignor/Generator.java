@@ -16,8 +16,6 @@
  */
 package org.astraea.common.assignor;
 
-import java.time.Duration;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -27,55 +25,41 @@ import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
 public interface Generator {
-  PossibleAssignments produce(Duration time);
 
-  /**
-   * Randomly generate assignments and use the total cost of the consumers to guide the distribution
-   * of the random assignments towards consumers that are more likely to find them useful, thereby
-   * reducing the number of useless assignments.
-   *
-   * @param subscription the subscription of consumer group
-   * @param costs partitions' cost
-   * @return Generator of random assignments
-   */
-  static Generator random(
-      Map<String, SubscriptionInfo> subscription, Map<TopicPartition, Double> costs) {
-    return (t) -> {
-      var result = new HashSet<Map<String, List<TopicPartition>>>();
-      var tmpCost =
-          subscription.keySet().stream()
-              .map(c -> Map.entry(c, 0.0))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      var randomPick =
-          (BiFunction<Map<String, Double>, TopicPartition, String>)
-              (hint, tp) -> {
-                var possibles =
-                    subscription.entrySet().stream()
-                        .filter(e -> e.getValue().topics().contains(tp.topic()))
-                        .map(e -> Map.entry(e.getKey(), hint.get(e.getKey())))
-                        .sorted(Map.Entry.comparingByValue())
-                        .toList();
-                var candidates =
-                    possibles.stream().limit((long) Math.ceil(possibles.size() / 2.0)).toList();
+  Map<String, List<TopicPartition>> get();
 
-                return candidates
-                    .get(ThreadLocalRandom.current().nextInt(candidates.size()))
-                    .getKey();
-              };
-      var start = System.currentTimeMillis();
+  static Generator randomGenerator(
+      Map<String, SubscriptionInfo> subscriptions, Map<TopicPartition, Double> costs) {
+    var randomPick =
+        (BiFunction<Map<String, Double>, TopicPartition, String>)
+            (hint, tp) -> {
+              var possibles =
+                  subscriptions.entrySet().stream()
+                      .filter(e -> e.getValue().topics().contains(tp.topic()))
+                      .map(e -> Map.entry(e.getKey(), hint.get(e.getKey())))
+                      .sorted(Map.Entry.comparingByValue())
+                      .toList();
+              var candidates =
+                  possibles.stream().limit((long) Math.ceil(possibles.size() / 2.0)).toList();
 
-      while (System.currentTimeMillis() - start < t.toMillis()) {
-        result.add(
-            costs.keySet().stream()
-                .map(tp -> Map.entry(randomPick.apply(tmpCost, tp), tp))
-                .collect(
-                    Collectors.groupingBy(
-                        Map.Entry::getKey,
-                        Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList()))));
-        tmpCost.forEach((k, v) -> tmpCost.replace(k, 0.0));
-      }
+              return candidates
+                  .get(ThreadLocalRandom.current().nextInt(candidates.size()))
+                  .getKey();
+            };
+    var tmpCost =
+        subscriptions.keySet().stream()
+            .map(c -> Map.entry(c, 0.0))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-      return new PossibleAssignments(result);
+    return () -> {
+      tmpCost.forEach((k, v) -> tmpCost.replace(k, 0.0));
+
+      return costs.keySet().stream()
+          .map(tp -> Map.entry(randomPick.apply(tmpCost, tp), tp))
+          .collect(
+              Collectors.groupingBy(
+                  Map.Entry::getKey,
+                  Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
     };
   }
 }
