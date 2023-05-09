@@ -208,11 +208,11 @@ public class Exporter extends SinkConnector {
       }
 
       void initRange(String type, Long from, boolean exclude) {
-          var target = this.targets.get(type);
-          if (from == 0) {
-                target.add(from);
-              this.initExclude.put(type, exclude);
-          }
+        var target = this.targets.get(type);
+        if (from == 0) {
+          target.add(from);
+          this.initExclude.put(type, exclude);
+        }
       }
 
       /**
@@ -231,7 +231,7 @@ public class Exporter extends SinkConnector {
         to++;
         var target = this.targets.get(type);
         if (target.isEmpty()) {
-            this.initRange(type, from, !exclude);
+          this.initRange(type, from, !exclude);
         }
 
         int indexBeforeFromShouldBe = 0;
@@ -446,10 +446,8 @@ public class Exporter extends SinkConnector {
               }
             } else {
               this.targetForTopicPartition
-                      .computeIfAbsent(
-                              topic + "-" + partition,
-                              tp -> new TargetStatus()
-                      ).initRange("offset", 0L, false);
+                  .computeIfAbsent(topic + "-" + partition, tp -> new TargetStatus())
+                  .initRange("offset", 0L, false);
             }
           });
     }
@@ -512,11 +510,11 @@ public class Exporter extends SinkConnector {
       if (this.seekOffset.size() != 0) {
         this.seekOffset.forEach(
             (tp, offset) -> {
+              this.context.requestCommit();
               this.context.offset(
                   new org.apache.kafka.common.TopicPartition(tp.topic(), tp.partition()), offset);
               this.seekOffset.remove(tp);
             });
-        this.context.requestCommit();
       }
     }
 
@@ -541,7 +539,7 @@ public class Exporter extends SinkConnector {
           } else {
             // we are not in the valid target rang, we should seek the next valid offset.
             var nextValidOffset = target.nextValidOffset(r.offset());
-            if ( nextValidOffset.isPresent()) {
+            if (nextValidOffset.isPresent()) {
               // todo have to check the max offset of this topic partition before we reset
               // the offset.
               if (contextOperation) this.seekOffset.put(r.topicPartition(), nextValidOffset.get());
@@ -549,7 +547,9 @@ public class Exporter extends SinkConnector {
               // subsequent offsets are not within the user-specified range, so ew should stop
               // consuming to avoid consuming more unnecessary data.
               this.seekOffset.remove(r.topicPartition());
-              if (contextOperation) this.context.pause();
+              if (contextOperation)
+                this.context.pause(
+                    new org.apache.kafka.common.TopicPartition(r.topic(), r.partition()));
             }
             return false;
           }
