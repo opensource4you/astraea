@@ -192,7 +192,7 @@ public class Exporter extends SinkConnector {
       }
 
       TargetStatus(TargetStatus base) {
-        //deep copy the base status
+        // deep copy the base status
         this.targets = new HashMap<>();
         for (Map.Entry<String, List<Long>> entry : base.targets.entrySet()) {
           String key = entry.getKey();

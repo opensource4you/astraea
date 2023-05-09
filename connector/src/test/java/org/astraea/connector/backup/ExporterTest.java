@@ -869,10 +869,8 @@ public class ExporterTest {
         new ArrayList<>(Arrays.asList(0L, 5L, 11L)), targetStatus1.targets("offset"));
     Assertions.assertFalse(targetStatus1.initialExclude("offset"));
 
-    var targetStatus2 =
-        new Exporter.Task.TargetStatus(targetStatus1);
-    var targetStatus3 =
-        new Exporter.Task.TargetStatus(targetStatus1);
+    var targetStatus2 = new Exporter.Task.TargetStatus(targetStatus1);
+    var targetStatus3 = new Exporter.Task.TargetStatus(targetStatus1);
 
     targetStatus1.insertRange("offset", 2L, 7L, true);
     Assertions.assertEquals(
@@ -920,12 +918,7 @@ public class ExporterTest {
                 "test",
                 "range",
                 Map.of("from", "30", "to", "50", "exclude", false, "type", "offset")),
-            Map.of(
-                "topic",
-                "test1",
-                "partition",
-                "0")
-        );
+            Map.of("topic", "test1", "partition", "0"));
 
     configs.put("targets", JsonConverter.jackson().toJson(rangesInConfigs1));
 
@@ -966,8 +959,6 @@ public class ExporterTest {
     Assertions.assertEquals(101L, target0.nextInvalidOffset(10L).orElseThrow());
     Assertions.assertEquals(30L, target0.nextValidOffset(0L).orElseThrow());
     Assertions.assertEquals(30L, target0.nextValidOffset(10L).orElseThrow());
-
-
   }
 
   @Test
