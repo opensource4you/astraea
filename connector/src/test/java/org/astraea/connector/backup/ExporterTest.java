@@ -919,7 +919,13 @@ public class ExporterTest {
                 "topic",
                 "test",
                 "range",
-                Map.of("from", "30", "to", "50", "exclude", false, "type", "offset")));
+                Map.of("from", "30", "to", "50", "exclude", false, "type", "offset")),
+            Map.of(
+                "topic",
+                "test1",
+                "partition",
+                "0")
+        );
 
     configs.put("targets", JsonConverter.jackson().toJson(rangesInConfigs1));
 
@@ -936,6 +942,7 @@ public class ExporterTest {
     var target0 = task.targetForTopicPartition.get("test-0");
     var target1 = task.targetForTopicPartition.get("test-1");
     var targetAll = task.targetForTopicPartition.get("test-all");
+    var targetForTest1 = task.targetForTopicPartition.get("test1-0");
 
     Assertions.assertFalse(target0.initialExclude("offset"));
     Assertions.assertFalse(target1.initialExclude("offset"));
@@ -946,6 +953,7 @@ public class ExporterTest {
     Assertions.assertEquals(
         new ArrayList<>(Arrays.asList(0L, 20L, 30L, 101L)), target1.targets("offset"));
     Assertions.assertEquals(new ArrayList<>(Arrays.asList(0L, 101L)), targetAll.targets("offset"));
+    Assertions.assertEquals(new ArrayList<>(List.of(0L)), targetForTest1.targets("offset"));
 
     Assertions.assertTrue(target0.isTargetOffset(0L));
     Assertions.assertTrue(target0.isTargetOffset(9L));
@@ -954,10 +962,12 @@ public class ExporterTest {
     Assertions.assertFalse(target0.isTargetOffset(29L));
     Assertions.assertFalse(target0.isTargetOffset(101L));
 
-    Assertions.assertEquals(10L, target0.nextInvalidOffset(9L));
-    Assertions.assertEquals(101L, target0.nextInvalidOffset(10L));
-    Assertions.assertEquals(30L, target0.nextValidOffset(0L));
-    Assertions.assertEquals(30L, target0.nextValidOffset(10L));
+    Assertions.assertEquals(10L, target0.nextInvalidOffset(9L).orElseThrow());
+    Assertions.assertEquals(101L, target0.nextInvalidOffset(10L).orElseThrow());
+    Assertions.assertEquals(30L, target0.nextValidOffset(0L).orElseThrow());
+    Assertions.assertEquals(30L, target0.nextValidOffset(10L).orElseThrow());
+
+
   }
 
   @Test

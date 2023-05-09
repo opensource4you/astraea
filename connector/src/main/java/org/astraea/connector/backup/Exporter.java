@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -206,6 +207,14 @@ public class Exporter extends SinkConnector {
         return initStatus;
       }
 
+      void initRange(String type, Long from, boolean exclude) {
+          var target = this.targets.get(type);
+          if (from == 0) {
+                target.add(from);
+              this.initExclude.put(type, exclude);
+          }
+      }
+
       /**
        * Inserts a range of values into the target list for a given type. The range starts from the
        * "from" value (inclusive) and ends at the "to" value (inclusive). If "exclude" is true, the
@@ -222,8 +231,7 @@ public class Exporter extends SinkConnector {
         to++;
         var target = this.targets.get(type);
         if (target.isEmpty()) {
-          target.add(0L);
-          this.initExclude.put(type, !exclude);
+            this.initRange(type, from, !exclude);
         }
 
         int indexBeforeFromShouldBe = 0;
@@ -266,7 +274,7 @@ public class Exporter extends SinkConnector {
       }
 
       void updateNextInvalidOffset(Long offset) {
-        this.nextInvalidOffset = this.nextInvalidOffset(offset);
+        this.nextInvalidOffset = this.nextInvalidOffset(offset).orElse(Long.MAX_VALUE);
       }
 
       Map<String, List<Long>> targets() {
@@ -295,23 +303,21 @@ public class Exporter extends SinkConnector {
       }
 
       // Finds the next valid offset given a current offset
-      Long nextValidOffset(Long currentOffset) {
+      Optional<Long> nextValidOffset(Long currentOffset) {
         // find the next offset in targets.offset which value greater or equal to currentOffset.
         return targets("offset").stream()
             .filter(offset -> offset > currentOffset)
             .filter(
                 offset -> !calStatus(initialExclude("offset"), targets("offset").indexOf(offset)))
-            .findFirst()
-            .orElse(Long.MAX_VALUE);
+            .findFirst();
       }
 
-      Long nextInvalidOffset(Long currentOffset) {
+      Optional<Long> nextInvalidOffset(Long currentOffset) {
         return targets("offset").stream()
             .filter(offset -> offset > currentOffset)
             .filter(
                 offset -> calStatus(initialExclude("offset"), targets("offset").indexOf(offset)))
-            .findFirst()
-            .orElse(Long.MAX_VALUE);
+            .findFirst();
       }
     }
 
@@ -438,6 +444,12 @@ public class Exporter extends SinkConnector {
                 this.targetForTopicPartition.forEach(
                     (key, value) -> value.insertRange(type, from, to, exclude));
               }
+            } else {
+              this.targetForTopicPartition
+                      .computeIfAbsent(
+                              topic + "-" + partition,
+                              tp -> new TargetStatus()
+                      ).initRange("offset", 0L, false);
             }
           });
     }
@@ -529,10 +541,10 @@ public class Exporter extends SinkConnector {
           } else {
             // we are not in the valid target rang, we should seek the next valid offset.
             var nextValidOffset = target.nextValidOffset(r.offset());
-            if (nextValidOffset != Long.MAX_VALUE) {
+            if ( nextValidOffset.isPresent()) {
               // todo have to check the max offset of this topic partition before we reset
               // the offset.
-              if (contextOperation) this.seekOffset.put(r.topicPartition(), nextValidOffset);
+              if (contextOperation) this.seekOffset.put(r.topicPartition(), nextValidOffset.get());
             } else {
               // subsequent offsets are not within the user-specified range, so ew should stop
               // consuming to avoid consuming more unnecessary data.
