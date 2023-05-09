@@ -127,15 +127,15 @@ public class MigrationCost {
                         brokerSize.getValue() / brokerOutRate.get(brokerSize.getKey()).orElse(0)))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
+        .map(NodeInfo::id)
         .distinct()
         .map(
-            nodeInfo ->
+            nodeId ->
                 Map.entry(
-                    nodeInfo.id(),
+                    nodeId,
                     (long)
                         Math.max(
-                            brokerMigrateInTime.get(nodeInfo.id()),
-                            brokerMigrateOutTime.get(nodeInfo.id()))))
+                            brokerMigrateInTime.get(nodeId), brokerMigrateOutTime.get(nodeId))))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
