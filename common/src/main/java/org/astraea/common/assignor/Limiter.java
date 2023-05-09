@@ -26,6 +26,6 @@ public interface Limiter {
   boolean accept(Map<String, List<TopicPartition>> combinator);
 
   static Limiter of(Set<Limiter> limiters) {
-    return (combinator) -> limiters.stream().allMatch(l -> l.accept(combinator));
+    return (combinator) -> limiters.stream().anyMatch(l -> l.accept(combinator));
   }
 }
