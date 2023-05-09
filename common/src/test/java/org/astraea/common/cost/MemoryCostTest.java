@@ -53,8 +53,7 @@ public class MemoryCostTest {
   @Test
   void testSensor() {
     var f = new MemoryCost();
-    var clusterBean =
-        MetricsTestUtils.clusterBean(Map.of(0, JndiClient.local()), f.metricSensor().get());
+    var clusterBean = MetricsTestUtils.clusterBean(Map.of(0, JndiClient.local()), f.metricSensor());
     Assertions.assertTrue(clusterBean.brokerMetrics(0, JvmMemory.class).allMatch(Objects::nonNull));
 
     // Test if we can get "used memory" and "max memory".

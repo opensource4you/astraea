@@ -24,7 +24,7 @@ if [[ "$VERSION" == "main" ]]; then
   declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/app:latest"
 else
   declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/app:$VERSION"
-fi  
+fi
 declare -r DOCKERFILE=$DOCKER_FOLDER/app.dockerfile
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
 # for web service
@@ -32,6 +32,7 @@ declare -r WEB_PORT=${WEB_PORT:-"$(getRandomPort)"}
 declare -r JMX_OPTS="-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false \
                      -Dcom.sun.management.jmxremote.port=$JMX_PORT -Dcom.sun.management.jmxremote.rmi.port=$JMX_PORT -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
+declare -r BACKGROUND="${BACKGROUND:-"false"}"
 # ===================================[functions]===================================
 
 function showHelp() {
@@ -84,10 +85,8 @@ function runContainer() {
 
   # web service needs to bind a port to expose Restful APIs, so we have to open a port of container
   local need_to_bind_web=""
-  local background=""
   local sentence=($args)
   if [[ "$args" == web* ]]; then
-    background="-d"
     defined_port="false"
     # use random port by default
     web_port="$WEB_PORT"
@@ -129,6 +128,11 @@ function runContainer() {
       defined_file="false"
     fi
   done
+
+  local background=""
+  if [[ "$BACKGROUND" == "true" ]]; then
+    background="-d"
+  fi
 
   docker run --rm --init \
     $background \

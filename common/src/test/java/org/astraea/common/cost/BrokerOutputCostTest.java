@@ -80,8 +80,7 @@ public class BrokerOutputCostTest {
     }
 
     var f = new BrokerOutputCost();
-    var clusterBean =
-        MetricsTestUtils.clusterBean(Map.of(0, JndiClient.local()), f.metricSensor().get());
+    var clusterBean = MetricsTestUtils.clusterBean(Map.of(0, JndiClient.local()), f.metricSensor());
 
     Assertions.assertNotEquals(
         0, clusterBean.brokerMetrics(0, ServerMetrics.BrokerTopic.Meter.class).count());

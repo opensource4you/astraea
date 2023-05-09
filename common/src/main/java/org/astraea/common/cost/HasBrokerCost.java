@@ -18,8 +18,6 @@ package org.astraea.common.cost;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -34,12 +32,7 @@ public interface HasBrokerCost extends CostFunction {
     // TODO: should we propagate the exception by better way? For example: Slf4j ?
     // see https://github.com/skiptests/astraea/issues/486
     var sensor =
-        MetricSensor.of(
-            costAndWeight.keySet().stream()
-                .map(CostFunction::metricSensor)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(Collectors.toUnmodifiableList()));
+        MetricSensor.of(costAndWeight.keySet().stream().map(CostFunction::metricSensor).toList());
     return new HasBrokerCost() {
       @Override
       public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -59,7 +52,7 @@ public interface HasBrokerCost extends CostFunction {
       }
 
       @Override
-      public Optional<MetricSensor> metricSensor() {
+      public MetricSensor metricSensor() {
         return sensor;
       }
 

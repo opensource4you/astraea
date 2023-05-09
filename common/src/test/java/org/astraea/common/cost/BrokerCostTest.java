@@ -17,7 +17,7 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
-import java.util.Optional;
+import org.astraea.common.metrics.collector.MetricSensor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +27,7 @@ public class BrokerCostTest {
   void testEmpty() {
     var empty = HasBrokerCost.EMPTY;
     Assertions.assertEquals(0, empty.brokerCost(null, null).value().size());
-    Assertions.assertEquals(Optional.empty(), empty.metricSensor());
+    Assertions.assertEquals(MetricSensor.EMPTY, empty.metricSensor());
     Assertions.assertEquals(HasBrokerCost.EMPTY, empty);
   }
 

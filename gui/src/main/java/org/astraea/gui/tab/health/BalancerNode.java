@@ -109,11 +109,12 @@ class BalancerNode {
     return List.copyOf(map.values());
   }
 
-  static List<Map<String, Object>> assignmentResult(ClusterInfo clusterInfo, Balancer.Plan plan) {
-    return ClusterInfo.findNonFulfilledAllocation(clusterInfo, plan.proposal()).stream()
+  static List<Map<String, Object>> assignmentResult(Balancer.Plan plan) {
+    return ClusterInfo.findNonFulfilledAllocation(plan.initialClusterInfo(), plan.proposal())
+        .stream()
         .map(
             tp -> {
-              var previousAssignments = clusterInfo.replicas(tp);
+              var previousAssignments = plan.initialClusterInfo().replicas(tp);
               var newAssignments = plan.proposal().replicas(tp);
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, tp.topic());
@@ -216,42 +217,42 @@ class BalancerNode {
                                       .collect(Collectors.joining("|", "(", ")")))
                           .orElse(".*");
                   logger.log("searching better assignments ... ");
-                  return Map.entry(
-                      clusterInfo,
-                      Utils.construct(
-                              GreedyBalancer.class,
-                              Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
-                          .offer(
-                              AlgorithmConfig.builder()
-                                  .clusterInfo(clusterInfo)
-                                  .clusterBean(ClusterBean.EMPTY)
-                                  .timeout(Duration.ofSeconds(10))
-                                  .clusterCost(
-                                      HasClusterCost.of(clusterCosts(argument.selectedKeys())))
-                                  .moveCost(
-                                      HasMoveCost.of(
-                                          List.of(
-                                              new ReplicaLeaderSizeCost(),
-                                              new ReplicaLeaderCost())))
-                                  .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, pattern)
-                                  .build()));
+                  return Utils.construct(
+                          GreedyBalancer.class,
+                          Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
+                      .offer(
+                          AlgorithmConfig.builder()
+                              .clusterInfo(clusterInfo)
+                              .clusterBean(ClusterBean.EMPTY)
+                              .timeout(Duration.ofSeconds(10))
+                              .clusterCost(HasClusterCost.of(clusterCosts(argument.selectedKeys())))
+                              .moveCost(
+                                  HasMoveCost.of(
+                                      List.of(
+                                          new ReplicaLeaderSizeCost(), new ReplicaLeaderCost())))
+                              .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, pattern)
+                              .build());
                 })
             .thenApply(
-                entry -> {
-                  entry.getValue().ifPresent(LAST_PLAN::set);
+                optionalPlan -> {
+                  optionalPlan.ifPresent(LAST_PLAN::set);
                   var result =
-                      entry
-                          .getValue()
+                      optionalPlan
                           .map(
                               plan ->
                                   Map.of(
                                       "assignment",
-                                      assignmentResult(entry.getKey(), plan),
+                                      assignmentResult(plan),
                                       "cost",
                                       costResult(plan)))
                           .orElse(Map.of());
                   if (result.isEmpty()) logger.log("there is no better assignments");
-                  else logger.log("find a better assignments!!!!");
+                  else
+                    logger.log(
+                        "find a plan with improvement from "
+                            + optionalPlan.get().initialClusterCost().value()
+                            + " to "
+                            + optionalPlan.get().proposalClusterCost().value());
                   return result;
                 });
   }
