@@ -259,7 +259,6 @@ public class BalancerHandlerTest {
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
-                      .clusterConstraint((before, after) -> after.value() <= before.value())
                       .moveCost(moveCostFunction)
                       .build());
       Assertions.assertNotEquals(Optional.empty(), Best);
@@ -275,7 +274,6 @@ public class BalancerHandlerTest {
                           .clusterBean(ClusterBean.EMPTY)
                           .timeout(Duration.ofSeconds(3))
                           .clusterCost(clusterCostFunction)
-                          .clusterConstraint((before, after) -> true)
                           .config("iteration", "0")
                           .moveCost(moveCostFunction)
                           .build()));
@@ -294,7 +292,6 @@ public class BalancerHandlerTest {
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
-                      .clusterConstraint((before, after) -> false)
                       .moveCost(moveCostFunction)
                       .build()));
 
@@ -308,7 +305,6 @@ public class BalancerHandlerTest {
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
-                      .clusterConstraint((before, after) -> true)
                       .moveCost(failMoveCostFunction)
                       .build()));
     }
