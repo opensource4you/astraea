@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -30,12 +29,12 @@ import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.BrokerTopic;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.utils.ClusterInfoSensor;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.LogMetrics;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -191,20 +190,19 @@ public abstract class NetworkCost implements HasClusterCost {
   }
 
   @Override
-  public Optional<MetricSensor> metricSensor() {
+  public MetricSensor metricSensor() {
     // TODO: We need a reliable way to access the actual current cluster info. To do that we need to
     //  obtain the replica info, so we intentionally sample log size but never use it.
     //  https://github.com/skiptests/astraea/pull/1240#discussion_r1044487473
-    return Optional.of(
-        (client, clusterBean) ->
-            Stream.of(
-                    List.of(HostMetrics.jvmMemory(client)),
-                    ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
-                    ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client),
-                    LogMetrics.Log.SIZE.fetch(client),
-                    clusterInfoSensor.fetch(client, clusterBean))
-                .flatMap(Collection::stream)
-                .collect(Collectors.toUnmodifiableList()));
+    return (client, clusterBean) ->
+        Stream.of(
+                List.of(HostMetrics.jvmMemory(client)),
+                ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
+                ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client),
+                LogMetrics.Log.SIZE.fetch(client),
+                clusterInfoSensor.fetch(client, clusterBean))
+            .flatMap(Collection::stream)
+            .toList();
   }
 
   private Map<BrokerTopic, List<Replica>> mapLeaderAllocation(ClusterInfo clusterInfo) {

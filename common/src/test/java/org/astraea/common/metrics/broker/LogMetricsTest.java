@@ -25,8 +25,8 @@ import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.HasBeanObject;
-import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.MetricsTestUtil;
+import org.astraea.common.metrics.JndiClient;
+import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -56,7 +56,7 @@ public class LogMetricsTest {
     var topicName = Utils.randomString(10);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var beans =
-          log.fetch(MBeanClient.local()).stream()
+          log.fetch(JndiClient.local()).stream()
               .collect(Collectors.groupingBy(LogMetrics.LogCleanerManager.Gauge::path));
       Assertions.assertEquals(
           SERVICE.dataFolders().values().stream().flatMap(Collection::stream).distinct().count(),
@@ -79,7 +79,7 @@ public class LogMetricsTest {
       admin.creator().topic(topicName).numberOfPartitions(2).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var beans =
-          log.fetch(MBeanClient.local()).stream()
+          log.fetch(JndiClient.local()).stream()
               .filter(m -> m.topic().equals(topicName))
               .collect(Collectors.toUnmodifiableList());
       Assertions.assertEquals(2, beans.size());
@@ -93,10 +93,10 @@ public class LogMetricsTest {
   @ParameterizedTest
   @EnumSource(LogMetrics.Log.class)
   void testValue(LogMetrics.Log log) {
-    log.fetch(MBeanClient.local())
+    log.fetch(JndiClient.local())
         .forEach(
             m -> {
-              MetricsTestUtil.validate(m);
+              MetricsTestUtils.validate(m);
               Assertions.assertEquals(m.type(), log);
             });
   }
@@ -130,13 +130,13 @@ public class LogMetricsTest {
     // wait for topic creation
     Utils.sleep(Duration.ofSeconds(2));
 
-    var beans = request.fetch(MBeanClient.local());
+    var beans = request.fetch(JndiClient.local());
     assertNotEquals(0, beans.size());
   }
 
   @Test
   void testAllEnumNameUnique() {
     Assertions.assertTrue(
-        MetricsTestUtil.metricDistinct(LogMetrics.Log.values(), LogMetrics.Log::metricName));
+        MetricsTestUtils.metricDistinct(LogMetrics.Log.values(), LogMetrics.Log::metricName));
   }
 }

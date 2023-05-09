@@ -19,14 +19,12 @@ package org.astraea.common.cost;
 import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.metrics.collector.MetricSensor;
+import org.astraea.common.metrics.ClusterBean;
 
 /**
  * PartitionCost: more replica log size -> higher partition score BrokerCost: more replica log size
@@ -49,14 +47,6 @@ public class ReplicaLeaderSizeCost
   }
 
   private final Dispersion dispersion = Dispersion.cov();
-
-  /**
-   * @return the metrics getters. Those getters are used to fetch mbeans.
-   */
-  @Override
-  public Optional<MetricSensor> metricSensor() {
-    return Optional.empty();
-  }
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {

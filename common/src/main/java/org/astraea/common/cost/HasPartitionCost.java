@@ -18,12 +18,11 @@ package org.astraea.common.cost;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 @FunctionalInterface
@@ -33,12 +32,7 @@ public interface HasPartitionCost extends CostFunction {
 
   static HasPartitionCost of(Map<HasPartitionCost, Double> costAndWeight) {
     var sensor =
-        MetricSensor.of(
-            costAndWeight.keySet().stream()
-                .map(CostFunction::metricSensor)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(Collectors.toUnmodifiableList()));
+        MetricSensor.of(costAndWeight.keySet().stream().map(CostFunction::metricSensor).toList());
     return new HasPartitionCost() {
       @Override
       public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
@@ -82,7 +76,7 @@ public interface HasPartitionCost extends CostFunction {
       }
 
       @Override
-      public Optional<MetricSensor> metricSensor() {
+      public MetricSensor metricSensor() {
         return sensor;
       }
 

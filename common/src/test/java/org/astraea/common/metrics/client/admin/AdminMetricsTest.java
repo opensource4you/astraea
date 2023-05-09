@@ -19,7 +19,7 @@ package org.astraea.common.metrics.client.admin;
 import java.time.Duration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
@@ -41,7 +41,7 @@ public class AdminMetricsTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
-      var metrics = AdminMetrics.node(MBeanClient.local());
+      var metrics = AdminMetrics.node(JndiClient.local());
       Assertions.assertNotEquals(1, metrics.size());
       Assertions.assertTrue(
           metrics.stream()
@@ -73,7 +73,7 @@ public class AdminMetricsTest {
       admin.creator().topic(topic).numberOfPartitions(3).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       var metrics =
-          AdminMetrics.admin(MBeanClient.local()).stream()
+          AdminMetrics.admin(JndiClient.local()).stream()
               .filter(m -> m.clientId().equals(admin.clientId()))
               .findFirst()
               .get();

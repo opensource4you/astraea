@@ -34,7 +34,7 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
    * use {@link Record#builder()} or {@link SourceRecord#builder()} to construct the returned
    * records
    */
-  protected abstract Collection<Record<byte[], byte[]>> take() throws InterruptedException;
+  protected abstract Collection<SourceRecord> take() throws InterruptedException;
 
   protected void commit(Metadata metadata) throws InterruptedException {
     // empty
@@ -62,28 +62,20 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
     if (records == null || records.isEmpty()) return null;
     return records.stream()
         .map(
-            r -> {
-              Map<String, ?> sp = null;
-              Map<String, ?> so = null;
-              if (r instanceof SourceRecord) {
-                var sr = (SourceRecord) r;
-                if (!sr.metadataIndex().isEmpty()) sp = sr.metadataIndex();
-                if (!sr.metadata().isEmpty()) so = sr.metadata();
-              }
-              return new org.apache.kafka.connect.source.SourceRecord(
-                  sp,
-                  so,
-                  r.topic(),
-                  r.partition().orElse(null),
-                  r.key() == null ? null : Schema.BYTES_SCHEMA,
-                  r.key(),
-                  r.value() == null ? null : Schema.BYTES_SCHEMA,
-                  r.value(),
-                  r.timestamp().orElse(null),
-                  r.headers().stream()
-                      .map(h -> new HeaderImpl(h.key(), null, h.value()))
-                      .collect(Collectors.toList()));
-            })
+            r ->
+                new org.apache.kafka.connect.source.SourceRecord(
+                    r.metadataIndex(),
+                    r.metadata(),
+                    r.topic(),
+                    r.partition().orElse(null),
+                    r.key() == null ? null : Schema.BYTES_SCHEMA,
+                    r.key(),
+                    r.value() == null ? null : Schema.BYTES_SCHEMA,
+                    r.value(),
+                    r.timestamp().orElse(null),
+                    r.headers().stream()
+                        .map(h -> new HeaderImpl(h.key(), null, h.value()))
+                        .collect(Collectors.toList())))
         .collect(Collectors.toList());
   }
 

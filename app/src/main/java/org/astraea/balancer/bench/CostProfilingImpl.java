@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
@@ -31,6 +30,7 @@ import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MoveCost;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
@@ -97,7 +97,7 @@ class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
                   }
 
                   @Override
-                  public Optional<MetricSensor> metricSensor() {
+                  public MetricSensor metricSensor() {
                     return costFunction.metricSensor();
                   }
 
@@ -120,7 +120,7 @@ class CostProfilingImpl implements BalancerBenchmark.CostProfilingBuilder {
                   }
 
                   @Override
-                  public Optional<MetricSensor> metricSensor() {
+                  public MetricSensor metricSensor() {
                     return moveCostFunction.metricSensor();
                   }
 

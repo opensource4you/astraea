@@ -18,6 +18,7 @@ package org.astraea.common.balancer.tweakers;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -27,9 +28,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartitionReplica;
 
 /**
  * The {@link ShuffleTweaker} proposes a new log placement based on the current log placement, but
@@ -48,10 +48,15 @@ public class ShuffleTweaker {
 
   private final Supplier<Integer> numberOfShuffle;
   private final Predicate<String> allowedTopics;
+  private final Predicate<Integer> allowedBrokers;
 
-  public ShuffleTweaker(Supplier<Integer> numberOfShuffle, Predicate<String> allowedTopics) {
+  public ShuffleTweaker(
+      Supplier<Integer> numberOfShuffle,
+      Predicate<String> allowedTopics,
+      Predicate<Integer> allowedBrokers) {
     this.numberOfShuffle = numberOfShuffle;
     this.allowedTopics = allowedTopics;
+    this.allowedBrokers = allowedBrokers;
   }
 
   public static Builder builder() {
@@ -62,74 +67,120 @@ public class ShuffleTweaker {
     // There is no broker
     if (baseAllocation.nodes().isEmpty()) return Stream.of();
 
-    // No non-ignored topic to working on.
-    if (baseAllocation.topicPartitions().isEmpty()) return Stream.of();
+    // No replica to working on.
+    if (baseAllocation.replicas().size() == 0) return Stream.of();
 
-    // Only one broker & one folder exists, unable to do any log migration
+    // Only one broker & one folder exists, unable to do any meaningful log migration
     if (baseAllocation.nodes().size() == 1
         && baseAllocation.brokerFolders().values().stream().findFirst().orElseThrow().size() == 1)
       return Stream.of();
 
+    final var legalReplicas =
+        baseAllocation.topicPartitions().stream()
+            .filter(tp -> this.allowedTopics.test(tp.topic()))
+            .filter(tp -> eligiblePartition(baseAllocation.replicas(tp)))
+            .flatMap(baseAllocation::replicaStream)
+            .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
+            .collect(Collectors.toUnmodifiableList());
+
     return Stream.generate(
         () -> {
           final var shuffleCount = numberOfShuffle.get();
-          final var partitionOrder =
-              baseAllocation.topicPartitions().stream()
-                  .filter(tp -> this.allowedTopics.test(tp.topic()))
-                  .map(tp -> Map.entry(tp, ThreadLocalRandom.current().nextInt()))
+          final var replicaOrder =
+              legalReplicas.stream()
+                  .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
                   .sorted(Map.Entry.comparingByValue())
                   .map(Map.Entry::getKey)
                   .collect(Collectors.toUnmodifiableList());
+          final var forbiddenReplica = new HashSet<TopicPartitionReplica>();
 
-          final var finalCluster = ClusterInfoBuilder.builder(baseAllocation);
-          for (int i = 0, shuffled = 0; i < partitionOrder.size() && shuffled < shuffleCount; i++) {
-            final var tp = partitionOrder.get(i);
-            if (!eligiblePartition(baseAllocation.replicas(tp))) continue;
-            switch (Operation.random()) {
-              case LEADERSHIP_CHANGE:
-                {
-                  // change leader/follower identity
-                  var replica =
+          final var finalCluster = ClusterInfo.builder(baseAllocation);
+          for (int i = 0, shuffled = 0; i < replicaOrder.size() && shuffled < shuffleCount; i++) {
+            final var sourceReplica = replicaOrder.get(i);
+
+            // the leadership change operation will not only affect source target but also the
+            // target replica. To prevent mutating one replica twice in the tweaking loop. We have
+            // to mandatory exclude the target replica since it has been touched in this tweak.
+            // Tweaking a replica twice is meaningless and incompatible with the design of
+            // ClusterInfoBuilder.
+            if (forbiddenReplica.contains(sourceReplica.topicPartitionReplica())) continue;
+
+            Supplier<Boolean> leadershipChange =
+                () -> {
+                  var targetReplica =
                       baseAllocation
-                          .replicaStream(tp)
-                          .filter(Replica::isFollower)
+                          .replicaStream(sourceReplica.topicPartition())
+                          // leader pair follower, follower pair leader
+                          .filter(r -> r.isFollower() != sourceReplica.isFollower())
+                          // this follower is located at allowed broker
+                          .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
+                          // not forbidden
+                          .filter(r -> !forbiddenReplica.contains(r.topicPartitionReplica()))
                           .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
                           .min(Map.Entry.comparingByValue())
                           .map(Map.Entry::getKey);
-                  if (replica.isPresent()) {
-                    finalCluster.setPreferredLeader(replica.get().topicPartitionReplica());
-                    shuffled++;
+
+                  // allowed broker filter might cause no legal exchange target
+                  if (targetReplica.isPresent()) {
+                    var theFollower =
+                        sourceReplica.isFollower() ? sourceReplica : targetReplica.orElseThrow();
+                    finalCluster.setPreferredLeader(theFollower.topicPartitionReplica());
+
+                    forbiddenReplica.add(sourceReplica.topicPartitionReplica());
+                    forbiddenReplica.add(targetReplica.orElseThrow().topicPartitionReplica());
+
+                    return true;
+                  } else {
+                    return false;
                   }
-                  break;
-                }
-              case REPLICA_LIST_CHANGE:
-                {
-                  // change replica list
-                  var replicaList = baseAllocation.replicas(tp);
-                  var currentIds =
-                      replicaList.stream()
-                          .map(Replica::nodeInfo)
-                          .map(NodeInfo::id)
-                          .collect(Collectors.toUnmodifiableSet());
-                  var broker =
+                };
+            Supplier<Boolean> replicaListChange =
+                () -> {
+                  var replicaList = baseAllocation.replicas(sourceReplica.topicPartition());
+                  var targetBroker =
                       baseAllocation.brokers().stream()
-                          .filter(b -> !currentIds.contains(b.id()))
+                          // the candidate should not be part of the replica list
+                          .filter(
+                              b -> replicaList.stream().noneMatch(r -> r.nodeInfo().id() == b.id()))
+                          // should be an allowed broker
+                          .filter(b -> this.allowedBrokers.test(b.id()))
                           .map(b -> Map.entry(b, ThreadLocalRandom.current().nextInt()))
                           .min(Map.Entry.comparingByValue())
                           .map(Map.Entry::getKey);
-                  if (broker.isPresent()) {
-                    var replica = randomElement(replicaList);
+
+                  if (targetBroker.isPresent()) {
                     finalCluster.reassignReplica(
-                        replica.topicPartitionReplica(),
-                        broker.get().id(),
-                        randomElement(baseAllocation.brokerFolders().get(broker.get().id())));
-                    shuffled++;
+                        sourceReplica.topicPartitionReplica(),
+                        targetBroker.orElseThrow().id(),
+                        randomElement(
+                            baseAllocation.brokerFolders().get(targetBroker.orElseThrow().id())));
+
+                    forbiddenReplica.add(sourceReplica.topicPartitionReplica());
+                    return true;
+                  } else {
+                    return false;
                   }
-                  break;
-                }
-              default:
-                throw new RuntimeException("Unexpected Condition");
-            }
+                };
+
+            final var isFinished =
+                Operation.randomStream()
+                    .sequential()
+                    .map(
+                        operation -> {
+                          switch (operation) {
+                            case LEADERSHIP_CHANGE:
+                              return leadershipChange.get();
+                            case REPLICA_LIST_CHANGE:
+                              return replicaListChange.get();
+                            default:
+                              throw new RuntimeException("Unexpected Condition: " + operation);
+                          }
+                        })
+                    .filter(finished -> finished)
+                    .findFirst()
+                    .orElse(false);
+
+            shuffled += isFinished ? 1 : 0;
           }
 
           return finalCluster.build();
@@ -163,6 +214,13 @@ public class ShuffleTweaker {
       return OPERATIONS.get(ThreadLocalRandom.current().nextInt(OPERATIONS.size()));
     }
 
+    public static Stream<Operation> randomStream() {
+      return OPERATIONS.stream()
+          .map(x -> Map.entry(x, ThreadLocalRandom.current().nextInt()))
+          .sorted(Map.Entry.comparingByValue())
+          .map(Map.Entry::getKey);
+    }
+
     public static Operation ofAlias(String alias) {
       return EnumInfo.ignoreCaseEnum(Operation.class, alias);
     }
@@ -182,6 +240,7 @@ public class ShuffleTweaker {
 
     private Supplier<Integer> numberOfShuffle = () -> ThreadLocalRandom.current().nextInt(1, 5);
     private Predicate<String> allowedTopics = (name) -> true;
+    private Predicate<Integer> allowedBrokers = (name) -> true;
 
     private Builder() {}
 
@@ -195,8 +254,13 @@ public class ShuffleTweaker {
       return this;
     }
 
+    public Builder allowedBrokers(Predicate<Integer> allowedBrokers) {
+      this.allowedBrokers = allowedBrokers;
+      return this;
+    }
+
     public ShuffleTweaker build() {
-      return new ShuffleTweaker(numberOfShuffle, allowedTopics);
+      return new ShuffleTweaker(numberOfShuffle, allowedTopics, allowedBrokers);
     }
   }
 }

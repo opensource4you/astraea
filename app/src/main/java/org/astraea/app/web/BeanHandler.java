@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 
 public class BeanHandler implements Handler {
   private final Admin admin;
@@ -36,7 +36,7 @@ public class BeanHandler implements Handler {
 
   @Override
   public CompletionStage<Response> get(Channel channel) {
-    var builder = BeanQuery.builder().usePropertyListPattern().properties(channel.queries());
+    var builder = BeanQuery.builder().propertyListPattern(true).properties(channel.queries());
     return admin
         .brokers()
         .thenApply(
@@ -45,8 +45,7 @@ public class BeanHandler implements Handler {
                     brokers.stream()
                         .map(
                             b -> {
-                              try (var client =
-                                  MBeanClient.jndi(b.host(), jmxPorts.apply(b.id()))) {
+                              try (var client = JndiClient.of(b.host(), jmxPorts.apply(b.id()))) {
                                 return new NodeBean(
                                     b.host(),
                                     client.beans(builder.build()).stream()

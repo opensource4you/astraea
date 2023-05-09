@@ -20,11 +20,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -148,12 +147,11 @@ public class LoadCost implements HasBrokerCost {
    * @return the metrics getters. Those getters are used to fetch mbeans.
    */
   @Override
-  public Optional<MetricSensor> metricSensor() {
-    return Optional.of(
-        (client, ignored) ->
-            List.of(
-                ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.fetch(client),
-                ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.fetch(client)));
+  public MetricSensor metricSensor() {
+    return (client, ignored) ->
+        List.of(
+            ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.fetch(client),
+            ServerMetrics.BrokerTopic.BYTES_OUT_PER_SEC.fetch(client));
   }
 
   @Override

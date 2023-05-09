@@ -26,7 +26,7 @@ import javafx.stage.Stage;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.connector.ConnectorClient;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 
 public class Context {
   private final AtomicReference<Admin> adminReference = new AtomicReference<>();
@@ -63,32 +63,32 @@ public class Context {
   }
 
   public void brokerJmxPort(int brokerJmxPort) {
-    if (brokerClients != null) brokerClients.clients.values().forEach(MBeanClient::close);
+    if (brokerClients != null) brokerClients.clients.values().forEach(JndiClient::close);
     brokerClients = new Clients<>(brokerJmxPort);
   }
 
   public void workerJmxPort(int workerJmxPort) {
-    if (workerClients != null) workerClients.clients.values().forEach(MBeanClient::close);
+    if (workerClients != null) workerClients.clients.values().forEach(JndiClient::close);
     workerClients = new Clients<>(workerJmxPort);
   }
 
   @SuppressWarnings("resource")
-  public Map<Integer, MBeanClient> addBrokerClients(List<NodeInfo> nodeInfos) {
+  public Map<Integer, JndiClient> addBrokerClients(List<NodeInfo> nodeInfos) {
     if (brokerClients == null) return Map.of();
     nodeInfos.forEach(
         n ->
             brokerClients.clients.computeIfAbsent(
-                n.id(), ignored -> MBeanClient.jndi(n.host(), brokerClients.jmxPort)));
+                n.id(), ignored -> JndiClient.of(n.host(), brokerClients.jmxPort)));
     return Map.copyOf(brokerClients.clients);
   }
 
   @SuppressWarnings("resource")
-  public Map<String, MBeanClient> addWorkerClients(Set<String> hostnames) {
+  public Map<String, JndiClient> addWorkerClients(Set<String> hostnames) {
     if (workerClients == null) return Map.of();
     hostnames.forEach(
         n ->
             workerClients.clients.computeIfAbsent(
-                n, ignored -> MBeanClient.jndi(n, workerClients.jmxPort)));
+                n, ignored -> JndiClient.of(n, workerClients.jmxPort)));
     return Map.copyOf(workerClients.clients);
   }
 
@@ -104,19 +104,19 @@ public class Context {
     return connectorClient;
   }
 
-  public Map<Integer, MBeanClient> brokerClients() {
+  public Map<Integer, JndiClient> brokerClients() {
     if (brokerClients == null) return Map.of();
     return Map.copyOf(brokerClients.clients);
   }
 
-  public Map<String, MBeanClient> workerClients() {
+  public Map<String, JndiClient> workerClients() {
     if (workerClients == null) return Map.of();
     return Map.copyOf(workerClients.clients);
   }
 
   private static class Clients<T extends Comparable<T>> {
     private final int jmxPort;
-    private final Map<T, MBeanClient> clients = new ConcurrentHashMap<>();
+    private final Map<T, JndiClient> clients = new ConcurrentHashMap<>();
 
     Clients(int jmxPort) {
       this.jmxPort = jmxPort;

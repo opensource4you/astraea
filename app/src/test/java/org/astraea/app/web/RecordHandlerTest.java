@@ -588,7 +588,7 @@ public class RecordHandlerTest {
               .topic(topic)
               .key("astraea".getBytes(UTF_8))
               .value(ByteBuffer.allocate(Integer.BYTES).putInt(100).array())
-              .headers(List.of(Header.of("a", "b".getBytes(UTF_8))))
+              .headers(List.of(new Header("a", "b".getBytes(UTF_8))))
               .timestamp(timestamp)
               .build());
       producer.flush();
@@ -641,7 +641,7 @@ public class RecordHandlerTest {
               .topic(topic)
               .key("astraea".getBytes())
               .value(ByteBuffer.allocate(Integer.BYTES).putInt(100).array())
-              .headers(List.of(Header.of("a", null)))
+              .headers(List.of(new Header("a", null)))
               .timestamp(timestamp)
               .build());
       producer.flush();

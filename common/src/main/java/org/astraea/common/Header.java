@@ -22,31 +22,17 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.header.Headers;
 
-public interface Header {
-  static List<Header> of(Headers headers) {
+public record Header(String key, byte[] value) {
+  public static List<Header> of(Headers headers) {
     var iter = headers.iterator();
     // a minor optimization to avoid create extra collection.
     if (!iter.hasNext()) return List.of();
     return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iter, 0), false)
-        .map(h -> of(h.key(), h.value()))
+        .map(h -> new Header(h.key(), h.value()))
         .collect(Collectors.toUnmodifiableList());
   }
 
-  static Header of(String key, byte[] value) {
-    return new Header() {
-      @Override
-      public String key() {
-        return key;
-      }
-
-      @Override
-      public byte[] value() {
-        return value;
-      }
-    };
+  public static Header of(String key, byte[] value) {
+    return new Header(key, value);
   }
-
-  String key();
-
-  byte[] value();
 }

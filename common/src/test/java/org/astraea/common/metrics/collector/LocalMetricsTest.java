@@ -21,7 +21,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.astraea.common.Utils;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -42,7 +42,7 @@ public class LocalMetricsTest {
     try (var store =
         MetricStore.builder()
             .beanExpiration(Duration.ofSeconds(1))
-            .localReceiver(() -> CompletableFuture.completedStage(Map.of(-1, MBeanClient.local())))
+            .localReceiver(() -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local())))
             .build()) {
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertNotEquals(0, store.clusterBean().all().size());

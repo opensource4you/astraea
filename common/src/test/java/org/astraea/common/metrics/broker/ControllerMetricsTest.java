@@ -20,8 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.Locale;
-import org.astraea.common.metrics.MBeanClient;
-import org.astraea.common.metrics.MetricsTestUtil;
+import org.astraea.common.metrics.JndiClient;
+import org.astraea.common.metrics.MetricsTestUtils;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -47,8 +47,8 @@ class ControllerMetricsTest {
   @ParameterizedTest
   @EnumSource(ControllerMetrics.Controller.class)
   void testController(ControllerMetrics.Controller controller) {
-    var gauge = controller.fetch(MBeanClient.local());
-    MetricsTestUtil.validate(gauge);
+    var gauge = controller.fetch(JndiClient.local());
+    MetricsTestUtils.validate(gauge);
     Assertions.assertEquals(controller, gauge.type());
   }
 

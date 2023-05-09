@@ -32,10 +32,10 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.backup.RecordReader;
 import org.astraea.common.backup.RecordWriter;
-import org.astraea.common.producer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
+import org.astraea.connector.SourceRecord;
 import org.astraea.connector.SourceTask;
 import org.astraea.fs.FileSystem;
 import org.astraea.fs.Type;
@@ -158,21 +158,21 @@ public class Importer extends SourceConnector {
     }
 
     @Override
-    protected Collection<Record<byte[], byte[]>> take() {
+    protected Collection<SourceRecord> take() {
       if (paths.isEmpty()) {
         paths = getFileSet(addedPaths, rootDir, tasksCount, fileSet);
       }
       addedPaths.addAll(paths);
       var currentPath = ((LinkedList<String>) paths).poll();
       if (currentPath != null) {
-        var records = new ArrayList<Record<byte[], byte[]>>();
+        var records = new ArrayList<SourceRecord>();
         var inputStream = Client.read(currentPath);
         var reader = RecordReader.builder(inputStream).build();
         while (reader.hasNext()) {
           var record = reader.next();
           if (record.key() == null && record.value() == null) continue;
           records.add(
-              Record.builder()
+              SourceRecord.builder()
                   .topic(record.topic())
                   .partition(record.partition())
                   .key(record.key())
@@ -181,7 +181,7 @@ public class Importer extends SourceConnector {
                   .headers(record.headers())
                   .build());
         }
-        Utils.packException(inputStream::close);
+        Utils.close(inputStream);
         switch (cleanSource) {
           case "archive":
             var archiveInput = Client.read(currentPath);
@@ -196,7 +196,7 @@ public class Importer extends SourceConnector {
               archiveWriter.append(record);
             }
             archiveWriter.close();
-            Utils.packException(archiveInput::close);
+            Utils.close(archiveInput);
           case "delete":
             Client.delete(currentPath);
           case "off":

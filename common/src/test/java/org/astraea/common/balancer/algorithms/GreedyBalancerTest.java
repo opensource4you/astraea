@@ -22,20 +22,20 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.BalancerConfigTestSuite;
 import org.astraea.common.balancer.FakeClusterInfo;
 import org.astraea.common.cost.DecreasingCost;
 import org.astraea.common.metrics.BeanQuery;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.ClusterBean;
+import org.astraea.common.metrics.JndiClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class GreedyBalancerTest extends BalancerConfigTestSuite {
 
   public GreedyBalancerTest() {
-    super(GreedyBalancer.class);
+    super(GreedyBalancer.class, Configuration.EMPTY);
   }
 
   @Test
@@ -65,7 +65,7 @@ class GreedyBalancerTest extends BalancerConfigTestSuite {
         Utils.construct(
             GreedyBalancer.class, Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "100")));
 
-    try (MBeanClient client = MBeanClient.local()) {
+    try (JndiClient client = JndiClient.local()) {
       IntStream.range(0, 10)
           .forEach(
               run -> {

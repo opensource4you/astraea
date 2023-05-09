@@ -16,6 +16,7 @@
  */
 package org.astraea.common;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.cost.CostFunction;
@@ -295,5 +297,14 @@ public class UtilsTest {
             .config()
             .string("maxMigratedLeader")
             .get());
+  }
+
+  @Test
+  void testClose() {
+    Assertions.assertDoesNotThrow(() -> Utils.close(null));
+    var count = new AtomicInteger();
+    Closeable obj = count::incrementAndGet;
+    Assertions.assertDoesNotThrow(() -> Utils.close(obj));
+    Assertions.assertEquals(1, count.get());
   }
 }

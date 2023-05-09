@@ -24,7 +24,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -33,6 +32,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.cost.NeutralIntegratedCost;
+import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricStore;
 
@@ -124,26 +124,21 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
                 .brokers()
                 .thenApply(
                     brokers -> {
-                      var map = new HashMap<Integer, MBeanClient>();
+                      var map = new HashMap<Integer, JndiClient>();
                       brokers.forEach(
                           b ->
                               map.put(
-                                  b.id(), MBeanClient.jndi(b.host(), jmxPortGetter.apply(b.id()))));
+                                  b.id(), JndiClient.of(b.host(), jmxPortGetter.apply(b.id()))));
                       // add local client to fetch consumer metrics
-                      map.put(-1, MBeanClient.local());
+                      map.put(-1, JndiClient.local());
                       return Collections.unmodifiableMap(map);
                     });
 
-    // put local mbean client first
     metricStore =
         MetricStore.builder()
             .localReceiver(clientSupplier)
             .sensorsSupplier(
-                () ->
-                    this.neutralIntegratedCost
-                        .metricSensor()
-                        .map(s -> Map.of(s, (BiConsumer<Integer, Exception>) (integer, e) -> {}))
-                        .orElse(Map.of()))
+                () -> Map.of(this.neutralIntegratedCost.metricSensor(), (integer, e) -> {}))
             .build();
   }
 

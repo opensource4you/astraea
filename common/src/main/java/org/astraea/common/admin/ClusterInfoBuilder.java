@@ -39,17 +39,9 @@ public class ClusterInfoBuilder {
           BiFunction<List<NodeInfo>, List<Replica>, Map.Entry<List<NodeInfo>, List<Replica>>>>
       alterations;
 
-  private ClusterInfoBuilder(ClusterInfo source) {
+  ClusterInfoBuilder(ClusterInfo source) {
     this.sourceCluster = source;
     this.alterations = new ArrayList<>();
-  }
-
-  public static ClusterInfoBuilder builder() {
-    return builder(ClusterInfo.empty());
-  }
-
-  public static ClusterInfoBuilder builder(ClusterInfo source) {
-    return new ClusterInfoBuilder(source);
   }
 
   /**

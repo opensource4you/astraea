@@ -18,11 +18,11 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
-import org.astraea.common.admin.ClusterBean;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.client.HasNodeMetrics;
+import org.astraea.common.metrics.collector.BeanObjectClient;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -74,9 +74,9 @@ public class NodeThroughputCostTest {
   @Test
   void testSensor() {
     var throughputCost = new NodeThroughputCost();
-    var sensor = throughputCost.metricSensor().get();
+    var sensor = throughputCost.metricSensor();
     var bean = new BeanObject("aaa", Map.of("node-id", "node-1"), Map.of());
-    var client = Mockito.mock(MBeanClient.class);
+    var client = Mockito.mock(BeanObjectClient.class);
     Mockito.when(client.beans(Mockito.any())).thenReturn(List.of(bean));
     var result = sensor.fetch(client, ClusterBean.EMPTY);
     Assertions.assertEquals(1, result.size());

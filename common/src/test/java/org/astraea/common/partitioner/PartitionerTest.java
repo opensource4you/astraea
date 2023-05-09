@@ -39,7 +39,6 @@ import org.astraea.common.Header;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.ClusterInfoBuilder;
 import org.astraea.common.producer.Metadata;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
@@ -106,7 +105,7 @@ public class PartitionerTest {
     partitioner.configure(Map.of("a", "b"));
 
     Assertions.assertEquals(1, count.get());
-    partitioner.partition("t", null, null, ClusterInfoBuilder.builder().build());
+    partitioner.partition("t", null, null, ClusterInfo.builder().build());
     Assertions.assertEquals(2, count.get());
   }
 
@@ -118,7 +117,7 @@ public class PartitionerTest {
     var key = "tainan";
     var value = "shanghai";
     var timestamp = System.currentTimeMillis() + 10;
-    var header = Header.of("a", "b".getBytes());
+    var header = new Header("a", "b".getBytes());
     try (var producer =
         Producer.builder()
             .keySerializer(Serializer.STRING)
@@ -174,7 +173,7 @@ public class PartitionerTest {
     var key = "tainan";
     var value = "shanghai";
     var timestamp = System.currentTimeMillis() + 10;
-    var header = Header.of("a", "b".getBytes());
+    var header = new Header("a", "b".getBytes());
     try (var producer =
         Producer.builder()
             .keySerializer(Serializer.STRING)
