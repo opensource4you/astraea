@@ -961,7 +961,7 @@ public class ExporterTest {
   }
 
   @Test
-  void test() {
+  void testIsValid() {
     var configs = new HashMap<String, String>();
 
     var rangesInConfigs1 =
