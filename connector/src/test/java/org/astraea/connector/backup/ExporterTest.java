@@ -870,9 +870,9 @@ public class ExporterTest {
     Assertions.assertFalse(targetStatus1.initialExclude("offset"));
 
     var targetStatus2 =
-        new Exporter.Task.TargetStatus(targetStatus1.targets(), targetStatus1.initExcludes());
+        new Exporter.Task.TargetStatus(targetStatus1);
     var targetStatus3 =
-        new Exporter.Task.TargetStatus(targetStatus1.targets(), targetStatus1.initExcludes());
+        new Exporter.Task.TargetStatus(targetStatus1);
 
     targetStatus1.insertRange("offset", 2L, 7L, true);
     Assertions.assertEquals(

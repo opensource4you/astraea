@@ -191,15 +191,16 @@ public class Exporter extends SinkConnector {
         this.initExclude = new HashMap<>();
       }
 
-      TargetStatus(Map<String, List<Long>> targets, Map<String, Boolean> initExclude) {
-
+      TargetStatus(TargetStatus base) {
+        //deep copy the base status
         this.targets = new HashMap<>();
-        for (Map.Entry<String, List<Long>> entry : targets.entrySet()) {
+        for (Map.Entry<String, List<Long>> entry : base.targets.entrySet()) {
           String key = entry.getKey();
           List<Long> value = entry.getValue();
           this.targets.put(key, new ArrayList<>(value));
         }
-        this.initExclude = new HashMap<>(initExclude);
+        this.nextInvalidOffset = 0L;
+        this.initExclude = new HashMap<>(base.initExcludes());
       }
 
       private boolean calStatus(boolean initStatus, int index) {
@@ -436,7 +437,7 @@ public class Exporter extends SinkConnector {
                         if (base == null) {
                           return new TargetStatus();
                         }
-                        return new TargetStatus(base.targets(), base.initExcludes());
+                        return new TargetStatus(base);
                       })
                   .insertRange(type, from, to, exclude);
               // If the partition is "all", insert the range into all the TargetStatus
