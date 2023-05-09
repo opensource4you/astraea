@@ -436,11 +436,7 @@ public class Exporter extends SinkConnector {
               // If the partition is "all", insert the range into all the TargetStatus
               if (partition == "all") {
                 this.targetForTopicPartition
-                    .entrySet()
-                    .forEach(
-                        entry -> {
-                          entry.getValue().insertRange(type, from, to, exclude);
-                        });
+                        .forEach((key, value) -> value.insertRange(type, from, to, exclude));
               }
             }
           });
