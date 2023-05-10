@@ -19,7 +19,6 @@ package org.astraea.common;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,43 +47,31 @@ public class UtilsTest {
 
     Assertions.assertEquals(
         100000,
-        Stream.iterate(Utils.shuffledPermutation(items), Iterator::hasNext, i -> i)
-            .map(Iterator::next)
-            .distinct()
-            .count(),
+        Utils.shuffledPermutation(items).stream().distinct().count(),
         "No duplicate element");
     Assertions.assertEquals(
         Set.copyOf(items),
-        Stream.iterate(Utils.shuffledPermutation(items), Iterator::hasNext, i -> i)
-            .map(Iterator::next)
-            .collect(Collectors.toSet()),
+        Utils.shuffledPermutation(items).stream().collect(Collectors.toSet()),
         "No element lost");
     Assertions.assertEquals(
-        100000,
-        Stream.iterate(Utils.shuffledPermutation(items), Iterator::hasNext, i -> i)
-            .map(Iterator::next)
-            .count(),
-        "Size correct");
+        100000, Utils.shuffledPermutation(items).stream().count(), "Size correct");
     Assertions.assertNotEquals(
-        items,
-        Stream.iterate(Utils.shuffledPermutation(items), Iterator::hasNext, i -> i)
-            .map(Iterator::next)
-            .collect(Collectors.toUnmodifiableList()),
-        "Content randomized");
+        items, Utils.shuffledPermutation(items).stream().toList(), "Content randomized");
   }
 
   @Test
   void testShuffledPermutationStatistics() {
     // Generate 10 elements, perform the shuffle multiple time and counting the number frequency of
-    // each position. See if under large number of experiment, the number is uniformly distributed.
+    // each position. See if under large number of experiments, the number is uniformly distributed.
     var items = IntStream.range(0, 10).boxed().collect(Collectors.toUnmodifiableList());
     var buckets = new int[10][10];
 
     var trials = 100000;
     for (int i = 0; i < trials; i++) {
       var index = 0;
-      var iterator = Utils.shuffledPermutation(items);
-      while (iterator.hasNext()) buckets[iterator.next()][index++] += 1;
+      for (int x : Utils.shuffledPermutation(items)) {
+        buckets[x][index++] += 1;
+      }
     }
 
     var expectedValue = trials / 10.0;

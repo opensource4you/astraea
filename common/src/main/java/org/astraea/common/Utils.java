@@ -453,37 +453,41 @@ public final class Utils {
 
   /**
    * Acquire an {@link Iterator} that access the content of the given list in a random shuffle
-   * order. The returned iterator guarantee to access each item at most once.
+   * order. The returned iterator guarantees to access each item at most once.
    *
-   * @param items the list of item to access. The given list have to be immutable.
+   * @param items the list of item to access. The given list has to be immutable.
    * @return an {@link Iterator} that access the given list in randomly shuffled order.
    */
-  public static <T> Iterator<T> shuffledPermutation(List<T> items) {
+  public static <T> FixedIterable<T> shuffledPermutation(List<T> items) {
     // The implementation is a lazy version of Fisher-Yates shuffle. The actual shuffle order is
-    // determined at the retrieval of next element instead of pre-generated. This can improve the
-    // average runtime cost when we only use a few elements from the head of shuffled permutation.
-    return new Iterator<>() {
-      private final HashMap<Integer, Integer> swapMap = new HashMap<>();
-      private int cursor = 0;
+    // determined at the retrieval of the next element instead of pre-generated. This can improve
+    // the average runtime cost when we only use a few elements from the head of shuffled
+    // permutation.
+    Supplier<Iterator<T>> iter =
+        () ->
+            new Iterator<>() {
+              private final HashMap<Integer, Integer> swapMap = new HashMap<>();
+              private int cursor = 0;
 
-      @Override
-      public boolean hasNext() {
-        return cursor < items.size();
-      }
+              @Override
+              public boolean hasNext() {
+                return cursor < items.size();
+              }
 
-      @Override
-      public T next() {
-        if (!hasNext()) throw new NoSuchElementException();
+              @Override
+              public T next() {
+                if (!hasNext()) throw new NoSuchElementException();
 
-        var nextIndex = ThreadLocalRandom.current().nextInt(cursor, items.size());
-        var remappedIndex = swapMap.getOrDefault(nextIndex, nextIndex);
-        var remappedItem = items.get(remappedIndex);
-        swapMap.put(nextIndex, swapMap.getOrDefault(cursor, cursor));
-        cursor++;
+                var nextIndex = ThreadLocalRandom.current().nextInt(cursor, items.size());
+                var remappedIndex = swapMap.getOrDefault(nextIndex, nextIndex);
+                var remappedItem = items.get(remappedIndex);
+                swapMap.put(nextIndex, swapMap.getOrDefault(cursor, cursor));
+                cursor++;
 
-        return remappedItem;
-      }
-    };
+                return remappedItem;
+              }
+            };
+    return FixedIterable.of(items.size(), iter);
   }
 
   private Utils() {}
