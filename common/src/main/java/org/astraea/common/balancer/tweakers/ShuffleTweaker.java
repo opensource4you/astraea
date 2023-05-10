@@ -86,7 +86,7 @@ public class ShuffleTweaker {
     return Stream.generate(
         () -> {
           final var shuffleCount = numberOfShuffle.get();
-          final var replicaOrder = Utils.shuffledPermutation(legalReplicas);
+          final var replicaOrder = Utils.shuffledPermutation(legalReplicas).iterator();
           final var forbiddenReplica = new HashSet<TopicPartitionReplica>();
 
           final var finalCluster = ClusterInfo.builder(baseAllocation);
