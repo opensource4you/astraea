@@ -63,7 +63,7 @@ public interface Broker extends NodeInfo {
                   return (DataFolder)
                       new DataFolder.DataFolderImpl(path, partitionSizes, orphanPartitionSizes);
                 })
-            .collect(Collectors.toList());
+            .toList();
     var topicPartitionLeaders =
         topics.stream()
             .flatMap(

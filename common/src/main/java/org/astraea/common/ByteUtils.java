@@ -219,7 +219,7 @@ public final class ByteUtils {
                                                                 entry -> entry.getKey().toString(),
                                                                 Map.Entry::getValue)))
                                                 .build())
-                                    .collect(Collectors.toList()))
+                                    .toList())
                             .addAllTopicPartitions(
                                 broker.topicPartitions().stream()
                                     .map(
@@ -229,7 +229,7 @@ public final class ByteUtils {
                                                 .setPartition(tp.partition())
                                                 .setTopic(tp.topic())
                                                 .build())
-                                    .collect(Collectors.toList()))
+                                    .toList())
                             .addAllTopicPartitionLeaders(
                                 broker.topicPartitionLeaders().stream()
                                     .map(
@@ -239,9 +239,9 @@ public final class ByteUtils {
                                                 .setPartition(tp.partition())
                                                 .setTopic(tp.topic())
                                                 .build())
-                                    .collect(Collectors.toList()))
+                                    .toList())
                             .build())
-                .collect(Collectors.toList()))
+                .toList())
         .addAllTopic(
             value.topics().values().stream()
                 .map(
@@ -255,7 +255,7 @@ public final class ByteUtils {
                                     .map(TopicPartition::partition)
                                     .collect(Collectors.toList()))
                             .build())
-                .collect(Collectors.toList()))
+                .toList())
         .addAllReplica(
             value.replicas().stream()
                 .map(
@@ -278,7 +278,7 @@ public final class ByteUtils {
                             .setIsPreferredLeader(replica.isPreferredLeader())
                             .setPath(replica.path())
                             .build())
-                .collect(Collectors.toList()))
+                .toList())
         .build()
         .toByteArray();
   }
@@ -411,17 +411,18 @@ public final class ByteUtils {
                         broker.getTopicPartitionLeadersList().stream()
                             .map(tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
                             .collect(Collectors.toSet());
-                    return new Broker.BrokerImpl(
-                        host,
-                        port,
-                        id,
-                        isController,
-                        config,
-                        dataFolders,
-                        topicPartitions,
-                        topicPartitionLeaders);
+                    return (NodeInfo)
+                        new Broker.BrokerImpl(
+                            host,
+                            port,
+                            id,
+                            isController,
+                            config,
+                            dataFolders,
+                            topicPartitions,
+                            topicPartitionLeaders);
                   })
-              .collect(Collectors.toList()),
+              .toList(),
           outerClusterInfo.getTopicList().stream()
               .map(
                   protoTopic ->
@@ -469,7 +470,7 @@ public final class ByteUtils {
                           .isPreferredLeader(replica.getIsPreferredLeader())
                           .path(replica.getPath())
                           .build())
-              .collect(Collectors.toList()));
+              .toList());
     } catch (InvalidProtocolBufferException ex) {
       throw new SerializationException(ex);
     }
