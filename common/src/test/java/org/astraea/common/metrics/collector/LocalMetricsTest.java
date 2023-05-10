@@ -42,7 +42,8 @@ public class LocalMetricsTest {
     try (var store =
         MetricStore.builder()
             .beanExpiration(Duration.ofSeconds(1))
-            .localReceiver(() -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local())))
+            .addLocalReceiver(
+                () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local())))
             .build()) {
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertNotEquals(0, store.clusterBean().all().size());

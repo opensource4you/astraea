@@ -157,7 +157,7 @@ public class StrictCostPartitioner extends Partitioner {
 
     metricStore =
         MetricStore.builder()
-            .localReceiver(clientSupplier)
+            .addLocalReceiver(clientSupplier)
             .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
             .build();
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);

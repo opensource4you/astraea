@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.MissingResourceException;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -40,7 +41,10 @@ public class MetricStoreTest {
     Mockito.when(receiver.receive(Mockito.any()))
         .thenAnswer(invocation -> Utils.packException(queue::take));
     try (var store =
-        MetricStore.builder().receiver(receiver).beanExpiration(Duration.ofSeconds(100)).build()) {
+        MetricStore.builder()
+            .addReceiver(receiver)
+            .beanExpiration(Duration.ofSeconds(100))
+            .build()) {
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(1, store.clusterBean().all().size());
       Assertions.assertEquals(Set.of(1000), store.clusterBean().all().keySet());
@@ -54,9 +58,10 @@ public class MetricStoreTest {
 
   @Test
   void testNullCheck() {
+    // Receiver not set
     var builder = MetricStore.builder();
-    Assertions.assertThrows(NullPointerException.class, builder::build);
-    builder.receiver(timeout -> Map.of());
+    Assertions.assertThrows(MissingResourceException.class, builder::build);
+    builder.addReceiver(timeout -> Map.of());
     var store = builder.build();
     store.close();
   }
@@ -75,7 +80,7 @@ public class MetricStoreTest {
     var count = new AtomicInteger(0);
     try (var store =
         MetricStore.builder()
-            .receiver(
+            .addReceiver(
                 timeout -> {
                   count.incrementAndGet();
                   return Utils.packException(queue::take);
@@ -95,7 +100,7 @@ public class MetricStoreTest {
 
     try (var store =
         MetricStore.builder()
-            .receiver(timeout -> Utils.packException(queue::take))
+            .addReceiver(timeout -> Utils.packException(queue::take))
             .sensorsSupplier(
                 // Metric sensor provide fake hasBeanObject
                 () ->

@@ -116,7 +116,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                     });
     metricStore =
         MetricStore.builder()
-            .localReceiver(clientSupplier)
+            .addLocalReceiver(clientSupplier)
             .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
             .build();
   }

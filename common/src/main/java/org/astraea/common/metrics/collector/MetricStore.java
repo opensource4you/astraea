@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.MissingResourceException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
@@ -129,7 +130,7 @@ public interface MetricStore extends AutoCloseable {
                             .collect(Collectors.toUnmodifiableList()),
                 (id, ignored) -> {});
 
-    private Receiver receiver;
+    private final List<Receiver> receivers = new ArrayList<>();
     private Duration beanExpiration = Duration.ofSeconds(10);
 
     public Builder sensorsSupplier(
@@ -138,8 +139,8 @@ public interface MetricStore extends AutoCloseable {
       return this;
     }
 
-    public Builder receiver(Receiver receiver) {
-      this.receiver = receiver;
+    public Builder addReceiver(Receiver receiver) {
+      this.receivers.add(receiver);
       return this;
     }
 
@@ -147,11 +148,11 @@ public interface MetricStore extends AutoCloseable {
      * Using an embedded fetcher build the receiver. The fetcher will keep fetching beans
      * background, and it pushes all beans to store internally.
      */
-    public Builder localReceiver(
+    public Builder addLocalReceiver(
         Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier) {
       var cache = LocalSenderReceiver.of();
       var fetcher = MetricFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
-      return receiver(
+      return addReceiver(
           new Receiver() {
             @Override
             public Map<Integer, Collection<BeanObject>> receive(Duration timeout) {
@@ -165,8 +166,8 @@ public interface MetricStore extends AutoCloseable {
           });
     }
 
-    public Builder topicReceiver(String bootstrapServer) {
-      return receiver(Receiver.topic(bootstrapServer));
+    public Builder addTopicReceiver(String bootstrapServer) {
+      return addReceiver(Receiver.topic(bootstrapServer));
     }
 
     public Builder beanExpiration(Duration beanExpiration) {
@@ -175,9 +176,12 @@ public interface MetricStore extends AutoCloseable {
     }
 
     public MetricStore build() {
+      if (receivers.isEmpty())
+        throw new MissingResourceException(
+            "receiver is required", Receiver.class.getName(), "addReceiver()");
       return new MetricStoreImpl(
           Objects.requireNonNull(sensorsSupplier, "sensorsSupplier can't be null"),
-          Objects.requireNonNull(receiver, "receiver can't be null"),
+          receivers,
           Objects.requireNonNull(beanExpiration, "beanExpiration can't be null"));
     }
   }
@@ -188,7 +192,7 @@ public interface MetricStore extends AutoCloseable {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private final Receiver receiver;
+    private final List<Receiver> receivers;
 
     private final ExecutorService executor;
 
@@ -204,9 +208,9 @@ public interface MetricStore extends AutoCloseable {
 
     private MetricStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier,
-        Receiver receiver,
+        List<Receiver> receivers,
         Duration beanExpiration) {
-      this.receiver = receiver;
+      this.receivers = receivers;
       // receiver + cleaner
       this.executor = Executors.newFixedThreadPool(2);
       Runnable cleanerJob =
@@ -233,29 +237,34 @@ public interface MetricStore extends AutoCloseable {
           () -> {
             while (!closed.get()) {
               try {
-                var allBeans = receiver.receive(Duration.ofSeconds(3));
-                identities.addAll(allBeans.keySet());
-                lastSensors = sensorsSupplier.get();
-                allBeans.forEach(
-                    (id, bs) -> {
-                      var client = BeanObjectClient.of(id, bs);
-                      var clusterBean = clusterBean();
-                      lastSensors.forEach(
-                          (sensor, errorHandler) -> {
-                            try {
-                              beans
-                                  .computeIfAbsent(id, ignored -> new ConcurrentLinkedQueue<>())
-                                  .addAll(sensor.fetch(client, clusterBean));
-                            } catch (Exception e) {
-                              errorHandler.accept(id, e);
-                            }
-                          });
-                    });
-                if (!allBeans.isEmpty()) {
-                  // generate new cluster bean
-                  updateClusterBean();
-                  checkWaitingList(this.waitingList, clusterBean());
-                }
+                receivers.stream()
+                    .map(r -> r.receive(Duration.ofSeconds(3)))
+                    .forEach(
+                        allBeans -> {
+                          identities.addAll(allBeans.keySet());
+                          lastSensors = sensorsSupplier.get();
+                          allBeans.forEach(
+                              (id, bs) -> {
+                                var client = BeanObjectClient.of(id, bs);
+                                var clusterBean = clusterBean();
+                                lastSensors.forEach(
+                                    (sensor, errorHandler) -> {
+                                      try {
+                                        beans
+                                            .computeIfAbsent(
+                                                id, ignored -> new ConcurrentLinkedQueue<>())
+                                            .addAll(sensor.fetch(client, clusterBean));
+                                      } catch (Exception e) {
+                                        errorHandler.accept(id, e);
+                                      }
+                                    });
+                              });
+                          if (!allBeans.isEmpty()) {
+                            // generate new cluster bean
+                            updateClusterBean();
+                            checkWaitingList(this.waitingList, clusterBean());
+                          }
+                        });
               } catch (Exception e) {
                 // TODO: it needs better error handling
                 e.printStackTrace();
@@ -286,7 +295,7 @@ public interface MetricStore extends AutoCloseable {
       closed.set(true);
       executor.shutdownNow();
       Utils.packException(() -> executor.awaitTermination(30, TimeUnit.SECONDS));
-      receiver.close();
+      receivers.forEach(Receiver::close);
     }
 
     /** User thread will "wait" until being awakened by the metric store or being timeout. */

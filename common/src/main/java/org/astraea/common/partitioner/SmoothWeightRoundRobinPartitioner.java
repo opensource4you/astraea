@@ -136,7 +136,7 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
 
     metricStore =
         MetricStore.builder()
-            .localReceiver(clientSupplier)
+            .addLocalReceiver(clientSupplier)
             .sensorsSupplier(
                 () -> Map.of(this.neutralIntegratedCost.metricSensor(), (integer, e) -> {}))
             .build();
