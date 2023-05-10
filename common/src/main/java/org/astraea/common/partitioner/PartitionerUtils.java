@@ -72,7 +72,7 @@ public class PartitionerUtils {
    * @return pairs of broker id and its jmx port
    */
   public static Map<Integer, Integer> parseIdJMXPort(Configuration config) {
-    return config.entrySet().stream()
+    return config.raw().entrySet().stream()
         .filter(e -> e.getKey().startsWith("broker."))
         .filter(e -> e.getKey().endsWith("jmx.port"))
         .map(
