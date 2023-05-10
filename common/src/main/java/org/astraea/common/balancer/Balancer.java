@@ -33,48 +33,24 @@ public interface Balancer {
    */
   Optional<Plan> offer(AlgorithmConfig config);
 
-  class Plan {
-    private final ClusterBean clusterBean;
-    private final ClusterInfo initialClusterInfo;
-    private final ClusterCost initialClusterCost;
-
-    private final ClusterInfo proposal;
-    private final ClusterCost proposalClusterCost;
-
-    public Plan(
-        ClusterBean clusterBean,
-        ClusterInfo initialClusterInfo,
-        ClusterCost initialClusterCost,
-        ClusterInfo proposal,
-        ClusterCost proposalClusterCost) {
-      this.clusterBean = clusterBean;
-      this.initialClusterInfo = initialClusterInfo;
-      this.initialClusterCost = initialClusterCost;
-      this.proposal = proposal;
-      this.proposalClusterCost = proposalClusterCost;
-    }
-
-    public ClusterBean clusterBean() {
-      return clusterBean;
-    }
-
-    public ClusterInfo initialClusterInfo() {
-      return initialClusterInfo;
-    }
+  record Plan(
+      ClusterBean clusterBean,
+      ClusterInfo initialClusterInfo,
+      ClusterCost initialClusterCost,
+      ClusterInfo proposal,
+      ClusterCost proposalClusterCost) {
 
     /**
      * The {@link ClusterCost} score of the original {@link ClusterInfo} when this plan is start
      * generating.
      */
+    @Override
     public ClusterCost initialClusterCost() {
       return initialClusterCost;
     }
 
-    public ClusterInfo proposal() {
-      return proposal;
-    }
-
     /** The {@link ClusterCost} score of the proposed new allocation. */
+    @Override
     public ClusterCost proposalClusterCost() {
       return proposalClusterCost;
     }

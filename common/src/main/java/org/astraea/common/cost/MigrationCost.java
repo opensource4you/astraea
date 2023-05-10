@@ -129,14 +129,13 @@ public class MigrationCost {
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
         .map(NodeInfo::id)
         .distinct()
-        .map(
-            nodeId ->
-                Map.entry(
-                    nodeId,
+        .collect(
+            Collectors.toMap(
+                nodeId -> nodeId,
+                nodeId ->
                     (long)
                         Math.max(
-                            brokerMigrateInTime.get(nodeId), brokerMigrateOutTime.get(nodeId))))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                            brokerMigrateInTime.get(nodeId), brokerMigrateOutTime.get(nodeId))));
   }
 
   /**

@@ -89,7 +89,6 @@ public interface Broker extends NodeInfo {
                         .map(p -> TopicPartition.of(topic.name(), p.partition())))
             .collect(Collectors.toUnmodifiableSet());
     return new Broker() {
-
       @Override
       public String host() {
         return nodeInfo.host();

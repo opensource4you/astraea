@@ -17,8 +17,8 @@
 package org.astraea.common.cost;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.function.Function;
@@ -71,17 +71,14 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
       maxOutRateSensor.record(newOutMetrics.oneMinuteRate());
       var inRate = maxInRateSensor.measure(REPLICATION_IN_RATE);
       var outRate = maxOutRateSensor.measure(REPLICATION_OUT_RATE);
-
-      var metrics = new ArrayList<HasBeanObject>();
-      metrics.add(
+      return List.of(
           (MaxReplicationInRateBean)
               () ->
                   new BeanObject(
                       newInMetrics.beanObject().domainName(),
                       newInMetrics.beanObject().properties(),
                       Map.of(STATISTICS_RATE_KEY, Math.max(oldInRate.orElse(0), inRate)),
-                      current.toMillis()));
-      metrics.add(
+                      current.toMillis()),
           (MaxReplicationOutRateBean)
               () ->
                   new BeanObject(
@@ -89,7 +86,6 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
                       newOutMetrics.beanObject().properties(),
                       Map.of(STATISTICS_RATE_KEY, Math.max(oldOutRate.orElse(0), outRate)),
                       current.toMillis()));
-      return metrics;
     };
   }
 
