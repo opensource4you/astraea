@@ -178,7 +178,7 @@ public class GroupHandler implements Handler {
 
   static class Member implements Response {
     final String memberId;
-    final String groupInstanceId;
+    final Optional<String> groupInstanceId;
     final String clientId;
     final String host;
     final List<OffsetProgress> offsetProgress;
@@ -190,7 +190,7 @@ public class GroupHandler implements Handler {
         String host,
         List<OffsetProgress> offsetProgress) {
       this.memberId = memberId;
-      this.groupInstanceId = groupInstanceId;
+      this.groupInstanceId = Optional.ofNullable(groupInstanceId);
       this.clientId = clientId;
       this.host = host;
       this.offsetProgress = offsetProgress;
