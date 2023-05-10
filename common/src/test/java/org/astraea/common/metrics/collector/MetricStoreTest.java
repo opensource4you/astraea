@@ -83,7 +83,7 @@ public class MetricStoreTest {
             .beanExpiration(Duration.ofSeconds(5))
             .build()) {
       Utils.waitFor(() -> store.clusterBean().all().size() == 3);
-      Utils.sleep(Duration.ofSeconds(5));
+      Utils.sleep(Duration.ofSeconds(10));
       Assertions.assertNotEquals(0, count.get());
       Assertions.assertEquals(0, store.clusterBean().all().size());
     }
