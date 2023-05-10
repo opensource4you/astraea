@@ -21,7 +21,6 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -265,7 +264,7 @@ public final class ByteUtils {
                             .setTopic(replica.topic())
                             .setPartition(replica.partition())
                             .setNodeInfo(
-                                ClusterInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()
+                                ClusterInfoOuterClass.ClusterInfo.Replica.NodeInfo.newBuilder()
                                     .setId(replica.nodeInfo().id())
                                     .setHost(replica.nodeInfo().host())
                                     .setPort(replica.nodeInfo().port())
@@ -376,85 +375,52 @@ public final class ByteUtils {
           outerClusterInfo.getClusterId(),
           outerClusterInfo.getBrokerList().stream()
               .map(
-                  broker ->
-                      new Broker() {
-                        @Override
-                        public boolean isController() {
-                          return broker.getIsController();
-                        }
-
-                        @Override
-                        public Config config() {
-                          return Config.of(broker.getConfigMap());
-                        }
-
-                        @Override
-                        public List<DataFolder> dataFolders() {
-                          return broker.getDatafolderList().stream()
-                              .map(
-                                  datafolder ->
-                                      new DataFolder() {
-                                        @Override
-                                        public String path() {
-                                          return datafolder.getPath();
-                                        }
-
-                                        @Override
-                                        public Map<TopicPartition, Long> partitionSizes() {
-                                          return datafolder
-                                              .getPartitionSizesMap()
-                                              .entrySet()
-                                              .stream()
-                                              .collect(
-                                                  Collectors.toMap(
-                                                      entry -> TopicPartition.of(entry.getKey()),
-                                                      Map.Entry::getValue));
-                                        }
-
-                                        @Override
-                                        public Map<TopicPartition, Long> orphanPartitionSizes() {
-                                          return datafolder
-                                              .getOrphanPartitionSizesMap()
-                                              .entrySet()
-                                              .stream()
-                                              .collect(
-                                                  Collectors.toMap(
-                                                      entry -> TopicPartition.of(entry.getKey()),
-                                                      Map.Entry::getValue));
-                                        }
-                                      })
-                              .collect(Collectors.toList());
-                        }
-
-                        @Override
-                        public Set<TopicPartition> topicPartitions() {
-                          return broker.getTopicPartitionsList().stream()
-                              .map(tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
-                              .collect(Collectors.toSet());
-                        }
-
-                        @Override
-                        public Set<TopicPartition> topicPartitionLeaders() {
-                          return broker.getTopicPartitionLeadersList().stream()
-                              .map(tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
-                              .collect(Collectors.toSet());
-                        }
-
-                        @Override
-                        public String host() {
-                          return broker.getHost();
-                        }
-
-                        @Override
-                        public int port() {
-                          return broker.getPort();
-                        }
-
-                        @Override
-                        public int id() {
-                          return broker.getId();
-                        }
-                      })
+                  broker -> {
+                    var host = broker.getHost();
+                    var port = broker.getPort();
+                    var id = broker.getId();
+                    var isController = broker.getIsController();
+                    var config = Config.of(broker.getConfigMap());
+                    var dataFolders =
+                        broker.getDatafolderList().stream()
+                            .map(
+                                datafolder -> {
+                                  var path = datafolder.getPath();
+                                  var partitionSizes =
+                                      datafolder.getPartitionSizesMap().entrySet().stream()
+                                          .collect(
+                                              Collectors.toMap(
+                                                  entry -> TopicPartition.of(entry.getKey()),
+                                                  Map.Entry::getValue));
+                                  var orphanPartitionSizes =
+                                      datafolder.getOrphanPartitionSizesMap().entrySet().stream()
+                                          .collect(
+                                              Collectors.toMap(
+                                                  entry -> TopicPartition.of(entry.getKey()),
+                                                  Map.Entry::getValue));
+                                  return (Broker.DataFolder)
+                                      new Broker.DataFolder.DataFolderImpl(
+                                          path, partitionSizes, orphanPartitionSizes);
+                                })
+                            .toList();
+                    var topicPartitions =
+                        broker.getTopicPartitionsList().stream()
+                            .map(tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
+                            .collect(Collectors.toSet());
+                    var topicPartitionLeaders =
+                        broker.getTopicPartitionLeadersList().stream()
+                            .map(tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
+                            .collect(Collectors.toSet());
+                    return new Broker.BrokerImpl(
+                        host,
+                        port,
+                        id,
+                        isController,
+                        config,
+                        dataFolders,
+                        topicPartitions,
+                        topicPartitionLeaders);
+                  })
               .collect(Collectors.toList()),
           outerClusterInfo.getTopicList().stream()
               .map(

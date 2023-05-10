@@ -61,23 +61,7 @@ public interface Broker extends NodeInfo {
                           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
                   return (DataFolder)
-                      new DataFolder() {
-
-                        @Override
-                        public String path() {
-                          return path;
-                        }
-
-                        @Override
-                        public Map<TopicPartition, Long> partitionSizes() {
-                          return partitionSizes;
-                        }
-
-                        @Override
-                        public Map<TopicPartition, Long> orphanPartitionSizes() {
-                          return orphanPartitionSizes;
-                        }
-                      };
+                      new DataFolder.DataFolderImpl(path, partitionSizes, orphanPartitionSizes);
                 })
             .collect(Collectors.toList());
     var topicPartitionLeaders =
@@ -88,47 +72,15 @@ public interface Broker extends NodeInfo {
                         .filter(p -> p.leader() != null && p.leader().id() == nodeInfo.id())
                         .map(p -> TopicPartition.of(topic.name(), p.partition())))
             .collect(Collectors.toUnmodifiableSet());
-    return new Broker() {
-      @Override
-      public String host() {
-        return nodeInfo.host();
-      }
-
-      @Override
-      public int port() {
-        return nodeInfo.port();
-      }
-
-      @Override
-      public int id() {
-        return nodeInfo.id();
-      }
-
-      @Override
-      public boolean isController() {
-        return isController;
-      }
-
-      @Override
-      public Config config() {
-        return config;
-      }
-
-      @Override
-      public List<DataFolder> dataFolders() {
-        return folders;
-      }
-
-      @Override
-      public Set<TopicPartition> topicPartitions() {
-        return partitionsFromTopicDesc;
-      }
-
-      @Override
-      public Set<TopicPartition> topicPartitionLeaders() {
-        return topicPartitionLeaders;
-      }
-    };
+    return new BrokerImpl(
+        nodeInfo.host(),
+        nodeInfo.port(),
+        nodeInfo.id(),
+        isController,
+        config,
+        folders,
+        partitionsFromTopicDesc,
+        topicPartitionLeaders);
   }
 
   boolean isController();
@@ -166,5 +118,22 @@ public interface Broker extends NodeInfo {
      * @return topic partition located by this node but not traced by cluster
      */
     Map<TopicPartition, Long> orphanPartitionSizes();
+
+    record DataFolderImpl(
+        String path,
+        Map<TopicPartition, Long> partitionSizes,
+        Map<TopicPartition, Long> orphanPartitionSizes)
+        implements DataFolder {}
   }
+
+  record BrokerImpl(
+      String host,
+      int port,
+      int id,
+      boolean isController,
+      Config config,
+      List<DataFolder> dataFolders,
+      Set<TopicPartition> topicPartitions,
+      Set<TopicPartition> topicPartitionLeaders)
+      implements Broker {}
 }

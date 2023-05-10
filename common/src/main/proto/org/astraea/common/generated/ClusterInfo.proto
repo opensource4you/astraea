@@ -3,39 +3,29 @@ syntax = "proto3";
 package org.astraea.common.generated;
 
 message ClusterInfo{
-  string clusterId = 1;
 
-  message NodeInfo {
-    int32 id = 1;
-    string host = 2;
-    int32 port = 3;
-  }
-
-  repeated Broker broker = 2;
   message Broker {
-    int32 id = 1;
-    string host = 2;
-    int32 port = 3;
-    bool isController = 4;
-    map<string, string> config = 5;
-
-    repeated Datafolder datafolder = 6;
     message Datafolder {
       string path = 1;
       map<string, int64> partitionSizes = 2;
       map<string, int64> orphanPartitionSizes = 3;
     }
 
-    repeated TopicPartition topicPartitions = 7;
     message TopicPartition {
       int32 partition = 1;
       string topic = 2;
     }
 
+    int32 id = 1;
+    string host = 2;
+    int32 port = 3;
+    bool isController = 4;
+    map<string, string> config = 5;
+    repeated Datafolder datafolder = 6;
+    repeated TopicPartition topicPartitions = 7;
     repeated TopicPartition topicPartitionLeaders = 8;
   }
 
-  repeated Topic topic = 3;
   message Topic {
     string name = 1;
     map<string, string> config = 2;
@@ -43,8 +33,13 @@ message ClusterInfo{
     repeated int32 partition = 4;
   }
 
-  repeated Replica replica = 4;
   message Replica{
+    message NodeInfo {
+      int32 id = 1;
+      string host = 2;
+      int32 port = 3;
+    }
+
     string topic = 1;
     int32  partition = 2;
     NodeInfo nodeInfo = 3;
@@ -57,4 +52,9 @@ message ClusterInfo{
     bool isPreferredLeader = 10;
     string path = 11;
   }
+
+  string clusterId = 1;
+  repeated Broker broker = 2;
+  repeated Topic topic = 3;
+  repeated Replica replica = 4;
 }

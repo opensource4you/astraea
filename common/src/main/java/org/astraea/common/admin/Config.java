@@ -35,6 +35,14 @@ public interface Config {
       public Optional<String> value(String key) {
         return Optional.ofNullable(configs.get(key));
       }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        var objConfig = (Config) obj;
+        return raw().equals(objConfig.raw());
+      }
     };
   }
 
