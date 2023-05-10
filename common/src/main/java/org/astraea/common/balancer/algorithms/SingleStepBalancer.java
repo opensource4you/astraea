@@ -98,10 +98,9 @@ public class SingleStepBalancer implements Balancer {
         .takeWhile(ignored -> System.currentTimeMillis() - start <= config.timeout().toMillis())
         .filter(
             newAllocation ->
-                config
-                    .movementConstraint()
-                    .test(
-                        moveCostFunction.moveCost(currentClusterInfo, newAllocation, clusterBean)))
+                !moveCostFunction
+                    .moveCost(currentClusterInfo, newAllocation, clusterBean)
+                    .overflow())
         .map(
             newAllocation ->
                 new Plan(
@@ -109,7 +108,7 @@ public class SingleStepBalancer implements Balancer {
                     currentCost,
                     newAllocation,
                     clusterCostFunction.clusterCost(newAllocation, clusterBean)))
-        .filter(plan -> config.clusterConstraint().test(currentCost, plan.proposalClusterCost()))
+        .filter(plan -> plan.proposalClusterCost().value() < currentCost.value())
         .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()));
   }
 }
