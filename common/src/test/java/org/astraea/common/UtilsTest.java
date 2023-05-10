@@ -43,7 +43,7 @@ public class UtilsTest {
 
   @Test
   void testShuffledPermutation() {
-    var items = IntStream.range(0, 100000).boxed().collect(Collectors.toUnmodifiableList());
+    var items = IntStream.range(0, 100000).boxed().toList();
 
     Assertions.assertEquals(
         100000,
@@ -63,7 +63,7 @@ public class UtilsTest {
   void testShuffledPermutationStatistics() {
     // Generate 10 elements, perform the shuffle multiple time and counting the number frequency of
     // each position. See if under large number of experiments, the number is uniformly distributed.
-    var items = IntStream.range(0, 10).boxed().collect(Collectors.toUnmodifiableList());
+    var items = IntStream.range(0, 10).boxed().toList();
     var buckets = new int[10][10];
 
     var trials = 100000;
@@ -81,11 +81,7 @@ public class UtilsTest {
             .boxed()
             .collect(
                 Collectors.toUnmodifiableMap(
-                    i -> i,
-                    i ->
-                        Arrays.stream(buckets[i])
-                            .boxed()
-                            .collect(Collectors.toUnmodifiableList())));
+                    i -> i, i -> Arrays.stream(buckets[i]).boxed().toList()));
     Assertions.assertTrue(
         result.values().stream()
             .map(x -> x.stream().mapToInt(i -> i).average().orElse(0))
