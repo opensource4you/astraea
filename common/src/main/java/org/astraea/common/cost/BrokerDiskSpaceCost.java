@@ -16,7 +16,6 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -47,78 +46,46 @@ public class BrokerDiskSpaceCost implements HasMoveCost {
     return () -> false;
   }
 
-  private Map<BrokerPath, DataSize> diskMoveCostLimit(Configuration configuration) {
-    return configuration
-        .string(BROKER_PATH_COST_LIMIT_KEY)
+  private static Map<BrokerPath, DataSize> diskMoveCostLimit(Configuration configuration) {
+    return configuration.list(BROKER_PATH_COST_LIMIT_KEY, ",").stream()
         .map(
-            s ->
-                Arrays.stream(s.split(","))
-                    .map(
-                        idAndPath -> {
-                          var brokerPathAndLimit = idAndPath.split(":");
-                          var brokerPath = brokerPathAndLimit[0].split("-");
-                          return Map.entry(
-                              BrokerPath.of(
-                                  Integer.parseInt(brokerPath[0]),
-                                  IntStream.range(1, brokerPath.length)
-                                      .boxed()
-                                      .map(x -> brokerPath[x])
-                                      .collect(Collectors.joining("-"))),
-                              DataSize.of(brokerPathAndLimit[1]));
-                        })
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
-        .orElse(Map.of());
+            idAndPath -> {
+              var brokerPathAndLimit = idAndPath.split(":");
+              var brokerPath = brokerPathAndLimit[0].split("-");
+              return Map.entry(
+                  BrokerPath.of(
+                      Integer.parseInt(brokerPath[0]),
+                      IntStream.range(1, brokerPath.length)
+                          .boxed()
+                          .map(x -> brokerPath[x])
+                          .collect(Collectors.joining("-"))),
+                  DataSize.of(brokerPathAndLimit[1]));
+            })
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private Map<Integer, DataSize> brokerMoveCostLimit(Configuration configuration) {
-    return configuration
-        .string(BROKER_COST_LIMIT_KEY)
+    return configuration.list(BROKER_COST_LIMIT_KEY, ",").stream()
         .map(
-            s ->
-                Arrays.stream(s.split(","))
-                    .map(
-                        idAndPath -> {
-                          var brokerAndLimit = idAndPath.split(":");
-                          return Map.entry(
-                              Integer.parseInt(brokerAndLimit[0]), DataSize.of(brokerAndLimit[1]));
-                        })
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
-        .orElse(Map.of());
+            idAndPath -> {
+              var brokerAndLimit = idAndPath.split(":");
+              return Map.entry(Integer.parseInt(brokerAndLimit[0]), DataSize.of(brokerAndLimit[1]));
+            })
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  static class BrokerPath {
-
-    private final int broker;
-    private final String path;
+  record BrokerPath(int broker, String path) {
 
     public static BrokerPath of(int broker, String path) {
       return new BrokerPath(broker, path);
     }
 
-    public BrokerPath(int broker, String path) {
-      this.broker = broker;
-      this.path = path;
-    }
-
-    public int broker() {
-      return broker;
-    }
-
-    public String path() {
-      return path;
-    }
-
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
+      if (o == null || BrokerPath.class != o.getClass()) return false;
       BrokerPath that = (BrokerPath) o;
       return broker == that.broker && Objects.equals(path, that.path);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(broker, path);
     }
   }
 }
