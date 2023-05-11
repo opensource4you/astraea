@@ -121,7 +121,7 @@ public class ReplicaLeaderCostTest {
         brokerCost.values().stream()
             .map(score -> (double) score / leaderNum)
             .collect(Collectors.toList());
-    var clusterCost = dispersion.calculate(normalizedScore);
+    var clusterCost = dispersion.calculate(normalizedScore) * 2;
     Assertions.assertTrue(brokerCost.containsKey(10));
     Assertions.assertTrue(brokerCost.containsKey(11));
     Assertions.assertEquals(3, brokerCost.size());

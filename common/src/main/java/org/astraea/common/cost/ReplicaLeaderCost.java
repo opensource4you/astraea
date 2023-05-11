@@ -57,7 +57,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
         brokerScore.values().stream()
             .map(score -> (double) score / leaderNum)
             .collect(Collectors.toList());
-    var value = dispersion.calculate(normalizedScore);
+    var value = dispersion.calculate(normalizedScore) * 2;
     return ClusterCost.of(
         value,
         () ->
