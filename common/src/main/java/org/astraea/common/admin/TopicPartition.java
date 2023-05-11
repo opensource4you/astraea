@@ -52,4 +52,10 @@ public record TopicPartition(String topic, int partition) implements Comparable<
     if (r != 0) return r;
     return Integer.compare(partition, o.partition);
   }
+
+  @Override
+  public String toString() {
+    // equal to #of(String, String)
+    return topic + "-" + partition;
+  }
 }
