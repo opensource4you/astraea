@@ -41,11 +41,11 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
   public static final String STATISTICS_RATE_KEY = "statistics.rate.key";
 
   // metrics windows size
-  private final long maxMigrateTime;
+  private final Duration maxMigrateTime;
 
   public PartitionMigrateTimeCost(Configuration config) {
     this.maxMigrateTime =
-        config.string(MAX_MIGRATE_TIME_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
+        config.duration(MAX_MIGRATE_TIME_KEY).orElse(Duration.ofSeconds(Long.MAX_VALUE));
   }
 
   @Override
@@ -93,18 +93,18 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
       int identity, ClusterBean clusterBean, Class<? extends HasBeanObject> statisticMetrics) {
     return clusterBean
         .brokerMetrics(identity, statisticMetrics)
-        .mapToDouble(x -> ((HasMeter) x).oneMinuteRate())
+        .mapToDouble(x -> ((double) x.beanObject().attributes().get(STATISTICS_RATE_KEY)))
         .max();
   }
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
-    var brokerMigrateTime = MigrationCost.brokerMigrationTime(before, after, clusterBean);
-    var maxMigrateTime =
-        brokerMigrateTime.values().stream()
+    var brokerMigrateSecond = MigrationCost.brokerMigrationSecond(before, after, clusterBean);
+    var planMigrateSecond =
+        brokerMigrateSecond.values().stream()
             .max(Comparator.comparing(Function.identity()))
             .orElse(Long.MAX_VALUE);
-    return () -> maxMigrateTime > this.maxMigrateTime;
+    return () -> planMigrateSecond > this.maxMigrateTime.getSeconds();
   }
 
   public interface MaxReplicationInRateBean extends HasMeter {}

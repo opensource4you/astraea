@@ -51,7 +51,8 @@ public class MigrationCost {
         new MigrationCost(TO_SYNC_BYTES, migrateInBytes),
         new MigrationCost(TO_FETCH_BYTES, migrateOutBytes),
         new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum),
-        new MigrationCost(PARTITION_MIGRATED_TIME, brokerMigrationTime(before, after, clusterBean)),
+        new MigrationCost(
+            PARTITION_MIGRATED_TIME, brokerMigrationSecond(before, after, clusterBean)),
         new MigrationCost(REPLICA_LEADERS_TO_ADDED, migrateInLeader),
         new MigrationCost(REPLICA_LEADERS_TO_REMOVE, migrateOutLeader),
         new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum));
@@ -88,7 +89,7 @@ public class MigrationCost {
    * @param clusterBean cluster metrics
    * @return estimated migrated time required by all brokers (seconds)
    */
-  public static Map<Integer, Long> brokerMigrationTime(
+  public static Map<Integer, Long> brokerMigrationSecond(
       ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var brokerInRate =
         before.nodes().stream()
@@ -110,22 +111,20 @@ public class MigrationCost {
                             nodeInfo.id(),
                             clusterBean,
                             PartitionMigrateTimeCost.MaxReplicationOutRateBean.class)));
-    var brokerMigrateInTime =
+    var brokerMigrateInSecond =
         MigrationCost.recordSizeToFetch(before, after).entrySet().stream()
-            .map(
-                brokerSize ->
-                    Map.entry(
-                        brokerSize.getKey(),
-                        brokerSize.getValue() / brokerInRate.get(brokerSize.getKey()).orElse(0)))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    var brokerMigrateOutTime =
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    brokerSize ->
+                        brokerSize.getValue() / brokerInRate.get(brokerSize.getKey()).orElse(0)));
+    var brokerMigrateOutSecond =
         MigrationCost.recordSizeToSync(before, after).entrySet().stream()
-            .map(
-                brokerSize ->
-                    Map.entry(
-                        brokerSize.getKey(),
-                        brokerSize.getValue() / brokerOutRate.get(brokerSize.getKey()).orElse(0)))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    brokerSize ->
+                        brokerSize.getValue() / brokerOutRate.get(brokerSize.getKey()).orElse(0)));
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
         .map(NodeInfo::id)
         .distinct()
@@ -135,7 +134,8 @@ public class MigrationCost {
                 nodeId ->
                     (long)
                         Math.max(
-                            brokerMigrateInTime.get(nodeId), brokerMigrateOutTime.get(nodeId))));
+                            brokerMigrateInSecond.get(nodeId),
+                            brokerMigrateOutSecond.get(nodeId))));
   }
 
   /**

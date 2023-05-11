@@ -33,17 +33,23 @@ import org.junit.jupiter.api.Test;
 class PartitionMigrateTimeCostTest {
 
   private static final BeanObject inBean0 =
-      new BeanObject("domain", Map.of(), Map.of("OneMinuteRate", 1000.0));
+      new BeanObject(
+          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 1000.0));
   private static final BeanObject outBean0 =
-      new BeanObject("domain", Map.of(), Map.of("OneMinuteRate", 1500.0));
+      new BeanObject(
+          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 1500.0));
   private static final BeanObject inBean1 =
-      new BeanObject("domain", Map.of(), Map.of("OneMinuteRate", 2000.0));
+      new BeanObject(
+          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 2000.0));
   private static final BeanObject outBean1 =
-      new BeanObject("domain", Map.of(), Map.of("OneMinuteRate", 2500.0));
+      new BeanObject(
+          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 2500.0));
   private static final BeanObject inBean2 =
-      new BeanObject("domain", Map.of(), Map.of("OneMinuteRate", 3000.0));
+      new BeanObject(
+          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 3000.0));
   private static final BeanObject outBean2 =
-      new BeanObject("domain", Map.of(), Map.of("OneMinuteRate", 3500.0));
+      new BeanObject(
+          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 3500.0));
 
   @Test
   void testMigratedCost() {
@@ -52,7 +58,7 @@ class PartitionMigrateTimeCostTest {
     // p10:777, p11:700, p12:500
     var before = of(before(), brokers());
     var after = of(after(), brokers());
-    var migrationCost = MigrationCost.brokerMigrationTime(before, after, clusterBean());
+    var migrationCost = MigrationCost.brokerMigrationSecond(before, after, clusterBean());
     Assertions.assertEquals(Math.max(10000000 / 1000, 30000000 / 1500), migrationCost.get(0));
     Assertions.assertEquals(Math.max(20000000 / 2000, 10000000 / 2500), migrationCost.get(1));
     Assertions.assertEquals(Math.max(30000000 / 3000, 20000000 / 3500), migrationCost.get(2));
