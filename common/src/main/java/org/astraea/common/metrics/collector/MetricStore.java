@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.MissingResourceException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
@@ -83,6 +82,27 @@ public interface MetricStore extends AutoCloseable {
       return LocalSenderReceiver.of();
     }
 
+    /**
+     * Using an embedded fetcher build the receiver. The fetcher will keep fetching beans
+     * background, and it pushes all beans to store internally.
+     */
+    static Receiver local(Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier) {
+
+      var cache = LocalSenderReceiver.of();
+      var fetcher = MetricFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
+      return new Receiver() {
+        @Override
+        public Map<Integer, Collection<BeanObject>> receive(Duration timeout) {
+          return cache.receive(timeout);
+        }
+
+        @Override
+        public void close() {
+          fetcher.close();
+        }
+      };
+    }
+
     static Receiver topic(String bootstrapServer) {
       String METRIC_TOPIC = "__metrics";
       var consumer =
@@ -130,7 +150,7 @@ public interface MetricStore extends AutoCloseable {
                             .collect(Collectors.toUnmodifiableList()),
                 (id, ignored) -> {});
 
-    private final List<Receiver> receivers = new ArrayList<>();
+    private Collection<Receiver> receivers;
     private Duration beanExpiration = Duration.ofSeconds(10);
 
     public Builder sensorsSupplier(
@@ -139,35 +159,9 @@ public interface MetricStore extends AutoCloseable {
       return this;
     }
 
-    public Builder addReceiver(Receiver receiver) {
-      this.receivers.add(receiver);
+    public Builder receivers(Collection<Receiver> receivers) {
+      this.receivers = receivers;
       return this;
-    }
-
-    /**
-     * Using an embedded fetcher build the receiver. The fetcher will keep fetching beans
-     * background, and it pushes all beans to store internally.
-     */
-    public Builder addLocalReceiver(
-        Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier) {
-      var cache = LocalSenderReceiver.of();
-      var fetcher = MetricFetcher.builder().clientSupplier(clientSupplier).sender(cache).build();
-      return addReceiver(
-          new Receiver() {
-            @Override
-            public Map<Integer, Collection<BeanObject>> receive(Duration timeout) {
-              return cache.receive(timeout);
-            }
-
-            @Override
-            public void close() {
-              fetcher.close();
-            }
-          });
-    }
-
-    public Builder addTopicReceiver(String bootstrapServer) {
-      return addReceiver(Receiver.topic(bootstrapServer));
     }
 
     public Builder beanExpiration(Duration beanExpiration) {
@@ -176,12 +170,9 @@ public interface MetricStore extends AutoCloseable {
     }
 
     public MetricStore build() {
-      if (receivers.isEmpty())
-        throw new MissingResourceException(
-            "receiver is required", Receiver.class.getName(), "addReceiver()");
       return new MetricStoreImpl(
           Objects.requireNonNull(sensorsSupplier, "sensorsSupplier can't be null"),
-          receivers,
+          Objects.requireNonNull(receivers, "receivers can't be null"),
           Objects.requireNonNull(beanExpiration, "beanExpiration can't be null"));
     }
   }
@@ -192,7 +183,7 @@ public interface MetricStore extends AutoCloseable {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private final List<Receiver> receivers;
+    private final Collection<Receiver> receivers;
 
     private final ExecutorService executor;
 
@@ -208,7 +199,7 @@ public interface MetricStore extends AutoCloseable {
 
     private MetricStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier,
-        List<Receiver> receivers,
+        Collection<Receiver> receivers,
         Duration beanExpiration) {
       this.receivers = receivers;
       // receiver + cleaner

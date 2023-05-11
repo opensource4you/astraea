@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.MissingResourceException;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -42,7 +41,7 @@ public class MetricStoreTest {
         .thenAnswer(invocation -> Utils.packException(queue::take));
     try (var store =
         MetricStore.builder()
-            .addReceiver(receiver)
+            .receivers(List.of(receiver))
             .beanExpiration(Duration.ofSeconds(100))
             .build()) {
       Utils.sleep(Duration.ofSeconds(3));
@@ -60,8 +59,8 @@ public class MetricStoreTest {
   void testNullCheck() {
     // Receiver not set
     var builder = MetricStore.builder();
-    Assertions.assertThrows(MissingResourceException.class, builder::build);
-    builder.addReceiver(timeout -> Map.of());
+    Assertions.assertThrows(NullPointerException.class, builder::build);
+    builder.receivers(List.of(timeout -> Map.of()));
     var store = builder.build();
     store.close();
   }
@@ -80,11 +79,12 @@ public class MetricStoreTest {
     var count = new AtomicInteger(0);
     try (var store =
         MetricStore.builder()
-            .addReceiver(
-                timeout -> {
-                  count.incrementAndGet();
-                  return Utils.packException(queue::take);
-                })
+            .receivers(
+                List.of(
+                    timeout -> {
+                      count.incrementAndGet();
+                      return Utils.packException(queue::take);
+                    }))
             .beanExpiration(Duration.ofSeconds(5))
             .build()) {
       Utils.waitFor(() -> store.clusterBean().all().size() == 3);
@@ -100,7 +100,7 @@ public class MetricStoreTest {
 
     try (var store =
         MetricStore.builder()
-            .addReceiver(timeout -> Utils.packException(queue::take))
+            .receivers(List.of(timeout -> Utils.packException(queue::take)))
             .sensorsSupplier(
                 // Metric sensor provide fake hasBeanObject
                 () ->

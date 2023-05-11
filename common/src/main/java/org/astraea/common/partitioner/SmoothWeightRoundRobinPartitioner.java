@@ -19,6 +19,7 @@ package org.astraea.common.partitioner;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -136,7 +137,7 @@ public class SmoothWeightRoundRobinPartitioner extends Partitioner {
 
     metricStore =
         MetricStore.builder()
-            .addLocalReceiver(clientSupplier)
+            .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
             .sensorsSupplier(
                 () -> Map.of(this.neutralIntegratedCost.metricSensor(), (integer, e) -> {}))
             .build();
