@@ -38,13 +38,6 @@ public class ConfigurationTest {
   }
 
   @Test
-  void testMap() {
-    var config = Configuration.of(Map.of("key", "v0:0,v1:1"));
-    Assertions.assertEquals(
-        Map.of("v0", 0, "v1", 1), config.map("key", ",", ":", Integer::valueOf));
-  }
-
-  @Test
   void testFilteredConfigs() {
     var config = Configuration.of(Map.of("key", "v1", "filtered.key", "v2", "key.filtered", "v3"));
     Assertions.assertEquals(Map.of("key", "v2"), config.filteredPrefixConfigs("filtered").raw());
