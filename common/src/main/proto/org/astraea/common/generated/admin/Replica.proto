@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package org.astraea.common.generated.admin;
+
+import "org/astraea/common/generated/admin/NodeInfo.proto";
+
+message Replica{
+  string topic = 1;
+  int32  partition = 2;
+  NodeInfo nodeInfo = 3;
+  int64 lag = 4;
+  int64 size = 5;
+  bool isLeader = 6;
+  bool isSync = 7;
+  bool isFuture = 8;
+  bool isOffline = 9;
+  bool isPreferredLeader = 10;
+  string path = 11;
+}

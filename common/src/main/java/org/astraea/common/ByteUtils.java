@@ -34,8 +34,13 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.generated.BeanObjectOuterClass;
-import org.astraea.common.generated.ClusterInfoOuterClass;
 import org.astraea.common.generated.PrimitiveOuterClass;
+import org.astraea.common.generated.admin.BrokerOuterClass;
+import org.astraea.common.generated.admin.ClusterInfoOuterClass;
+import org.astraea.common.generated.admin.NodeInfoOuterClass;
+import org.astraea.common.generated.admin.ReplicaOuterClass;
+import org.astraea.common.generated.admin.TopicOuterClass;
+import org.astraea.common.generated.admin.TopicPartitionOuterClass;
 import org.astraea.common.metrics.BeanObject;
 
 public final class ByteUtils {
@@ -190,7 +195,7 @@ public final class ByteUtils {
             value.brokers().stream()
                 .map(
                     broker ->
-                        ClusterInfoOuterClass.ClusterInfo.Broker.newBuilder()
+                        BrokerOuterClass.Broker.newBuilder()
                             .setId(broker.id())
                             .setHost(broker.host())
                             .setPort(broker.port())
@@ -200,8 +205,7 @@ public final class ByteUtils {
                                 broker.dataFolders().stream()
                                     .map(
                                         dataFolder ->
-                                            ClusterInfoOuterClass.ClusterInfo.Broker.Datafolder
-                                                .newBuilder()
+                                            BrokerOuterClass.Broker.Datafolder.newBuilder()
                                                 .setPath(dataFolder.path())
                                                 .putAllPartitionSizes(
                                                     dataFolder.partitionSizes().entrySet().stream()
@@ -224,8 +228,7 @@ public final class ByteUtils {
                                 broker.topicPartitions().stream()
                                     .map(
                                         tp ->
-                                            ClusterInfoOuterClass.ClusterInfo.Broker.TopicPartition
-                                                .newBuilder()
+                                            TopicPartitionOuterClass.TopicPartition.newBuilder()
                                                 .setPartition(tp.partition())
                                                 .setTopic(tp.topic())
                                                 .build())
@@ -234,8 +237,7 @@ public final class ByteUtils {
                                 broker.topicPartitionLeaders().stream()
                                     .map(
                                         tp ->
-                                            ClusterInfoOuterClass.ClusterInfo.Broker.TopicPartition
-                                                .newBuilder()
+                                            TopicPartitionOuterClass.TopicPartition.newBuilder()
                                                 .setPartition(tp.partition())
                                                 .setTopic(tp.topic())
                                                 .build())
@@ -246,7 +248,7 @@ public final class ByteUtils {
             value.topics().values().stream()
                 .map(
                     topicClass ->
-                        ClusterInfoOuterClass.ClusterInfo.Topic.newBuilder()
+                        TopicOuterClass.Topic.newBuilder()
                             .setName(topicClass.name())
                             .putAllConfig(topicClass.config().raw())
                             .setInternal(topicClass.internal())
@@ -260,11 +262,11 @@ public final class ByteUtils {
             value.replicas().stream()
                 .map(
                     replica ->
-                        ClusterInfoOuterClass.ClusterInfo.Replica.newBuilder()
+                        ReplicaOuterClass.Replica.newBuilder()
                             .setTopic(replica.topic())
                             .setPartition(replica.partition())
                             .setNodeInfo(
-                                ClusterInfoOuterClass.ClusterInfo.Replica.NodeInfo.newBuilder()
+                                NodeInfoOuterClass.NodeInfo.newBuilder()
                                     .setId(replica.nodeInfo().id())
                                     .setHost(replica.nodeInfo().host())
                                     .setPort(replica.nodeInfo().port())
