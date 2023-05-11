@@ -19,21 +19,23 @@ package org.astraea.common.admin;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * @param earliestOffset existent earliest offset
+ * @param latestOffset existent latest offset
+ * @param maxTimestamp max timestamp of existent records. If the kafka servers don't support to
+ *     fetch max timestamp, this method will return empty
+ * @param leader null if the node gets offline. otherwise, it returns node info.
+ * @param internal true if this topic is internal (system) topic
+ */
 public record Partition(
     String topic,
     int partition,
-    // existent earliest offset
     long earliestOffset,
-    // existent latest offset
     long latestOffset,
-    // max timestamp of existent records. If the kafka servers don't support to fetch max
-    // timestamp, this method will return empty
     Optional<Long> maxTimestamp,
-    // null if the node gets offline. otherwise, it returns node info.
     Optional<NodeInfo> leader,
     List<NodeInfo> replicas,
     List<NodeInfo> isr,
-    // true if this topic is internal (system) topic
     boolean internal) {
 
   public TopicPartition topicPartition() {
