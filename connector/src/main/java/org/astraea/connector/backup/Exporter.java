@@ -34,6 +34,7 @@ import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.RecordWriter;
+import org.astraea.common.connector.SinkTaskContext;
 import org.astraea.common.consumer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
@@ -159,6 +160,8 @@ public class Exporter extends SinkConnector {
 
     private long bufferSizeLimit;
 
+    private SinkTaskContext taskContext;
+
     FileSystem fs;
     String topicName;
     String path;
@@ -274,6 +277,7 @@ public class Exporter extends SinkConnector {
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture = CompletableFuture.runAsync(createWriter());
+      this.taskContext = SinkTaskContext.builder(this.context).build();
     }
 
     @Override

@@ -43,6 +43,7 @@ dependencies {
     implementation libs["slf4j-nop"]
     implementation libs["opencsv"]
     implementation libs["commons-math3"]
+    implementation libs["kafka-connect-api"]
     implementation 'com.google.protobuf:protobuf-java:3.22.2'
 }
 
