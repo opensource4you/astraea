@@ -22,24 +22,26 @@ import java.util.Optional;
 import org.astraea.common.Header;
 import org.astraea.common.admin.TopicPartition;
 
+/**
+ * @param offset The position of this record in the corresponding Kafka partition.
+ * @param timestamp timestamp of record
+ * @param partition expected partition, or null if you don't care for it.
+ * @param serializedKeySize The size of the serialized, uncompressed key in bytes. If key is null,
+ *     the returned size is -1.
+ * @param serializedValueSize The size of the serialized, uncompressed value in bytes. If value is
+ *     null, the returned size is -1.
+ * @param leaderEpoch the leader epoch or empty for legacy record formats
+ */
 public record Record<Key, Value>(
     String topic,
     List<Header> headers,
     Key key,
     Value value,
-    // The position of this record in the corresponding Kafka partition.
     long offset,
-    // timestamp of record
     long timestamp,
-    // expected partition, or null if you don't care for it.
     int partition,
-    // The size of the serialized, uncompressed key in bytes. If key is null, the returned size is
-    // -1.
     int serializedKeySize,
-    // The size of the serialized, uncompressed value in bytes. If value is null, the returned size
-    // is -1.
     int serializedValueSize,
-    // the leader epoch or empty for legacy record formats
     Optional<Integer> leaderEpoch) {
 
   public static <Key, Value> RecordBuilder<Key, Value> builder() {
