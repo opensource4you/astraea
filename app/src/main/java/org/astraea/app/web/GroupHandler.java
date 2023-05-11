@@ -120,8 +120,7 @@ public class GroupHandler implements Handler {
                                                         // https://github.com/google/gson/issues/1102
                                                         entry
                                                             .getKey()
-                                                            .groupInstanceId()
-                                                            .orElse(null),
+                                                            .groupInstanceId(),
                                                         entry.getKey().clientId(),
                                                         entry.getKey().host(),
                                                         entry.getValue().stream()
@@ -185,12 +184,12 @@ public class GroupHandler implements Handler {
 
     Member(
         String memberId,
-        String groupInstanceId,
+        Optional<String> groupInstanceId,
         String clientId,
         String host,
         List<OffsetProgress> offsetProgress) {
       this.memberId = memberId;
-      this.groupInstanceId = Optional.ofNullable(groupInstanceId);
+      this.groupInstanceId = groupInstanceId;
       this.clientId = clientId;
       this.host = host;
       this.offsetProgress = offsetProgress;
