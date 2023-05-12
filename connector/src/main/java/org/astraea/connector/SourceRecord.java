@@ -24,14 +24,16 @@ import org.astraea.common.Header;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Record;
 
+/**
+ * @param timestamp timestamp of record
+ * @param partition expected partition, or null if you don't care for it.
+ */
 public record SourceRecord(
     String topic,
     List<Header> headers,
     byte[] key,
     byte[] value,
-    // timestamp of record
     Optional<Long> timestamp,
-    // expected partition, or null if you don't care for it.
     Optional<Integer> partition,
     Map<String, String> metadataIndex,
     Map<String, String> metadata) {
