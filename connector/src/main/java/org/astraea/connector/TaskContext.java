@@ -16,7 +16,10 @@
  */
 package org.astraea.connector;
 
+import java.util.Arrays;
 import java.util.Map;
+import java.util.stream.Collectors;
+import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.astraea.common.admin.TopicPartition;
 
 public interface TaskContext {
@@ -28,4 +31,34 @@ public interface TaskContext {
   void pause(TopicPartition... partitions);
 
   void requestCommit();
+
+  static TaskContext of(SinkTaskContext context) {
+    return new TaskContext() {
+      @Override
+      public void offset(Map<TopicPartition, Long> offsets) {
+        context.offset(
+            offsets.entrySet().stream()
+                .collect(
+                    Collectors.toMap(e -> TopicPartition.to(e.getKey()), Map.Entry::getValue)));
+      }
+
+      @Override
+      public void offset(TopicPartition topicPartition, long offset) {
+        context.offset(TopicPartition.to(topicPartition), offset);
+      }
+
+      @Override
+      public void pause(TopicPartition... partitions) {
+        context.pause(
+            Arrays.stream(partitions)
+                .map(TopicPartition::to)
+                .toArray(org.apache.kafka.common.TopicPartition[]::new));
+      }
+
+      @Override
+      public void requestCommit() {
+        context.requestCommit();
+      }
+    };
+  }
 }
