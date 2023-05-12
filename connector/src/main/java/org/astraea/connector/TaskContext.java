@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.connector;
 
 import java.util.Map;
 import java.util.Set;
 import org.astraea.common.admin.TopicPartition;
 
-public interface SinkTaskContext {
+public interface TaskContext {
 
   Map<String, String> configs();
 
@@ -37,8 +37,4 @@ public interface SinkTaskContext {
   void resume(TopicPartition... partitions);
 
   void requestCommit();
-
-  static SinkTaskContextBuilder builder(org.apache.kafka.connect.sink.SinkTaskContext context) {
-    return new SinkTaskContextBuilder(context);
-  }
 }

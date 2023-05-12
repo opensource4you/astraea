@@ -34,11 +34,11 @@ import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.RecordWriter;
-import org.astraea.common.connector.SinkTaskContext;
 import org.astraea.common.consumer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
 import org.astraea.connector.SinkTask;
+import org.astraea.connector.SinkTaskContext;
 import org.astraea.fs.FileSystem;
 
 public class Exporter extends SinkConnector {
@@ -277,7 +277,7 @@ public class Exporter extends SinkConnector {
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture = CompletableFuture.runAsync(createWriter());
-      this.taskContext = SinkTaskContext.builder(this.context).build();
+      this.taskContext = new SinkTaskContext(this.context);
     }
 
     @Override

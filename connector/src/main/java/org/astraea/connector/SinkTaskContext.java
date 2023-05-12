@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.connector;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -22,20 +22,20 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.TopicPartition;
 
-public class SinkTaskContextBuilder {
+public class SinkTaskContext {
 
   private final org.apache.kafka.connect.sink.SinkTaskContext context;
 
-  public SinkTaskContextBuilder(org.apache.kafka.connect.sink.SinkTaskContext context) {
+  public SinkTaskContext(org.apache.kafka.connect.sink.SinkTaskContext context) {
     this.context = context;
   }
 
-  public SinkTaskContext build() {
+  public org.astraea.connector.TaskContext build() {
     return new TaskContext(context);
   }
 
   private record TaskContext(org.apache.kafka.connect.sink.SinkTaskContext context)
-      implements SinkTaskContext {
+      implements org.astraea.connector.TaskContext {
 
     @Override
     public Map<String, String> configs() {
