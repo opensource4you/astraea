@@ -490,5 +490,9 @@ public final class Utils {
     return FixedIterable.of(items.size(), iter);
   }
 
+  public static <V extends Collection<?>> boolean isBlank(V collection) {
+    return collection == null || collection.isEmpty();
+  }
+
   private Utils() {}
 }
