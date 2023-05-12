@@ -17,24 +17,15 @@
 package org.astraea.connector;
 
 import java.util.Map;
-import java.util.Set;
 import org.astraea.common.admin.TopicPartition;
 
 public interface TaskContext {
-
-  Map<String, String> configs();
 
   void offset(Map<TopicPartition, Long> offsets);
 
   void offset(TopicPartition topicPartition, long offset);
 
-  void timeout(long timeout);
-
-  Set<TopicPartition> assignment();
-
   void pause(TopicPartition... partitions);
-
-  void resume(TopicPartition... partitions);
 
   void requestCommit();
 }

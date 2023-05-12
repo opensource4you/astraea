@@ -39,6 +39,7 @@ import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
 import org.astraea.connector.SinkTask;
 import org.astraea.connector.SinkTaskContext;
+import org.astraea.connector.TaskContext;
 import org.astraea.fs.FileSystem;
 
 public class Exporter extends SinkConnector {
@@ -160,7 +161,7 @@ public class Exporter extends SinkConnector {
 
     private long bufferSizeLimit;
 
-    private SinkTaskContext taskContext;
+    private TaskContext taskContext;
 
     FileSystem fs;
     String topicName;
@@ -277,7 +278,7 @@ public class Exporter extends SinkConnector {
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture = CompletableFuture.runAsync(createWriter());
-      this.taskContext = new SinkTaskContext(this.context);
+      this.taskContext = new SinkTaskContext(context);
     }
 
     @Override

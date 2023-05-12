@@ -18,11 +18,10 @@ package org.astraea.connector;
 
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.TopicPartition;
 
-public class SinkTaskContext {
+public class SinkTaskContext implements TaskContext {
 
   private final org.apache.kafka.connect.sink.SinkTaskContext context;
 
@@ -30,61 +29,28 @@ public class SinkTaskContext {
     this.context = context;
   }
 
-  public org.astraea.connector.TaskContext build() {
-    return new TaskContext(context);
+  @Override
+  public void offset(Map<TopicPartition, Long> offsets) {
+    this.context.offset(
+        offsets.entrySet().stream()
+            .collect(Collectors.toMap(e -> TopicPartition.to(e.getKey()), Map.Entry::getValue)));
   }
 
-  private record TaskContext(org.apache.kafka.connect.sink.SinkTaskContext context)
-      implements org.astraea.connector.TaskContext {
+  @Override
+  public void offset(TopicPartition topicPartition, long offset) {
+    this.context.offset(TopicPartition.to(topicPartition), offset);
+  }
 
-    @Override
-    public Map<String, String> configs() {
-      return context.configs();
-    }
+  @Override
+  public void pause(TopicPartition... partitions) {
+    this.context.pause(
+        Arrays.stream(partitions)
+            .map(TopicPartition::to)
+            .toArray(org.apache.kafka.common.TopicPartition[]::new));
+  }
 
-    @Override
-    public void offset(Map<TopicPartition, Long> offsets) {
-      this.context.offset(
-          offsets.entrySet().stream()
-              .collect(Collectors.toMap(e -> TopicPartition.to(e.getKey()), Map.Entry::getValue)));
-    }
-
-    @Override
-    public void offset(TopicPartition topicPartition, long offset) {
-      this.context.offset(TopicPartition.to(topicPartition), offset);
-    }
-
-    @Override
-    public void timeout(long timeout) {
-      this.context.timeout(timeout);
-    }
-
-    @Override
-    public Set<TopicPartition> assignment() {
-      return this.context.assignment().stream()
-          .map(TopicPartition::from)
-          .collect(Collectors.toSet());
-    }
-
-    @Override
-    public void pause(TopicPartition... partitions) {
-      this.context.pause(
-          Arrays.stream(partitions)
-              .map(TopicPartition::to)
-              .toArray(org.apache.kafka.common.TopicPartition[]::new));
-    }
-
-    @Override
-    public void resume(TopicPartition... partitions) {
-      this.context.resume(
-          Arrays.stream(partitions)
-              .map(TopicPartition::to)
-              .toArray(org.apache.kafka.common.TopicPartition[]::new));
-    }
-
-    @Override
-    public void requestCommit() {
-      this.context.requestCommit();
-    }
+  @Override
+  public void requestCommit() {
+    this.context.requestCommit();
   }
 }
