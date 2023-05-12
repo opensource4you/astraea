@@ -16,9 +16,8 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Objects;
-
-public class TopicPartitionReplica implements Comparable<TopicPartitionReplica> {
+public record TopicPartitionReplica(String topic, int partition, int brokerId)
+    implements Comparable<TopicPartitionReplica> {
 
   public static org.apache.kafka.common.TopicPartitionReplica to(TopicPartitionReplica replica) {
     return new org.apache.kafka.common.TopicPartitionReplica(
@@ -27,16 +26,6 @@ public class TopicPartitionReplica implements Comparable<TopicPartitionReplica> 
 
   public static TopicPartitionReplica of(String topic, int partition, int brokerId) {
     return new TopicPartitionReplica(topic, partition, brokerId);
-  }
-
-  private final int brokerId;
-  private final int partition;
-  private final String topic;
-
-  private TopicPartitionReplica(String topic, int partition, int brokerId) {
-    this.partition = partition;
-    this.topic = topic;
-    this.brokerId = brokerId;
   }
 
   @Override
@@ -50,37 +39,5 @@ public class TopicPartitionReplica implements Comparable<TopicPartitionReplica> 
 
   public TopicPartition topicPartition() {
     return TopicPartition.of(topic, partition);
-  }
-
-  public int brokerId() {
-    return brokerId;
-  }
-
-  public int partition() {
-    return partition;
-  }
-
-  public String topic() {
-    return topic;
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(brokerId, topic, partition);
-  }
-
-  @Override
-  public String toString() {
-    return String.format("%d-%s-%d", brokerId, topic, partition);
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    TopicPartitionReplica that = (TopicPartitionReplica) o;
-    return brokerId == that.brokerId
-        && partition == that.partition
-        && Objects.equals(topic, that.topic);
   }
 }
