@@ -382,7 +382,7 @@ public final class ByteUtils {
                     var port = broker.getPort();
                     var id = broker.getId();
                     var isController = broker.getIsController();
-                    var config = Config.of(broker.getConfigMap());
+                    var config = new Config(broker.getConfigMap());
                     var dataFolders =
                         broker.getDatafolderList().stream()
                             .map(
@@ -436,7 +436,7 @@ public final class ByteUtils {
 
                         @Override
                         public Config config() {
-                          return Config.of(protoTopic.getConfigMap());
+                          return new Config(protoTopic.getConfigMap());
                         }
 
                         @Override
