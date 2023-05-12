@@ -60,6 +60,10 @@ public class MetricStoreTest {
     // Receiver not set
     var builder = MetricStore.builder();
     Assertions.assertThrows(NullPointerException.class, builder::build);
+    // Receiver set to empty
+    builder.receivers(List.of());
+    Assertions.assertThrows(IllegalArgumentException.class, builder::build);
+
     builder.receivers(List.of(timeout -> Map.of()));
     var store = builder.build();
     store.close();
