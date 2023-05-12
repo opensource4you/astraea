@@ -400,9 +400,8 @@ public final class ByteUtils {
                                               Collectors.toMap(
                                                   entry -> TopicPartition.of(entry.getKey()),
                                                   Map.Entry::getValue));
-                                  return (Broker.DataFolder)
-                                      new Broker.DataFolder.DataFolderImpl(
-                                          path, partitionSizes, orphanPartitionSizes);
+                                  return new Broker.DataFolder(
+                                      path, partitionSizes, orphanPartitionSizes);
                                 })
                             .toList();
                     var topicPartitions =
@@ -414,10 +413,10 @@ public final class ByteUtils {
                             .map(tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
                             .collect(Collectors.toSet());
                     return (NodeInfo)
-                        new Broker.BrokerImpl(
+                        new Broker(
+                            id,
                             host,
                             port,
-                            id,
                             isController,
                             config,
                             dataFolders,

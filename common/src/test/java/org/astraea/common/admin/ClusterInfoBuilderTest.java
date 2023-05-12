@@ -22,10 +22,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 class ClusterInfoBuilderTest {
 
@@ -321,24 +318,5 @@ class ClusterInfoBuilderTest {
         () ->
             ClusterInfo.builder().setPreferredLeader(TopicPartitionReplica.of("no", 0, 0)).build(),
         "No such replica");
-  }
-
-  @DisplayName("FakeBroker can interact with normal NodeInfo properly")
-  @ParameterizedTest
-  @CsvSource(
-      value = {
-        "  1, host1, 1000",
-        " 20, host2, 2000",
-        "300, host3, 3000",
-      })
-  void testFakeBrokerInteraction(int id, String host, int port) {
-    var node0 = ClusterInfoBuilder.FakeBroker.of(id, host, port, List.of());
-    var node1 = NodeInfo.of(id, host, port);
-    var node2 = NodeInfo.of(id + 1, host, port);
-
-    Assertions.assertEquals(node0.hashCode(), node1.hashCode());
-    Assertions.assertNotEquals(node0.hashCode(), node2.hashCode());
-    Assertions.assertEquals(node0, node1);
-    Assertions.assertNotEquals(node0, node2);
   }
 }

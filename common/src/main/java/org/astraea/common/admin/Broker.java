@@ -23,7 +23,19 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.requests.DescribeLogDirsResponse;
 
-public interface Broker extends NodeInfo {
+public record Broker(
+    int id,
+    String host,
+    int port,
+    boolean isController,
+    // config used by this node
+    Config config,
+    // the disk folder used to stored data by this node
+    List<DataFolder> dataFolders,
+    Set<TopicPartition> topicPartitions,
+    // partition leaders hosted by this broker
+    Set<TopicPartition> topicPartitionLeaders)
+    implements NodeInfo {
 
   static Broker of(
       boolean isController,
@@ -60,8 +72,7 @@ public interface Broker extends NodeInfo {
                               tpAndSize -> !partitionsFromTopicDesc.contains(tpAndSize.getKey()))
                           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-                  return (DataFolder)
-                      new DataFolder.DataFolderImpl(path, partitionSizes, orphanPartitionSizes);
+                  return new DataFolder(path, partitionSizes, orphanPartitionSizes);
                 })
             .toList();
     var topicPartitionLeaders =
@@ -72,10 +83,10 @@ public interface Broker extends NodeInfo {
                         .filter(p -> p.leader() != null && p.leader().id() == nodeInfo.id())
                         .map(p -> TopicPartition.of(topic.name(), p.partition())))
             .collect(Collectors.toUnmodifiableSet());
-    return new BrokerImpl(
+    return new Broker(
+        nodeInfo.id(),
         nodeInfo.host(),
         nodeInfo.port(),
-        nodeInfo.id(),
         isController,
         config,
         folders,
@@ -83,57 +94,11 @@ public interface Broker extends NodeInfo {
         topicPartitionLeaders);
   }
 
-  boolean isController();
-
-  /**
-   * @return config used by this node
-   */
-  Config config();
-
-  /**
-   * @return the disk folder used to stored data by this node
-   */
-  List<DataFolder> dataFolders();
-
-  Set<TopicPartition> topicPartitions();
-
-  /**
-   * @return partition leaders hosted by this broker
-   */
-  Set<TopicPartition> topicPartitionLeaders();
-
-  interface DataFolder {
-
-    /**
-     * @return the path on the local disk
-     */
-    String path();
-
-    /**
-     * @return topic partition hosed by this node and size of files
-     */
-    Map<TopicPartition, Long> partitionSizes();
-
-    /**
-     * @return topic partition located by this node but not traced by cluster
-     */
-    Map<TopicPartition, Long> orphanPartitionSizes();
-
-    record DataFolderImpl(
-        String path,
-        Map<TopicPartition, Long> partitionSizes,
-        Map<TopicPartition, Long> orphanPartitionSizes)
-        implements DataFolder {}
-  }
-
-  record BrokerImpl(
-      String host,
-      int port,
-      int id,
-      boolean isController,
-      Config config,
-      List<DataFolder> dataFolders,
-      Set<TopicPartition> topicPartitions,
-      Set<TopicPartition> topicPartitionLeaders)
-      implements Broker {}
+  public record DataFolder(
+      // the path on the local disk
+      String path,
+      // topic partition hosed by this node and size of files
+      Map<TopicPartition, Long> partitionSizes,
+      // topic partition located by this node but not traced by cluster
+      Map<TopicPartition, Long> orphanPartitionSizes) {}
 }

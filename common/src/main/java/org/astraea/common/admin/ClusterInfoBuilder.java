@@ -88,7 +88,7 @@ public class ClusterInfoBuilder {
                             + " but another broker with this id already existed");
                   });
           return Stream.concat(nodes.stream(), brokerIds.stream().map(ClusterInfoBuilder::fakeNode))
-              .collect(Collectors.toUnmodifiableList());
+              .toList();
         });
   }
 
@@ -108,17 +108,18 @@ public class ClusterInfoBuilder {
               .map(
                   node -> {
                     if (folders.containsKey(node.id()))
-                      return FakeBroker.of(
+                      return fakeBroker(
                           node.id(),
                           node.host(),
                           node.port(),
                           Stream.concat(
                                   ((Broker) node).dataFolders().stream(),
-                                  folders.get(node.id()).stream().map(FakeDataFolder::of))
-                              .collect(Collectors.toUnmodifiableList()));
+                                  folders.get(node.id()).stream()
+                                      .map(ClusterInfoBuilder::fakeDataFolder))
+                              .toList());
                     else return node;
                   })
-              .collect(Collectors.toUnmodifiableList());
+              .toList();
         });
   }
 
@@ -217,8 +218,7 @@ public class ClusterInfoBuilder {
                                   }))
                   .map(mapper);
 
-          return Stream.concat(replicas.stream(), newTopic)
-              .collect(Collectors.toUnmodifiableList());
+          return Stream.concat(replicas.stream(), newTopic).toList();
         });
   }
 
@@ -229,9 +229,7 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder mapLog(Function<Replica, Replica> mapper) {
-    return applyReplicas(
-        (nodes, replicas) ->
-            replicas.stream().map(mapper).collect(Collectors.toUnmodifiableList()));
+    return applyReplicas((nodes, replicas) -> replicas.stream().map(mapper).toList());
   }
 
   /**
@@ -264,7 +262,7 @@ public class ClusterInfoBuilder {
                           return r;
                         }
                       })
-                  .collect(Collectors.toUnmodifiableList());
+                  .toList();
           if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
           return collect;
         });
@@ -297,7 +295,7 @@ public class ClusterInfoBuilder {
                           return r;
                         }
                       })
-                  .collect(Collectors.toUnmodifiableList());
+                  .toList();
           if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
 
           return collect;
@@ -325,90 +323,14 @@ public class ClusterInfoBuilder {
     var port = new Random(brokerId).nextInt(65535) + 1;
     var folders = List.<Broker.DataFolder>of();
 
-    return FakeBroker.of(brokerId, host, port, folders);
+    return fakeBroker(brokerId, host, port, folders);
   }
 
-  interface FakeBroker extends Broker {
-
-    static FakeBroker of(int id, String host, int port, List<DataFolder> folders) {
-      var hashCode = Objects.hash(id, host, port);
-      return new FakeBroker() {
-        @Override
-        public List<DataFolder> dataFolders() {
-          return folders;
-        }
-
-        @Override
-        public String host() {
-          return host;
-        }
-
-        @Override
-        public int port() {
-          return port;
-        }
-
-        @Override
-        public int id() {
-          return id;
-        }
-
-        @Override
-        public String toString() {
-          return "FakeNodeInfo{" + "host=" + host() + ", id=" + id() + ", port=" + port() + '}';
-        }
-
-        @Override
-        public int hashCode() {
-          return hashCode;
-        }
-
-        @Override
-        public boolean equals(Object other) {
-          if (other instanceof NodeInfo) {
-            var node = (NodeInfo) other;
-            return id() == node.id() && port() == node.port() && host().equals(node.host());
-          }
-          return false;
-        }
-      };
-    }
-
-    @Override
-    default boolean isController() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default Config config() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default Set<TopicPartition> topicPartitions() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default Set<TopicPartition> topicPartitionLeaders() {
-      throw new UnsupportedOperationException();
-    }
+  static Broker fakeBroker(int Id, String host, int port, List<Broker.DataFolder> dataFolders) {
+    return new Broker(Id, host, port, false, new Config(Map.of()), dataFolders, Set.of(), Set.of());
   }
 
-  interface FakeDataFolder extends Broker.DataFolder {
-
-    static FakeDataFolder of(String path) {
-      return () -> path;
-    }
-
-    @Override
-    default Map<TopicPartition, Long> partitionSizes() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default Map<TopicPartition, Long> orphanPartitionSizes() {
-      throw new UnsupportedOperationException();
-    }
+  private static Broker.DataFolder fakeDataFolder(String path) {
+    return new Broker.DataFolder(path, Map.of(), Map.of());
   }
 }
