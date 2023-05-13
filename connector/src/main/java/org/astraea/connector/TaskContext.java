@@ -16,7 +16,7 @@
  */
 package org.astraea.connector;
 
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.connect.sink.SinkTaskContext;
@@ -28,7 +28,7 @@ public interface TaskContext {
 
   void offset(TopicPartition topicPartition, long offset);
 
-  void pause(TopicPartition... partitions);
+  void pause(Collection<TopicPartition> partitions);
 
   void requestCommit();
 
@@ -48,9 +48,9 @@ public interface TaskContext {
       }
 
       @Override
-      public void pause(TopicPartition... partitions) {
+      public void pause(Collection<TopicPartition> partitions) {
         context.pause(
-            Arrays.stream(partitions)
+            partitions.stream()
                 .map(TopicPartition::to)
                 .toArray(org.apache.kafka.common.TopicPartition[]::new));
       }
