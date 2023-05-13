@@ -65,8 +65,9 @@ public class BalancerBenchmarkApp {
 
     Runnable help =
         () -> {
-          if (!name.equalsIgnoreCase("help")) System.out.println("Unknown benchmark name: " + name);
           System.out.printf("Usage: %s [args ...]%n", benchmarks.keySet());
+          if (!name.equalsIgnoreCase("help"))
+            throw new IllegalArgumentException("Unknown benchmark name: " + name);
         };
 
     // try to run the specified benchmark or cry for help
@@ -203,7 +204,7 @@ public class BalancerBenchmarkApp {
 
     return String.format(
         format,
-        // astraeae version
+        // astraea version
         VersionUtils.VERSION,
         VersionUtils.DATE,
         VersionUtils.REVISION,
@@ -237,8 +238,8 @@ public class BalancerBenchmarkApp {
         (double) bean.all().values().stream().mapToInt(Collection::size).sum()
             / bean.brokerIds().size(),
         bean.brokerIds().size(),
-        metricStart,
-        metricEnd,
+        metricStart != null ? metricStart : "no metric",
+        metricEnd != null ? metricEnd : "no metric",
         duration);
   }
 
@@ -261,7 +262,7 @@ public class BalancerBenchmarkApp {
 
         ## Statistics
 
-        * Initial Cost: %d
+        * Initial Cost: %f
         * Min Cost: %s
         * Average Cost: %s
         * Max Cost: %s
@@ -284,14 +285,14 @@ public class BalancerBenchmarkApp {
         result.costs().size(),
         result.trials() - result.costs().size(),
         // Cost Detail
-        result.initial(),
         result.initial().value(),
-        result.bestCost().map(Object::toString).orElse("no usable solution found"),
+        result.initial(),
         result
             .bestCost()
             .map(ClusterCost::value)
             .map(Object::toString)
             .orElse("no usable solution found"),
+        result.bestCost().map(Object::toString).orElse("no usable solution found"),
         // Cost Statistics
         result.initial().value(),
         count > 0 ? result.costSummary().getMin() : -1,
@@ -338,7 +339,7 @@ public class BalancerBenchmarkApp {
     // use the move cost evaluation count as the number of iteration(an optimization attempt) been
     // performed. we are not using cluster cost since some balancer implementation won't perform
     // cluster cost evaluation if it knows the solution is infeasible.
-    var iterations = result.moveCostProcessingTimeNs().getCount();
+    var iterations = Math.max(1, result.moveCostProcessingTimeNs().getCount());
     var time = System.currentTimeMillis();
     var randomName = Utils.randomString(4);
 
