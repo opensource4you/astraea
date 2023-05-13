@@ -490,8 +490,11 @@ public final class Utils {
     return FixedIterable.of(items.size(), iter);
   }
 
-  public static <V extends Collection<?>> boolean isBlank(V collection) {
-    return collection == null || collection.isEmpty();
+  public static <V extends Collection<?>> V requireNonEmpty(V collection, String message) {
+    if (collection == null || collection.isEmpty()) {
+      throw new IllegalArgumentException(message);
+    }
+    return collection;
   }
 
   private Utils() {}

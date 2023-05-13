@@ -170,10 +170,9 @@ public interface MetricStore extends AutoCloseable {
     }
 
     public MetricStore build() {
-      if (Utils.isBlank(receivers)) throw new IllegalArgumentException("receivers can't be empty");
       return new MetricStoreImpl(
           Objects.requireNonNull(sensorsSupplier, "sensorsSupplier can't be null"),
-          receivers,
+          Utils.requireNonEmpty(receivers, "receivers can't be empty"),
           Objects.requireNonNull(beanExpiration, "beanExpiration can't be null"));
     }
   }
