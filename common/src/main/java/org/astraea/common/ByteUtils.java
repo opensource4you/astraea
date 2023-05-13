@@ -341,7 +341,7 @@ public final class ByteUtils {
 
                         @Override
                         public Config config() {
-                          return Config.of(protoTopic.getConfigMap());
+                          return new Config(protoTopic.getConfigMap());
                         }
 
                         @Override
