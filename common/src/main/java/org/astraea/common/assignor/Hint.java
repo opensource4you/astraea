@@ -18,28 +18,27 @@ package org.astraea.common.assignor;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
 import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
-public interface Generator {
+public interface Hint {
+  List<String> get(TopicPartition tp);
 
-  Map<String, List<TopicPartition>> get();
+  static Hint lowCostHint(
+      Map<String, SubscriptionInfo> subscriptions, Map<String, Double> consumerCost) {
+    return (tp) -> {
+      var consumers =
+          subscriptions.entrySet().stream()
+              .filter(e -> e.getValue().topics().contains(tp.topic()))
+              .map(Map.Entry::getKey)
+              .toList();
 
-  static Generator randomGenerator(Set<TopicPartition> partitions, Hint hint) {
-    return () ->
-        partitions.stream()
-            .map(
-                tp -> {
-                  var candidates = hint.get(tp);
-                  return Map.entry(
-                      candidates.get(ThreadLocalRandom.current().nextInt(candidates.size())), tp);
-                })
-            .collect(
-                Collectors.groupingBy(
-                    Map.Entry::getKey,
-                    Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
+      return consumerCost.entrySet().stream()
+          .filter(e -> consumers.contains(e.getKey()))
+          .sorted(Map.Entry.comparingByValue())
+          .limit((long) Math.ceil(consumerCost.size() / 2.0))
+          .map(Map.Entry::getKey)
+          .toList();
+    };
   }
 }

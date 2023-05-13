@@ -16,16 +16,14 @@
  */
 package org.astraea.common.assignor;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
-public interface Limiter {
-  boolean accept(Map<String, List<TopicPartition>> combinator);
+public interface Limiter<T> {
 
-  static Limiter of(Set<Limiter> limiters) {
-    return (combinator) -> limiters.stream().anyMatch(l -> l.accept(combinator));
+  boolean check(T condition);
+
+  static <T> Limiter<T> of(Set<Limiter<T>> limiters) {
+    return (combinator) -> limiters.stream().allMatch(l -> l.check(combinator));
   }
 }
