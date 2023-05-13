@@ -16,9 +16,7 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Objects;
-
-public final class TopicPartition implements Comparable<TopicPartition> {
+public record TopicPartition(String topic, int partition) implements Comparable<TopicPartition> {
 
   public static TopicPartition from(org.apache.kafka.common.TopicPartition tp) {
     return TopicPartition.of(tp.topic(), tp.partition());
@@ -48,14 +46,6 @@ public final class TopicPartition implements Comparable<TopicPartition> {
     return new TopicPartition(topic, partition);
   }
 
-  private final int partition;
-  private final String topic;
-
-  private TopicPartition(String topic, int partition) {
-    this.partition = partition;
-    this.topic = topic;
-  }
-
   @Override
   public int compareTo(TopicPartition o) {
     var r = topic.compareTo(o.topic);
@@ -63,29 +53,9 @@ public final class TopicPartition implements Comparable<TopicPartition> {
     return Integer.compare(partition, o.partition);
   }
 
-  public int partition() {
-    return partition;
-  }
-
-  public String topic() {
-    return topic;
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(topic, partition);
-  }
-
   @Override
   public String toString() {
+    // equal to #of(String, String)
     return topic + "-" + partition;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    TopicPartition that = (TopicPartition) o;
-    return partition == that.partition && Objects.equals(topic, that.topic);
   }
 }

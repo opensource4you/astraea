@@ -33,7 +33,6 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.cost.HasPartitionCost;
@@ -80,18 +79,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   protected void configure(Configuration config) {}
 
   // -----------------------[helper]-----------------------//
-
-  /**
-   * check the nodes which wasn't register yet.
-   *
-   * @param nodes List of node information
-   * @return Map from each broker id to broker host
-   */
-  protected Map<Integer, String> checkUnregister(List<NodeInfo> nodes) {
-    return nodes.stream()
-        .filter(i -> (metricStore == null || !metricStore.identities().contains(i.id())))
-        .collect(Collectors.toMap(NodeInfo::id, NodeInfo::host));
-  }
 
   /**
    * update cluster information
