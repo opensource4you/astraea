@@ -21,13 +21,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.BalancerConfigs;
+import org.astraea.common.balancer.BalancerUtils;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
+import org.astraea.common.cost.ClusterCost;
 
 /** This algorithm proposes rebalance plan by tweaking the log allocation once. */
 public class SingleStepBalancer implements Balancer {
@@ -76,19 +80,40 @@ public class SingleStepBalancer implements Balancer {
             .<Predicate<Integer>>map(
                 predicate -> (brokerId) -> predicate.test(Integer.toString(brokerId)))
             .orElse((ignore) -> true);
+    final var clearBrokers =
+        config
+            .balancerConfig()
+            .regexString(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX)
+            .map(Pattern::asMatchPredicate)
+            .<Predicate<Integer>>map(
+                predicate -> (brokerId) -> predicate.test(Integer.toString(brokerId)))
+            .orElse((ignore) -> false);
+    BalancerUtils.verifyClearBrokerValidness(
+        config.clusterInfo(), clearBrokers, allowedBrokers, allowedTopics);
 
-    final var currentClusterInfo = config.clusterInfo();
+    final var currentClusterInfo =
+        BalancerUtils.clearedCluster(config.clusterInfo(), clearBrokers, allowedBrokers);
     final var clusterBean = config.clusterBean();
     final var allocationTweaker =
         ShuffleTweaker.builder()
             .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(minStep, maxStep))
             .allowedTopics(allowedTopics)
-            .allowedBrokers(allowedBrokers)
+            .allowedBrokers(allowedBrokers.and(Predicate.not(clearBrokers)))
             .build();
-    final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
-    final var currentCost =
-        config.clusterCostFunction().clusterCost(currentClusterInfo, clusterBean);
+
+    final Function<ClusterInfo, ClusterCost> evaluateCost =
+        (cluster) -> {
+          final var filteredCluster =
+              config
+                      .balancerConfig()
+                      .string(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX)
+                      .isPresent()
+                  ? ClusterInfo.builder(cluster).removeNode(clearBrokers).build()
+                  : cluster;
+          return config.clusterCostFunction().clusterCost(filteredCluster, clusterBean);
+        };
+    final var currentCost = evaluateCost.apply(currentClusterInfo);
 
     var start = System.currentTimeMillis();
     return allocationTweaker
@@ -107,7 +132,7 @@ public class SingleStepBalancer implements Balancer {
                     config.clusterInfo(),
                     currentCost,
                     newAllocation,
-                    clusterCostFunction.clusterCost(newAllocation, clusterBean)))
+                    evaluateCost.apply(newAllocation)))
         .filter(plan -> plan.proposalClusterCost().value() < currentCost.value())
         .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()));
   }

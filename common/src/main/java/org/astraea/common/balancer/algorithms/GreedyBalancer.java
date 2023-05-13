@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -32,6 +33,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.BalancerConfigs;
+import org.astraea.common.balancer.BalancerUtils;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.metrics.MBeanRegister;
@@ -148,18 +150,39 @@ public class GreedyBalancer implements Balancer {
             .<Predicate<Integer>>map(
                 predicate -> (brokerId) -> predicate.test(Integer.toString(brokerId)))
             .orElse((ignore) -> true);
+    final var clearBrokers =
+        config
+            .balancerConfig()
+            .regexString(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX)
+            .map(Pattern::asMatchPredicate)
+            .<Predicate<Integer>>map(
+                predicate -> (brokerId) -> predicate.test(Integer.toString(brokerId)))
+            .orElse((ignore) -> false);
+    BalancerUtils.verifyClearBrokerValidness(
+        config.clusterInfo(), clearBrokers, allowedBrokers, allowedTopics);
 
-    final var currentClusterInfo = config.clusterInfo();
+    final var currentClusterInfo =
+        BalancerUtils.clearedCluster(config.clusterInfo(), clearBrokers, allowedBrokers);
     final var clusterBean = config.clusterBean();
     final var allocationTweaker =
         ShuffleTweaker.builder()
             .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(minStep, maxStep))
             .allowedTopics(allowedTopics)
-            .allowedBrokers(allowedBrokers)
+            .allowedBrokers(allowedBrokers.and(Predicate.not(clearBrokers)))
             .build();
-    final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
-    final var initialCost = clusterCostFunction.clusterCost(currentClusterInfo, clusterBean);
+    final Function<ClusterInfo, ClusterCost> evaluateCost =
+        (cluster) -> {
+          final var filteredCluster =
+              config
+                      .balancerConfig()
+                      .string(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX)
+                      .isPresent()
+                  ? ClusterInfo.builder(cluster).removeNode(clearBrokers).build()
+                  : cluster;
+          return config.clusterCostFunction().clusterCost(filteredCluster, clusterBean);
+        };
+    final var initialCost = evaluateCost.apply(currentClusterInfo);
 
     final var loop = new AtomicInteger(iteration);
     final var start = System.currentTimeMillis();
@@ -182,7 +205,7 @@ public class GreedyBalancer implements Balancer {
                             config.clusterInfo(),
                             initialCost,
                             newAllocation,
-                            clusterCostFunction.clusterCost(newAllocation, clusterBean)))
+                            evaluateCost.apply(newAllocation)))
                 .filter(plan -> plan.proposalClusterCost().value() < currentCost.value())
                 .findFirst();
     var currentCost = initialCost;

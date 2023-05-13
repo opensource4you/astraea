@@ -40,4 +40,36 @@ public final class BalancerConfigs {
    * broker or move its partition to other brokers.
    */
   public static final String BALANCER_ALLOWED_BROKERS_REGEX = "balancer.allowed.brokers.regex";
+
+  /**
+   * A regular expression indicates which brokers should have zero replicas. This configuration
+   * enables the user to clear all loadings for some brokers, which further enables the user to
+   * perform a graceful removal for those brokers. When specified, the proposed rebalance plan from
+   * the {@link Balancer#offer(AlgorithmConfig)} should have no replica allocated to the target
+   * brokers.
+   *
+   * <h3>Flag Interaction:</h3>
+   *
+   * <ol>
+   *   <li>When this flag is used in conjunction with {@link
+   *       BalancerConfigs#BALANCER_ALLOWED_BROKERS_REGEX}, if the clearing target broker is not
+   *       allowed, an exception should be raised.
+   *   <li>When this flag is used in conjunction with {@link
+   *       BalancerConfigs#BALANCER_ALLOWED_BROKERS_REGEX}, if there is insufficient number of
+   *       allowed brokers to fit the required replica factor for a specific partition, an exception
+   *       should be raised.
+   *   <li>When this flag is used in conjunction with {@link
+   *       BalancerConfigs#BALANCER_ALLOWED_TOPICS_REGEX}, if the clearing target broker contains
+   *       partition from those forbidden topics, an exception should be raised.
+   * </ol>
+   *
+   * <h3>Limitation:</h3>
+   *
+   * <ol>
+   *   <li>Any broker with ongoing replica-move-in, replica-move-out or inter-folder-movement cannot
+   *       become the clear target. An exception will be raised if any of the clear broker has such
+   *       ongoing event.
+   * </ol>
+   */
+  public static final String BALANCER_CLEAR_BROKERS_REGEX = "balancer.clear.brokers.regex";
 }

@@ -17,15 +17,19 @@
 package org.astraea.common.balancer;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.metrics.ClusterBean;
@@ -176,6 +180,330 @@ public abstract class BalancerConfigTestSuite {
     }
   }
 
+  @Test
+  public void testBalancerClearBrokersRegex() {
+    final var balancer = Utils.construct(balancerClass, Configuration.EMPTY);
+    final var cluster = cluster(10, 30, 10, (short) 5);
+
+    {
+      var testName = "[test all clear]";
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(cluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "[0-9]*")
+                      .build()),
+          testName);
+    }
+
+    {
+      var testName = "[test some clear]";
+      var plan =
+          balancer.offer(
+              AlgorithmConfig.builder()
+                  .clusterInfo(cluster)
+                  .clusterCost(decreasingCost())
+                  .timeout(Duration.ofSeconds(2))
+                  .configs(customConfig.raw())
+                  .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "(0|1|2)")
+                  .build());
+      Assertions.assertTrue(plan.isPresent(), testName);
+      var finalCluster = plan.get().proposal();
+      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.nodeInfo().id() == 0));
+      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.nodeInfo().id() == 1));
+      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.nodeInfo().id() == 2));
+      Assertions.assertTrue(
+          finalCluster.replicas().stream().noneMatch(x -> x.nodeInfo().id() == 0));
+      Assertions.assertTrue(
+          finalCluster.replicas().stream().noneMatch(x -> x.nodeInfo().id() == 1));
+      Assertions.assertTrue(
+          finalCluster.replicas().stream().noneMatch(x -> x.nodeInfo().id() == 2));
+      AssertionsHelper.assertBrokerEmpty(
+          finalCluster, (x) -> Set.of(0, 1, 2).contains(x), testName);
+    }
+
+    {
+      var testName = "[test replication factor violation]";
+      // 6 brokers, clear 3 brokers, remain 3 brokers, topic with replication factor 3 can fit this
+      // cluster.
+      var noViolatedCluster = cluster(6, 10, 10, (short) 3);
+      Assertions.assertDoesNotThrow(
+          () -> {
+            var solution =
+                balancer
+                    .offer(
+                        AlgorithmConfig.builder()
+                            .clusterInfo(noViolatedCluster)
+                            .clusterCost(decreasingCost())
+                            .timeout(Duration.ofSeconds(2))
+                            .configs(customConfig.raw())
+                            .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "(0|1|2)")
+                            .build())
+                    .orElseThrow()
+                    .proposal();
+            AssertionsHelper.assertBrokerEmpty(
+                solution, (x) -> Set.of(0, 1, 2).contains(x), testName);
+          },
+          testName);
+
+      // 5 brokers, clear 3 brokers, remain 2 brokers, topic with replication factor 3 CANNOT fit
+      // this cluster.
+      var violatedCluster = cluster(5, 10, 10, (short) 3);
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(violatedCluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "(0|1|2)")
+                      .build()));
+    }
+
+    {
+      var testName = "[test if allowed topics is used, clear disallow topic will raise an error]";
+      var base =
+          ClusterInfo.builder()
+              .addNode(Set.of(1, 2, 3))
+              .addFolders(
+                  Map.ofEntries(
+                      Map.entry(1, Set.of("/folder")),
+                      Map.entry(2, Set.of("/folder")),
+                      Map.entry(3, Set.of("/folder"))))
+              .build();
+      var node12 = Stream.of(1, 2).map(base::node).iterator();
+      var node13 = Stream.of(1, 3).map(base::node).iterator();
+      var node123 = Stream.of(1, 2, 3).map(base::node).iterator();
+      var testCluster =
+          ClusterInfo.builder(base)
+              .addTopic("OK", 1, (short) 1, r -> Replica.builder(r).nodeInfo(base.node(1)).build())
+              .addTopic(
+                  "OK_SKIP", 2, (short) 1, r -> Replica.builder(r).nodeInfo(node12.next()).build())
+              .addTopic(
+                  "Replica", 1, (short) 2, r -> Replica.builder(r).nodeInfo(node13.next()).build())
+              .addTopic(
+                  "Partition",
+                  3,
+                  (short) 1,
+                  r -> Replica.builder(r).nodeInfo(node123.next()).build())
+              .build();
+
+      Assertions.assertDoesNotThrow(
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(testCluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow anything other than "OK" topic
+                      .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, "(?!OK).*")
+                      // clear broker 3
+                      .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "3")
+                      // this won't raise an error since that topic didn't locate at 3
+                      .build()),
+          testName);
+      Assertions.assertDoesNotThrow(
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(testCluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow anything other than "OK" topic
+                      .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, "(?!OK_SKIP).*")
+                      // clear broker 3
+                      .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "3")
+                      // this won't raise an error since that topic didn't locate at 3
+                      .build()),
+          testName);
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(testCluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow anything other than "Replica" topic
+                      .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, "(?!Replica).*")
+                      // clear broker 3
+                      .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "3")
+                      // this will raise an error since that topic has a replica at 3
+                      .build()),
+          testName);
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(testCluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow anything other than "Replica" topic
+                      .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, "(?!Partition).*")
+                      // clear broker 3
+                      .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "3")
+                      // this will raise an error since that topic has a partition at 3
+                      .build()),
+          testName);
+    }
+
+    {
+      var testName = "[test if allowed brokers is used, clear disallow broker will raise an error]";
+      Assertions.assertDoesNotThrow(
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(cluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow broker 0,1,2,3,4,5,6
+                      .config(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, "(0|1|2|3|4|5|6)")
+                      // clear broker 0
+                      .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "(0)")
+                      // this will be ok since any replica at 0 can move to 1~6 without breaking
+                      // replica factors
+                      .build()),
+          testName);
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(cluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow broker 0,1,2,3,4,5
+                      .config(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, "(0|1|2|3|4|5)")
+                      // clear broker 9
+                      .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "(9)")
+                      // this will raise an error since broker 9 is forbidden from being altered
+                      .build()),
+          testName);
+    }
+
+    {
+      var testName = "[test if allowed brokers is used, disallowed broker won't be altered]";
+      var allowedBrokers = Set.of(0, 1, 2, 3, 4, 5, 6);
+      var allowedBrokerPredicate =
+          allowedBrokers.stream().map(Object::toString).collect(Collectors.joining("|", "(", ")"));
+      var solution =
+          balancer
+              .offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(cluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow broker 0,1,2,3,4,5,6
+                      .config(
+                          BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, allowedBrokerPredicate)
+                      // clear broker 0
+                      .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "(0)")
+                      // this will be ok since any replica at 0 can move to 1~6 without breaking
+                      // replica factors
+                      .build())
+              .orElseThrow()
+              .proposal();
+      var before = cluster.topicPartitionReplicas();
+      var after = solution.topicPartitionReplicas();
+      var changed =
+          after.stream()
+              .filter(Predicate.not(before::contains))
+              .collect(Collectors.toUnmodifiableSet());
+      // all moved replicas will locate at 0,1,2,3,4,5 or 6
+      Assertions.assertTrue(
+          changed.stream().allMatch(r -> allowedBrokers.contains(r.brokerId())), testName);
+    }
+
+    {
+      var testName =
+          "[test if allowed brokers is used, insufficient allowed broker to fit replica factor requirement will raise an error]";
+      Assertions.assertThrows(
+          IllegalStateException.class,
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(cluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow broker 0,1
+                      .config(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, "(0|1)")
+                      // clear broker 0
+                      .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "(0)")
+                      // this will raise an error if a partition has replicas at both 0 and 1. In
+                      // this case, there is no allowed broker to adopt replica from 0, since the
+                      // only allowed broker already has one replica on it. we cannot assign two
+                      // replicas to one broker.
+                      .build()),
+          testName);
+    }
+
+    {
+      var testName = "[if replica on clear broker is adding/removing/future, raise an exception]";
+      var adding =
+          ClusterInfo.builder(cluster)
+              .mapLog(r -> r.nodeInfo().id() != 0 ? r : Replica.builder(r).isAdding(true).build())
+              .build();
+      var removing =
+          ClusterInfo.builder(cluster)
+              .mapLog(r -> r.nodeInfo().id() != 0 ? r : Replica.builder(r).isRemoving(true).build())
+              .build();
+      var future =
+          ClusterInfo.builder(cluster)
+              .mapLog(r -> r.nodeInfo().id() != 0 ? r : Replica.builder(r).isFuture(true).build())
+              .build();
+      for (var cc : List.of(adding, removing, future)) {
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                balancer.offer(
+                    AlgorithmConfig.builder()
+                        .clusterInfo(cc)
+                        .clusterCost(decreasingCost())
+                        .timeout(Duration.ofSeconds(1))
+                        .configs(customConfig.raw())
+                        // allow broker 0,1,2,3,4,5,6
+                        .config(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, "(0|1|2|3|4|5|6)")
+                        // clear broker 0
+                        .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "(0)")
+                        .build()),
+            testName);
+      }
+      for (var cc : List.of(adding, removing, future)) {
+        Assertions.assertDoesNotThrow(
+            () ->
+                balancer.offer(
+                    AlgorithmConfig.builder()
+                        .clusterInfo(cc)
+                        .clusterCost(decreasingCost())
+                        .timeout(Duration.ofSeconds(1))
+                        .configs(customConfig.raw())
+                        // allow broker 0,1,2,3,4,5,6,7
+                        .config(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, "(0|1|2|3|4|5|6|7)")
+                        // clear broker 1
+                        .config(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX, "(1)")
+                        // adding/removing/future at 0 not 1, unrelated so no error
+                        .build()),
+            testName);
+      }
+    }
+  }
+
   private static ClusterInfo cluster(int nodes, int topics, int partitions, short replicas) {
     var builder =
         ClusterInfo.builder()
@@ -257,6 +585,17 @@ public abstract class BalancerConfigTestSuite {
                                   + " not moved, but it appears to disappear from the target allocation");
                         });
               });
+    }
+
+    static void assertBrokerEmpty(ClusterInfo target, Predicate<Integer> clearBroker, String name) {
+      var violated =
+          target
+              .replicaStream()
+              .filter(i -> clearBroker.test(i.nodeInfo().id()))
+              .collect(Collectors.toUnmodifiableSet());
+      Assertions.assertTrue(
+          violated.isEmpty(),
+          name + ": the following replica should move to somewhere else " + violated);
     }
   }
 }
