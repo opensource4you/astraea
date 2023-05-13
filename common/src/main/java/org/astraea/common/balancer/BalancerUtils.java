@@ -16,9 +16,13 @@
  */
 package org.astraea.common.balancer;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -30,30 +34,58 @@ public final class BalancerUtils {
 
   private BalancerUtils() {}
 
+  public static BalancingMode balancingMode(ClusterInfo cluster, String config) {
+    var num = Pattern.compile("[0-9]+");
+    var map =
+        Arrays.stream(config.split(","))
+            .filter(Predicate.not(String::isEmpty))
+            .map(x -> x.split(":"))
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    s -> (Object) (num.matcher(s[0]).find() ? Integer.parseInt(s[0]) : s[0]),
+                    s -> s[1]));
+
+    Function<Integer, String> mode =
+        (id) -> map.getOrDefault(id, map.getOrDefault("default", "balancing"));
+    var balancing =
+        cluster.nodes().stream()
+            .map(NodeInfo::id)
+            .filter(node -> mode.apply(node).equals("balancing"))
+            .collect(Collectors.toUnmodifiableSet());
+    var demoted =
+        cluster.nodes().stream()
+            .map(NodeInfo::id)
+            .filter(node -> mode.apply(node).equals("demoted"))
+            .collect(Collectors.toUnmodifiableSet());
+    var excluded =
+        cluster.nodes().stream()
+            .map(NodeInfo::id)
+            .filter(node -> mode.apply(node).equals("excluded"))
+            .collect(Collectors.toUnmodifiableSet());
+
+    return new BalancingMode(balancing, demoted, excluded);
+  }
+
   /**
-   * Verify there is no logic conflict between {@link
-   * BalancerConfigs#BALANCER_ALLOWED_TOPICS_REGEX}, {@link
-   * BalancerConfigs#BALANCER_ALLOWED_BROKERS_REGEX} and {@link
-   * BalancerConfigs#BALANCER_CLEAR_BROKERS_REGEX}. It also performs other common validness check to
-   * the cluster.
+   * Verify there is no logic conflict between {@link BalancerConfigs#BALANCER_ALLOWED_TOPICS_REGEX}
+   * and {@link BalancerConfigs#BALANCER_BROKER_BALANCING_MODE}. It also performs other common
+   * validness checks to the cluster.
    */
   public static void verifyClearBrokerValidness(
       ClusterInfo cluster,
       Predicate<Integer> clearBroker,
-      Predicate<Integer> allowedBroker,
+      Predicate<Integer> balancingBroker,
       Predicate<String> allowedTopics) {
-    var disallowedBrokersToClear =
+    var bothClearAndBalance =
         cluster.nodes().stream()
             .map(NodeInfo::id)
-            .filter(Predicate.not(allowedBroker))
+            .filter(balancingBroker)
             .filter(clearBroker)
             .collect(Collectors.toUnmodifiableSet());
-    if (!disallowedBrokersToClear.isEmpty())
+    if (!bothClearAndBalance.isEmpty())
       throw new IllegalArgumentException(
-          "Attempts to clear the following brokers but they are forbidden from being changed due to \""
-              + BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX
-              + "\": "
-              + disallowedBrokersToClear);
+          "The following broker was demanded to be demoted and balanced at same time: "
+              + bothClearAndBalance);
 
     var disallowedTopicsToClear =
         cluster.topicPartitionReplicas().stream()
@@ -147,4 +179,7 @@ public final class BalancerUtils {
             })
         .build();
   }
+
+  public record BalancingMode(
+      Set<Integer> balancing, Set<Integer> demoted, Set<Integer> excluded) {}
 }

@@ -22,7 +22,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
@@ -72,44 +71,40 @@ public class SingleStepBalancer implements Balancer {
             .regexString(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX)
             .map(Pattern::asMatchPredicate)
             .orElse((ignore) -> true);
-    final var allowedBrokers =
-        config
-            .balancerConfig()
-            .regexString(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX)
-            .map(Pattern::asMatchPredicate)
-            .<Predicate<Integer>>map(
-                predicate -> (brokerId) -> predicate.test(Integer.toString(brokerId)))
-            .orElse((ignore) -> true);
-    final var clearBrokers =
-        config
-            .balancerConfig()
-            .regexString(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX)
-            .map(Pattern::asMatchPredicate)
-            .<Predicate<Integer>>map(
-                predicate -> (brokerId) -> predicate.test(Integer.toString(brokerId)))
-            .orElse((ignore) -> false);
+    final var balancingMode =
+        BalancerUtils.balancingMode(
+            config.clusterInfo(),
+            config
+                .balancerConfig()
+                .string(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE)
+                .orElse(""));
     BalancerUtils.verifyClearBrokerValidness(
-        config.clusterInfo(), clearBrokers, allowedBrokers, allowedTopics);
+        config.clusterInfo(),
+        balancingMode.demoted()::contains,
+        balancingMode.balancing()::contains,
+        allowedTopics);
 
     final var currentClusterInfo =
-        BalancerUtils.clearedCluster(config.clusterInfo(), clearBrokers, allowedBrokers);
+        BalancerUtils.clearedCluster(
+            config.clusterInfo(),
+            balancingMode.demoted()::contains,
+            balancingMode.balancing()::contains);
     final var clusterBean = config.clusterBean();
     final var allocationTweaker =
         ShuffleTweaker.builder()
             .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(minStep, maxStep))
             .allowedTopics(allowedTopics)
-            .allowedBrokers(allowedBrokers.and(Predicate.not(clearBrokers)))
+            .allowedBrokers(balancingMode.balancing()::contains)
             .build();
     final var moveCostFunction = config.moveCostFunction();
 
     final Function<ClusterInfo, ClusterCost> evaluateCost =
         (cluster) -> {
           final var filteredCluster =
-              config
-                      .balancerConfig()
-                      .string(BalancerConfigs.BALANCER_CLEAR_BROKERS_REGEX)
-                      .isPresent()
-                  ? ClusterInfo.builder(cluster).removeNode(clearBrokers).build()
+              !balancingMode.demoted().isEmpty()
+                  ? ClusterInfo.builder(cluster)
+                      .removeNode(balancingMode.demoted()::contains)
+                      .build()
                   : cluster;
           return config.clusterCostFunction().clusterCost(filteredCluster, clusterBean);
         };
