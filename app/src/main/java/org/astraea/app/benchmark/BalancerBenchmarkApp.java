@@ -83,7 +83,8 @@ public class BalancerBenchmarkApp {
             (Class<Balancer>) Utils.packException(() -> Class.forName(problem.balancer)),
             Configuration.of(problem.balancerConfig));
 
-    System.out.println(optimizationSummary(argument, cluster, beans, problem));
+    System.out.println("Running Experiment...");
+    System.out.println();
 
     var result =
         BalancerBenchmark.experiment()
@@ -97,6 +98,7 @@ public class BalancerBenchmarkApp {
             .toCompletableFuture()
             .join();
 
+    System.out.println(optimizationSummary(argument, cluster, beans, problem));
     System.out.println(experimentSummary(result));
   }
 
@@ -109,7 +111,8 @@ public class BalancerBenchmarkApp {
             (Class<Balancer>) Utils.packException(() -> Class.forName(problem.balancer)),
             Configuration.of(problem.balancerConfig));
 
-    System.out.println(optimizationSummary(argument, cluster, beans, problem));
+    System.out.println("Running CostProfiling...");
+    System.out.println();
 
     var result =
         BalancerBenchmark.costProfiling()
@@ -122,6 +125,7 @@ public class BalancerBenchmarkApp {
             .toCompletableFuture()
             .join();
 
+    System.out.println(optimizationSummary(argument, cluster, beans, problem));
     System.out.println(costProfilingSummary(argument, result));
   }
 
