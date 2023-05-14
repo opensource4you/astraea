@@ -34,6 +34,12 @@ public interface TaskContext {
 
   static TaskContext of(SinkTaskContext context) {
     return new TaskContext() {
+      /**
+       * Reset the consumer offsets for the specified partitions.
+       *
+       * @param offsets The map of offsets to commit. The key is the {@link TopicPartition} and the
+       *     value is the offset to reset to.
+       */
       @Override
       public void offset(Map<TopicPartition, Long> offsets) {
         context.offset(
@@ -42,11 +48,22 @@ public interface TaskContext {
                     Collectors.toMap(e -> TopicPartition.to(e.getKey()), Map.Entry::getValue)));
       }
 
+      /**
+       * Reset the consumer offset for the specified partition.
+       *
+       * @param topicPartition The {@link TopicPartition} to reset.
+       * @param offset The offset to reset to.
+       */
       @Override
       public void offset(TopicPartition topicPartition, long offset) {
         context.offset(TopicPartition.to(topicPartition), offset);
       }
 
+      /**
+       * Pause the specified partitions for consuming messages.
+       *
+       * @param partitions The collection of partitions should be paused.
+       */
       @Override
       public void pause(Collection<TopicPartition> partitions) {
         context.pause(
@@ -55,6 +72,10 @@ public interface TaskContext {
                 .toArray(org.apache.kafka.common.TopicPartition[]::new));
       }
 
+      /**
+       * Request an offset commit. This is asynchronous and may not be complete when the method
+       * returns.
+       */
       @Override
       public void requestCommit() {
         context.requestCommit();
