@@ -51,8 +51,11 @@ public class JvmMemory implements HasJvmMemory {
   @Override
   public String toString() {
     String output =
-        "    HeapMemoryUsage: " + heapMemoryUsage() + System.lineSeparator() +
-            "    NonHeapMemoryUsage: " + nonHeapMemoryUsage();
+        "    HeapMemoryUsage: "
+            + heapMemoryUsage()
+            + System.lineSeparator()
+            + "    NonHeapMemoryUsage: "
+            + nonHeapMemoryUsage();
     return "JvmMemory {\n" + output + "\n}";
   }
 }
