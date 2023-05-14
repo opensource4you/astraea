@@ -37,13 +37,13 @@ public final class BalancerConfigs {
   /**
    * This configuration indicates the balancing mode for each broker.
    *
-   * <p>This configuration requires aa string with a series of key value pair, each pair separated
-   * by a comma. <code>(brokerId_A|"default"):(mode),(brokerId_B):(mode), ...</code> The key
-   * indicates the integer id for a broker. And the value indicates the balancing mode for the
-   * associated broker. When the key is a string value <code>"default"</code>(without the
-   * double-quotes), it indicates the associated balancing mode should be the default mode for rest
-   * of the brokers who is not address in the configuration. By default, all the brokers use <code>
-   * "balancing"</code> mode.
+   * <p>This configuration requires a string with a series of key-value pairs, each pair is
+   * separated by a comma, and the key and value are separated by a colon. <code>
+   *  (brokerId_A|"default"):(mode),(brokerId_B):(mode), ...</code> The key indicates the integer id
+   * for a broker. And the value indicates the balancing mode for the associated broker. When the
+   * key is a string value <code>"default"</code>(without the double quotes), it indicates the
+   * associated balancing mode should be the default mode for the rest of the brokers that are not
+   * addressed in the configuration. By default, all the brokers use <code> "balancing"</code> mode.
    *
    * <h3>Possible balancing modes</h3>
    *
@@ -74,14 +74,13 @@ public final class BalancerConfigs {
    * <h3>Limitation:</h3>
    *
    * <ol>
-   *   <li>It is possible that demoting a broker will be infeasible if there is an insufficient
-   *       number of brokers to fit the required replica factor for a specific partition, the
-   *       situation might be more likely to occur if there are many <code>excluded
-   *       </code> brokers that reject accepting new replicas. If such a case is detected, an
-   *       exception should be raised.
-   *   <li>Any broker with ongoing replica-move-in, replica-move-out or inter-folder-movement cannot
-   *       become the clear target. An exception will be raised if any of the clear broker has such
-   *       ongoing event.
+   *   <li>Demoting a broker may be infeasible if there are not enough brokers to fit the required
+   *       replica factor for a specific partition. This situation is more likely to occur if there
+   *       are many <code>excluded</code> brokers that reject accepting new replicas. If such a case
+   *       is detected, an exception should be raised.
+   *   <li>Any broker with ongoing replica-move-in, replica-move-out, or inter-folder movement
+   *       cannot be the demoting target. An exception will be raised if any of the demoting brokers
+   *       have such ongoing events. *
    * </ol>
    */
   public static final String BALANCER_BROKER_BALANCING_MODE = "balancer.broker.balancing.mode";

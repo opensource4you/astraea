@@ -99,7 +99,7 @@ public class ClusterInfoBuilder {
    * @param toRemove id to remove
    * @return this
    */
-  public ClusterInfoBuilder removeNode(Predicate<Integer> toRemove) {
+  public ClusterInfoBuilder removeNodes(Predicate<Integer> toRemove) {
     return applyNodes(
         (nodes, replicas) -> nodes.stream().filter(node -> toRemove.test(node.id())).toList());
   }

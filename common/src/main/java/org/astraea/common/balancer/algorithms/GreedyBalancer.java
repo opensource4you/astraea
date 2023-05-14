@@ -172,7 +172,7 @@ public class GreedyBalancer implements Balancer {
           final var filteredCluster =
               !balancingMode.demoted().isEmpty()
                   ? ClusterInfo.builder(cluster)
-                      .removeNode(balancingMode.demoted()::contains)
+                      .removeNodes(balancingMode.demoted()::contains)
                       .build()
                   : cluster;
           return config.clusterCostFunction().clusterCost(filteredCluster, clusterBean);
