@@ -73,6 +73,7 @@ public interface Shuffler {
                       .getAsDouble());
           return standardDeviation < 0.3;
         };
+    var limiters = Limiter.of(Set.of(skewedLimiter, unsuitableLimiter));
 
     return () -> {
       var tmpCost =
@@ -90,7 +91,7 @@ public interface Shuffler {
         var combinator = generator.get();
         tmpCost.forEach((k, ignore) -> tmpCost.replace(k, 0.0));
         possibleCombinations.add(combinator);
-        if (skewedLimiter.check(combinator) && unsuitableLimiter.check(combinator)) {
+        if (limiters.check(combinator)) {
           result = combinator;
           break;
         }
