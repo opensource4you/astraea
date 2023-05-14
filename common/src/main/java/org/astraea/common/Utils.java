@@ -491,9 +491,7 @@ public final class Utils {
   }
 
   public static <V extends Collection<?>> V requireNonEmpty(V collection, String message) {
-    if (collection == null || collection.isEmpty()) {
-      throw new IllegalArgumentException(message);
-    }
+    if (collection == null || collection.isEmpty()) throw new IllegalArgumentException(message);
     return collection;
   }
 
