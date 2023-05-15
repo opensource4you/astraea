@@ -19,6 +19,7 @@ package org.astraea.app.web;
 import java.time.Duration;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -63,7 +64,7 @@ public class GroupHandlerTest {
                 GroupHandler.Groups.class, handler.get(Channel.EMPTY).toCompletableFuture().join());
         var group = response.groups.stream().filter(g -> g.groupId.equals(groupId)).findAny().get();
         Assertions.assertEquals(1, group.members.size());
-        group.members.forEach(m -> Assertions.assertNull(m.groupInstanceId));
+        group.members.forEach(m -> Assertions.assertEquals(Optional.empty(), m.groupInstanceId));
       }
     }
   }
