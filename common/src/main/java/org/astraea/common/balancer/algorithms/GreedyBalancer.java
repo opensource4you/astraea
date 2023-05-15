@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import org.astraea.common.Utils;
@@ -148,33 +149,28 @@ public class GreedyBalancer implements Balancer {
                 .balancerConfig()
                 .string(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE)
                 .orElse(""));
-    BalancerUtils.verifyClearBrokerValidness(
-        config.clusterInfo(),
-        balancingMode.demoted()::contains,
-        balancingMode.balancing()::contains,
-        allowedTopics);
+    final Predicate<Integer> isBalancing =
+        id -> balancingMode.get(id) == BalancerUtils.BalancingModes.BALANCING;
+    final Predicate<Integer> isDemoted =
+        id -> balancingMode.get(id) == BalancerUtils.BalancingModes.DEMOTED;
+    final var hasDemoted =
+        balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.DEMOTED);
+    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isDemoted, allowedTopics);
 
     final var currentClusterInfo =
-        BalancerUtils.clearedCluster(
-            config.clusterInfo(),
-            balancingMode.demoted()::contains,
-            balancingMode.balancing()::contains);
+        BalancerUtils.clearedCluster(config.clusterInfo(), isDemoted, isBalancing);
     final var clusterBean = config.clusterBean();
     final var allocationTweaker =
         ShuffleTweaker.builder()
             .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(minStep, maxStep))
             .allowedTopics(allowedTopics)
-            .allowedBrokers(balancingMode.balancing()::contains)
+            .allowedBrokers(isBalancing)
             .build();
     final var moveCostFunction = config.moveCostFunction();
     final Function<ClusterInfo, ClusterCost> evaluateCost =
         (cluster) -> {
           final var filteredCluster =
-              !balancingMode.demoted().isEmpty()
-                  ? ClusterInfo.builder(cluster)
-                      .removeNodes(balancingMode.demoted()::contains)
-                      .build()
-                  : cluster;
+              hasDemoted ? ClusterInfo.builder(cluster).removeNodes(isDemoted).build() : cluster;
           return config.clusterCostFunction().clusterCost(filteredCluster, clusterBean);
         };
     final var initialCost = evaluateCost.apply(currentClusterInfo);
@@ -231,7 +227,7 @@ public class GreedyBalancer implements Balancer {
     }
     return currentSolution.or(
         () -> {
-          if (!balancingMode.demoted().isEmpty()
+          if (hasDemoted
               && !moveCostFunction
                   .moveCost(config.clusterInfo(), currentClusterInfo, clusterBean)
                   .overflow()) {

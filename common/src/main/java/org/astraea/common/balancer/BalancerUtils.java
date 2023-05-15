@@ -19,13 +19,13 @@ package org.astraea.common.balancer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
@@ -34,8 +34,9 @@ public final class BalancerUtils {
 
   private BalancerUtils() {}
 
-  public static BalancingMode balancingMode(ClusterInfo cluster, String config) {
+  public static Map<Integer, BalancingModes> balancingMode(ClusterInfo cluster, String config) {
     var num = Pattern.compile("[0-9]+");
+
     var map =
         Arrays.stream(config.split(","))
             .filter(Predicate.not(String::isEmpty))
@@ -43,27 +44,21 @@ public final class BalancerUtils {
             .collect(
                 Collectors.toUnmodifiableMap(
                     s -> (Object) (num.matcher(s[0]).find() ? Integer.parseInt(s[0]) : s[0]),
-                    s -> s[1]));
+                    s ->
+                        switch (s[1]) {
+                          case "balancing" -> BalancingModes.BALANCING;
+                          case "demoted" -> BalancingModes.DEMOTED;
+                          case "excluded" -> BalancingModes.EXCLUDED;
+                          default -> throw new IllegalArgumentException(
+                              "Unsupported balancing mode: " + s[1]);
+                        }));
 
-    Function<Integer, String> mode =
-        (id) -> map.getOrDefault(id, map.getOrDefault("default", "balancing"));
-    var balancing =
-        cluster.nodes().stream()
-            .map(NodeInfo::id)
-            .filter(node -> mode.apply(node).equals("balancing"))
-            .collect(Collectors.toUnmodifiableSet());
-    var demoted =
-        cluster.nodes().stream()
-            .map(NodeInfo::id)
-            .filter(node -> mode.apply(node).equals("demoted"))
-            .collect(Collectors.toUnmodifiableSet());
-    var excluded =
-        cluster.nodes().stream()
-            .map(NodeInfo::id)
-            .filter(node -> mode.apply(node).equals("excluded"))
-            .collect(Collectors.toUnmodifiableSet());
+    Function<Integer, BalancingModes> mode =
+        (id) -> map.getOrDefault(id, map.getOrDefault("default", BalancingModes.BALANCING));
 
-    return new BalancingMode(balancing, demoted, excluded);
+    return cluster.brokers().stream()
+        .map(NodeInfo::id)
+        .collect(Collectors.toUnmodifiableMap(Function.identity(), mode));
   }
 
   /**
@@ -72,24 +67,10 @@ public final class BalancerUtils {
    * validness checks to the cluster.
    */
   public static void verifyClearBrokerValidness(
-      ClusterInfo cluster,
-      Predicate<Integer> clearBroker,
-      Predicate<Integer> balancingBroker,
-      Predicate<String> allowedTopics) {
-    var bothClearAndBalance =
-        cluster.nodes().stream()
-            .map(NodeInfo::id)
-            .filter(balancingBroker)
-            .filter(clearBroker)
-            .collect(Collectors.toUnmodifiableSet());
-    if (!bothClearAndBalance.isEmpty())
-      throw new IllegalArgumentException(
-          "The following broker was demanded to be demoted and balanced at same time: "
-              + bothClearAndBalance);
-
+      ClusterInfo cluster, Predicate<Integer> isDemoted, Predicate<String> allowedTopics) {
     var disallowedTopicsToClear =
         cluster.topicPartitionReplicas().stream()
-            .filter(tpr -> clearBroker.test(tpr.brokerId()))
+            .filter(tpr -> isDemoted.test(tpr.brokerId()))
             .filter(tpr -> !allowedTopics.test(tpr.topic()))
             .collect(Collectors.toUnmodifiableSet());
     if (!disallowedTopicsToClear.isEmpty())
@@ -101,7 +82,7 @@ public final class BalancerUtils {
 
     var ongoingEventReplica =
         cluster.replicas().stream()
-            .filter(r -> clearBroker.test(r.nodeInfo().id()))
+            .filter(r -> isDemoted.test(r.nodeInfo().id()))
             .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
             .map(Replica::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
@@ -112,7 +93,7 @@ public final class BalancerUtils {
   }
 
   /**
-   * Move all the replicas at the broker to clear to other brokers. <b>BE CAREFUL, The
+   * Move all the replicas at the demoting broker to other allowed brokers. <b>BE CAREFUL, The
    * implementation made no assumption for MoveCost or ClusterCost of the returned ClusterInfo.</b>
    * Be aware of this limitation before using it as the starting point for a solution search. Some
    * balancer implementation might have trouble finding answer when starting at a state where the
@@ -180,6 +161,23 @@ public final class BalancerUtils {
         .build();
   }
 
-  public record BalancingMode(
-      Set<Integer> balancing, Set<Integer> demoted, Set<Integer> excluded) {}
+  public enum BalancingModes implements EnumInfo {
+    BALANCING,
+    DEMOTED,
+    EXCLUDED;
+
+    public static BalancingModes ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(BalancingModes.class, alias);
+    }
+
+    @Override
+    public String alias() {
+      return name();
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+  }
 }
