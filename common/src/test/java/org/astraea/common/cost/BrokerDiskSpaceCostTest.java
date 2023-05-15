@@ -16,6 +16,9 @@
  */
 package org.astraea.common.cost;
 
+import static org.astraea.common.cost.BrokerDiskSpaceCost.brokerDiskUsageSizeOverflow;
+import static org.astraea.common.cost.BrokerDiskSpaceCost.brokerPathDiskUsageSizeOverflow;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -171,6 +174,51 @@ class BrokerDiskSpaceCostTest {
     Assertions.assertTrue(moveCost3.overflow());
   }
 
+  @Test
+  void testBrokerDiskUsageSizeOverflow() {
+    var limit =
+        Map.of(
+            0, DataSize.Byte.of(1600),
+            1, DataSize.Byte.of(1598),
+            2, DataSize.Byte.of(1600));
+    var overFlowLimit =
+        Map.of(
+            0, DataSize.Byte.of(1600),
+            1, DataSize.Byte.of(1598),
+            2, DataSize.Byte.of(1500));
+    var totalResult = brokerDiskUsageSizeOverflow(beforeClusterInfo(), afterClusterInfo(), limit);
+    var overflowResult =
+        brokerDiskUsageSizeOverflow(beforeClusterInfo(), afterClusterInfo(), overFlowLimit);
+    Assertions.assertFalse(totalResult);
+    Assertions.assertTrue(overflowResult);
+  }
+
+  @Test
+  void testBrokerPathDiskUsageSizeOverflow() {
+    var limit =
+        Map.of(
+            new BrokerDiskSpaceCost.BrokerPath(0, "/path0"),
+            DataSize.Byte.of(1600),
+            new BrokerDiskSpaceCost.BrokerPath(1, "/path0"),
+            DataSize.Byte.of(1598),
+            new BrokerDiskSpaceCost.BrokerPath(2, "/path0"),
+            DataSize.Byte.of(1600),
+            new BrokerDiskSpaceCost.BrokerPath(2, "/path1"),
+            DataSize.Byte.of(600));
+    var overFlowLimit =
+        Map.of(
+            new BrokerDiskSpaceCost.BrokerPath(0, "/path0"), DataSize.Byte.of(1600),
+            new BrokerDiskSpaceCost.BrokerPath(1, "/path0"), DataSize.Byte.of(1598),
+            new BrokerDiskSpaceCost.BrokerPath(2, "/path0"), DataSize.Byte.of(1600),
+            new BrokerDiskSpaceCost.BrokerPath(2, "/path1"), DataSize.Byte.of(500));
+    var totalResult =
+        brokerPathDiskUsageSizeOverflow(beforeClusterInfo(), afterClusterInfo(), limit);
+    var overflowResult =
+        brokerPathDiskUsageSizeOverflow(beforeClusterInfo(), afterClusterInfo(), overFlowLimit);
+    Assertions.assertFalse(totalResult);
+    Assertions.assertTrue(overflowResult);
+  }
+
   public static ClusterInfo of(List<Replica> replicas) {
     var dataPath =
         Map.of(
@@ -184,6 +232,182 @@ class BrokerDiskSpaceCostTest {
                 new DescribeLogDirsResponse.LogDirInfo(null, Map.of()),
                 "/path1",
                 new DescribeLogDirsResponse.LogDirInfo(null, Map.of())));
+    return ClusterInfo.of(
+        "fake",
+        replicas.stream()
+            .map(Replica::nodeInfo)
+            .distinct()
+            .map(
+                nodeInfo ->
+                    Broker.of(
+                        false,
+                        new Node(nodeInfo.id(), "", nodeInfo.port()),
+                        Map.of(),
+                        dataPath.get(nodeInfo.id()),
+                        List.of()))
+            .collect(Collectors.toList()),
+        Map.of(),
+        replicas);
+  }
+
+  /*
+  before distribution:
+      p0: 0,1
+      p1: 0,1
+      p2: 2,0
+  after distribution:
+      p0: 2,1
+      p1: 0,2
+      p2: 1,0
+  leader log size:
+      p0: 100
+      p1: 500
+      p2  1000
+   */
+  private static ClusterInfo beforeClusterInfo() {
+    var dataPath =
+        Map.of(
+            0,
+            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
+            1,
+            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
+            2,
+            Map.of(
+                "/path0",
+                new DescribeLogDirsResponse.LogDirInfo(null, Map.of()),
+                "/path1",
+                new DescribeLogDirsResponse.LogDirInfo(null, Map.of())));
+    var replicas =
+        List.of(
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .size(100)
+                .isLeader(true)
+                .path("/path0")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .size(99)
+                .isLeader(false)
+                .path("/path0")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .size(500)
+                .isLeader(true)
+                .path("/path0")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .size(499)
+                .isLeader(false)
+                .path("/path0")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .size(1000)
+                .isLeader(true)
+                .path("/path0")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .size(1000)
+                .isLeader(false)
+                .path("/path0")
+                .build());
+    return ClusterInfo.of(
+        "fake",
+        replicas.stream()
+            .map(Replica::nodeInfo)
+            .distinct()
+            .map(
+                nodeInfo ->
+                    Broker.of(
+                        false,
+                        new Node(nodeInfo.id(), "", nodeInfo.port()),
+                        Map.of(),
+                        dataPath.get(nodeInfo.id()),
+                        List.of()))
+            .collect(Collectors.toList()),
+        Map.of(),
+        replicas);
+  }
+
+  private static ClusterInfo afterClusterInfo() {
+    var dataPath =
+        Map.of(
+            0,
+            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
+            1,
+            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
+            2,
+            Map.of(
+                "/path0",
+                new DescribeLogDirsResponse.LogDirInfo(null, Map.of()),
+                "/path1",
+                new DescribeLogDirsResponse.LogDirInfo(null, Map.of())));
+    var replicas =
+        List.of(
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .size(100)
+                .isLeader(true)
+                .path("/path1")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(0)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .size(99)
+                .isLeader(false)
+                .path("/path0")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .size(500)
+                .isLeader(true)
+                .path("/path0")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(1)
+                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .size(500)
+                .isLeader(false)
+                .path("/path1")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .size(1000)
+                .isLeader(true)
+                .path("/path1")
+                .build(),
+            Replica.builder()
+                .topic("topic1")
+                .partition(2)
+                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .size(1000)
+                .isLeader(false)
+                .path("/path0")
+                .build());
     return ClusterInfo.of(
         "fake",
         replicas.stream()

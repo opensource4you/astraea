@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.requests.DescribeLogDirsResponse;
-import org.astraea.common.DataSize;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
@@ -34,54 +33,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class CostUtilsTest {
-
-  @Test
-  void testBrokerDiskUsageSizeOverflow() {
-    var limit =
-        Map.of(
-            0, DataSize.Byte.of(1600),
-            1, DataSize.Byte.of(1598),
-            2, DataSize.Byte.of(1600));
-    var overFlowLimit =
-        Map.of(
-            0, DataSize.Byte.of(1600),
-            1, DataSize.Byte.of(1598),
-            2, DataSize.Byte.of(1500));
-    var totalResult =
-        CostUtils.brokerDiskUsageSizeOverflow(beforeClusterInfo(), afterClusterInfo(), limit);
-    var overflowResult =
-        CostUtils.brokerDiskUsageSizeOverflow(
-            beforeClusterInfo(), afterClusterInfo(), overFlowLimit);
-    Assertions.assertFalse(totalResult);
-    Assertions.assertTrue(overflowResult);
-  }
-
-  @Test
-  void testBrokerPathDiskUsageSizeOverflow() {
-    var limit =
-        Map.of(
-            new BrokerDiskSpaceCost.BrokerPath(0, "/path0"),
-            DataSize.Byte.of(1600),
-            new BrokerDiskSpaceCost.BrokerPath(1, "/path0"),
-            DataSize.Byte.of(1598),
-            new BrokerDiskSpaceCost.BrokerPath(2, "/path0"),
-            DataSize.Byte.of(1600),
-            new BrokerDiskSpaceCost.BrokerPath(2, "/path1"),
-            DataSize.Byte.of(600));
-    var overFlowLimit =
-        Map.of(
-            new BrokerDiskSpaceCost.BrokerPath(0, "/path0"), DataSize.Byte.of(1600),
-            new BrokerDiskSpaceCost.BrokerPath(1, "/path0"), DataSize.Byte.of(1598),
-            new BrokerDiskSpaceCost.BrokerPath(2, "/path0"), DataSize.Byte.of(1600),
-            new BrokerDiskSpaceCost.BrokerPath(2, "/path1"), DataSize.Byte.of(500));
-    var totalResult =
-        CostUtils.brokerPathDiskUsageSizeOverflow(beforeClusterInfo(), afterClusterInfo(), limit);
-    var overflowResult =
-        CostUtils.brokerPathDiskUsageSizeOverflow(
-            beforeClusterInfo(), afterClusterInfo(), overFlowLimit);
-    Assertions.assertFalse(totalResult);
-    Assertions.assertTrue(overflowResult);
-  }
 
   @Test
   void testChangedRecordSizeOverflow() {
