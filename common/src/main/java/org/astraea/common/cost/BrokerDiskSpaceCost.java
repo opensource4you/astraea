@@ -17,7 +17,6 @@
 package org.astraea.common.cost;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
@@ -48,44 +47,27 @@ public class BrokerDiskSpaceCost implements HasMoveCost {
 
   private static Map<BrokerPath, DataSize> diskMoveCostLimit(Configuration configuration) {
     return configuration.list(BROKER_PATH_COST_LIMIT_KEY, ",").stream()
-        .map(
-            idAndPath -> {
-              var brokerPathAndLimit = idAndPath.split(":");
-              var brokerPath = brokerPathAndLimit[0].split("-");
-              return Map.entry(
-                  BrokerPath.of(
+        .collect(
+            Collectors.toMap(
+                idAndPath -> {
+                  var brokerPath = idAndPath.split(":")[0].split("-");
+                  return new BrokerPath(
                       Integer.parseInt(brokerPath[0]),
                       IntStream.range(1, brokerPath.length)
                           .boxed()
                           .map(x -> brokerPath[x])
-                          .collect(Collectors.joining("-"))),
-                  DataSize.of(brokerPathAndLimit[1]));
-            })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                          .collect(Collectors.joining("-")));
+                },
+                idAndPath -> DataSize.of(idAndPath.split(":")[1])));
   }
 
   private Map<Integer, DataSize> brokerMoveCostLimit(Configuration configuration) {
     return configuration.list(BROKER_COST_LIMIT_KEY, ",").stream()
-        .map(
-            idAndPath -> {
-              var brokerAndLimit = idAndPath.split(":");
-              return Map.entry(Integer.parseInt(brokerAndLimit[0]), DataSize.of(brokerAndLimit[1]));
-            })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .collect(
+            Collectors.toMap(
+                idAndPath -> Integer.parseInt(idAndPath.split(":")[0]),
+                idAndPath -> DataSize.of(idAndPath.split(":")[1])));
   }
 
-  record BrokerPath(int broker, String path) {
-
-    public static BrokerPath of(int broker, String path) {
-      return new BrokerPath(broker, path);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || BrokerPath.class != o.getClass()) return false;
-      BrokerPath that = (BrokerPath) o;
-      return broker == that.broker && Objects.equals(path, that.path);
-    }
-  }
+  record BrokerPath(int broker, String path) {}
 }

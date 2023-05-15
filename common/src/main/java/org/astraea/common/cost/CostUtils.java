@@ -63,7 +63,7 @@ final class CostUtils {
                 after.brokerFolders().entrySet().stream())
             .collect(Collectors.toSet())) {
       for (var path : brokerPaths.getValue()) {
-        var brokerPath = BrokerDiskSpaceCost.BrokerPath.of(brokerPaths.getKey(), path);
+        var brokerPath = new BrokerDiskSpaceCost.BrokerPath(brokerPaths.getKey(), path);
         var beforeSize =
             before
                 .replicaStream(brokerPaths.getKey())

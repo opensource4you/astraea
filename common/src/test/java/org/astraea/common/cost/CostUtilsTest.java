@@ -16,6 +16,10 @@
  */
 package org.astraea.common.cost;
 
+import static org.astraea.common.cost.CostUtils.changedRecordSizeOverflow;
+import static org.astraea.common.cost.MigrationCost.recordSizeToFetch;
+import static org.astraea.common.cost.MigrationCost.recordSizeToSync;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,19 +34,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class CostUtilsTest {
-
-  @Test
-  void testChangedRecordSizeOverflow() {
-    var limit = 1600;
-    var totalResult =
-        CostUtils.changedRecordSizeOverflow(
-            beforeClusterInfo(), afterClusterInfo(), ignored -> true, limit);
-    var overflowResult =
-        CostUtils.changedRecordSizeOverflow(
-            beforeClusterInfo(), afterClusterInfo(), ignored -> true, limit - 100);
-    Assertions.assertFalse(totalResult);
-    Assertions.assertTrue(overflowResult);
-  }
 
   @Test
   void testBrokerDiskUsageSizeOverflow() {
@@ -69,21 +60,49 @@ class CostUtilsTest {
   void testBrokerPathDiskUsageSizeOverflow() {
     var limit =
         Map.of(
-            BrokerDiskSpaceCost.BrokerPath.of(0, "/path0"), DataSize.Byte.of(1600),
-            BrokerDiskSpaceCost.BrokerPath.of(1, "/path0"), DataSize.Byte.of(1598),
-            BrokerDiskSpaceCost.BrokerPath.of(2, "/path0"), DataSize.Byte.of(1600),
-            BrokerDiskSpaceCost.BrokerPath.of(2, "/path1"), DataSize.Byte.of(600));
+            new BrokerDiskSpaceCost.BrokerPath(0, "/path0"),
+            DataSize.Byte.of(1600),
+            new BrokerDiskSpaceCost.BrokerPath(1, "/path0"),
+            DataSize.Byte.of(1598),
+            new BrokerDiskSpaceCost.BrokerPath(2, "/path0"),
+            DataSize.Byte.of(1600),
+            new BrokerDiskSpaceCost.BrokerPath(2, "/path1"),
+            DataSize.Byte.of(600));
     var overFlowLimit =
         Map.of(
-            BrokerDiskSpaceCost.BrokerPath.of(0, "/path0"), DataSize.Byte.of(1600),
-            BrokerDiskSpaceCost.BrokerPath.of(1, "/path0"), DataSize.Byte.of(1598),
-            BrokerDiskSpaceCost.BrokerPath.of(2, "/path0"), DataSize.Byte.of(1600),
-            BrokerDiskSpaceCost.BrokerPath.of(2, "/path1"), DataSize.Byte.of(500));
+            new BrokerDiskSpaceCost.BrokerPath(0, "/path0"), DataSize.Byte.of(1600),
+            new BrokerDiskSpaceCost.BrokerPath(1, "/path0"), DataSize.Byte.of(1598),
+            new BrokerDiskSpaceCost.BrokerPath(2, "/path0"), DataSize.Byte.of(1600),
+            new BrokerDiskSpaceCost.BrokerPath(2, "/path1"), DataSize.Byte.of(500));
     var totalResult =
         CostUtils.brokerPathDiskUsageSizeOverflow(beforeClusterInfo(), afterClusterInfo(), limit);
     var overflowResult =
         CostUtils.brokerPathDiskUsageSizeOverflow(
             beforeClusterInfo(), afterClusterInfo(), overFlowLimit);
+    Assertions.assertFalse(totalResult);
+    Assertions.assertTrue(overflowResult);
+  }
+
+  @Test
+  void testChangedRecordSizeOverflow() {
+    var limit = 1600;
+    var moveInResult = recordSizeToSync(beforeClusterInfo(), afterClusterInfo());
+    Assertions.assertEquals(3, moveInResult.size());
+    Assertions.assertEquals(0, moveInResult.get(0));
+    Assertions.assertEquals(1000, moveInResult.get(1));
+    Assertions.assertEquals(100 + 500, moveInResult.get(2));
+
+    var moveOutResult = recordSizeToFetch(beforeClusterInfo(), afterClusterInfo());
+    Assertions.assertEquals(3, moveOutResult.size());
+    Assertions.assertEquals(100 + 500, moveOutResult.get(0));
+    Assertions.assertEquals(0, moveOutResult.get(1));
+    Assertions.assertEquals(1000, moveOutResult.get(2));
+
+    var totalResult =
+        changedRecordSizeOverflow(beforeClusterInfo(), afterClusterInfo(), ignored -> true, limit);
+    var overflowResult =
+        changedRecordSizeOverflow(
+            beforeClusterInfo(), afterClusterInfo(), ignored -> true, limit - 100);
     Assertions.assertFalse(totalResult);
     Assertions.assertTrue(overflowResult);
   }
