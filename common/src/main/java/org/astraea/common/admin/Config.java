@@ -20,28 +20,14 @@ import java.util.Map;
 import java.util.Optional;
 
 /** this interface used to represent the resource (topic or broker) configuration. */
-public interface Config {
+public record Config(Map<String, String> raw) {
 
-  Config EMPTY = Config.of(Map.of());
-
-  static Config of(Map<String, String> configs) {
-    return new Config() {
-      @Override
-      public Map<String, String> raw() {
-        return configs;
-      }
-
-      @Override
-      public Optional<String> value(String key) {
-        return Optional.ofNullable(configs.get(key));
-      }
-    };
-  }
-
-  Map<String, String> raw();
+  public static final Config EMPTY = new Config(Map.of());
   /**
    * @param key config key
    * @return the value associated to input key. otherwise, empty
    */
-  Optional<String> value(String key);
+  public Optional<String> value(String key) {
+    return Optional.ofNullable(raw.get(key));
+  }
 }

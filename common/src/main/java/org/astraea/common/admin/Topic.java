@@ -27,7 +27,7 @@ public interface Topic {
       org.apache.kafka.clients.admin.TopicDescription topicDescription,
       Map<String, String> kafkaConfig) {
 
-    var config = Config.of(kafkaConfig);
+    var config = new Config(kafkaConfig);
     var topicPartitions =
         topicDescription.partitions().stream()
             .map(p -> TopicPartition.of(name, p.partition()))

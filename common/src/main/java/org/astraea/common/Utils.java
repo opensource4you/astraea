@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +37,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
@@ -446,6 +449,50 @@ public final class Utils {
     return input.stream()
         .collect(Collectors.groupingBy(s -> counter.getAndIncrement() % numberOfChunks))
         .values();
+  }
+
+  /**
+   * Acquire an {@link Iterator} that access the content of the given list in a random shuffle
+   * order. The returned iterator guarantees to access each item at most once.
+   *
+   * @param items the list of item to access. The given list has to be immutable.
+   * @return an {@link Iterator} that access the given list in randomly shuffled order.
+   */
+  public static <T> FixedIterable<T> shuffledPermutation(List<T> items) {
+    // The implementation is a lazy version of Fisher-Yates shuffle. The actual shuffle order is
+    // determined at the retrieval of the next element instead of pre-generated. This can improve
+    // the average runtime cost when we only use a few elements from the head of shuffled
+    // permutation.
+    Supplier<Iterator<T>> iter =
+        () ->
+            new Iterator<>() {
+              private final HashMap<Integer, Integer> swapMap = new HashMap<>();
+              private int cursor = 0;
+
+              @Override
+              public boolean hasNext() {
+                return cursor < items.size();
+              }
+
+              @Override
+              public T next() {
+                if (!hasNext()) throw new NoSuchElementException();
+
+                var nextIndex = ThreadLocalRandom.current().nextInt(cursor, items.size());
+                var remappedIndex = swapMap.getOrDefault(nextIndex, nextIndex);
+                var remappedItem = items.get(remappedIndex);
+                swapMap.put(nextIndex, swapMap.getOrDefault(cursor, cursor));
+                cursor++;
+
+                return remappedItem;
+              }
+            };
+    return FixedIterable.of(items.size(), iter);
+  }
+
+  public static <V extends Collection<?>> V requireNonEmpty(V collection, String message) {
+    if (collection == null || collection.isEmpty()) throw new IllegalArgumentException(message);
+    return collection;
   }
 
   private Utils() {}

@@ -24,9 +24,9 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -81,22 +81,17 @@ public class ShuffleTweaker {
             .filter(tp -> eligiblePartition(baseAllocation.replicas(tp)))
             .flatMap(baseAllocation::replicaStream)
             .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
     return Stream.generate(
         () -> {
           final var shuffleCount = numberOfShuffle.get();
-          final var replicaOrder =
-              legalReplicas.stream()
-                  .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
-                  .sorted(Map.Entry.comparingByValue())
-                  .map(Map.Entry::getKey)
-                  .collect(Collectors.toUnmodifiableList());
+          final var replicaOrder = Utils.shuffledPermutation(legalReplicas).iterator();
           final var forbiddenReplica = new HashSet<TopicPartitionReplica>();
 
           final var finalCluster = ClusterInfo.builder(baseAllocation);
-          for (int i = 0, shuffled = 0; i < replicaOrder.size() && shuffled < shuffleCount; i++) {
-            final var sourceReplica = replicaOrder.get(i);
+          for (int shuffled = 0; replicaOrder.hasNext() && shuffled < shuffleCount; ) {
+            final var sourceReplica = replicaOrder.next();
 
             // the leadership change operation will not only affect source target but also the
             // target replica. To prevent mutating one replica twice in the tweaking loop. We have
@@ -166,16 +161,11 @@ public class ShuffleTweaker {
                 Operation.randomStream()
                     .sequential()
                     .map(
-                        operation -> {
-                          switch (operation) {
-                            case LEADERSHIP_CHANGE:
-                              return leadershipChange.get();
-                            case REPLICA_LIST_CHANGE:
-                              return replicaListChange.get();
-                            default:
-                              throw new RuntimeException("Unexpected Condition: " + operation);
-                          }
-                        })
+                        operation ->
+                            switch (operation) {
+                              case LEADERSHIP_CHANGE -> leadershipChange.get();
+                              case REPLICA_LIST_CHANGE -> replicaListChange.get();
+                            })
                     .filter(finished -> finished)
                     .findFirst()
                     .orElse(false);
@@ -207,12 +197,7 @@ public class ShuffleTweaker {
     LEADERSHIP_CHANGE,
     REPLICA_LIST_CHANGE;
 
-    private static final List<Operation> OPERATIONS =
-        Arrays.stream(Operation.values()).collect(Collectors.toUnmodifiableList());
-
-    public static Operation random() {
-      return OPERATIONS.get(ThreadLocalRandom.current().nextInt(OPERATIONS.size()));
-    }
+    private static final List<Operation> OPERATIONS = Arrays.stream(Operation.values()).toList();
 
     public static Stream<Operation> randomStream() {
       return OPERATIONS.stream()
