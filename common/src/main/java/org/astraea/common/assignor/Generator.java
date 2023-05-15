@@ -40,6 +40,8 @@ public interface Generator {
 
       for (var tp : partitions) {
         candidates = hint.get(result, tp);
+        if (candidates.isEmpty()) candidates = consumers.stream().toList();
+
         result.get(candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()))).add(tp);
       }
 
