@@ -18,11 +18,8 @@ package org.astraea.common.metrics.broker;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -54,7 +51,7 @@ public final class ServerMetrics {
               ReplicaManager.ALL.values().stream(),
               Socket.QUERIES.stream())
           .flatMap(f -> f)
-          .collect(Collectors.toUnmodifiableList());
+          .toList();
 
   public static List<AppInfo> appInfo(MBeanClient client) {
     return client.beans(APP_INFO_QUERY).stream()
@@ -93,12 +90,10 @@ public final class ServerMetrics {
     }
 
     public HasBeanObject fetch(MBeanClient mBeanClient) {
-      switch (this) {
-        case CLUSTER_ID:
-          return new ClusterIdGauge(mBeanClient.bean(ALL.get(this)));
-        default:
-          return new Gauge(mBeanClient.bean(ALL.get(this)));
-      }
+      if (this == KafkaServer.CLUSTER_ID)
+        return new ClusterIdGauge(mBeanClient.bean(ALL.get(this)));
+
+      return new Gauge(mBeanClient.bean(ALL.get(this)));
     }
 
     public static KafkaServer ofAlias(String alias) {
@@ -115,12 +110,7 @@ public final class ServerMetrics {
       return alias();
     }
 
-    public static class Gauge implements HasGauge<Long> {
-      private final BeanObject beanObject;
-
-      public Gauge(BeanObject beanObject) {
-        this.beanObject = beanObject;
-      }
+    public record Gauge(BeanObject beanObject) implements HasGauge<Long> {
 
       public String metricsName() {
         return beanObject().properties().get("name");
@@ -129,25 +119,9 @@ public final class ServerMetrics {
       public KafkaServer type() {
         return ofAlias(metricsName());
       }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
-      }
     }
 
-    public static class ClusterIdGauge implements HasGauge<String> {
-      private final BeanObject beanObject;
-
-      public ClusterIdGauge(BeanObject beanObject) {
-        this.beanObject = beanObject;
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
-      }
-    }
+    public record ClusterIdGauge(BeanObject beanObject) implements HasGauge<String> {}
   }
 
   public enum DelayedOperationPurgatory implements EnumInfo {
@@ -200,12 +174,7 @@ public final class ServerMetrics {
       return new Gauge(mBeanClient.bean(ALL.get(this)));
     }
 
-    public static class Gauge implements HasGauge<Integer> {
-      private final BeanObject beanObject;
-
-      public Gauge(BeanObject beanObject) {
-        this.beanObject = beanObject;
-      }
+    public record Gauge(BeanObject beanObject) implements HasGauge<Integer> {
 
       public String metricsName() {
         return beanObject().properties().get("delayedOperation");
@@ -213,11 +182,6 @@ public final class ServerMetrics {
 
       public DelayedOperationPurgatory type() {
         return ofAlias(metricsName());
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
       }
     }
   }
@@ -272,81 +236,7 @@ public final class ServerMetrics {
           .collect(Collectors.toList());
     }
 
-    public Builder builder() {
-      return new Builder(this);
-    }
-
-    public static class Builder {
-
-      private final ServerMetrics.Topic metric;
-      private String topic;
-      private long time;
-      private final Map<String, Object> attributes = new HashMap<>();
-
-      public Builder(Topic metric) {
-        this.metric = metric;
-      }
-
-      public Builder topic(String topic) {
-        this.topic = topic;
-        return this;
-      }
-
-      public Builder time(long time) {
-        this.time = time;
-        return this;
-      }
-
-      public Builder meanRate(double value) {
-        this.attributes.put("MeanRate", value);
-        return this;
-      }
-
-      public Builder oneMinuteRate(double value) {
-        this.attributes.put("OneMinuteRate", value);
-        return this;
-      }
-
-      public Builder fiveMinuteRate(double value) {
-        this.attributes.put("FiveMinuteRate", value);
-        return this;
-      }
-
-      public Builder fifteenMinuteRate(double value) {
-        this.attributes.put("FifteenMinuteRate", value);
-        return this;
-      }
-
-      public Builder rateUnit(TimeUnit timeUnit) {
-        this.attributes.put("RateUnit", timeUnit);
-        return this;
-      }
-
-      public Builder count(long count) {
-        this.attributes.put("Count", count);
-        return this;
-      }
-
-      public Meter build() {
-        return new Meter(
-            new BeanObject(
-                ServerMetrics.DOMAIN_NAME,
-                Map.ofEntries(
-                    Map.entry("type", "BrokerTopicMetrics"),
-                    Map.entry("topic", topic),
-                    Map.entry("name", metric.metricName())),
-                Map.copyOf(attributes)));
-      }
-    }
-
-    public static class Meter implements HasMeter {
-
-      private final BeanObject beanObject;
-
-      public Meter(BeanObject beanObject) {
-        this.beanObject = Objects.requireNonNull(beanObject);
-      }
-
+    public record Meter(BeanObject beanObject) implements HasMeter {
       public String metricsName() {
         return beanObject().properties().get("name");
       }
@@ -357,16 +247,6 @@ public final class ServerMetrics {
 
       public Topic type() {
         return ofAlias(metricsName());
-      }
-
-      @Override
-      public String toString() {
-        return beanObject().toString();
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
       }
     }
   }
@@ -467,20 +347,14 @@ public final class ServerMetrics {
           .filter(o -> o instanceof Meter)
           .filter(o -> metricName().equals(o.beanObject().properties().get("name")))
           .map(o -> (Meter) o)
-          .collect(Collectors.toUnmodifiableList());
+          .toList();
     }
 
     public Meter fetch(MBeanClient mBeanClient) {
       return new Meter(mBeanClient.bean(ALL.get(this)));
     }
 
-    public static class Meter implements HasMeter {
-
-      private final BeanObject beanObject;
-
-      public Meter(BeanObject beanObject) {
-        this.beanObject = Objects.requireNonNull(beanObject);
-      }
+    public record Meter(BeanObject beanObject) implements HasMeter {
 
       public String metricsName() {
         return beanObject().properties().get("name");
@@ -488,16 +362,6 @@ public final class ServerMetrics {
 
       public BrokerTopic type() {
         return ofAlias(metricsName());
-      }
-
-      @Override
-      public String toString() {
-        return beanObject().toString();
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
       }
     }
   }
@@ -551,30 +415,13 @@ public final class ServerMetrics {
       return alias();
     }
 
-    public static class Gauge implements HasGauge<Integer> {
-
-      private final BeanObject beanObject;
-
-      public Gauge(BeanObject beanObject) {
-        this.beanObject = Objects.requireNonNull(beanObject);
-      }
-
+    public record Gauge(BeanObject beanObject) implements HasGauge<Integer> {
       public String metricsName() {
         return beanObject().properties().get("name");
       }
 
       public ReplicaManager type() {
         return ReplicaManager.ofAlias(metricsName());
-      }
-
-      @Override
-      public String toString() {
-        return beanObject().toString();
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
       }
     }
   }
@@ -638,21 +485,10 @@ public final class ServerMetrics {
       return mBeanClient.beans(CLIENT_QUERY).stream().map(Client::new).collect(Collectors.toList());
     }
 
-    public static class SocketMetric implements HasBeanObject {
+    public record SocketMetric(BeanObject beanObject) implements HasBeanObject {
       private static final String MEMORY_POOL_DEPLETED_TIME_TOTAL = "MemoryPoolDepletedTimeTotal";
       private static final String MEMORY_POOL_AVG_DEPLETED_PERCENT = "MemoryPoolAvgDepletedPercent";
       private static final String BROKER_CONNECTION_ACCEPT_RATE = "broker-connection-accept-rate";
-
-      private final BeanObject beanObject;
-
-      public SocketMetric(BeanObject beanObject) {
-        this.beanObject = Objects.requireNonNull(beanObject);
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
-      }
 
       public double memoryPoolDepletedTimeTotal() {
         return (double) beanObject().attributes().get(MEMORY_POOL_DEPLETED_TIME_TOTAL);
@@ -668,23 +504,12 @@ public final class ServerMetrics {
     }
 
     /** property : listener */
-    public static class SocketListenerMetric implements HasBeanObject {
+    public record SocketListenerMetric(BeanObject beanObject) implements HasBeanObject {
       private static final String CONNECTION_ACCEPT_THROTTLE_TIME =
           "connection-accept-throttle-time";
       private static final String CONNECTION_ACCEPT_RATE = "connection-accept-rate";
       private static final String IP_CONNECTION_ACCEPT_THROTTLE_TIME =
           "ip-connection-accept-throttle-time";
-
-      private final BeanObject beanObject;
-
-      public SocketListenerMetric(BeanObject beanObject) {
-        this.beanObject = Objects.requireNonNull(beanObject);
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
-      }
 
       public String listener() {
         return beanObject().properties().get(PROP_LISTENER);
@@ -704,7 +529,7 @@ public final class ServerMetrics {
     }
 
     /** property : listener and networkProcessor */
-    public static class SocketNetworkProcessorMetric implements HasBeanObject {
+    public record SocketNetworkProcessorMetric(BeanObject beanObject) implements HasBeanObject {
       private static final String INCOMING_BYTE_TOTAL = "incoming-byte-total";
       private static final String SELECT_TOTAL = "select-total";
       private static final String SUCCESSFUL_AUTHENTICATION_RATE = "successful-authentication-rate";
@@ -749,17 +574,6 @@ public final class ServerMetrics {
           "successful-authentication-no-reauth-total";
       private static final String REQUEST_TOTAL = "request-total";
       private static final String IO_WAITTIME_TOTAL = "io-waittime-total";
-
-      private final BeanObject beanObject;
-
-      public SocketNetworkProcessorMetric(BeanObject beanObject) {
-        this.beanObject = Objects.requireNonNull(beanObject);
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
-      }
 
       public String listener() {
         return beanObject().properties().get(PROP_LISTENER);
@@ -927,19 +741,9 @@ public final class ServerMetrics {
     }
 
     /** property : listener and networkProcessor and clientSoftwareName */
-    public static class Client implements HasBeanObject {
+    public record Client(BeanObject beanObject) implements HasBeanObject {
 
       private static final String CONNECTIONS = "connections";
-      private final BeanObject beanObject;
-
-      public Client(BeanObject beanObject) {
-        this.beanObject = Objects.requireNonNull(beanObject);
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
-      }
 
       public String listener() {
         return beanObject().properties().get(PROP_LISTENER);

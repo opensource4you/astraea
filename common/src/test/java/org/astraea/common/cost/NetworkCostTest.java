@@ -633,8 +633,7 @@ class NetworkCostTest {
               .timeRange(LocalDateTime.now(), Duration.ZERO)
               .seriesByBrokerTopic(
                   (time, broker, topic) ->
-                      ServerMetrics.Topic.BYTES_IN_PER_SEC
-                          .builder()
+                      new ServerMetricsMeterBuilder(ServerMetrics.Topic.BYTES_IN_PER_SEC)
                           .topic(topic)
                           .time(time.toEpochSecond(ZoneOffset.UTC))
                           .oneMinuteRate(
@@ -661,8 +660,7 @@ class NetworkCostTest {
                           .build())
               .seriesByBrokerTopic(
                   (time, broker, topic) ->
-                      ServerMetrics.Topic.BYTES_OUT_PER_SEC
-                          .builder()
+                      new ServerMetricsMeterBuilder(ServerMetrics.Topic.BYTES_OUT_PER_SEC)
                           .topic(topic)
                           .time(time.toEpochSecond(ZoneOffset.UTC))
                           .oneMinuteRate(
@@ -701,8 +699,8 @@ class NetworkCostTest {
                       IntStream.range(0, 10)
                           .mapToObj(
                               i ->
-                                  ServerMetrics.Topic.TOTAL_FETCH_REQUESTS_PER_SEC
-                                      .builder()
+                                  new ServerMetricsMeterBuilder(
+                                          ServerMetrics.Topic.TOTAL_FETCH_REQUESTS_PER_SEC)
                                       .topic("Noise_" + i)
                                       .time(time.toEpochSecond(ZoneOffset.UTC))
                                       .build()))
