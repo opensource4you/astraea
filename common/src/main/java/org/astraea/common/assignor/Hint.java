@@ -18,11 +18,21 @@ package org.astraea.common.assignor;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
 public interface Hint {
   List<String> get(TopicPartition tp);
+
+  static Hint of(Set<Hint> hints) {
+    return (tp) ->
+        hints.stream()
+            .map(h -> h.get(tp))
+            .reduce((l1, l2) -> l1.stream().filter(l2::contains).toList())
+            .get();
+  }
 
   static Hint lowCostHint(
       Map<String, SubscriptionInfo> subscriptions, Map<String, Double> consumerCost) {
@@ -39,6 +49,42 @@ public interface Hint {
           .limit((long) Math.ceil(consumerCost.size() / 2.0))
           .map(Map.Entry::getKey)
           .toList();
+    };
+  }
+
+  static Hint incompatibleHint(
+      Map<String, SubscriptionInfo> subscriptions,
+      Map<TopicPartition, Set<TopicPartition>> incompatibilities,
+      Map<String, List<TopicPartition>> combinator) {
+    return (tp) -> {
+      var subscriber =
+          subscriptions.entrySet().stream()
+              .filter(e -> e.getValue().topics().contains(tp.topic()))
+              .map(Map.Entry::getKey)
+              .toList();
+      if (incompatibilities.get(tp).isEmpty()) return subscriber;
+
+      var candidates =
+          combinator.entrySet().stream()
+              .filter(e -> subscriber.contains(e.getKey()))
+              .map(
+                  e ->
+                      Map.entry(
+                          e.getKey(),
+                          e.getValue().stream()
+                              .filter(p -> incompatibilities.get(p).contains(tp))
+                              .count()))
+              .collect(
+                  Collectors.groupingBy(
+                      Map.Entry::getValue,
+                      Collectors.mapping(Map.Entry::getKey, Collectors.toList())))
+              .entrySet()
+              .stream()
+              .min(Map.Entry.comparingByKey())
+              .get()
+              .getValue();
+
+      return candidates.isEmpty() ? List.of() : candidates;
     };
   }
 }
