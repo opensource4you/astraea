@@ -51,10 +51,7 @@ public class HdfsFileSystem implements FileSystem {
 
           var conf = new org.apache.hadoop.conf.Configuration();
 
-          config
-              .filteredPrefixConfigs(OVERRIDE_KEY)
-              .entrySet()
-              .forEach(configItem -> conf.set(configItem.getKey(), configItem.getValue()));
+          config.filteredPrefixConfigs(OVERRIDE_KEY).raw().forEach(conf::set);
 
           return org.apache.hadoop.fs.FileSystem.get(uri, conf, config.requireString(USER_KEY));
         });

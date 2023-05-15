@@ -19,59 +19,24 @@ package org.astraea.common.admin;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public interface Transaction {
+public record Transaction(
+    String transactionId,
+    int coordinatorId,
+    TransactionState state,
+    long producerId,
+    int producerEpoch,
+    long transactionTimeoutMs,
+    Set<TopicPartition> topicPartitions) {
 
   static Transaction of(
       String transactionId, org.apache.kafka.clients.admin.TransactionDescription td) {
-    return new Transaction() {
-      @Override
-      public String transactionId() {
-        return transactionId;
-      }
-
-      @Override
-      public int coordinatorId() {
-        return td.coordinatorId();
-      }
-
-      @Override
-      public TransactionState state() {
-        return TransactionState.of(td.state());
-      }
-
-      @Override
-      public long producerId() {
-        return td.producerId();
-      }
-
-      @Override
-      public int producerEpoch() {
-        return td.producerEpoch();
-      }
-
-      @Override
-      public long transactionTimeoutMs() {
-        return 0;
-      }
-
-      @Override
-      public Set<TopicPartition> topicPartitions() {
-        return td.topicPartitions().stream().map(TopicPartition::from).collect(Collectors.toSet());
-      }
-    };
+    return new Transaction(
+        transactionId,
+        td.coordinatorId(),
+        TransactionState.of(td.state()),
+        td.producerId(),
+        td.producerEpoch(),
+        td.transactionTimeoutMs(),
+        td.topicPartitions().stream().map(TopicPartition::from).collect(Collectors.toSet()));
   }
-
-  String transactionId();
-
-  int coordinatorId();
-
-  TransactionState state();
-
-  long producerId();
-
-  int producerEpoch();
-
-  long transactionTimeoutMs();
-
-  Set<TopicPartition> topicPartitions();
 }
