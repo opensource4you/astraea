@@ -17,6 +17,8 @@
 package org.astraea.connector.backup;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +45,7 @@ import org.astraea.common.json.TypeRef;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
 import org.astraea.connector.SinkTask;
+import org.astraea.connector.TaskContext;
 import org.astraea.fs.FileSystem;
 
 public class Exporter extends SinkConnector {
@@ -163,6 +166,8 @@ public class Exporter extends SinkConnector {
     private final Object putLock = new Object();
 
     private long bufferSizeLimit;
+
+    private TaskContext taskContext;
 
     FileSystem fs;
     String path;
@@ -455,6 +460,7 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void init(Configuration configuration) {
+      this.taskContext = TaskContext.of(this.context);
       this.path = configuration.requireString(PATH_KEY.name());
       this.size =
           DataSize.of(
@@ -511,9 +517,8 @@ public class Exporter extends SinkConnector {
       if (this.seekOffset.size() != 0) {
         this.seekOffset.forEach(
             (tp, offset) -> {
-              this.context.requestCommit();
-              this.context.offset(
-                  new org.apache.kafka.common.TopicPartition(tp.topic(), tp.partition()), offset);
+              this.taskContext.requestCommit();
+              this.taskContext.offset(tp, offset);
               this.seekOffset.remove(tp);
             });
       }
@@ -540,6 +545,8 @@ public class Exporter extends SinkConnector {
           } else {
             // we are not in the valid target rang, we should seek the next valid offset.
             var nextValidOffset = target.nextValidOffset(r.offset());
+            Collection<TopicPartition> pausedTopicPartitions =
+                new ArrayList<>(Collections.emptyList());
             if (nextValidOffset.isPresent()) {
               // todo have to check the max offset of this topic partition before we reset
               // the offset.
@@ -548,10 +555,9 @@ public class Exporter extends SinkConnector {
               // subsequent offsets are not within the user-specified range, so ew should stop
               // consuming to avoid consuming more unnecessary data.
               this.seekOffset.remove(r.topicPartition());
-              if (contextOperation)
-                this.context.pause(
-                    new org.apache.kafka.common.TopicPartition(r.topic(), r.partition()));
+              if (contextOperation) pausedTopicPartitions.add(r.topicPartition());
             }
+            this.taskContext.pause(pausedTopicPartitions);
             return false;
           }
         }
