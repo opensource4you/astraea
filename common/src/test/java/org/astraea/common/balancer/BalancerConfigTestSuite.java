@@ -19,6 +19,7 @@ package org.astraea.common.balancer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
@@ -32,6 +33,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -476,6 +478,41 @@ public abstract class BalancerConfigTestSuite {
                         .build()),
             testName);
       }
+    }
+
+    {
+      // Some balancer implementations have such logic flaw:
+      // 1. The initial state[A] cannot be solution.
+      // 2. There are brokers that need to be demoted.
+      // 3. The load on those brokers been redistributed to other brokers. Creating the start
+      //    state[B] for the solution search.
+      // 4. The start state[B] solution is actually the best solution.
+      // 5. Balancer think the start state[B] is the initial state[A]. And cannot be a solution(as
+      // mentioned in 1).
+      // 6. In fact, the start state[B] doesn't equal to the initial state[A]. Since there is a
+      //    cleaning work performed at step 3.
+      // 7. Balancer cannot find any solution that is better than the start state(4) and therefore
+      //    returns no solution.
+      var testName =
+          "[If the cluster after clear is the best solution, balancer should be able to return it]";
+      var testCluster =
+          ClusterInfo.builder()
+              .addNode(Set.of(1, 2))
+              .addFolders(
+                  Map.ofEntries(Map.entry(1, Set.of("/folder")), Map.entry(2, Set.of("/folder"))))
+              .addTopic("topic", 100, (short) 1)
+              .build();
+      Assertions.assertNotEquals(
+          Optional.empty(),
+          balancer.offer(
+              AlgorithmConfig.builder()
+                  .clusterInfo(testCluster)
+                  .clusterBean(ClusterBean.EMPTY)
+                  .clusterCost(new ReplicaLeaderCost())
+                  .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "1:demoted")
+                  .timeout(Duration.ofSeconds(2))
+                  .build()),
+          testName);
     }
   }
 

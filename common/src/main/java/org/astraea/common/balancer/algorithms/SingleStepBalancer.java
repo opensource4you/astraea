@@ -129,6 +129,21 @@ public class SingleStepBalancer implements Balancer {
                     newAllocation,
                     evaluateCost.apply(newAllocation)))
         .filter(plan -> plan.proposalClusterCost().value() < currentCost.value())
-        .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()));
+        .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()))
+        .or(
+            () -> {
+              if (!balancingMode.demoted().isEmpty()
+                  && !moveCostFunction
+                      .moveCost(config.clusterInfo(), currentClusterInfo, clusterBean)
+                      .overflow()) {
+                return Optional.of(
+                    new Plan(
+                        config.clusterInfo(),
+                        config.clusterCostFunction().clusterCost(config.clusterInfo(), clusterBean),
+                        currentClusterInfo,
+                        currentCost));
+              }
+              return Optional.empty();
+            });
   }
 }

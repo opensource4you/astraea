@@ -229,6 +229,20 @@ public class GreedyBalancer implements Balancer {
       currentCost = currentSolution.get().proposalClusterCost();
       currentAllocation = currentSolution.get().proposal();
     }
-    return currentSolution;
+    return currentSolution.or(
+        () -> {
+          if (!balancingMode.demoted().isEmpty()
+              && !moveCostFunction
+                  .moveCost(config.clusterInfo(), currentClusterInfo, clusterBean)
+                  .overflow()) {
+            return Optional.of(
+                new Plan(
+                    config.clusterInfo(),
+                    config.clusterCostFunction().clusterCost(config.clusterInfo(), clusterBean),
+                    currentClusterInfo,
+                    initialCost));
+          }
+          return Optional.empty();
+        });
   }
 }
