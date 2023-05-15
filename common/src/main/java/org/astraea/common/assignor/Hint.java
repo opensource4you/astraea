@@ -24,39 +24,38 @@ import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
 public interface Hint {
-  List<String> get(TopicPartition tp);
+  List<String> get(Map<String, List<TopicPartition>> combinator, TopicPartition tp);
 
   static Hint of(Set<Hint> hints) {
-    return (tp) ->
+    return (combinator, tp) ->
         hints.stream()
-            .map(h -> h.get(tp))
+            .map(h -> h.get(combinator, tp))
             .reduce((l1, l2) -> l1.stream().filter(l2::contains).toList())
             .get();
   }
 
   static Hint lowCostHint(
-      Map<String, SubscriptionInfo> subscriptions, Map<String, Double> consumerCost) {
-    return (tp) -> {
-      var consumers =
-          subscriptions.entrySet().stream()
-              .filter(e -> e.getValue().topics().contains(tp.topic()))
+      Map<String, SubscriptionInfo> subscriptions, Map<TopicPartition, Double> partitionCost) {
+    return (combinator, tp) -> {
+      var candidates =
+          combinator.entrySet().stream()
+              .filter(e -> subscriptions.get(e.getKey()).topics().contains(tp.topic()))
+              .map(
+                  e ->
+                      Map.entry(
+                          e.getKey(), e.getValue().stream().mapToDouble(partitionCost::get).sum()))
+              .sorted(Map.Entry.comparingByValue())
               .map(Map.Entry::getKey)
               .toList();
 
-      return consumerCost.entrySet().stream()
-          .filter(e -> consumers.contains(e.getKey()))
-          .sorted(Map.Entry.comparingByValue())
-          .limit((long) Math.ceil(consumerCost.size() / 2.0))
-          .map(Map.Entry::getKey)
-          .toList();
+      return candidates.stream().limit((long) Math.ceil(candidates.size() / 2.0)).toList();
     };
   }
 
   static Hint incompatibleHint(
       Map<String, SubscriptionInfo> subscriptions,
-      Map<TopicPartition, Set<TopicPartition>> incompatibilities,
-      Map<String, List<TopicPartition>> combinator) {
-    return (tp) -> {
+      Map<TopicPartition, Set<TopicPartition>> incompatibilities) {
+    return (combinator, tp) -> {
       var subscriber =
           subscriptions.entrySet().stream()
               .filter(e -> e.getValue().topics().contains(tp.topic()))

@@ -16,6 +16,7 @@
  */
 package org.astraea.common.assignor;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,18 +29,21 @@ public interface Generator {
 
   Map<String, List<TopicPartition>> get();
 
-  static Generator randomGenerator(Set<TopicPartition> partitions, Hint hint) {
-    return () ->
-        partitions.stream()
-            .map(
-                tp -> {
-                  var candidates = hint.get(tp);
-                  return Map.entry(
-                      candidates.get(ThreadLocalRandom.current().nextInt(candidates.size())), tp);
-                })
-            .collect(
-                Collectors.groupingBy(
-                    Map.Entry::getKey,
-                    Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
+  static Generator randomGenerator(
+      Set<String> consumers, Set<TopicPartition> partitions, Hint hint) {
+    return () -> {
+      Map<String, List<TopicPartition>> result =
+          consumers.stream()
+              .map(c -> Map.entry(c, new ArrayList<TopicPartition>()))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      List<String> candidates;
+
+      for (var tp : partitions) {
+        candidates = hint.get(result, tp);
+        result.get(candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()))).add(tp);
+      }
+
+      return result;
+    };
   }
 }
