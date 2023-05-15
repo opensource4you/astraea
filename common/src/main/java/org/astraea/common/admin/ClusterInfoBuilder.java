@@ -101,7 +101,8 @@ public class ClusterInfoBuilder {
    */
   public ClusterInfoBuilder removeNodes(Predicate<Integer> toRemove) {
     return applyNodes(
-        (nodes, replicas) -> nodes.stream().filter(node -> toRemove.test(node.id())).toList());
+        (nodes, replicas) ->
+            nodes.stream().filter(node -> toRemove.negate().test(node.id())).toList());
   }
 
   /**
