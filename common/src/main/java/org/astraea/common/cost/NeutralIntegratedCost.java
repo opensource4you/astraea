@@ -20,7 +20,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.ClusterInfo;
@@ -162,13 +161,8 @@ public class NeutralIntegratedCost implements HasBrokerCost {
   }
 
   @Override
-  public Optional<MetricSensor> metricSensor() {
-    return MetricSensor.of(
-        metricsCost.stream()
-            .map(CostFunction::metricSensor)
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .collect(Collectors.toUnmodifiableList()));
+  public MetricSensor metricSensor() {
+    return MetricSensor.of(metricsCost.stream().map(CostFunction::metricSensor).toList());
   }
 
   @Override

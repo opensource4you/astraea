@@ -18,88 +18,60 @@ package org.astraea.connector;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import org.astraea.common.Header;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Record;
 
-public class SourceRecord implements Record<byte[], byte[]> {
+/**
+ * @param timestamp timestamp of record
+ * @param partition expected partition, or null if you don't care for it.
+ */
+public record SourceRecord(
+    String topic,
+    List<Header> headers,
+    byte[] key,
+    byte[] value,
+    Optional<Long> timestamp,
+    Optional<Integer> partition,
+    Map<String, String> metadataIndex,
+    Map<String, String> metadata) {
 
   public static Builder builder() {
     return new Builder();
   }
 
-  private final Record<byte[], byte[]> record;
-  private final Map<String, String> metadataIndex;
-  private final Map<String, String> metadata;
-
-  private SourceRecord(
-      Record<byte[], byte[]> record,
-      Map<String, String> metadataIndex,
-      Map<String, String> metadata) {
-    this.record = record;
-    this.metadataIndex = metadataIndex;
-    this.metadata = metadata;
-  }
-
-  @Override
-  public String topic() {
-    return record.topic();
-  }
-
-  @Override
-  public List<Header> headers() {
-    return record.headers();
-  }
-
-  @Override
-  public byte[] key() {
-    return record.key();
-  }
-
-  @Override
-  public byte[] value() {
-    return record.value();
-  }
-
-  @Override
-  public Optional<Long> timestamp() {
-    return record.timestamp();
-  }
-
-  @Override
-  public Optional<Integer> partition() {
-    return record.partition();
-  }
-
-  public Map<String, String> metadataIndex() {
-    return metadataIndex;
-  }
-
-  public Map<String, String> metadata() {
-    return metadata;
-  }
-
   public static class Builder {
 
-    private final Record.Builder<byte[], byte[]> builder = Record.builder();
+    private byte[] key;
+    private byte[] value;
+    private String topic;
+    private Optional<Integer> partition = Optional.empty();
+    private Optional<Long> timestamp = Optional.empty();
+    private List<Header> headers = List.of();
     private Map<String, String> metadataIndex = Map.of();
     private Map<String, String> metadata = Map.of();
 
     private Builder() {}
 
     public Builder record(Record<byte[], byte[]> record) {
-      builder.record(record);
+      key(record.key());
+      value(record.value());
+      topic(record.topic());
+      record.partition().ifPresent(this::partition);
+      record.timestamp().ifPresent(this::timestamp);
+      headers(record.headers());
       return this;
     }
 
     public Builder key(byte[] key) {
-      builder.key(key);
+      this.key = key;
       return this;
     }
 
     public Builder value(byte[] value) {
-      builder.value(value);
+      this.value = value;
       return this;
     }
 
@@ -109,22 +81,22 @@ public class SourceRecord implements Record<byte[], byte[]> {
     }
 
     public Builder topic(String topic) {
-      builder.topic(topic);
+      this.topic = Objects.requireNonNull(topic);
       return this;
     }
 
     public Builder partition(int partition) {
-      builder.partition(partition);
+      if (partition >= 0) this.partition = Optional.of(partition);
       return this;
     }
 
     public Builder timestamp(long timestamp) {
-      builder.timestamp(timestamp);
+      this.timestamp = Optional.of(timestamp);
       return this;
     }
 
     public Builder headers(List<Header> headers) {
-      builder.headers(headers);
+      this.headers = headers;
       return this;
     }
 
@@ -139,7 +111,15 @@ public class SourceRecord implements Record<byte[], byte[]> {
     }
 
     public SourceRecord build() {
-      return new SourceRecord(builder.build(), metadataIndex, metadata);
+      return new SourceRecord(
+          Objects.requireNonNull(topic, "topic must be defined"),
+          Objects.requireNonNull(headers),
+          key,
+          value,
+          timestamp,
+          partition,
+          metadataIndex,
+          metadata);
     }
   }
 }

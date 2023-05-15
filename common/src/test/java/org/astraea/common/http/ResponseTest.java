@@ -18,69 +18,19 @@ package org.astraea.common.http;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.net.URI;
-import java.net.http.HttpClient.Version;
-import java.net.http.HttpHeaders;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.util.Optional;
-import javax.net.ssl.SSLSession;
 import org.junit.jupiter.api.Test;
 
 class ResponseTest {
 
   @Test
   void testStatusCode() {
-    var response = Response.of("aa", 10);
+    var response = new Response<>("aa", 10);
     assertEquals(10, response.statusCode());
   }
 
   @Test
   void testBody() {
-    var response = Response.of("bodyValue", 10);
+    var response = new Response<>("bodyValue", 10);
     assertEquals("bodyValue", response.body());
-  }
-
-  static class EmptyResponseImpl implements HttpResponse<String> {
-
-    @Override
-    public int statusCode() {
-      return 0;
-    }
-
-    @Override
-    public HttpRequest request() {
-      return null;
-    }
-
-    @Override
-    public Optional<HttpResponse<String>> previousResponse() {
-      return Optional.empty();
-    }
-
-    @Override
-    public HttpHeaders headers() {
-      return null;
-    }
-
-    @Override
-    public String body() {
-      return null;
-    }
-
-    @Override
-    public Optional<SSLSession> sslSession() {
-      return Optional.empty();
-    }
-
-    @Override
-    public URI uri() {
-      return null;
-    }
-
-    @Override
-    public Version version() {
-      return null;
-    }
   }
 }

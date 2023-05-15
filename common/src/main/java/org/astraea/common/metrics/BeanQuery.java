@@ -53,7 +53,7 @@ import org.astraea.common.Utils;
  * BeanQuery.all("java.*")
  * }</pre>
  */
-public interface BeanQuery {
+public record BeanQuery(String domainName, Map<String, String> properties, ObjectName objectName) {
 
   static BeanQuery fromObjectName(ObjectName objectName) {
     return BeanQuery.builder()
@@ -63,7 +63,7 @@ public interface BeanQuery {
         .build();
   }
 
-  static Builder builder() {
+  public static Builder builder() {
     return new Builder();
   }
 
@@ -72,7 +72,7 @@ public interface BeanQuery {
    *
    * @return a {@link BeanQuery} object that target all MBeans under every domain name
    */
-  static BeanQuery all() {
+  public static BeanQuery all() {
     return builder().propertyListPattern(true).build();
   }
 
@@ -82,17 +82,11 @@ public interface BeanQuery {
    * @param domainName the domain name to query
    * @return a {@link BeanQuery} object that target all MBeans under specific domain name
    */
-  static BeanQuery all(String domainName) {
+  public static BeanQuery all(String domainName) {
     return builder().domainName(domainName).propertyListPattern(true).build();
   }
 
-  String domainName();
-
-  Map<String, String> properties();
-
-  ObjectName objectName();
-
-  class Builder {
+  public static class Builder {
 
     private String domainName = "*";
     private final Map<String, String> properties = new HashMap<>();
@@ -162,9 +156,9 @@ public interface BeanQuery {
      *     previous calling to {@link Builder#property(String, String)}.
      */
     public BeanQuery build() {
-      var domainName = Objects.requireNonNull(this.domainName);
-      var properties = Map.copyOf(Objects.requireNonNull(this.properties));
-      var objectName =
+      return new BeanQuery(
+          Objects.requireNonNull(domainName),
+          Map.copyOf(Objects.requireNonNull(properties)),
           Utils.packException(
               () -> {
                 if (propertyListPattern) {
@@ -176,24 +170,7 @@ public interface BeanQuery {
                       domainName + ":" + propertyList + ((properties.isEmpty()) ? "*" : ",*"));
                 }
                 return ObjectName.getInstance(domainName, new Hashtable<>(this.properties));
-              });
-      return new BeanQuery() {
-
-        @Override
-        public String domainName() {
-          return domainName;
-        }
-
-        @Override
-        public Map<String, String> properties() {
-          return properties;
-        }
-
-        @Override
-        public ObjectName objectName() {
-          return objectName;
-        }
-      };
+              }));
     }
   }
 }

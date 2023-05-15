@@ -21,11 +21,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -240,16 +240,10 @@ public class StrictCostPartitioner extends Partitioner {
                       return Collections.unmodifiableMap(map);
                     });
 
-    // put local mbean client first
     metricStore =
         MetricStore.builder()
-            .localReceiver(clientSupplier)
-            .sensorsSupplier(
-                () ->
-                    this.brokerCost
-                        .metricSensor()
-                        .map(s -> Map.of(s, (BiConsumer<Integer, Exception>) (integer, e) -> {}))
-                        .orElse(Map.of()))
+            .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
+            .sensorsSupplier(() -> Map.of(this.brokerCost.metricSensor(), (integer, e) -> {}))
             .build();
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
   }

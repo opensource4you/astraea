@@ -22,6 +22,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -67,7 +68,7 @@ public class WebService implements AutoCloseable {
     var metricStore =
         MetricStore.builder()
             .beanExpiration(beanExpiration)
-            .localReceiver(clientSupplier)
+            .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
             .sensorsSupplier(
                 () ->
                     sensors.metricSensors().stream()
@@ -172,11 +173,7 @@ public class WebService implements AutoCloseable {
   }
 
   static class Sensors {
-    private final Collection<MetricSensor> sensors;
-
-    Sensors() {
-      sensors = new ConcurrentLinkedQueue<>();
-    }
+    private final Collection<MetricSensor> sensors = new ConcurrentLinkedQueue<>();
 
     Collection<MetricSensor> metricSensors() {
       return sensors;
