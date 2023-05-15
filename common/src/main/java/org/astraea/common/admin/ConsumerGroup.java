@@ -17,56 +17,12 @@
 package org.astraea.common.admin;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
-public class ConsumerGroup {
-  private final String groupId;
-
-  private final String assignor;
-
-  private final String state;
-
-  private final NodeInfo coordinator;
-  private final Map<TopicPartition, Long> consumeProgress;
-  private final Map<Member, Set<TopicPartition>> assignment;
-
-  ConsumerGroup(
-      String groupId,
-      String assignor,
-      String state,
-      NodeInfo coordinator,
-      Map<TopicPartition, Long> consumeProgress,
-      Map<Member, Set<TopicPartition>> assignment) {
-    this.groupId = Objects.requireNonNull(groupId);
-    this.assignor = assignor;
-    this.state = state;
-    this.coordinator = coordinator;
-    this.consumeProgress = Map.copyOf(consumeProgress);
-    this.assignment = Map.copyOf(assignment);
-  }
-
-  public String groupId() {
-    return groupId;
-  }
-
-  public NodeInfo coordinator() {
-    return coordinator;
-  }
-
-  public Map<Member, Set<TopicPartition>> assignment() {
-    return assignment;
-  }
-
-  public Map<TopicPartition, Long> consumeProgress() {
-    return consumeProgress;
-  }
-
-  public String assignor() {
-    return assignor;
-  }
-
-  public String state() {
-    return state;
-  }
-}
+public record ConsumerGroup(
+    String groupId,
+    String assignor,
+    String state,
+    NodeInfo coordinator,
+    Map<TopicPartition, Long> consumeProgress,
+    Map<Member, Set<TopicPartition>> assignment) {}

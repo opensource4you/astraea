@@ -1353,7 +1353,7 @@ public class BalancerHandlerTest {
     var metricSensors = cf.stream().map(CostFunction::metricSensor).toList();
     return MetricStore.builder()
         .beanExpiration(Duration.ofMinutes(2))
-        .localReceiver(clientSupplier)
+        .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
         .sensorsSupplier(
             () ->
                 metricSensors.stream()

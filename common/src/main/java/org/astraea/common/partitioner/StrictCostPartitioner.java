@@ -19,6 +19,7 @@ package org.astraea.common.partitioner;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -157,7 +158,7 @@ public class StrictCostPartitioner extends Partitioner {
 
     metricStore =
         MetricStore.builder()
-            .localReceiver(clientSupplier)
+            .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
             .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
             .build();
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
