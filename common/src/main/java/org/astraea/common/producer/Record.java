@@ -22,14 +22,16 @@ import java.util.Optional;
 import org.astraea.common.Header;
 import org.astraea.common.admin.TopicPartition;
 
+/**
+ * @param timestamp timestamp of record
+ * @param partition expected partition, or null if you don't care for it.
+ */
 public record Record<Key, Value>(
     String topic,
     List<Header> headers,
     Key key,
     Value value,
-    // timestamp of record
     Optional<Long> timestamp,
-    // expected partition, or null if you don't care for it.
     Optional<Integer> partition) {
 
   public static Builder<byte[], byte[]> builder() {
