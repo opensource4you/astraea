@@ -46,7 +46,7 @@ public class ReplicaLeaderSizeCost
     this.config = config;
   }
 
-  private final Dispersion dispersion = Dispersion.cov();
+  private final Dispersion dispersion = Dispersion.standardDeviation();
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {

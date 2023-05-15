@@ -23,10 +23,10 @@ import org.junit.jupiter.api.Test;
 class DispersionTest {
 
   @Test
-  void testCorrelationCoefficient() {
-    var dispersion = Dispersion.cov();
-    var scores = List.of(0.2, 0.4, 0.7);
-    Assertions.assertEquals(0.47418569253607507, dispersion.calculate(scores));
+  void testStandardDeviation() {
+    var dispersion = Dispersion.standardDeviation();
+    var scores = List.of(8, 8, 4, 4);
+    Assertions.assertEquals(2, dispersion.calculate(scores));
 
     var zeroScores = List.of(0.0, 0.0, 0.0);
     var score = dispersion.calculate(zeroScores);
@@ -35,13 +35,16 @@ class DispersionTest {
   }
 
   @Test
-  void standardDeviation() {
-    var dispersion = Dispersion.standardDeviation();
+  void testNormalizedStandardDeviation() {
     var scores = List.of(8, 8, 4, 4);
-    Assertions.assertEquals(2, dispersion.calculate(scores));
+    var normalizedSD = Dispersion.normalizedStandardDeviation();
+    var standardDeviation = Dispersion.standardDeviation();
+    var total = scores.stream().mapToDouble(x -> x).sum();
+    var sd = scores.stream().map(x -> x / total).toList();
+    Assertions.assertEquals(standardDeviation.calculate(sd), normalizedSD.calculate(scores));
 
     var zeroScores = List.of(0.0, 0.0, 0.0);
-    var score = dispersion.calculate(zeroScores);
+    var score = normalizedSD.calculate(zeroScores);
     Assertions.assertFalse(Double.isNaN(score));
     Assertions.assertEquals(0.0, score);
   }
