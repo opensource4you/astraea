@@ -36,6 +36,7 @@ class DispersionTest {
 
   @Test
   void testNormalizedStandardDeviation() {
+    // test calculate
     var scores = List.of(8, 8, 4, 4);
     var normalizedSD = Dispersion.normalizedStandardDeviation();
     var standardDeviation = Dispersion.standardDeviation();
@@ -43,9 +44,22 @@ class DispersionTest {
     var sd = scores.stream().map(x -> x / total).toList();
     Assertions.assertEquals(standardDeviation.calculate(sd), normalizedSD.calculate(scores));
 
+    // test zero
     var zeroScores = List.of(0.0, 0.0, 0.0);
     var score = normalizedSD.calculate(zeroScores);
     Assertions.assertFalse(Double.isNaN(score));
     Assertions.assertEquals(0.0, score);
+
+    // the test standard deviation interval is between [0,1]
+    var dispersion = Dispersion.normalizedStandardDeviation();
+    var list1 = List.of(0, Integer.MAX_VALUE);
+    var list2 = List.of(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, Integer.MAX_VALUE);
+    var list3 = List.of(-1 * Integer.MAX_VALUE, Integer.MAX_VALUE);
+    var cost1 = dispersion.calculate(list1);
+    var cost2 = dispersion.calculate(list2);
+    var cost3 = dispersion.calculate(list3);
+    Assertions.assertTrue(cost1 <= 1 && cost1 >= 0);
+    Assertions.assertTrue(cost2 <= 1 && cost2 >= 0);
+    Assertions.assertTrue(cost3 <= 1 && cost3 >= 0);
   }
 }
