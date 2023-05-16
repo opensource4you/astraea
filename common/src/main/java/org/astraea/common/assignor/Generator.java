@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.TopicPartition;
 
@@ -30,22 +31,34 @@ public interface Generator {
   Map<String, List<TopicPartition>> get();
 
   static Generator randomGenerator(
-      Set<String> consumers, Set<TopicPartition> partitions, Hint hint) {
+      Map<String, SubscriptionInfo> subscription,
+      Map<TopicPartition, Double> partitionCost,
+      Map<TopicPartition, Set<TopicPartition>> incompatible) {
+    AtomicReference<Map<String, List<TopicPartition>>> combinator = new AtomicReference<>();
+    var hints =
+        Hint.of(
+            Set.of(
+                Hint.lowCostHint(subscription, partitionCost, combinator.get()),
+                Hint.incompatibleHint(subscription, incompatible, combinator.get())));
+
     return () -> {
-      Map<String, List<TopicPartition>> result =
-          consumers.stream()
+      combinator.set(
+          subscription.keySet().stream()
               .map(c -> Map.entry(c, new ArrayList<TopicPartition>()))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
       List<String> candidates;
 
-      for (var tp : partitions) {
-        candidates = hint.get(result, tp);
-        if (candidates.isEmpty()) candidates = consumers.stream().toList();
+      for (var tp : partitionCost.keySet()) {
+        candidates = hints.get(tp);
+        if (candidates.isEmpty()) candidates = subscription.keySet().stream().toList();
 
-        result.get(candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()))).add(tp);
+        combinator
+            .get()
+            .get(candidates.get(ThreadLocalRandom.current().nextInt(candidates.size())))
+            .add(tp);
       }
 
-      return result;
+      return combinator.get();
     };
   }
 }

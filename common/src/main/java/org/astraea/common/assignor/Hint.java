@@ -24,19 +24,21 @@ import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
 public interface Hint {
-  List<String> get(Map<String, List<TopicPartition>> combinator, TopicPartition tp);
+  List<String> get(TopicPartition tp);
 
   static Hint of(Set<Hint> hints) {
-    return (combinator, tp) ->
+    return (tp) ->
         hints.stream()
-            .map(h -> h.get(combinator, tp))
+            .map(h -> h.get(tp))
             .reduce((l1, l2) -> l1.stream().filter(l2::contains).toList())
             .get();
   }
 
   static Hint lowCostHint(
-      Map<String, SubscriptionInfo> subscriptions, Map<TopicPartition, Double> partitionCost) {
-    return (combinator, tp) -> {
+      Map<String, SubscriptionInfo> subscriptions,
+      Map<TopicPartition, Double> partitionCost,
+      Map<String, List<TopicPartition>> combinator) {
+    return (tp) -> {
       var candidates =
           combinator.entrySet().stream()
               .filter(e -> subscriptions.get(e.getKey()).topics().contains(tp.topic()))
@@ -54,8 +56,9 @@ public interface Hint {
 
   static Hint incompatibleHint(
       Map<String, SubscriptionInfo> subscriptions,
-      Map<TopicPartition, Set<TopicPartition>> incompatibilities) {
-    return (combinator, tp) -> {
+      Map<TopicPartition, Set<TopicPartition>> incompatibilities,
+      Map<String, List<TopicPartition>> combinator) {
+    return (tp) -> {
       var subscriber =
           subscriptions.entrySet().stream()
               .filter(e -> e.getValue().topics().contains(tp.topic()))
