@@ -18,5 +18,4 @@ package org.astraea.common.metrics.platform;
 
 import org.astraea.common.metrics.BeanObject;
 
-public record JvmMemory(BeanObject beanObject) implements HasJvmMemory {
-}
+public record JvmMemory(BeanObject beanObject) implements HasJvmMemory {}
