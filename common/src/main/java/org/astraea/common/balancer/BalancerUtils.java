@@ -126,37 +126,34 @@ public final class BalancerUtils {
     return ClusterInfo.builder(initial)
         .mapLog(
             replica -> {
-              if (clearBrokers.test(replica.nodeInfo().id())) {
-                var currentReplicaList = trackingReplicaList.get(replica.topicPartition());
-                var broker =
-                    IntStream.range(0, allowed.size())
-                        .mapToObj(i -> nextBroker.next())
-                        .filter(b -> !currentReplicaList.contains(b))
-                        .findFirst()
-                        .orElseThrow(
-                            () ->
-                                new IllegalStateException(
-                                    "Unable to clear replica "
-                                        + replica.topicPartitionReplica()
-                                        + " for broker "
-                                        + replica.nodeInfo().id()
-                                        + ", the allowed destination brokers are "
-                                        + allowed.stream()
-                                            .map(NodeInfo::id)
-                                            .collect(Collectors.toUnmodifiableSet())
-                                        + " but all of them already hosting a replica for this partition. "
-                                        + "There is no broker can adopt this replica."));
-                var folder = nextBrokerFolder.get(broker.id()).next();
+              if (!clearBrokers.test(replica.nodeInfo().id())) return replica;
+              var currentReplicaList = trackingReplicaList.get(replica.topicPartition());
+              var broker =
+                  IntStream.range(0, allowed.size())
+                      .mapToObj(i -> nextBroker.next())
+                      .filter(b -> !currentReplicaList.contains(b))
+                      .findFirst()
+                      .orElseThrow(
+                          () ->
+                              new IllegalStateException(
+                                  "Unable to clear replica "
+                                      + replica.topicPartitionReplica()
+                                      + " for broker "
+                                      + replica.nodeInfo().id()
+                                      + ", the allowed destination brokers are "
+                                      + allowed.stream()
+                                          .map(NodeInfo::id)
+                                          .collect(Collectors.toUnmodifiableSet())
+                                      + " but all of them already hosting a replica for this partition. "
+                                      + "There is no broker can adopt this replica."));
+              var folder = nextBrokerFolder.get(broker.id()).next();
 
-                // update the tracking list. have to do this to avoid putting two replicas from the
-                // same tp to one broker.
-                currentReplicaList.remove(replica.nodeInfo());
-                currentReplicaList.add(broker);
+              // update the tracking list. have to do this to avoid putting two replicas from the
+              // same tp to one broker.
+              currentReplicaList.remove(replica.nodeInfo());
+              currentReplicaList.add(broker);
 
-                return Replica.builder(replica).nodeInfo(broker).path(folder).build();
-              } else {
-                return replica;
-              }
+              return Replica.builder(replica).nodeInfo(broker).path(folder).build();
             })
         .build();
   }
