@@ -22,26 +22,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.common.Configuration;
 import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
-public interface Limiter<T> {
+public interface Limiter {
 
-  boolean check(T condition);
+  boolean check(Map<String, List<TopicPartition>> condition);
 
-  static <T> Limiter<T> of(Set<Limiter<T>> limiters) {
+  static Limiter of(Set<Limiter> limiters) {
     return (combinator) -> limiters.stream().allMatch(l -> l.check(combinator));
   }
 
-  static Limiter<Long> timeLimiter(Configuration config) {
-    // TODO: replace magic string `shuffle.time`
-    var shuffleTime = config.duration("shuffle.time").get().toMillis();
-    return (s) -> System.currentTimeMillis() - s < shuffleTime;
-  }
-
-  static Limiter<Map<String, List<TopicPartition>>> incompatibleLimiter(
-      Map<TopicPartition, Set<TopicPartition>> incompatible) {
+  static Limiter incompatibleLimiter(Map<TopicPartition, Set<TopicPartition>> incompatible) {
     return (combinator) ->
         combinator.entrySet().stream()
                 .map(
@@ -61,7 +53,7 @@ public interface Limiter<T> {
             == 0;
   }
 
-  static Limiter<Map<String, List<TopicPartition>>> skewCostLimiter(
+  static Limiter skewCostLimiter(
       Map<TopicPartition, Double> partitionCost, Map<String, SubscriptionInfo> subscriptions) {
     var tmpConsumerCost =
         subscriptions.keySet().stream()

@@ -19,21 +19,20 @@ package org.astraea.common.assignor;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.TopicPartition;
 
 public interface Shuffler {
   Map<String, List<TopicPartition>> shuffle();
 
-  Map<String, List<TopicPartition>> fairlyCombinator();
-
   static Shuffler randomShuffler(
       Map<String, SubscriptionInfo> subscriptions,
       Map<TopicPartition, Double> partitionCost,
-      Map<TopicPartition, Set<TopicPartition>> incompatible) {
+      Map<TopicPartition, Set<TopicPartition>> incompatible,
+      Configuration config) {
     var limiters =
         Limiter.of(
             Set.of(
@@ -60,30 +59,29 @@ public interface Shuffler {
                       .average()
                       .getAsDouble());
             };
-    return new Shuffler() {
-      final Set<Map<String, List<TopicPartition>>> rejectedCombinators = new HashSet<>();
+    var rejectedCombinators = new HashSet<Map<String, List<TopicPartition>>>();
 
-      @Override
-      public Map<String, List<TopicPartition>> shuffle() {
+    return () -> {
+      Map<String, List<TopicPartition>> result = null;
+      var shuffleTime = config.duration("shuffle.time").get().toMillis();
+      var start = System.currentTimeMillis();
+
+      while (System.currentTimeMillis() - start < shuffleTime) {
         var combinator = generator.get();
-
-        if (limiters.check(combinator)) return combinator;
+        if (limiters.check(combinator)) {
+          result = combinator;
+          break;
+        }
         rejectedCombinators.add(combinator);
-
-        return Map.of();
       }
 
-      @Override
-      public Map<String, List<TopicPartition>> fairlyCombinator() {
-        if (rejectedCombinators.isEmpty())
-          throw new NoSuchElementException("there is no element in rejected combinators");
-
-        return rejectedCombinators.stream()
-            .map(c -> Map.entry(c, standardDeviation.apply(c)))
-            .min(Map.Entry.comparingByValue())
-            .get()
-            .getKey();
-      }
+      return result == null
+          ? rejectedCombinators.stream()
+              .map(c -> Map.entry(c, standardDeviation.apply(c)))
+              .min(Map.Entry.comparingByValue())
+              .get()
+              .getKey()
+          : result;
     };
   }
 }
