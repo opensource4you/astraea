@@ -16,10 +16,9 @@
  */
 package org.astraea.common.cost;
 
-import static org.astraea.common.cost.PartitionMigrateTimeCost.brokerMaxRate;
-
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -28,6 +27,8 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
+import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.broker.HasMaxRate;
 
 public class MigrationCost {
 
@@ -136,6 +137,14 @@ public class MigrationCost {
                         Math.max(
                             brokerMigrateInSecond.get(nodeId),
                             brokerMigrateOutSecond.get(nodeId))));
+  }
+
+  static OptionalDouble brokerMaxRate(
+      int identity, ClusterBean clusterBean, Class<? extends HasBeanObject> statisticMetrics) {
+    return clusterBean
+        .brokerMetrics(identity, statisticMetrics)
+        .mapToDouble(b -> ((HasMaxRate) b).maxRate())
+        .max();
   }
 
   /**
