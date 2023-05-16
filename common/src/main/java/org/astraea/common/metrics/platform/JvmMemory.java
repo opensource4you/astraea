@@ -19,43 +19,15 @@ package org.astraea.common.metrics.platform;
 import java.lang.management.MemoryUsage;
 import org.astraea.common.metrics.BeanObject;
 
-public class JvmMemory implements HasJvmMemory {
-
-  private final BeanObject beanObject;
-  private MemoryUsage heapMemoryUsage;
-  private MemoryUsage nonHeapMemoryUsage;
+public record JvmMemory(BeanObject beanObject) implements HasJvmMemory {
 
   @Override
   public MemoryUsage heapMemoryUsage() {
-    // override the default implementation to avoid creating excessive objects
-    if (heapMemoryUsage == null) heapMemoryUsage = HasJvmMemory.super.heapMemoryUsage();
-    return heapMemoryUsage;
+    return HasJvmMemory.super.heapMemoryUsage();
   }
 
   @Override
   public MemoryUsage nonHeapMemoryUsage() {
-    // override the default implementation to avoid creating excessive objects
-    if (nonHeapMemoryUsage == null) nonHeapMemoryUsage = HasJvmMemory.super.nonHeapMemoryUsage();
-    return nonHeapMemoryUsage;
-  }
-
-  public JvmMemory(BeanObject beanObject) {
-    this.beanObject = beanObject;
-  }
-
-  @Override
-  public BeanObject beanObject() {
-    return beanObject;
-  }
-
-  @Override
-  public String toString() {
-    String output =
-        "    HeapMemoryUsage: "
-            + heapMemoryUsage()
-            + System.lineSeparator()
-            + "    NonHeapMemoryUsage: "
-            + nonHeapMemoryUsage();
-    return "JvmMemory {\n" + output + "\n}";
+    return HasJvmMemory.super.nonHeapMemoryUsage();
   }
 }
