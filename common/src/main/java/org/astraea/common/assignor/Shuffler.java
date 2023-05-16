@@ -62,6 +62,7 @@ public interface Shuffler {
             };
     return new Shuffler() {
       final Set<Map<String, List<TopicPartition>>> rejectedCombinators = new HashSet<>();
+
       @Override
       public Map<String, List<TopicPartition>> shuffle() {
         var combinator = generator.get();
