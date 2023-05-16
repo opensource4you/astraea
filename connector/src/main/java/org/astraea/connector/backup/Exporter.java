@@ -45,7 +45,6 @@ import org.astraea.common.json.TypeRef;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
 import org.astraea.connector.SinkTask;
-import org.astraea.connector.TaskContext;
 import org.astraea.fs.FileSystem;
 
 public class Exporter extends SinkConnector {
@@ -166,8 +165,6 @@ public class Exporter extends SinkConnector {
     private final Object putLock = new Object();
 
     private long bufferSizeLimit;
-
-    private TaskContext taskContext;
 
     FileSystem fs;
     String path;
@@ -460,7 +457,6 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void init(Configuration configuration) {
-      this.taskContext = TaskContext.of(this.context);
       this.path = configuration.requireString(PATH_KEY.name());
       this.size =
           DataSize.of(
