@@ -30,6 +30,9 @@ public interface Sensor<V> {
   /** Record the new get data */
   void record(V value);
 
+  /** Record the new get data for given `metricName` */
+  void record(String statName, V value);
+
   /**
    * Get the statistic by the given `metricName`.
    *
@@ -67,6 +70,11 @@ public interface Sensor<V> {
         @Override
         public synchronized void record(V value) {
           stats.values().forEach(stat -> stat.record(value));
+        }
+
+        @Override
+        public void record(String statName, V value) {
+          stats.get(statName).record(value);
         }
 
         @Override

@@ -28,7 +28,7 @@ import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.Sensor;
-import org.astraea.common.metrics.broker.HasMeter;
+import org.astraea.common.metrics.broker.HasMaxRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.stats.Max;
@@ -37,7 +37,7 @@ import org.astraea.common.metrics.stats.Max;
 public class PartitionMigrateTimeCost implements HasMoveCost {
   private static final String REPLICATION_IN_RATE = "replication_in_rate";
   private static final String REPLICATION_OUT_RATE = "replication_out_rate";
-  public static final String MAX_MIGRATE_TIME_KEY = "max.migrated.time.limit";
+  static final String MAX_MIGRATE_TIME_KEY = "max.migrated.time.limit";
   public static final String STATISTICS_RATE_KEY = "statistics.rate.key";
 
   // metrics windows size
@@ -64,13 +64,17 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
       var newInMetrics = ServerMetrics.BrokerTopic.REPLICATION_BYTES_IN_PER_SEC.fetch(client);
       var newOutMetrics = ServerMetrics.BrokerTopic.REPLICATION_BYTES_OUT_PER_SEC.fetch(client);
       var current = Duration.ofMillis(System.currentTimeMillis());
-      var maxInRateSensor = Sensor.builder().addStat(REPLICATION_IN_RATE, Max.<Double>of()).build();
-      var maxOutRateSensor =
-          Sensor.builder().addStat(REPLICATION_OUT_RATE, Max.<Double>of()).build();
-      maxInRateSensor.record(newInMetrics.oneMinuteRate());
-      maxOutRateSensor.record(newOutMetrics.oneMinuteRate());
-      var inRate = maxInRateSensor.measure(REPLICATION_IN_RATE);
-      var outRate = maxOutRateSensor.measure(REPLICATION_OUT_RATE);
+      var maxRateSensor =
+          Sensor.builder()
+              .addStats(
+                  Map.of(
+                      REPLICATION_IN_RATE, Max.<Double>of(),
+                      REPLICATION_OUT_RATE, Max.of()))
+              .build();
+      maxRateSensor.record(REPLICATION_IN_RATE, newInMetrics.oneMinuteRate());
+      maxRateSensor.record(REPLICATION_OUT_RATE, newOutMetrics.oneMinuteRate());
+      var inRate = maxRateSensor.measure(REPLICATION_IN_RATE);
+      var outRate = maxRateSensor.measure(REPLICATION_OUT_RATE);
       return List.of(
           (MaxReplicationInRateBean)
               () ->
@@ -89,11 +93,11 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
     };
   }
 
-  public static OptionalDouble brokerMaxRate(
+  static OptionalDouble brokerMaxRate(
       int identity, ClusterBean clusterBean, Class<? extends HasBeanObject> statisticMetrics) {
     return clusterBean
         .brokerMetrics(identity, statisticMetrics)
-        .mapToDouble(x -> ((double) x.beanObject().attributes().get(STATISTICS_RATE_KEY)))
+        .mapToDouble(b -> ((HasMaxRate) b).maxRate())
         .max();
   }
 
@@ -107,7 +111,7 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
     return () -> planMigrateSecond > this.maxMigrateTime.getSeconds();
   }
 
-  public interface MaxReplicationInRateBean extends HasMeter {}
+  public interface MaxReplicationInRateBean extends HasMaxRate {}
 
-  public interface MaxReplicationOutRateBean extends HasMeter {}
+  public interface MaxReplicationOutRateBean extends HasMaxRate {}
 }
