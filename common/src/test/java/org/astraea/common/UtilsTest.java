@@ -357,4 +357,11 @@ public class UtilsTest {
     Assertions.assertDoesNotThrow(() -> Utils.close(obj));
     Assertions.assertEquals(1, count.get());
   }
+
+  @Test
+  void testRequireNonEmpty() {
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> Utils.requireNonEmpty(Set.of(), ""));
+    Assertions.assertDoesNotThrow(() -> Utils.requireNonEmpty(List.of(1), ""));
+  }
 }

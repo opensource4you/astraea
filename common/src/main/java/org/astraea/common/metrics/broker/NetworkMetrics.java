@@ -132,26 +132,10 @@ public class NetworkMetrics {
       return new Histogram(mBeanClient.bean(ALL.get(this)));
     }
 
-    public static class Histogram implements HasHistogram {
-
-      private final BeanObject beanObject;
-
-      public Histogram(BeanObject beanObject) {
-        this.beanObject = beanObject;
-      }
+    public record Histogram(BeanObject beanObject) implements HasHistogram {
 
       public Request type() {
         return ofAlias(beanObject.properties().get("request"));
-      }
-
-      @Override
-      public String toString() {
-        return beanObject().toString();
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
       }
     }
   }

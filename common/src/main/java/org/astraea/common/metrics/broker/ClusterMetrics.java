@@ -76,23 +76,11 @@ public final class ClusterMetrics {
     }
 
     public List<PartitionMetric> fetch(MBeanClient client) {
-      return client.beans(ALL.get(this)).stream()
-          .map(PartitionMetric::new)
-          .collect(Collectors.toUnmodifiableList());
+      return client.beans(ALL.get(this)).stream().map(PartitionMetric::new).toList();
     }
   }
 
-  public static class PartitionMetric implements HasGauge<Integer> {
-    private final BeanObject beanObject;
-
-    public PartitionMetric(BeanObject beanObject) {
-      this.beanObject = beanObject;
-    }
-
-    @Override
-    public BeanObject beanObject() {
-      return beanObject;
-    }
+  public record PartitionMetric(BeanObject beanObject) implements HasGauge<Integer> {
 
     public TopicPartition topicPartition() {
       return partitionIndex().orElseThrow();

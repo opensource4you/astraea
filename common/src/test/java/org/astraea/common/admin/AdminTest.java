@@ -2192,4 +2192,32 @@ public class AdminTest {
               .clusterId());
     }
   }
+
+  @Test
+  void testTransaction() {
+    var records =
+        IntStream.range(0, 100)
+            .mapToObj(
+                index -> Record.builder().topic(Utils.randomString()).key(new byte[100]).build())
+            .toList();
+    try (var admin = Admin.of(SERVICE.bootstrapServers());
+        var producer =
+            Producer.builder().bootstrapServers(SERVICE.bootstrapServers()).buildTransactional()) {
+      producer.send(records);
+      Assertions.assertTrue(
+          admin
+              .transactionIds()
+              .toCompletableFuture()
+              .join()
+              .contains(producer.transactionId().get()));
+      var transactions =
+          admin.transactions(Set.of(producer.transactionId().get())).toCompletableFuture().join();
+      Assertions.assertNotEquals(0, transactions.size());
+      transactions.forEach(
+          t -> {
+            Assertions.assertEquals(producer.transactionId().get(), t.transactionId());
+            Assertions.assertNotEquals(0, t.transactionTimeoutMs());
+          });
+    }
+  }
 }

@@ -16,39 +16,9 @@
  */
 package org.astraea.common.http;
 
-public interface Response<T> {
+public record Response<T>(T body, int statusCode) {
 
-  int statusCode();
-
-  T body();
-
-  static Response<Void> of(int code) {
-    return new Response<>() {
-
-      @Override
-      public int statusCode() {
-        return code;
-      }
-
-      @Override
-      public Void body() {
-        return null;
-      }
-    };
-  }
-
-  static <T> Response<T> of(T body, int code) {
-    return new Response<>() {
-
-      @Override
-      public int statusCode() {
-        return code;
-      }
-
-      @Override
-      public T body() {
-        return body;
-      }
-    };
+  public Response(int code) {
+    this(null, code);
   }
 }

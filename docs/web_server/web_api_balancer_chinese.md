@@ -64,8 +64,8 @@ curl -X POST http://localhost:8001/balancer \
       "timeout": "5s",
       "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
       "balancerConfig": {
-        "shuffle.tweaker.min.step": "1",
-        "shuffle.tweaker.max.step": "10"
+        "shuffle.tweaker.min.step": 1,
+        "shuffle.tweaker.max.step": 10
       },
       "clusterCosts": [
         { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight": 1 }

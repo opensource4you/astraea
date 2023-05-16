@@ -22,8 +22,7 @@ import java.util.Optional;
 /** this interface used to represent the resource (topic or broker) configuration. */
 public record Config(Map<String, String> raw) {
 
-  static Config EMPTY = new Config(Map.of());
-
+  public static final Config EMPTY = new Config(Map.of());
   /**
    * @param key config key
    * @return the value associated to input key. otherwise, empty
