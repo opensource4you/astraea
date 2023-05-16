@@ -16,18 +16,7 @@
  */
 package org.astraea.common.metrics.platform;
 
-import java.lang.management.MemoryUsage;
 import org.astraea.common.metrics.BeanObject;
 
 public record JvmMemory(BeanObject beanObject) implements HasJvmMemory {
-
-  @Override
-  public MemoryUsage heapMemoryUsage() {
-    return HasJvmMemory.super.heapMemoryUsage();
-  }
-
-  @Override
-  public MemoryUsage nonHeapMemoryUsage() {
-    return HasJvmMemory.super.nonHeapMemoryUsage();
-  }
 }
