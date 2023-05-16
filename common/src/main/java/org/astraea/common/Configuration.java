@@ -44,8 +44,7 @@ public interface Configuration {
 
       @Override
       public List<String> list(String key, String separator) {
-        var value = string(key);
-        return value.map(s -> Arrays.asList(s.split(separator))).orElseGet(List::of);
+        return string(key).map(s -> Arrays.asList(s.split(separator))).orElseGet(List::of);
       }
     };
   }
