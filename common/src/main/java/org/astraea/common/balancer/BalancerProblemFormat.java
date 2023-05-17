@@ -41,7 +41,8 @@ public class BalancerProblemFormat {
           "org.astraea.common.cost.ReplicaLeaderCost",
           "org.astraea.common.cost.RecordSizeCost",
           "org.astraea.common.cost.ReplicaNumberCost",
-          "org.astraea.common.cost.ReplicaLeaderSizeCost");
+          "org.astraea.common.cost.ReplicaLeaderSizeCost",
+          "org.astraea.common.cost.BrokerDiskSpaceCost");
 
   public AlgorithmConfig parse() {
     return AlgorithmConfig.builder()
