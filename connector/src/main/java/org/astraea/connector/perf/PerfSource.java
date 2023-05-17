@@ -220,15 +220,15 @@ public class PerfSource extends SourceConnector {
       var batchSize =
           configuration
               .integer(BATCH_SIZE_DEF.name())
-              .orElse((Integer) BATCH_SIZE_DEF.defaultValue());
+              .orElse((Integer) BATCH_SIZE_DEF.defaultValue().get());
       var keyTableSeed =
           configuration
               .longInteger(KEY_TABLE_SEED.name())
-              .orElse((Long) KEY_TABLE_SEED.defaultValue());
+              .orElse((Long) KEY_TABLE_SEED.defaultValue().get());
       var valueTableSeed =
           configuration
               .longInteger(VALUE_TABLE_SEED.name())
-              .orElse((Long) VALUE_TABLE_SEED.defaultValue());
+              .orElse((Long) VALUE_TABLE_SEED.defaultValue().get());
 
       specifyPartitions =
           configuration.list(SourceConnector.TOPICS_KEY, ",").stream()
