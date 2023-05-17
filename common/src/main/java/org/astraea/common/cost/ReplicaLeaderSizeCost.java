@@ -39,7 +39,7 @@ public class ReplicaLeaderSizeCost
   public static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
 
   public ReplicaLeaderSizeCost() {
-    this.config = Configuration.of(Map.of());
+    this.config = new Configuration(Map.of());
   }
 
   public ReplicaLeaderSizeCost(Configuration config) {

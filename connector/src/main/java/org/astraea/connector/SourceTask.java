@@ -52,7 +52,7 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
 
   @Override
   public final void start(Map<String, String> props) {
-    init(Configuration.of(props), MetadataStorage.of(context.offsetStorageReader()));
+    init(new Configuration(props), MetadataStorage.of(context.offsetStorageReader()));
   }
 
   @Override

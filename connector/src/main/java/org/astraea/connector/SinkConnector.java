@@ -42,7 +42,7 @@ public abstract class SinkConnector extends org.apache.kafka.connect.sink.SinkCo
   // -------------------------[final]-------------------------//
   @Override
   public final void start(Map<String, String> props) {
-    init(Configuration.of(props));
+    init(new Configuration(props));
   }
 
   @Override
