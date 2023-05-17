@@ -37,10 +37,10 @@ public interface Hint {
   static Hint lowCostHint(
       Map<String, SubscriptionInfo> subscriptions,
       Map<TopicPartition, Double> partitionCost,
-      Map<String, List<TopicPartition>> combinator) {
+      Map<String, List<TopicPartition>> currentCombinator) {
     return (tp) -> {
       var candidates =
-          combinator.entrySet().stream()
+          currentCombinator.entrySet().stream()
               .filter(e -> subscriptions.get(e.getKey()).topics().contains(tp.topic()))
               .map(
                   e ->
@@ -57,7 +57,7 @@ public interface Hint {
   static Hint incompatibleHint(
       Map<String, SubscriptionInfo> subscriptions,
       Map<TopicPartition, Set<TopicPartition>> incompatibilities,
-      Map<String, List<TopicPartition>> combinator) {
+      Map<String, List<TopicPartition>> currentCombinator) {
     return (tp) -> {
       var subscriber =
           subscriptions.entrySet().stream()
@@ -67,7 +67,7 @@ public interface Hint {
       if (incompatibilities.get(tp).isEmpty()) return subscriber;
 
       var candidates =
-          combinator.entrySet().stream()
+          currentCombinator.entrySet().stream()
               .filter(e -> subscriber.contains(e.getKey()))
               .map(
                   e ->
