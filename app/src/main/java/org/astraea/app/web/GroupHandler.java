@@ -144,10 +144,9 @@ public class GroupHandler implements Handler {
                                                                                 empty())
                                                             .filter(Optional::isPresent)
                                                             .map(Optional::get)
-                                                            .collect(
-                                                                Collectors.toUnmodifiableList())))
-                                            .collect(Collectors.toUnmodifiableList())))
-                            .collect(Collectors.toUnmodifiableList())))
+                                                            .toList()))
+                                            .toList()))
+                            .toList()))
         .thenApply(
             groups -> {
               if (channel.target().isPresent() && groups.size() == 1) return groups.get(0);
