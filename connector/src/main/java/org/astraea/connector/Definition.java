@@ -36,6 +36,13 @@ public record Definition(
     return defaultValue.filter(v -> v != ConfigDef.NO_DEFAULT_VALUE);
   }
 
+  /**
+   * @return true if the configuration is required, and it has no default value.
+   */
+  public boolean required() {
+    return defaultValue.filter(v -> v == ConfigDef.NO_DEFAULT_VALUE).isPresent();
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -47,7 +54,7 @@ public record Definition(
             def.define(
                 d.name(),
                 ConfigDef.Type.valueOf(d.type().name()),
-                d.defaultValue().orElse(null),
+                d.required() ? ConfigDef.NO_DEFAULT_VALUE : d.defaultValue().orElse(null),
                 (n, o) -> {
                   try {
                     d.validator().accept(n, o);
