@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
@@ -117,7 +116,7 @@ public class Importer extends SourceConnector {
               taskMap.put(TASKS_COUNT_KEY, String.valueOf(maxTasks));
               return Configuration.of(taskMap);
             })
-        .collect(Collectors.toList());
+        .toList();
   }
 
   @Override

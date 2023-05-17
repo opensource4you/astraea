@@ -76,7 +76,7 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
                     r.headers().stream()
                         .map(h -> new HeaderImpl(h.key(), null, h.value()))
                         .collect(Collectors.toList())))
-        .collect(Collectors.toList());
+        .toList();
   }
 
   @Override
@@ -92,32 +92,8 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
     commit(Metadata.of(metadata));
   }
 
-  private static class HeaderImpl implements org.apache.kafka.connect.header.Header {
-
-    private final String key;
-    private final Schema schema;
-    private final Object value;
-
-    private HeaderImpl(String key, Schema schema, Object value) {
-      this.key = key;
-      this.schema = schema;
-      this.value = value;
-    }
-
-    @Override
-    public String key() {
-      return key;
-    }
-
-    @Override
-    public Schema schema() {
-      return schema;
-    }
-
-    @Override
-    public Object value() {
-      return value;
-    }
+  private record HeaderImpl(String key, Schema schema, Object value)
+      implements org.apache.kafka.connect.header.Header {
 
     @Override
     public org.apache.kafka.connect.header.Header with(Schema schema, Object value) {
