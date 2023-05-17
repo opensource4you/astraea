@@ -78,11 +78,12 @@ public class Importer extends SourceConnector {
           .documentation("The root directory of the file that needs to be imported.")
           .required()
           .build();
+  static String CLEAN_SOURCE_DEFAULT = "off";
   static Definition CLEAN_SOURCE_KEY =
       Definition.builder()
           .name("clean.source")
           .type(Definition.Type.STRING)
-          .defaultValue("off")
+          .defaultValue(CLEAN_SOURCE_DEFAULT)
           .documentation(
               "Clean source policy. Available policies: \"off\", \"delete\", \"archive\". Default: off")
           .build();
@@ -149,10 +150,7 @@ public class Importer extends SourceConnector {
       this.rootDir = configuration.requireString(PATH_KEY.name());
       this.tasksCount = configuration.requireInteger(TASKS_COUNT_KEY);
       this.paths = new LinkedList<>();
-      this.cleanSource =
-          configuration
-              .string(CLEAN_SOURCE_KEY.name())
-              .orElse(CLEAN_SOURCE_KEY.defaultValue().toString());
+      this.cleanSource = configuration.string(CLEAN_SOURCE_KEY.name()).orElse(CLEAN_SOURCE_DEFAULT);
       this.archiveDir = configuration.string(ARCHIVE_DIR_KEY.name());
     }
 
