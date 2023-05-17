@@ -18,7 +18,6 @@ package org.astraea.connector.perf;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
@@ -50,7 +49,7 @@ public class PerfSink extends SinkConnector {
 
   @Override
   protected List<Configuration> takeConfiguration(int maxTasks) {
-    return IntStream.range(0, maxTasks).mapToObj(i -> config).collect(Collectors.toList());
+    return IntStream.range(0, maxTasks).mapToObj(i -> config).toList();
   }
 
   @Override
