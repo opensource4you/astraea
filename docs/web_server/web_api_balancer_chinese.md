@@ -63,29 +63,26 @@ cURL 範例
 curl -X POST http://localhost:8001/balancer \
     -H "Content-Type: application/json" \
     -d '{
-        	"timeout": "5s",
-  			"balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
-  			"balancerConfig": {
-  			"shuffle.tweaker.min.step": "1",
-  			"shuffle.tweaker.max.step": "10"
-  		},
-  		"clusterCosts": [
-  		{
-  			"cost": "org.astraea.common.cost.ReplicaLeaderCost",
-  			"weight": 1
-  		}
-  		],
-  		"moveCosts": [
-  			"org.astraea.common.cost.ReplicaLeaderCost",
-  			"org.astraea.common.cost.RecordSizeCost"
-  		],
-  		"costConfig": {
-  			"max.migrated.size": "500MB",
-  			"max.migrated.leader.number": 5,
-  			"max.broker.total.disk.space": "0:1500MB,1:1000MB,2:1500MB",
-  			"max.broker.path.disk.space": "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:1000MB"
-  		}
-    }'
+          "timeout": "5s",
+          "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
+          "balancerConfig": {
+            "shuffle.tweaker.min.step": 1,
+            "shuffle.tweaker.max.step": 10
+          },
+          "clusterCosts": [
+            { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight": 1 }
+          ],
+          "moveCosts": [
+            "org.astraea.common.cost.ReplicaLeaderCost",
+            "org.astraea.common.cost.RecordSizeCost"
+          ],
+          "costConfig": {
+            "max.migrated.size": "500MB",
+            "max.migrated.leader.number": 5,
+            "max.broker.total.disk.space": "0:1500MB,1:1000MB,2:1500MB",
+            "max.broker.path.disk.space": "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:1000MB"
+          }
+       }'
 ```
 
 JSON Response 範例
