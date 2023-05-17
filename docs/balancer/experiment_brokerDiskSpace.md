@@ -111,7 +111,7 @@ cd astraea
 ```shell
 curl -X POST http://localhost:8001/topics \
   -H "Content-Type: application/json" \
-  -d '{ "topics": [ { "name":"imbalance-topic", "partitions": 250, "replicas": 2, "probability": 0.5 } ] }'
+  -d '{ "topics": [ { "name":"imbalance-topic", "partitions": 250, "replicas": 2, "probability": 0.2 } ] }'
 ```
 
 對 web service 請求建立一個 leader 數量不平衡的 topic，其名為 `imbalance-topic`，在這個情境中我們設定其有250個leader，replica備份數量為2，總共500 個 partitions。 
@@ -156,13 +156,13 @@ curl -X POST http://localhost:8001/topics \
 
 執行負載平衡後，可以發現leader數量已經平衡
 
-![image-20230502172113843](resources/experiment_brokerDiskSpace_2.png)
+![image-20230502172113843](resources/experiment_brokerDiskSpace_1.png)
 
 
 
 觀察broker上的log資料量的變化，可以發現每個broker在搬移後，持有的log資料量有變接近的狀況
 
-![image-20230502173023117](resources/experiment_brokerDiskSpace_3.png)
+![image-20230502173023117](resources/experiment_brokerDiskSpace_2.png)
 
 broker上資料量變化:
 
@@ -177,17 +177,17 @@ broker上資料量變化:
 
 
 
-###　針對節點套用磁碟空間的成本限制
+### 針對節點套用磁碟空間的成本限制
 
 搬移前的分佈:
 
-| broker id     | 1    | 2    | 3    | 4    | 5    | 6    |
-| ------------- | ---- | ---- | ---- | ---- | ---- | ---- |
-| leader number | 86   | 98   | 54   | 10   | 2    | 0    |
+| broker id     | 1  | 2 | 3  | 4  | 5 | 6 |
+| ------------- |----|---|----|----|---|---|
+| leader number | 91 | 94 | 46 | 17 | 0 | 1 |
 
 
 
-1. 等待producer打完資料後，進行下面指令，這次不同的是會對其broker可用空間進行限制，將broker4限制搬移過程中最多只能佔用50GB，使用costConfig來對其做限制
+1. 等待producer打完資料後，進行下面指令，這次不同的是會對其broker可用空間進行限制，將broker4限制搬移過程中最多只能佔用95GB，使用costConfig來對其做限制
 
 ```shell
 curl -X POST http://localhost:8001/topics \
@@ -206,40 +206,34 @@ curl -X POST http://localhost:8001/topics \
         }
     ],
     "costConfig": {
-    	"max.broker.total.disk.space": "4:80GB"
+    	"max.broker.total.disk.space": "4:95GB"
     }
 }'
 ```
 
-
-
 執行負載平衡後，可以發現leader數量已經平衡，除了受到限制的broker4，因為資料量的限制導致沒辦法移入更多partition
 
-![image-20230502183604348](resources/experiment_brokerDiskSpace_11.png)
+![image-20230502183604348](resources/experiment_brokerDiskSpace_3.png)
 
-搬移後的狀況分佈如下，可以明顯的看出broker3因為磁碟資料量的限制(沒辦法移出太多資料量)，leader數量沒辦法與其他broker平衡
+搬移後的狀況分佈如下，可以明顯的看出broker4因為磁碟資料量的限制(沒辦法移出太多資料量)，leader數量沒辦法與其他broker平衡
 
 
 
 leader數量變化: 
 
-| broker id                     | 1    | 2    | 3    | 4    | 5    | 6    |
-| ----------------------------- | ---- | ---- | ---- | ---- | ---- | ---- |
-| before migrated leader number | 86   | 98   | 54   | 10   | 2    | 0    |
-| after migrated leader number  | 48   | 48   | 48   | 10   | 48   | 48   |
+| broker id                     | 1  | 2  | 3  | 4  | 5  | 6  |
+| ----------------------------- |----|----|----|----|----|----|
+| before migrated leader number | 91 | 94 | 46 | 17 | 0  | 1  |
+| after migrated leader number  | 46  | 47 | 47 | 18 | 46 | 46 |
 
-而從資料量變化可以明顯的看出，broker4(橘色)明顯的被限制住，使其不會佔用太多磁碟空間(從原本的70GB到搬移過程中大約佔用到51GB)
-
-![image-20230502183914811](resources/experiment_brokerDiskSpace_6.png)
+![image-20230502183914811](resources/experiment_brokerDiskSpace_4.png)
 
 broker上資料量變化:
 
-
-
-| broker id                                  | 1    | 2    | 3    | 4    | 5    | 6    |
-| ------------------------------------------ | ---- | ---- | ---- | ---- | ---- | ---- |
-| before migrated broker total log size (GB) | 438  | 383  | 242  | 70   | 14   | 2    |
-| after migrated broker total log size (GB)  | 317  | 280  | 215  | 153  | 134  | 51   |
+| broker id                                  | 1   | 2   | 3   | 4  | 5   | 6  |
+| ------------------------------------------ |-----|-----|-----|----|-----|----|
+| before migrated broker total log size (GB) | 385 | 484 | 305 | 70 | 86  | 5  |
+| after migrated broker total log size (GB)  | 313 | 331 | 254 | 160 | 143 | 69 |
 
 
 
@@ -247,9 +241,9 @@ broker上資料量變化:
 
 搬移前的分佈:
 
-| broker id     | 1    | 2    | 3    | 4    | 5    | 6    |
-| ------------- | ---- | ---- | ---- | ---- | ---- | ---- |
-| leader number | 90   | 97   | 47   | 15   | 1    | 0    |
+| broker id     | 1   | 2  | 3  | 4  | 5  | 6 |
+| ------------- |-----|----|----|----|----|---|
+| leader number | 91  | 90 | 52 | 12 | 4  | 1 |
 
 1. 等待producer打完資料後，進行下面指令，這次不同的是會對其broker可用空間進行限制，將broker4的/tmp/log-folder-1限制搬移過程中最多只能佔用35GB，使用costConfig來對其做限制
 
@@ -270,7 +264,7 @@ curl -X POST http://localhost:8001/topics \
         }
     ],
     "costConfig": {
-    	"max.broker.path.disk.space":"4-/tmp/log-folder-1:35GB"
+    	"max.broker.path.disk.space":"4-/tmp/log-folder-2:30GB"
     }
 }'
 ```
@@ -279,7 +273,7 @@ curl -X POST http://localhost:8001/topics \
 
 執行負載平衡後，可以發現leader數量已經平衡，除了受到限制的broker4，因為資料量的限制導致沒辦法移入更多partition
 
-![image-20230504001537225](resources/experiment_brokerDiskSpace_10.png)
+![image-20230504001537225](resources/experiment_brokerDiskSpace_5.png)
 
 
 
@@ -289,20 +283,20 @@ curl -X POST http://localhost:8001/topics \
 
 leader數量變化: 
 
-| broker id                     | 1    | 2    | 3    | 4    | 5    | 6    |
-| ----------------------------- | ---- | ---- | ---- | ---- | ---- | ---- |
-| before migrated leader number | 90   | 97   | 47   | 15   | 1    | 0    |
-| after migrated leader number  | 48   | 47   | 47   | 14   | 47   | 47   |
+| broker id                     | 1  | 2  | 3  | 4  | 5  | 6  |
+| ----------------------------- |----|----|----|----|----|----|
+| before migrated leader number | 91 | 90 | 52 | 12 | 4  | 1  |
+| after migrated leader number  | 48 | 48 | 48 | 10 | 48 | 48 |
 
-而從資料量變化可以明顯的看出，broker4的 /tmp/log-folder-1明顯的被限制住，使其不會佔用太多磁碟空間(從原本的30.9GB到26.1GB)
+而從資料量變化可以明顯的看出，broker4的 /tmp/log-folder-2(紫色)明顯的被限制住，使其不會佔用太多磁碟空間
 
-![image-20230502195813708](resources/experiment_brokerDiskSpace_9.png)
+![image-20230502195813708](resources/experiment_brokerDiskSpace_6.png)
 
 
 
 broker上data folder資料量變化:
 
-| broker id (data folder)            | 1(/tmp/log-folder-0) | (/tmp/log-folder-1) | 1(/tmp/log-folder-2) |
-| ---------------------------------- | -------------------- | ------------------- | -------------------- |
-| before migrated path log size (GB) | 43.2                 | 30.9                | 35.2                 |
-| after migrated path log size (GB)  | 24                   | 26.1                | 23.3                 |
+| broker id (data folder)            | 4(/tmp/log-folder-0) | 4(/tmp/log-folder-1) | 4(/tmp/log-folder-2) |
+| ---------------------------------- |----------------------|----------------------|----------------------|
+| before migrated path log size (GB) | 27.2                 | 38.0                 | 27.0                 |
+| after migrated path log size (GB)  | 16.0                 | 22.7                 | 18.8                 |
