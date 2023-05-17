@@ -51,7 +51,7 @@ public class Backup {
                                                           Comparator.comparing(
                                                               replica -> !replica.isLeader()))
                                                       .map(replica -> replica.nodeInfo().id())
-                                                      .collect(Collectors.toUnmodifiableList()))))))
+                                                      .toList())))))
                       .configs(topic.config().raw())
                       .run()
                       .toCompletableFuture()

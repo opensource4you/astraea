@@ -26,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataUnit;
@@ -49,15 +48,13 @@ public interface DataGenerator extends AbstractThread {
         RecordGenerator.builder()
             .batchSize(argument.transactionSize)
             .keyTableSeed(argument.recordKeyTableSeed)
-            .keyRange(
-                LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
+            .keyRange(LongStream.rangeClosed(0, 10000).boxed().toList())
             .keyDistribution(argument.keyDistributionType.create(10000, keyDistConfig))
             .keySizeDistribution(
                 argument.keySizeDistributionType.create(
                     (int) argument.keySize.bytes(), keySizeDistConfig))
             .valueTableSeed(argument.recordValueTableSeed)
-            .valueRange(
-                LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
+            .valueRange(LongStream.rangeClosed(0, 10000).boxed().toList())
             .valueDistribution(argument.valueDistributionType.create(10000, valueDistConfig))
             .valueSizeDistribution(
                 argument.valueDistributionType.create(

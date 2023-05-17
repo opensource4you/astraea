@@ -179,7 +179,7 @@ class BalancerHandler implements Handler, AutoCloseable {
                         tp ->
                             Change.from(
                                 contextCluster.replicas(tp), solution.proposal().replicas(tp)))
-                    .collect(Collectors.toUnmodifiableList());
+                    .toList();
     var report =
         (Supplier<PlanReport>)
             () ->

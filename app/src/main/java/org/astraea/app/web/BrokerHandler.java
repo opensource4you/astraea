@@ -64,7 +64,7 @@ class BrokerHandler implements Handler {
                             brokers.stream()
                                 .filter(b -> ids.contains(b.id()))
                                 .map(Broker::new)
-                                .collect(Collectors.toList())))
+                                .toList()))
         .thenApply(
             brokers -> {
               if (brokers.isEmpty()) throw new NoSuchElementException("no brokers are found");
@@ -96,7 +96,7 @@ class BrokerHandler implements Handler {
               .entrySet()
               .stream()
               .map(e -> new Topic(e.getKey(), e.getValue().size()))
-              .collect(Collectors.toUnmodifiableList());
+              .toList();
       this.configs = broker.config().raw();
     }
   }

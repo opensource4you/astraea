@@ -49,9 +49,7 @@ class TransactionHandler implements Handler {
         .thenCompose(admin::transactions)
         .thenApply(
             transactions ->
-                transactions.stream()
-                    .map(t -> new Transaction(t.transactionId(), t))
-                    .collect(Collectors.toUnmodifiableList()))
+                transactions.stream().map(t -> new Transaction(t.transactionId(), t)).toList())
         .thenApply(
             transactions -> {
               if (channel.target().isPresent() && transactions.size() == 1)
