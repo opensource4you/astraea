@@ -12,14 +12,14 @@ POST /balancer
 
 參數
 
-| 名稱           | 說明                                                         | 預設值                                                       |
-| -------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| clusterCosts   | (必填) 指定要優化的目標以及對應權重                          | 無                                                           |
-| timeout        | (選填) 指定產生時間                                          | 3s                                                           |
-| balancer       | (選填) 欲使用的負載優化計劃搜尋演算法                        | org.astraea.common.balancer.algorithms.GreedyBalancer        |
-| balancerConfig | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String | 無                                                           |
-| moveCosts      | (必填) 指定要計算的各項搬移成本                              | "org.astraea.common.cost.ReplicaLeaderCost", "org.astraea.common.cost.RecordSizeCost", "org.astraea.common.cost.ReplicaNumberCost", "org.astraea.common.cost.ReplicaLeaderSizeCost" |
-| costConfig     | (選填) 針對各個搬移成本做限制，讓，此為一個 JSON Object 內含一系列的 key/value String | 無                                                           |
+| 名稱             | 說明                                                          | 預設值                                                                                                                                                                                 |
+|----------------|-------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| clusterCosts   | (必填) 指定要優化的目標以及對應權重                                         | 無                                                                                                                                                                                   |
+| timeout        | (選填) 指定產生時間                                                 | 3s                                                                                                                                                                                  |
+| balancer       | (選填) 欲使用的負載優化計劃搜尋演算法                                        | org.astraea.common.balancer.algorithms.GreedyBalancer                                                                                                                               |
+| balancerConfig | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String  | 無                                                                                                                                                                                   |
+| moveCosts      | (必填) 指定要計算的各項搬移成本                                           | "org.astraea.common.cost.ReplicaLeaderCost", "org.astraea.common.cost.RecordSizeCost", "org.astraea.common.cost.ReplicaNumberCost", "org.astraea.common.cost.ReplicaLeaderSizeCost" |
+| costConfig     | (選填) 針對各個搬移成本做限制，讓，此為一個 JSON Object 內含一系列的 key/value String | 無                                                                                                                                                                                   |
 
 官方記錄的 balancerConfig:
 
@@ -33,12 +33,14 @@ POST /balancer
 
 costConfig: 
 
-| config key                  | config value                  |
-| --------------------------- | ----------------------------- |
-| max.migrated.size           | 設定最大可搬移的資料量        |
-| max.migrated.leader.number  | 設定最大可搬移的leader 數量   |
-| max.migrated.replica.number | 設定最大可搬移的replica 數量  |
-| max.migrated.leader.size    | 設定最大可搬移的leader 資料量 |
+| config key                  | config value                                                 | value format                                                 |
+| --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| max.migrated.size           | 設定最大可搬移的資料量                                       | "`data size` +  `unit`" ex.100KB, 500MB, 3GB                 |
+| max.migrated.leader.number  | 設定最大可搬移的leader 數量                                  | "`limit number`" ex. 1,2,3,100                               |
+| max.migrated.replica.number | 設定最大可搬移的replica 數量                                 | "`limit number`" ex. 1,2,3,100                               |
+| max.migrated.leader.size    | 設定最大可搬移的leader 資料量                                | "`data size` +  `unit`" ex.100KB, 500MB, 3GB                 |
+| max.broker.total.disk.space | 設定搬移過程中broker最大可以佔用的replica 資料量             | "`broker Id` + `:` + `data size` " ex. "0:1500MB ,1:1000MB ,2:1500MB" |
+| max.broker.path.disk.space  | 設定搬移過程中broker上的data folder最大可以佔用的replica 資料量 | "`broker Id`  + `-` + `data path` + `:` + `data size` " ex. "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:900MB" |
 
 目前支援的 Cost Function
 
@@ -61,27 +63,26 @@ cURL 範例
 curl -X POST http://localhost:8001/balancer \
     -H "Content-Type: application/json" \
     -d '{
-        	"timeout": "5s",
-  			"balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
-  			"balancerConfig": {
-  			"shuffle.tweaker.min.step": "1",
-  			"shuffle.tweaker.max.step": "10"
-  		},
-  		"clusterCosts": [
-  		{
-  			"cost": "org.astraea.common.cost.ReplicaLeaderCost",
-  			"weight": 1
-  		}
-  		],
-  		"moveCosts": [
-  			"org.astraea.common.cost.ReplicaLeaderCost",
-  			"org.astraea.common.cost.RecordSizeCost"
-  		],
-  		"costConfig": {
-  			"max.migrated.size": "500MB",
-  			"max.migrated.leader.number": 5
-  		}
-    }'
+          "timeout": "5s",
+          "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
+          "balancerConfig": {
+            "shuffle.tweaker.min.step": 1,
+            "shuffle.tweaker.max.step": 10
+          },
+          "clusterCosts": [
+            { "cost": "org.astraea.common.cost.ReplicaLeaderCost", "weight": 1 }
+          ],
+          "moveCosts": [
+            "org.astraea.common.cost.ReplicaLeaderCost",
+            "org.astraea.common.cost.RecordSizeCost"
+          ],
+          "costConfig": {
+            "max.migrated.size": "500MB",
+            "max.migrated.leader.number": 5,
+            "max.broker.total.disk.space": "0:1500MB,1:1000MB,2:1500MB",
+            "max.broker.path.disk.space": "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:1000MB"
+          }
+       }'
 ```
 
 JSON Response 範例

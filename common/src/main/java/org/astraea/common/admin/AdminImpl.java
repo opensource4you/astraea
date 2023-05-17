@@ -421,15 +421,15 @@ class AdminImpl implements Admin {
                           tpInfo.replicas().stream().map(NodeInfo::of).collect(Collectors.toList());
                       var isr =
                           tpInfo.isr().stream().map(NodeInfo::of).collect(Collectors.toList());
-                      return Partition.of(
+                      return new Partition(
                           tp.topic(),
                           tp.partition(),
-                          leader,
-                          replicas,
-                          isr,
                           earliest,
                           latest,
                           maxTimestamp,
+                          Optional.ofNullable(leader),
+                          replicas,
+                          isr,
                           topicAndInternal.get(tp.topic()));
                     })
                 .sorted(Comparator.comparing(Partition::topicPartition))

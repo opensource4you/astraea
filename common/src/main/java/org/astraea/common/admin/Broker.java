@@ -31,7 +31,7 @@ public interface Broker extends NodeInfo {
       Map<String, String> configs,
       Map<String, DescribeLogDirsResponse.LogDirInfo> dirs,
       Collection<org.apache.kafka.clients.admin.TopicDescription> topics) {
-    var config = Config.of(configs);
+    var config = new Config(configs);
     var partitionsFromTopicDesc =
         topics.stream()
             .flatMap(

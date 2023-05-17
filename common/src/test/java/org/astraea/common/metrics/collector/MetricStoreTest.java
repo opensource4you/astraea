@@ -40,7 +40,10 @@ public class MetricStoreTest {
     Mockito.when(receiver.receive(Mockito.any()))
         .thenAnswer(invocation -> Utils.packException(queue::take));
     try (var store =
-        MetricStore.builder().receiver(receiver).beanExpiration(Duration.ofSeconds(100)).build()) {
+        MetricStore.builder()
+            .receivers(List.of(receiver))
+            .beanExpiration(Duration.ofSeconds(100))
+            .build()) {
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(1, store.clusterBean().all().size());
       Assertions.assertEquals(Set.of(1000), store.clusterBean().all().keySet());
@@ -54,9 +57,14 @@ public class MetricStoreTest {
 
   @Test
   void testNullCheck() {
+    // Receiver not set
     var builder = MetricStore.builder();
-    Assertions.assertThrows(NullPointerException.class, builder::build);
-    builder.receiver(timeout -> Map.of());
+    Assertions.assertThrows(IllegalArgumentException.class, builder::build);
+    // Receiver set to empty
+    builder.receivers(List.of());
+    Assertions.assertThrows(IllegalArgumentException.class, builder::build);
+
+    builder.receivers(List.of(timeout -> Map.of()));
     var store = builder.build();
     store.close();
   }
@@ -75,15 +83,16 @@ public class MetricStoreTest {
     var count = new AtomicInteger(0);
     try (var store =
         MetricStore.builder()
-            .receiver(
-                timeout -> {
-                  count.incrementAndGet();
-                  return Utils.packException(queue::take);
-                })
+            .receivers(
+                List.of(
+                    timeout -> {
+                      count.incrementAndGet();
+                      return Utils.packException(queue::take);
+                    }))
             .beanExpiration(Duration.ofSeconds(5))
             .build()) {
       Utils.waitFor(() -> store.clusterBean().all().size() == 3);
-      Utils.sleep(Duration.ofSeconds(5));
+      Utils.sleep(Duration.ofSeconds(10));
       Assertions.assertNotEquals(0, count.get());
       Assertions.assertEquals(0, store.clusterBean().all().size());
     }
@@ -95,7 +104,7 @@ public class MetricStoreTest {
 
     try (var store =
         MetricStore.builder()
-            .receiver(timeout -> Utils.packException(queue::take))
+            .receivers(List.of(timeout -> Utils.packException(queue::take)))
             .sensorsSupplier(
                 // Metric sensor provide fake hasBeanObject
                 () ->

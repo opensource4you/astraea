@@ -35,13 +35,7 @@ public class ConfigurationTest {
   void testList() {
     var config = Configuration.of(Map.of("key", "v0,v1"));
     Assertions.assertEquals(List.of("v0", "v1"), config.list("key", ","));
-  }
-
-  @Test
-  void testMap() {
-    var config = Configuration.of(Map.of("key", "v0:0,v1:1"));
-    Assertions.assertEquals(
-        Map.of("v0", 0, "v1", 1), config.map("key", ",", ":", Integer::valueOf));
+    Assertions.assertEquals(List.of(), config.list("nonExistKey", ","));
   }
 
   @Test

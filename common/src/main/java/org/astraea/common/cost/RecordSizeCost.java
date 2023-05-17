@@ -16,7 +16,7 @@
  */
 package org.astraea.common.cost;
 
-import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
+import static org.astraea.common.cost.CostUtils.changedRecordSizeOverflow;
 
 import java.util.Map;
 import java.util.stream.Collectors;

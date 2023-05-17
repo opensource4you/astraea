@@ -557,6 +557,8 @@ public class PerformanceTest {
           .toCompletableFuture()
           .join();
 
+      Utils.sleep(Duration.ofSeconds(3));
+
       var start = System.nanoTime();
       Performance.main(
           new String[] {

@@ -63,8 +63,9 @@ public class HttpExecutorBuilder {
                   if (r.statusCode() < 400) {
                     if (typeRef != null && r.body() == null)
                       throw new IllegalStateException("There is no body!!!");
-                    if (typeRef == null) return Response.of(null, r.statusCode());
-                    return Response.of(jsonConverter.fromJson(r.body(), typeRef), r.statusCode());
+                    if (typeRef == null) return new Response<>(r.statusCode());
+                    return new Response<>(
+                        jsonConverter.fromJson(r.body(), typeRef), r.statusCode());
                   }
                   if (r.body() == null || r.body().isBlank())
                     throw new HttpRequestException(r.statusCode());

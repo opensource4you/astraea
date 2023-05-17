@@ -16,7 +16,7 @@
  */
 package org.astraea.common.cost;
 
-import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
+import static org.astraea.common.cost.CostUtils.changedRecordSizeOverflow;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -94,15 +94,7 @@ public class ReplicaLeaderSizeCost
   public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterInfo.replicaLeaders().stream()
-            .collect(
-                Collectors.toMap(
-                    Replica::topicPartition,
-                    r ->
-                        (double)
-                            clusterInfo
-                                .replicaLeader(r.topicPartition())
-                                .map(Replica::size)
-                                .orElseThrow()));
+            .collect(Collectors.toMap(Replica::topicPartition, r -> (double) r.size()));
     return () -> result;
   }
 
