@@ -28,7 +28,7 @@ class SingleStepBalancerTest extends BalancerConfigTestSuite {
   public SingleStepBalancerTest() {
     super(
         SingleStepBalancer.class,
-        Configuration.of(
+        new Configuration(
             Map.of(
                 "shuffle.tweaker.min.step", "1000",
                 "shuffle.tweaker.max.step", "2000")));

@@ -113,7 +113,7 @@ class BalancerHandler implements Handler, AutoCloseable {
     final var request = channel.request(TypeRef.of(BalancerPutRequest.class));
     final var taskId = request.id;
     final var taskPhase = balancerConsole.taskPhase(taskId);
-    final var executorConfig = Configuration.of(request.executorConfig);
+    final var executorConfig = new Configuration(request.executorConfig);
     final var executor =
         Utils.construct(request.executor, RebalancePlanExecutor.class, executorConfig);
 
@@ -179,7 +179,7 @@ class BalancerHandler implements Handler, AutoCloseable {
                         tp ->
                             Change.from(
                                 contextCluster.replicas(tp), solution.proposal().replicas(tp)))
-                    .collect(Collectors.toUnmodifiableList());
+                    .toList();
     var report =
         (Supplier<PlanReport>)
             () ->
@@ -217,7 +217,7 @@ class BalancerHandler implements Handler, AutoCloseable {
 
     return new PostRequestWrapper(
         balancerPostRequest.balancer,
-        Configuration.of(balancerPostRequest.balancerConfig),
+        new Configuration(balancerPostRequest.balancerConfig),
         balancerPostRequest.parse(),
         currentClusterInfo);
   }

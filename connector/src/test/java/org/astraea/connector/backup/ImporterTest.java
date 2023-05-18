@@ -126,7 +126,7 @@ public class ImporterTest {
               "file.set",
               "0");
 
-      var fs = FileSystem.of("ftp", Configuration.of(configs));
+      var fs = FileSystem.of("ftp", new Configuration(configs));
 
       var records =
           List.of(
@@ -150,7 +150,7 @@ public class ImporterTest {
       records.forEach(writer::append);
       writer.close();
 
-      task.init(Configuration.of(configs), MetadataStorage.EMPTY);
+      task.init(new Configuration(configs), MetadataStorage.EMPTY);
       var returnRecords = new ArrayList<>(task.take());
 
       for (int i = 0; i < records.size(); i++) {

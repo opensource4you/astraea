@@ -42,7 +42,8 @@ public class BalancerProblemFormat {
           "org.astraea.common.cost.RecordSizeCost",
           "org.astraea.common.cost.ReplicaNumberCost",
           "org.astraea.common.cost.ReplicaLeaderSizeCost",
-          "org.astraea.common.cost.PartitionMigrateTimeCost");
+          "org.astraea.common.cost.PartitionMigrateTimeCost",
+          "org.astraea.common.cost.BrokerDiskSpaceCost");
 
   public AlgorithmConfig parse() {
     return AlgorithmConfig.builder()
@@ -55,7 +56,7 @@ public class BalancerProblemFormat {
 
   private HasClusterCost clusterCost() {
     if (clusterCosts.isEmpty()) throw new IllegalArgumentException("clusterCosts is not specified");
-    var config = Configuration.of(costConfig);
+    var config = new Configuration(costConfig);
     return HasClusterCost.of(
         Utils.costFunctions(
             clusterCosts.stream()
@@ -65,7 +66,7 @@ public class BalancerProblemFormat {
   }
 
   private HasMoveCost moveCost() {
-    var config = Configuration.of(costConfig);
+    var config = new Configuration(costConfig);
     var cf = Utils.costFunctions(moveCosts, HasMoveCost.class, config);
     return HasMoveCost.of(cf);
   }

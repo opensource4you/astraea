@@ -42,7 +42,7 @@ public class NetworkIngressCostTest {
   void testIncompatibility() {
     var networkCost =
         new NetworkIngressCost(
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     NetworkIngressCost.TRAFFIC_INTERVAL,
                     "1Byte",
@@ -86,7 +86,7 @@ public class NetworkIngressCostTest {
   void testEmptyIncompatibility() {
     var networkCost =
         new NetworkIngressCost(
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     NetworkIngressCost.TRAFFIC_INTERVAL,
                     "1Byte",

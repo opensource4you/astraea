@@ -57,8 +57,11 @@ public class BrokerOutputCostTest {
     Assertions.assertEquals(5000D, scores.get(3));
 
     // testClusterCost
+    var total = scores.values().stream().mapToDouble(x -> x).sum();
+    var sd = scores.values().stream().map(x -> x / total).toList();
+    var dispersion = Dispersion.standardDeviation();
     var clusterCost = brokerOutputCost.clusterCost(ClusterInfo.empty(), clusterBean).value();
-    Assertions.assertEquals(0.535, Math.round(clusterCost * 1000.0) / 1000.0);
+    Assertions.assertEquals(dispersion.calculate(sd), clusterCost);
   }
 
   @Test
