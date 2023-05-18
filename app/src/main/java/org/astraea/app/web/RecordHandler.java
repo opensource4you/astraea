@@ -410,8 +410,8 @@ public class RecordHandler implements Handler {
     @Override
     public void onComplete(Throwable error) {
       try {
-        if (error == null && consumer instanceof SubscribedConsumer) {
-          ((SubscribedConsumer<byte[], byte[]>) consumer).commitOffsets(Duration.ofSeconds(5));
+        if (error == null && consumer instanceof SubscribedConsumer subscribedConsumer) {
+          subscribedConsumer.commitOffsets(Duration.ofSeconds(5));
         }
       } finally {
         consumer.close();

@@ -70,8 +70,8 @@ public class App {
       method.invoke(null, (Object) args.subList(1, args.size()).toArray(String[]::new));
     } catch (InvocationTargetException targetException) {
       // Print out ParameterException, don't throw.
-      if (targetException.getTargetException() instanceof ParameterException) {
-        System.out.println(targetException.getTargetException().getMessage());
+      if (targetException.getTargetException() instanceof ParameterException exception) {
+        System.out.println(exception.getMessage());
       } else {
         throw targetException.getTargetException();
       }
