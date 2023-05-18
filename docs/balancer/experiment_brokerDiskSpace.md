@@ -31,7 +31,7 @@
 | --------------- | -------------------------------------------------- | --------------------------- | ------------------------------- | --------------------- |
 | 執行的工具/軟體 | Kafka Broker, Zookeeper, Prometheus, Node Exporter | Kafka Broker, Node Exporter | Performance Tool, Node Exporter | 執行 Astraea Balancer |
 
-下表為 B0, B1, B2, B3, B4, B5, P1 的硬體規格：
+下表為 B0, B1, B2, B3, B4, B5 的硬體規格：
 
 | 硬體項目 | 型號                                                         |
 | -------- | ------------------------------------------------------------ |
@@ -109,7 +109,7 @@ curl -X POST http://localhost:8001/topics \
 
 
 
-5. 接着要開始對叢集輸入資料，我們在 P1 設備上執行下面的指令以啓動 [Astraea Performance Tool](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/performance_benchmark.md)
+5. 接着要開始對叢集輸入資料，我們在 P1~P5 設備上執行下面的指令以啓動 [Astraea Performance Tool](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/performance_benchmark.md)
 
 ```shell
 ./start_app.sh performance --bootstrap.servers 192.168.103.177:25655 --topics imbalance-topic --run.until 5m --producers 10 --consumers 0 --value.size 10KiB --configs acks=0
