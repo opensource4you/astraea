@@ -228,6 +228,7 @@ public class GreedyBalancer implements Balancer {
     return currentSolution.or(
         () -> {
           if (hasDemoted
+              && initialCost.value() == 0.0
               && !moveCostFunction
                   .moveCost(config.clusterInfo(), currentClusterInfo, clusterBean)
                   .overflow()) {

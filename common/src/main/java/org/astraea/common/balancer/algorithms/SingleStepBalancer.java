@@ -129,6 +129,7 @@ public class SingleStepBalancer implements Balancer {
         .or(
             () -> {
               if (hasDemoted
+                  && currentCost.value() == 0.0
                   && !moveCostFunction
                       .moveCost(config.clusterInfo(), currentClusterInfo, clusterBean)
                       .overflow()) {
