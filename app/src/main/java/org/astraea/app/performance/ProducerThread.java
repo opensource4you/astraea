@@ -51,9 +51,7 @@ public interface ProducerThread extends AbstractThread {
     var producers = queues.size();
     if (producers <= 0) return List.of();
     var closeLatches =
-        IntStream.range(0, producers)
-            .mapToObj(ignored -> new CountDownLatch(1))
-            .collect(Collectors.toUnmodifiableList());
+        IntStream.range(0, producers).mapToObj(ignored -> new CountDownLatch(1)).toList();
     var executors = Executors.newFixedThreadPool(producers);
     // monitor
     CompletableFuture.runAsync(

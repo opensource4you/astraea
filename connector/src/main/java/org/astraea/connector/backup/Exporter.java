@@ -16,6 +16,7 @@
  */
 package org.astraea.connector.backup;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,7 +27,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
@@ -80,21 +80,25 @@ public class Exporter extends SinkConnector {
           .documentation("the path required for file storage.")
           .required()
           .build();
+
+  static DataSize SIZE_DEFAULT = DataSize.MB.of(100);
   static Definition SIZE_KEY =
       Definition.builder()
           .name("size")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
-          .defaultValue("100MB")
+          .defaultValue(SIZE_DEFAULT.toString())
           .documentation("is the maximum number of the size will be included in each file.")
           .build();
+
+  static Duration TIME_DEFAULT = Duration.ofSeconds(3);
 
   static Definition TIME_KEY =
       Definition.builder()
           .name("roll.duration")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> Utils.toDuration(obj.toString()))
-          .defaultValue("3s")
+          .defaultValue(TIME_DEFAULT.toSeconds() + "s")
           .documentation("the maximum time before a new archive file is rolling out.")
           .build();
 
@@ -105,6 +109,8 @@ public class Exporter extends SinkConnector {
           .documentation("a value that needs to be overridden in the file system.")
           .build();
 
+  static DataSize BUFFER_SIZE_DEFAULT = DataSize.MB.of(300);
+
   static Definition BUFFER_SIZE_KEY =
       Definition.builder()
           .name("writer.buffer.size")
@@ -112,7 +118,7 @@ public class Exporter extends SinkConnector {
           .validator((name, obj) -> DataSize.of(obj.toString()))
           .documentation(
               "a value that represents the capacity of a blocking queue from which the writer can take records.")
-          .defaultValue("300MB")
+          .defaultValue(BUFFER_SIZE_DEFAULT.toString())
           .build();
   private Configuration configs;
 
@@ -128,7 +134,7 @@ public class Exporter extends SinkConnector {
 
   @Override
   protected List<Configuration> takeConfiguration(int maxTasks) {
-    return IntStream.range(0, maxTasks).mapToObj(ignored -> configs).collect(Collectors.toList());
+    return IntStream.range(0, maxTasks).mapToObj(ignored -> configs).toList();
   }
 
   @Override
@@ -255,23 +261,20 @@ public class Exporter extends SinkConnector {
     protected void init(Configuration configuration) {
       this.topicName = configuration.requireString(TOPICS_KEY);
       this.path = configuration.requireString(PATH_KEY.name());
-      this.size =
-          DataSize.of(
-              configuration.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString()));
+      this.size = configuration.string(SIZE_KEY.name()).map(DataSize::of).orElse(SIZE_DEFAULT);
       this.interval =
-          Utils.toDuration(
-                  configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()))
+          configuration
+              .string(TIME_KEY.name())
+              .map(Utils::toDuration)
+              .orElse(TIME_DEFAULT)
               .toMillis();
-
       this.bufferSize.reset();
-
       this.bufferSizeLimit =
-          DataSize.of(
-                  configuration
-                      .string(BUFFER_SIZE_KEY.name())
-                      .orElse(BUFFER_SIZE_KEY.defaultValue().toString()))
+          configuration
+              .string(BUFFER_SIZE_KEY.name())
+              .map(DataSize::of)
+              .orElse(BUFFER_SIZE_DEFAULT)
               .bytes();
-
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture = CompletableFuture.runAsync(createWriter());
     }

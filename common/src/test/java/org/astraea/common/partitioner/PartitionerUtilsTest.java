@@ -71,18 +71,18 @@ public class PartitionerUtilsTest {
   @Test
   void testParseIdJMXPort() {
     var config =
-        Configuration.of(Map.of("broker.1001.jmx.port", "8000", "broker.1002.jmx.port", "8001"));
+        new Configuration(Map.of("broker.1001.jmx.port", "8000", "broker.1002.jmx.port", "8001"));
     var ans = PartitionerUtils.parseIdJMXPort(config);
     Assertions.assertEquals(2, ans.size());
     Assertions.assertEquals(8000, ans.get(1001));
     Assertions.assertEquals(8001, ans.get(1002));
 
-    config = Configuration.of(Map.of("jmx.port", "8000", "broker.1002.jmx.port", "8001"));
+    config = new Configuration(Map.of("jmx.port", "8000", "broker.1002.jmx.port", "8001"));
     ans = PartitionerUtils.parseIdJMXPort(config);
     Assertions.assertEquals(1, ans.size());
     Assertions.assertEquals(8001, ans.get(1002));
 
-    var config3 = Configuration.of(Map.of("broker.id.jmx.port", "8000"));
+    var config3 = new Configuration(Map.of("broker.id.jmx.port", "8000"));
     Assertions.assertThrows(
         NumberFormatException.class, () -> PartitionerUtils.parseIdJMXPort(config3));
   }

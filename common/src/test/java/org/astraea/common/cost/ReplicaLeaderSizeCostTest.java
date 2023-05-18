@@ -39,7 +39,7 @@ class ReplicaLeaderSizeCostTest {
 
   @Test
   void testClusterCost() {
-    final Dispersion dispersion = Dispersion.cov();
+    final Dispersion dispersion = Dispersion.standardDeviation();
     var loadCostFunction = new ReplicaLeaderSizeCost();
     var brokerLoad = loadCostFunction.brokerCost(clusterInfo(), ClusterBean.EMPTY).value();
     var clusterCost = loadCostFunction.clusterCost(clusterInfo(), ClusterBean.EMPTY).value();
