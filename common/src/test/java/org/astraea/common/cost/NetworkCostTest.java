@@ -536,19 +536,19 @@ class NetworkCostTest {
     var oneCost =
         Utils.construct(
             clz,
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BROKER_TOPIC_ONE_MINUTE_RATE")));
     var fiveCost =
         Utils.construct(
             clz,
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BROKER_TOPIC_FIVE_MINUTE_RATE")));
     var fifteenCost =
         Utils.construct(
             clz,
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     NetworkCost.NETWORK_COST_ESTIMATION_METHOD,
                     "BROKER_TOPIC_FIFTEEN_MINUTE_RATE")));

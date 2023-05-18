@@ -184,7 +184,7 @@ public interface AlgorithmConfig {
     }
 
     public AlgorithmConfig build() {
-      var config = Configuration.of(balancerConfig);
+      var config = new Configuration(balancerConfig);
 
       return new AlgorithmConfig() {
         @Override

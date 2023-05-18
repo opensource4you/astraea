@@ -94,7 +94,7 @@ public class StrictCostPartitionerPerfTest {
     var value = "value".getBytes(StandardCharsets.UTF_8);
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.admin = admin;
-      partitioner.configure(Configuration.of(Map.of("round.robin.lease", "2s")));
+      partitioner.configure(new Configuration(Map.of("round.robin.lease", "2s")));
 
       Supplier<Map<Integer, List<Integer>>> resultSupplier =
           () -> {

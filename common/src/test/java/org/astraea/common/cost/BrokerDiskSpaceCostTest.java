@@ -140,18 +140,18 @@ class BrokerDiskSpaceCostTest {
     var beforeClusterInfo = of(before);
     var afterClusterInfo = of(after);
     var brokerConfig =
-        Configuration.of(
+        new Configuration(
             Map.of(BrokerDiskSpaceCost.BROKER_COST_LIMIT_KEY, "0:1500MB,1:1000MB,2:1500MB"));
     var brokerOverflowConfig =
-        Configuration.of(
+        new Configuration(
             Map.of(BrokerDiskSpaceCost.BROKER_COST_LIMIT_KEY, "0:1300MB,1:1000MB,2:1500MB"));
     var pathConfig =
-        Configuration.of(
+        new Configuration(
             Map.of(
                 BrokerDiskSpaceCost.BROKER_PATH_COST_LIMIT_KEY,
                 "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:1000MB"));
     var pathOverflowConfig =
-        Configuration.of(
+        new Configuration(
             Map.of(
                 BrokerDiskSpaceCost.BROKER_PATH_COST_LIMIT_KEY,
                 "0-/path0:1500MB,1-/path0:1000MB,2-/path0:1500MB,2-/path1:900MB"));

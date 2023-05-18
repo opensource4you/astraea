@@ -40,7 +40,7 @@ public abstract class SourceConnector extends org.apache.kafka.connect.source.So
   // -------------------------[final]-------------------------//
   @Override
   public final void start(Map<String, String> props) {
-    init(Configuration.of(props), MetadataStorage.of(context().offsetStorageReader()));
+    init(new Configuration(props), MetadataStorage.of(context().offsetStorageReader()));
   }
 
   @Override

@@ -41,9 +41,9 @@ public interface DataGenerator extends AbstractThread {
       Performance.Argument argument) {
     if (queues.size() == 0) return terminatedGenerator();
 
-    var keyDistConfig = Configuration.of(argument.keyDistributionConfig);
-    var keySizeDistConfig = Configuration.of(argument.keySizeDistributionConfig);
-    var valueDistConfig = Configuration.of(argument.valueDistributionConfig);
+    var keyDistConfig = new Configuration(argument.keyDistributionConfig);
+    var keySizeDistConfig = new Configuration(argument.keySizeDistributionConfig);
+    var valueDistConfig = new Configuration(argument.valueDistributionConfig);
     var dataSupplier =
         RecordGenerator.builder()
             .batchSize(argument.transactionSize)

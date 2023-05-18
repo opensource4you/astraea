@@ -68,12 +68,12 @@ public class ReplicaLeaderCostTest {
 
     var overFlowMoveCost =
         new ReplicaLeaderCost(
-                Configuration.of(Map.of(ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY, "5")))
+                new Configuration(Map.of(ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY, "5")))
             .moveCost(sourceCluster, overFlowTargetCluster, ClusterBean.EMPTY);
 
     var noOverFlowMoveCost =
         new ReplicaLeaderCost(
-                Configuration.of(Map.of(ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY, "10")))
+                new Configuration(Map.of(ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY, "10")))
             .moveCost(sourceCluster, overFlowTargetCluster, ClusterBean.EMPTY);
 
     Assertions.assertTrue(overFlowMoveCost.overflow());

@@ -168,7 +168,7 @@ class BalancerTest {
               .toCompletableFuture()
               .join();
       var newAllocation =
-          Utils.construct(theClass, Configuration.of(Map.of("iteration", "500")))
+          Utils.construct(theClass, new Configuration(Map.of("iteration", "500")))
               .offer(
                   AlgorithmConfig.builder()
                       .clusterInfo(clusterInfo)
@@ -285,7 +285,7 @@ class BalancerTest {
                   return () -> 0;
                 }
               };
-          Utils.construct(theClass, Configuration.of(Map.of("iteration", "500")))
+          Utils.construct(theClass, new Configuration(Map.of("iteration", "500")))
               .offer(
                   AlgorithmConfig.builder()
                       .clusterInfo(ClusterInfo.empty())

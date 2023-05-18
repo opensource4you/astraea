@@ -164,7 +164,7 @@ public class PerfSource extends SourceConnector {
               t -> {
                 var copy = new HashMap<>(config.raw());
                 copy.put(SourceConnector.TOPICS_KEY, t);
-                return Configuration.of(copy);
+                return new Configuration(copy);
               })
           .collect(Collectors.toUnmodifiableList());
     return Utils.chunk(topics, maxTasks).stream()
@@ -172,7 +172,7 @@ public class PerfSource extends SourceConnector {
             tps -> {
               var copy = new HashMap<>(config.raw());
               copy.put(SourceConnector.TOPICS_KEY, String.join(",", tps));
-              return Configuration.of(copy);
+              return new Configuration(copy);
             })
         .collect(Collectors.toUnmodifiableList());
   }

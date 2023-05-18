@@ -115,7 +115,7 @@ public class Importer extends SourceConnector {
               var taskMap = new HashMap<>(config.raw());
               taskMap.put(FILE_SET_KEY, String.valueOf(i));
               taskMap.put(TASKS_COUNT_KEY, String.valueOf(maxTasks));
-              return Configuration.of(taskMap);
+              return new Configuration(taskMap);
             })
         .toList();
   }
