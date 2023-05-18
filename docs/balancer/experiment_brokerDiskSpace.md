@@ -1,15 +1,12 @@
 # 磁碟空間限制實驗
 
 這個測試展示目前的搬移成本估計以及限制 [(#1604)](https://github.com/skiptests/astraea/pull/1604) 
-能在進行負載平衡的途中，計算其可能產生的成本，以及對其做限制
+能在進行負載平衡的過程中，計算其可能會佔用broker/硬碟多少儲存空間，並且可以對其做限制
 
 ## 測試情境
 
-* 我們透過專案內的 [WebAPI](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/web_server/web_api_topics_chinese.md#%E5%BB%BA%E7%AB%8B-topic) 工具來對測試叢集產生一個 Leader 數量不平衡的情境，主要的原因如下:	
+* 我們透過專案內的 [WebAPI](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/web_server/web_api_topics_chinese.md#%E5%BB%BA%E7%AB%8B-topic) 工具來對測試叢集產生一個負載不平衡的情境
 
-  * partition leader 負責處理讀寫請求 , 當leader在數量在節點間不平衡時，可能會導致某些節點的寫入流量特別大
-
-  * leader不平衡時可能會在某些節點會同時有大量的連線
 
 
 * 本實驗報告會在搬移的過程中對磁碟空間做限制，並且對比有做磁碟空間限制與不做磁碟空間限制的差異
@@ -30,20 +27,9 @@
 
 每個機器負責執行的軟體：
 
-| server/client | 執行的工具/軟體                                    |
-| ------------- | -------------------------------------------------- |
-| B1            | Kafka Broker, Zookeeper, Prometheus, Node Exporter |
-| B2            | Kafka Broker, Node Exporter                        |
-| B3            | Kafka Broker, Node Exporter                        |
-| B4            | Kafka Broker, Node Exporter                        |
-| B5            | Kafka Broker, Node Exporter                        |
-| B6            | Kafka Broker, Node Exporter                        |
-| P1            | Performance Tool, Node Exporter                    |
-| P2            | Performance Tool, Node Exporter                    |
-| P3            | Performance Tool, Node Exporter                    |
-| P4            | Performance Tool, Node Exporter                    |
-| P5            | Performance Tool, Node Exporter                    |
-| Balancer      | 執行 Astraea Balancer                              |
+| server/client   | broker1                                            | broker2~6                   | producer1~5                     | Balancer              |
+| --------------- | -------------------------------------------------- | --------------------------- | ------------------------------- | --------------------- |
+| 執行的工具/軟體 | Kafka Broker, Zookeeper, Prometheus, Node Exporter | Kafka Broker, Node Exporter | Performance Tool, Node Exporter | 執行 Astraea Balancer |
 
 下表為 B0, B1, B2, B3, B4, B5, P1 的硬體規格：
 
@@ -154,15 +140,11 @@ curl -X POST http://localhost:8001/topics \
 }'
 ```
 
-執行負載平衡後，可以發現leader數量已經平衡
-
-![image-20230502172113843](resources/experiment_brokerDiskSpace_1.png)
-
 
 
 觀察broker上的log資料量的變化，可以發現每個broker在搬移後，持有的log資料量有變接近的狀況
 
-![image-20230502173023117](resources/experiment_brokerDiskSpace_2.png)
+![image-20230502173023117](resources/experiment_brokerDiskSpace_1.png)
 
 broker上資料量變化:
 
@@ -175,15 +157,7 @@ broker上資料量變化:
 
 
 
-
-
 ### 針對節點套用磁碟空間的成本限制
-
-搬移前的分佈:
-
-| broker id     | 1  | 2 | 3  | 4  | 5 | 6 |
-| ------------- |----|---|----|----|---|---|
-| leader number | 91 | 94 | 46 | 17 | 0 | 1 |
 
 
 
@@ -211,22 +185,11 @@ curl -X POST http://localhost:8001/topics \
 }'
 ```
 
-執行負載平衡後，可以發現leader數量已經平衡，除了受到限制的broker4，因為資料量的限制導致沒辦法移入更多partition
-
-![image-20230502183604348](resources/experiment_brokerDiskSpace_3.png)
-
-搬移後的狀況分佈如下，可以明顯的看出broker4因為磁碟資料量的限制(沒辦法移出太多資料量)，leader數量沒辦法與其他broker平衡
 
 
 
-leader數量變化: 
 
-| broker id                     | 1  | 2  | 3  | 4  | 5  | 6  |
-| ----------------------------- |----|----|----|----|----|----|
-| before migrated leader number | 91 | 94 | 46 | 17 | 0  | 1  |
-| after migrated leader number  | 46  | 47 | 47 | 18 | 46 | 46 |
-
-![image-20230502183914811](resources/experiment_brokerDiskSpace_4.png)
+![image-20230502183914811](resources/experiment_brokerDiskSpace_2.png)
 
 broker上資料量變化:
 
@@ -239,11 +202,7 @@ broker上資料量變化:
 
 ### 針對套用data path磁碟空間的成本限制
 
-搬移前的分佈:
 
-| broker id     | 1   | 2  | 3  | 4  | 5  | 6 |
-| ------------- |-----|----|----|----|----|---|
-| leader number | 91  | 90 | 52 | 12 | 4  | 1 |
 
 1. 等待producer打完資料後，進行下面指令，這次不同的是會對其broker可用空間進行限制，將broker4的/tmp/log-folder-1限制搬移過程中最多只能佔用35GB，使用costConfig來對其做限制
 
@@ -271,26 +230,9 @@ curl -X POST http://localhost:8001/topics \
 
 
 
-執行負載平衡後，可以發現leader數量已經平衡，除了受到限制的broker4，因為資料量的限制導致沒辦法移入更多partition
-
-![image-20230504001537225](resources/experiment_brokerDiskSpace_5.png)
-
-
-
-搬移後的狀況分佈如下，可以明顯的看出broker4因為磁碟資料量的限制(沒辦法移出太多資料量)，leader數量沒辦法與其他broker平衡
-
-
-
-leader數量變化: 
-
-| broker id                     | 1  | 2  | 3  | 4  | 5  | 6  |
-| ----------------------------- |----|----|----|----|----|----|
-| before migrated leader number | 91 | 90 | 52 | 12 | 4  | 1  |
-| after migrated leader number  | 48 | 48 | 48 | 10 | 48 | 48 |
-
 而從資料量變化可以明顯的看出，broker4的 /tmp/log-folder-2(紫色)明顯的被限制住，使其不會佔用太多磁碟空間
 
-![image-20230502195813708](resources/experiment_brokerDiskSpace_6.png)
+![image-20230502195813708](resources/experiment_brokerDiskSpace_3.png)
 
 
 
