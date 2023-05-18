@@ -83,9 +83,8 @@ public class BrokerDiskSpaceCost implements HasMoveCost {
           (Long)
               after
                   .replicaStream(id)
-                  .filter(r -> before.replicaStream(id).noneMatch(r::equals))
-                  .map(Replica::size)
-                  .mapToLong(y -> y)
+                  .filter(r -> !before.replicas(r.topicPartition()).contains(r))
+                  .mapToLong(Replica::size)
                   .sum();
       if ((beforeSize + addedSize)
           > brokerMoveCostLimit.getOrDefault(id, DataSize.Byte.of(Long.MAX_VALUE)).bytes())
@@ -115,9 +114,8 @@ public class BrokerDiskSpaceCost implements HasMoveCost {
             (Long)
                 after
                     .replicaStream(brokerPaths.getKey())
-                    .filter(r -> before.replicaStream(brokerPaths.getKey()).noneMatch(r::equals))
-                    .map(Replica::size)
-                    .mapToLong(y -> y)
+                    .filter(r -> !before.replicas(r.topicPartition()).contains(r))
+                    .mapToLong(Replica::size)
                     .sum();
         if ((beforeSize + addedSize)
             > diskMoveCostLimit.getOrDefault(brokerPath, DataSize.Byte.of(Long.MAX_VALUE)).bytes())
