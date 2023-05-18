@@ -19,9 +19,7 @@ package org.astraea.common.assignor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.TopicPartition;
 
@@ -33,32 +31,24 @@ public interface Generator {
   static Generator randomGenerator(
       Map<String, SubscriptionInfo> subscription,
       Map<TopicPartition, Double> partitionCost,
-      Map<TopicPartition, Set<TopicPartition>> incompatible) {
-    AtomicReference<Map<String, List<TopicPartition>>> combinator = new AtomicReference<>();
-    var hints =
-        Hint.of(
-            Set.of(
-                Hint.lowCostHint(subscription, partitionCost, combinator.get()),
-                Hint.incompatibleHint(subscription, incompatible, combinator.get())));
-
+      Hint hints) {
     return () -> {
-      combinator.set(
+      Map<String, List<TopicPartition>> combinator =
           subscription.keySet().stream()
               .map(c -> Map.entry(c, new ArrayList<TopicPartition>()))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       List<String> candidates;
 
       for (var tp : partitionCost.keySet()) {
-        candidates = hints.get(tp);
+        candidates = hints.get(combinator, tp);
         if (candidates.isEmpty()) candidates = subscription.keySet().stream().toList();
 
         combinator
-            .get()
             .get(candidates.get(ThreadLocalRandom.current().nextInt(candidates.size())))
             .add(tp);
       }
 
-      return combinator.get();
+      return combinator;
     };
   }
 }

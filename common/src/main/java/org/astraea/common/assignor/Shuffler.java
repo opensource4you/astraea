@@ -38,7 +38,13 @@ public interface Shuffler {
             Set.of(
                 Limiter.skewCostLimiter(partitionCost, subscriptions),
                 Limiter.incompatibleLimiter(incompatible)));
-    var generator = Generator.randomGenerator(subscriptions, partitionCost, incompatible);
+    var hints =
+        Hint.of(
+            Set.of(
+                Hint.lowCostHint(subscriptions, partitionCost),
+                Hint.incompatibleHint(subscriptions, incompatible)));
+    var generator = Generator.randomGenerator(subscriptions, partitionCost, hints);
+    var shuffleTime = config.duration("shuffle.time").get().toMillis();
     var standardDeviation =
         (Function<Map<String, List<TopicPartition>>, Double>)
             (combinator) -> {
@@ -63,7 +69,6 @@ public interface Shuffler {
 
     return () -> {
       Map<String, List<TopicPartition>> result = null;
-      var shuffleTime = config.duration("shuffle.time").get().toMillis();
       var start = System.currentTimeMillis();
 
       while (System.currentTimeMillis() - start < shuffleTime) {
