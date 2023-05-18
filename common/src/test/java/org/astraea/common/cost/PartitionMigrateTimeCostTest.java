@@ -84,9 +84,9 @@ class PartitionMigrateTimeCostTest {
     var before = of(before(), brokers());
     var after = of(after(), brokers());
     var timeLimit =
-        Configuration.of(Map.of(PartitionMigrateTimeCost.MAX_MIGRATE_TIME_KEY, "20000"));
+        new Configuration(Map.of(PartitionMigrateTimeCost.MAX_MIGRATE_TIME_KEY, "20000"));
     var overFlowTimeLimit =
-        Configuration.of(Map.of(PartitionMigrateTimeCost.MAX_MIGRATE_TIME_KEY, "19999"));
+        new Configuration(Map.of(PartitionMigrateTimeCost.MAX_MIGRATE_TIME_KEY, "19999"));
     var cf = new PartitionMigrateTimeCost(timeLimit);
     var overFlowCf = new PartitionMigrateTimeCost(overFlowTimeLimit);
     var moveCost = cf.moveCost(before, after, clusterBean());
