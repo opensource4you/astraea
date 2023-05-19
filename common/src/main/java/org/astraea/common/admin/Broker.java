@@ -34,8 +34,7 @@ public record Broker(
     List<DataFolder> dataFolders,
     Set<TopicPartition> topicPartitions,
     // partition leaders hosted by this broker
-    Set<TopicPartition> topicPartitionLeaders)
-    implements NodeInfo {
+    Set<TopicPartition> topicPartitionLeaders) {
 
   /**
    * @return true if the broker is offline. An offline node can't offer host or port information.
@@ -44,15 +43,11 @@ public record Broker(
     return host() == null || host().isEmpty() || port() < 0;
   }
 
-  public static Broker of(
-          int id,
-          String host,
-          int port
-  ) {
-      return new Broker(id, host, port, false, Config.EMPTY, List.of(), Set.of(), Set.of());
+  public static Broker of(int id, String host, int port) {
+    return new Broker(id, host, port, false, Config.EMPTY, List.of(), Set.of(), Set.of());
   }
 
-  static Broker of(
+  public static Broker of(
       boolean isController,
       org.apache.kafka.common.Node nodeInfo,
       Map<String, String> configs,

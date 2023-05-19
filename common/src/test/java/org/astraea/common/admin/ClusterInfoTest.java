@@ -49,7 +49,7 @@ public class ClusterInfoTest {
         "fake",
         replicas.stream()
             .map(Replica::broker)
-            .collect(Collectors.groupingBy(NodeInfo::id, Collectors.reducing((x, y) -> x)))
+            .collect(Collectors.groupingBy(Broker::id, Collectors.reducing((x, y) -> x)))
             .values()
             .stream()
             .flatMap(Optional::stream)
@@ -100,7 +100,7 @@ public class ClusterInfoTest {
         Replica.builder()
             .topic("topic")
             .partition(0)
-            .broker(NodeInfo.of(0, "", -1))
+            .broker(Broker.of(0, "", -1))
             .path("f")
             .buildLeader();
     Assertions.assertThrows(Exception.class, () -> cluster.replicas().add(replica));

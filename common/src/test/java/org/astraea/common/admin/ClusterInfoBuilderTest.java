@@ -31,9 +31,9 @@ class ClusterInfoBuilderTest {
 
   @Test
   void testBuild() {
-    var host1000 = NodeInfo.of(1000, "host1000", 9092);
-    var host2000 = NodeInfo.of(2000, "host2000", 9092);
-    var host3000 = NodeInfo.of(3000, "host3000", 9092);
+    var host1000 = Broker.of(1000, "host1000", 9092);
+    var host2000 = Broker.of(2000, "host2000", 9092);
+    var host3000 = Broker.of(3000, "host3000", 9092);
     var replica =
         Replica.builder()
             .topic("MyTopic")
@@ -59,7 +59,7 @@ class ClusterInfoBuilderTest {
     Assertions.assertEquals(
         Set.of(1, 2, 3, 4, 5, 100),
         ClusterInfo.builder().addNode(Set.of(1, 2, 3, 4, 5, 100)).build().nodes().stream()
-            .map(NodeInfo::id)
+            .map(Broker::id)
             .collect(Collectors.toSet()));
     Assertions.assertEquals(
         ClusterInfo.builder().addNode(Set.of(1, 2, 3)).build().nodes(),
@@ -332,9 +332,9 @@ class ClusterInfoBuilderTest {
         "300, host3, 3000",
       })
   void testFakeBrokerInteraction(int id, String host, int port) {
-    var node0 = ClusterInfoBuilder.FakeBroker.of(id, host, port, List.of());
-    var node1 = NodeInfo.of(id, host, port);
-    var node2 = NodeInfo.of(id + 1, host, port);
+    var node0 = ClusterInfoBuilder.fakeBroker(id, host, port, List.of());
+    var node1 = Broker.of(id, host, port);
+    var node2 = Broker.of(id + 1, host, port);
 
     Assertions.assertEquals(node0.hashCode(), node1.hashCode());
     Assertions.assertNotEquals(node0.hashCode(), node2.hashCode());

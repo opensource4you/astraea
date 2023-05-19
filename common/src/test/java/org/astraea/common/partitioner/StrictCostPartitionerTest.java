@@ -25,9 +25,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.BrokerInputCost;
@@ -106,7 +106,7 @@ public class StrictCostPartitionerTest {
 
   @Test
   void testSingleBroker() {
-    var nodeInfo = NodeInfo.of(10, "host", 11111);
+    var nodeInfo = Broker.of(10, "host", 11111);
     var replicaInfo =
         Replica.builder()
             .topic("topic")
@@ -138,14 +138,14 @@ public class StrictCostPartitionerTest {
             .topic("topic")
             .partition(0)
             .path("/tmp/aa")
-            .broker(NodeInfo.of(10, "host", 11111))
+            .broker(Broker.of(10, "host", 11111))
             .buildLeader();
     var replicaInfo1 =
         Replica.builder()
             .topic("topic")
             .partition(0)
             .path("/tmp/aa")
-            .broker(NodeInfo.of(12, "host2", 11111))
+            .broker(Broker.of(12, "host2", 11111))
             .buildLeader();
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(
@@ -192,14 +192,14 @@ public class StrictCostPartitionerTest {
               .topic("topic")
               .partition(partitionId)
               .path("/tmp/aa")
-              .broker(NodeInfo.of(brokerId, "host", 11111))
+              .broker(Broker.of(brokerId, "host", 11111))
               .buildLeader();
       var replicaInfo1 =
           Replica.builder()
               .topic("topic")
               .partition(1)
               .path("/tmp/aa")
-              .broker(NodeInfo.of(1111, "host2", 11111))
+              .broker(Broker.of(1111, "host2", 11111))
               .buildLeader();
       Assertions.assertEquals(
           partitionId,

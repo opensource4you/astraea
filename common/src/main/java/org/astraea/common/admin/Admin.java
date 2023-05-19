@@ -165,11 +165,6 @@ public interface Admin extends AutoCloseable {
   CompletionStage<List<Partition>> partitions(Set<String> topics);
 
   /**
-   * @return online node information
-   */
-  CompletionStage<List<NodeInfo>> nodeInfos();
-
-  /**
    * @return online broker information
    */
   CompletionStage<List<Broker>> brokers();

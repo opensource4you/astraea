@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.Argument;
@@ -143,7 +142,7 @@ public class ReplicaNodeTest {
     var topic = Utils.randomString();
     var partition = 0;
     var leaderSize = 100;
-    var nodes = List.of(NodeInfo.of(0, "aa", 0), NodeInfo.of(1, "aa", 0), NodeInfo.of(2, "aa", 0));
+    var nodes = List.of(Broker.of(0, "aa", 0), Broker.of(1, "aa", 0), Broker.of(2, "aa", 0));
     var replicas =
         List.of(
             Replica.builder()

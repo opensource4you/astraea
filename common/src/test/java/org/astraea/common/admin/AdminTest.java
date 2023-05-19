@@ -345,7 +345,7 @@ public class AdminTest {
               .toCompletableFuture()
               .join());
 
-      Assertions.assertInstanceOf(List.class, admin.nodeInfos().toCompletableFuture().join());
+      Assertions.assertInstanceOf(List.class, admin.brokers().toCompletableFuture().join());
 
       var brokers = admin.brokers().toCompletableFuture().join();
       Assertions.assertEquals(
@@ -854,10 +854,10 @@ public class AdminTest {
       Assertions.assertTrue(config.raw().containsValue("lz4"));
       Assertions.assertEquals(
           List.of(0, 2),
-          partitions.get(0).replicas().stream().map(NodeInfo::id).collect(Collectors.toList()));
+          partitions.get(0).replicas().stream().map(Broker::id).collect(Collectors.toList()));
       Assertions.assertEquals(
           List.of(2, 1),
-          partitions.get(1).replicas().stream().map(NodeInfo::id).collect(Collectors.toList()));
+          partitions.get(1).replicas().stream().map(Broker::id).collect(Collectors.toList()));
       Assertions.assertEquals(0, partitions.get(0).leader().get().id());
       Assertions.assertEquals(2, partitions.get(1).leader().get().id());
     }

@@ -110,10 +110,10 @@ public class AdminWithOfflineBrokerTest {
   @Test
   void testNodeInfos() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var nodeInfos = admin.nodeInfos().toCompletableFuture().join();
+      var nodeInfos = admin.brokers().toCompletableFuture().join();
       Assertions.assertEquals(2, nodeInfos.size());
       var offlineNodeInfos =
-          nodeInfos.stream().filter(NodeInfo::offline).collect(Collectors.toList());
+          nodeInfos.stream().filter(Broker::offline).collect(Collectors.toList());
       Assertions.assertEquals(0, offlineNodeInfos.size());
     }
   }
@@ -128,7 +128,7 @@ public class AdminWithOfflineBrokerTest {
           b ->
               b.dataFolders()
                   .forEach(d -> Assertions.assertEquals(0, d.orphanPartitionSizes().size())));
-      var offlineBrokers = brokers.stream().filter(NodeInfo::offline).collect(Collectors.toList());
+      var offlineBrokers = brokers.stream().filter(Broker::offline).collect(Collectors.toList());
       Assertions.assertEquals(0, offlineBrokers.size());
     }
   }

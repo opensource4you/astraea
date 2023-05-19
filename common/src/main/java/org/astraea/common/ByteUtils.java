@@ -26,11 +26,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Config;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
@@ -330,8 +328,7 @@ public final class ByteUtils {
       return ClusterInfo.of(
           outerClusterInfo.getClusterId(),
           outerClusterInfo.getNodeInfoList().stream()
-              .map(
-                  nodeInfo -> Broker.of(nodeInfo.getId(), nodeInfo.getHost(), nodeInfo.getPort()))
+              .map(nodeInfo -> Broker.of(nodeInfo.getId(), nodeInfo.getHost(), nodeInfo.getPort()))
               .collect(Collectors.toList()),
           outerClusterInfo.getTopicList().stream()
               .map(

@@ -79,8 +79,7 @@ public class ClusterInfoWithOfflineNodeTest {
           after.availableReplicas(topicName).stream()
               .allMatch(x -> x.broker().id() != brokerToClose));
       Assertions.assertTrue(
-          after.replicaLeaders(topicName).stream()
-              .allMatch(x -> x.broker().id() != brokerToClose));
+          after.replicaLeaders(topicName).stream().allMatch(x -> x.broker().id() != brokerToClose));
       Assertions.assertTrue(
           after.replicas(topicName).stream()
               .filter(Replica::isOffline)

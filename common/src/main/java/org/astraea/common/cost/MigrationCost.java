@@ -22,8 +22,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Broker;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 
 public class MigrationCost {

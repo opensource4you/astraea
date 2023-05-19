@@ -330,7 +330,7 @@ public class ClusterInfoBuilder {
   }
 
   static Broker fakeBroker(int Id, String host, int port, List<Broker.DataFolder> dataFolders) {
-    return new Broker(Id, host, port, false, new Config(Map.of()), dataFolders, Set.of(), Set.of());
+    return new Broker(Id, host, port, false, Config.EMPTY, dataFolders, Set.of(), Set.of());
   }
 
   private static Broker.DataFolder fakeDataFolder(String path) {

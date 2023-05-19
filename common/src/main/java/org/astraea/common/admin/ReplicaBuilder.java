@@ -313,7 +313,7 @@ public class ReplicaBuilder {
       return Objects.hash(
           topic,
           partition,
-              broker,
+          broker,
           lag,
           size,
           internal,

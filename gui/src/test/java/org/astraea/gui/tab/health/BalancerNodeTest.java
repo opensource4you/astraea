@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
@@ -104,8 +103,7 @@ class BalancerNodeTest {
   void testResult() {
     var topic = Utils.randomString();
     var leaderSize = 100;
-    var allNodes =
-        List.of(NodeInfo.of(0, "aa", 0), NodeInfo.of(1, "aa", 0), NodeInfo.of(3, "aa", 0));
+    var allNodes = List.of(Broker.of(0, "aa", 0), Broker.of(1, "aa", 0), Broker.of(3, "aa", 0));
     var beforeReplicas =
         List.of(
             Replica.builder()

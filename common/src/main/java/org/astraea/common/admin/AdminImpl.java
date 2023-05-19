@@ -445,13 +445,6 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<List<NodeInfo>> nodeInfos() {
-    return to(kafkaAdmin.describeCluster().nodes())
-        .thenApply(
-            nodes -> nodes.stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()));
-  }
-
-  @Override
   public CompletionStage<List<Broker>> brokers() {
     return clusterIdAndBrokers().thenApply(Map.Entry::getValue);
   }
@@ -634,10 +627,7 @@ class AdminImpl implements Admin {
           var topicMap =
               topicList.stream().collect(Collectors.toUnmodifiableMap(Topic::name, t -> t));
           return ClusterInfo.of(
-              clusterIdAndBrokers.getKey(),
-              clusterIdAndBrokers.getValue(),
-              topicMap,
-              replicas);
+              clusterIdAndBrokers.getKey(), clusterIdAndBrokers.getValue(), topicMap, replicas);
         });
   }
 

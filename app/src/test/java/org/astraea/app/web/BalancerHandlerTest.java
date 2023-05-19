@@ -58,8 +58,8 @@ import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.AlgorithmConfig;
@@ -229,13 +229,13 @@ public class BalancerHandlerTest {
       var currentClusterInfo =
           ClusterInfo.of(
               "fake",
-              List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
+              List.of(Broker.of(10, "host", 22), Broker.of(11, "host", 22)),
               Map.of(),
               List.of(
                   Replica.builder()
                       .topic("topic")
                       .partition(0)
-                      .broker(NodeInfo.of(10, "host", 22))
+                      .broker(Broker.of(10, "host", 22))
                       .lag(0)
                       .size(100)
                       .isLeader(true)
@@ -1354,7 +1354,7 @@ public class BalancerHandlerTest {
                         brokers.stream()
                             .collect(
                                 Collectors.toUnmodifiableMap(
-                                    NodeInfo::id,
+                                    Broker::id,
                                     b ->
                                         JndiClient.of(b.host(), brokerIdToJmxPort.apply(b.id())))));
     var cf = Utils.costFunctions(costFunctions, HasClusterCost.class, Configuration.EMPTY);

@@ -29,8 +29,8 @@ import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.MBeanRegister;
 import org.junit.jupiter.api.Assertions;
@@ -53,9 +53,9 @@ public class StrictCostPartitionerPerfTest {
 
   @Test
   void test() {
-    var node0 = NodeInfo.of(0, "node0", 2222);
-    var node1 = NodeInfo.of(1, "node1", 2222);
-    var node2 = NodeInfo.of(2, "node2", 2222);
+    var node0 = Broker.of(0, "node0", 2222);
+    var node1 = Broker.of(1, "node1", 2222);
+    var node2 = Broker.of(2, "node2", 2222);
     var clusterInfo =
         ClusterInfo.of(
             "fake",

@@ -22,8 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Broker;
+import org.astraea.common.admin.ClusterInfo;
 
 public class RoundRobinKeeper {
   private final AtomicInteger next = new AtomicInteger(0);

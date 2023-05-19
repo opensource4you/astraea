@@ -340,8 +340,7 @@ public interface ClusterInfo {
   }
 
   default Stream<Replica> replicaStream(BrokerTopic brokerTopic) {
-    return replicaStream(brokerTopic.topic())
-        .filter(r -> r.broker().id() == brokerTopic.broker());
+    return replicaStream(brokerTopic.topic()).filter(r -> r.broker().id() == brokerTopic.broker());
   }
 
   default Stream<Replica> replicaStream(TopicPartition partition) {

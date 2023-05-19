@@ -22,8 +22,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
-import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Broker;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
 

@@ -38,7 +38,6 @@ import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
-import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
@@ -378,8 +377,7 @@ public class BrokerNode {
                             var unset =
                                 brokers.stream()
                                     .collect(
-                                        Collectors.toMap(
-                                            Broker::id, b -> input.emptyValueKeys()));
+                                        Collectors.toMap(Broker::id, b -> input.emptyValueKeys()));
                             var set =
                                 brokers.stream()
                                     .collect(
