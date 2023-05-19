@@ -36,7 +36,7 @@ public class ClusterInfoBuilder {
 
   private final ClusterInfo sourceCluster;
   private final List<
-          BiFunction<List<NodeInfo>, List<Replica>, Map.Entry<List<NodeInfo>, List<Replica>>>>
+          BiFunction<List<Broker>, List<Replica>, Map.Entry<List<Broker>, List<Replica>>>>
       alterations;
 
   ClusterInfoBuilder(ClusterInfo source) {
@@ -51,7 +51,7 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder applyNodes(
-      BiFunction<List<NodeInfo>, List<Replica>, List<NodeInfo>> alteration) {
+      BiFunction<List<Broker>, List<Replica>, List<Broker>> alteration) {
     this.alterations.add(
         (nodes, replicas) -> Map.entry(alteration.apply(nodes, replicas), replicas));
     return this;
@@ -64,7 +64,7 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder applyReplicas(
-      BiFunction<List<NodeInfo>, List<Replica>, List<Replica>> alteration) {
+      BiFunction<List<Broker>, List<Replica>, List<Replica>> alteration) {
     this.alterations.add((nodes, replicas) -> Map.entry(nodes, alteration.apply(nodes, replicas)));
     return this;
   }
@@ -108,14 +108,15 @@ public class ClusterInfoBuilder {
               .map(
                   node -> {
                     if (folders.containsKey(node.id()))
-                      return FakeBroker.of(
+                      return fakeBroker(
                           node.id(),
                           node.host(),
                           node.port(),
                           Stream.concat(
                                   ((Broker) node).dataFolders().stream(),
-                                  folders.get(node.id()).stream().map(FakeDataFolder::of))
-                              .collect(Collectors.toUnmodifiableList()));
+                                  folders.get(node.id()).stream()
+                                      .map(ClusterInfoBuilder::fakeDataFolder))
+                              .toList());
                     else return node;
                   })
               .collect(Collectors.toUnmodifiableList());
@@ -172,7 +173,7 @@ public class ClusterInfoBuilder {
                                               Broker.DataFolder::path, x -> new AtomicInteger()))));
           replicas.forEach(
               replica ->
-                  folderLogCounter.get(replica.nodeInfo()).get(replica.path()).incrementAndGet());
+                  folderLogCounter.get(replica.broker()).get(replica.path()).incrementAndGet());
 
           folderLogCounter.forEach(
               (node, folders) -> {
@@ -202,7 +203,7 @@ public class ClusterInfoBuilder {
                                     return Replica.builder()
                                         .topic(tp.topic())
                                         .partition(tp.partition())
-                                        .nodeInfo(broker)
+                                        .broker(broker)
                                         .isAdding(false)
                                         .isRemoving(false)
                                         .lag(0)
@@ -259,7 +260,7 @@ public class ClusterInfoBuilder {
                       r -> {
                         if (r.topicPartitionReplica().equals(replica)) {
                           matched.set(true);
-                          return Replica.builder(r).nodeInfo(newNode).path(toDir).build();
+                          return Replica.builder(r).broker(newNode).path(toDir).build();
                         } else {
                           return r;
                         }
@@ -325,90 +326,14 @@ public class ClusterInfoBuilder {
     var port = new Random(brokerId).nextInt(65535) + 1;
     var folders = List.<Broker.DataFolder>of();
 
-    return FakeBroker.of(brokerId, host, port, folders);
+    return fakeBroker(brokerId, host, port, folders);
   }
 
-  interface FakeBroker extends Broker {
-
-    static FakeBroker of(int id, String host, int port, List<DataFolder> folders) {
-      var hashCode = Objects.hash(id, host, port);
-      return new FakeBroker() {
-        @Override
-        public List<DataFolder> dataFolders() {
-          return folders;
-        }
-
-        @Override
-        public String host() {
-          return host;
-        }
-
-        @Override
-        public int port() {
-          return port;
-        }
-
-        @Override
-        public int id() {
-          return id;
-        }
-
-        @Override
-        public String toString() {
-          return "FakeNodeInfo{" + "host=" + host() + ", id=" + id() + ", port=" + port() + '}';
-        }
-
-        @Override
-        public int hashCode() {
-          return hashCode;
-        }
-
-        @Override
-        public boolean equals(Object other) {
-          if (other instanceof NodeInfo) {
-            var node = (NodeInfo) other;
-            return id() == node.id() && port() == node.port() && host().equals(node.host());
-          }
-          return false;
-        }
-      };
-    }
-
-    @Override
-    default boolean isController() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default Config config() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default Set<TopicPartition> topicPartitions() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default Set<TopicPartition> topicPartitionLeaders() {
-      throw new UnsupportedOperationException();
-    }
+  static Broker fakeBroker(int Id, String host, int port, List<Broker.DataFolder> dataFolders) {
+    return new Broker(Id, host, port, false, new Config(Map.of()), dataFolders, Set.of(), Set.of());
   }
 
-  interface FakeDataFolder extends Broker.DataFolder {
-
-    static FakeDataFolder of(String path) {
-      return () -> path;
-    }
-
-    @Override
-    default Map<TopicPartition, Long> partitionSizes() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    default Map<TopicPartition, Long> orphanPartitionSizes() {
-      throw new UnsupportedOperationException();
-    }
+  private static Broker.DataFolder fakeDataFolder(String path) {
+    return new Broker.DataFolder(path, Map.of(), Map.of());
   }
 }

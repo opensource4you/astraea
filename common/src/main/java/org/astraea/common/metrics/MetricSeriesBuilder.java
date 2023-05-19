@@ -28,7 +28,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.function.Bi3Function;
@@ -131,7 +131,7 @@ public interface MetricSeriesBuilder {
               cluster.nodes().stream()
                   .collect(
                       Collectors.toUnmodifiableMap(
-                          NodeInfo::id,
+                          Broker::id,
                           node ->
                               Stream.iterate(
                                       start,
@@ -162,7 +162,7 @@ public interface MetricSeriesBuilder {
               cluster.nodes().stream()
                   .collect(
                       Collectors.toUnmodifiableMap(
-                          NodeInfo::id,
+                          Broker::id,
                           node ->
                               Stream.iterate(
                                       start,
@@ -192,7 +192,7 @@ public interface MetricSeriesBuilder {
               cluster.nodes().stream()
                   .collect(
                       Collectors.toUnmodifiableMap(
-                          NodeInfo::id,
+                          Broker::id,
                           node ->
                               Stream.iterate(
                                       start,

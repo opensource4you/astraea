@@ -167,7 +167,7 @@ class ShuffleTweakerTest {
         Replica.builder()
             .topic("topic")
             .partition(0)
-            .nodeInfo(nodeA)
+            .broker(nodeA)
             .lag(0)
             .size(0)
             .isLeader(false)
@@ -185,8 +185,8 @@ class ShuffleTweakerTest {
                     .isLeader(true)
                     .isPreferredLeader(true)
                     .build(),
-                Replica.builder(base).topic("normal-topic").nodeInfo(nodeB).build(),
-                Replica.builder(base).topic("normal-topic").nodeInfo(nodeC).build(),
+                Replica.builder(base).topic("normal-topic").broker(nodeB).build(),
+                Replica.builder(base).topic("normal-topic").broker(nodeC).build(),
                 Replica.builder(base)
                     .topic("offline-single")
                     .isPreferredLeader(true)
@@ -195,10 +195,10 @@ class ShuffleTweakerTest {
                 Replica.builder(base)
                     .topic("no-leader")
                     .isPreferredLeader(true)
-                    .nodeInfo(nodeA)
+                    .broker(nodeA)
                     .build(),
-                Replica.builder(base).topic("no-leader").nodeInfo(nodeB).build(),
-                Replica.builder(base).topic("no-leader").nodeInfo(nodeC).build()));
+                Replica.builder(base).topic("no-leader").broker(nodeB).build(),
+                Replica.builder(base).topic("no-leader").broker(nodeC).build()));
     shuffleTweaker
         .generate(allocation)
         .limit(30)

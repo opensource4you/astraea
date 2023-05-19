@@ -23,7 +23,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.Replica;
 
 public class MigrationCost {
@@ -107,11 +107,11 @@ public class MigrationCost {
                 })
             .collect(
                 Collectors.groupingBy(
-                    r -> r.nodeInfo().id(),
+                    r -> r.broker().id(),
                     Collectors.mapping(
                         Function.identity(), Collectors.summingLong(replicaFunction::apply))));
     return Stream.concat(dest.nodes().stream(), source.nodes().stream())
-        .map(NodeInfo::id)
+        .map(Broker::id)
         .distinct()
         .parallel()
         .collect(Collectors.toMap(Function.identity(), n -> cost.getOrDefault(n, 0L)));
@@ -119,7 +119,7 @@ public class MigrationCost {
 
   private static Map<Integer, Long> changedReplicaNumber(ClusterInfo before, ClusterInfo after) {
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
-        .map(NodeInfo::id)
+        .map(Broker::id)
         .distinct()
         .parallel()
         .collect(

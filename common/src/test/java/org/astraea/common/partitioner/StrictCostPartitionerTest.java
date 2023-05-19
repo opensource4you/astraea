@@ -112,7 +112,7 @@ public class StrictCostPartitionerTest {
             .topic("topic")
             .partition(10)
             .path("/tmp/aa")
-            .nodeInfo(nodeInfo)
+            .broker(nodeInfo)
             .buildLeader();
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(Configuration.EMPTY);
@@ -138,14 +138,14 @@ public class StrictCostPartitionerTest {
             .topic("topic")
             .partition(0)
             .path("/tmp/aa")
-            .nodeInfo(NodeInfo.of(10, "host", 11111))
+            .broker(NodeInfo.of(10, "host", 11111))
             .buildLeader();
     var replicaInfo1 =
         Replica.builder()
             .topic("topic")
             .partition(0)
             .path("/tmp/aa")
-            .nodeInfo(NodeInfo.of(12, "host2", 11111))
+            .broker(NodeInfo.of(12, "host2", 11111))
             .buildLeader();
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(
@@ -192,14 +192,14 @@ public class StrictCostPartitionerTest {
               .topic("topic")
               .partition(partitionId)
               .path("/tmp/aa")
-              .nodeInfo(NodeInfo.of(brokerId, "host", 11111))
+              .broker(NodeInfo.of(brokerId, "host", 11111))
               .buildLeader();
       var replicaInfo1 =
           Replica.builder()
               .topic("topic")
               .partition(1)
               .path("/tmp/aa")
-              .nodeInfo(NodeInfo.of(1111, "host2", 11111))
+              .broker(NodeInfo.of(1111, "host2", 11111))
               .buildLeader();
       Assertions.assertEquals(
           partitionId,

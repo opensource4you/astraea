@@ -113,7 +113,7 @@ class BalancerNodeTest {
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(allNodes.get(0))
+                .broker(allNodes.get(0))
                 .size(leaderSize)
                 .path("/tmp/aaa")
                 .build(),
@@ -122,7 +122,7 @@ class BalancerNodeTest {
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(allNodes.get(1))
+                .broker(allNodes.get(1))
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
@@ -133,7 +133,7 @@ class BalancerNodeTest {
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(allNodes.get(2))
+                .broker(allNodes.get(2))
                 .size(leaderSize)
                 .path("/tmp/ddd")
                 .build(),
@@ -142,7 +142,7 @@ class BalancerNodeTest {
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
-                .nodeInfo(allNodes.get(1))
+                .broker(allNodes.get(1))
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());

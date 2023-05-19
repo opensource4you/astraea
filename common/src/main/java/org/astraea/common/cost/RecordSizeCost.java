@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
 
@@ -46,7 +46,7 @@ public class RecordSizeCost
         clusterInfo.nodes().stream()
             .collect(
                 Collectors.toMap(
-                    NodeInfo::id,
+                    Broker::id,
                     n -> clusterInfo.replicaStream(n.id()).mapToDouble(Replica::size).sum()));
     return () -> result;
   }

@@ -187,7 +187,7 @@ public interface Admin extends AutoCloseable {
                 brokers.stream()
                     .collect(
                         Collectors.toMap(
-                            NodeInfo::id,
+                            Broker::id,
                             n ->
                                 n.dataFolders().stream()
                                     .map(Broker.DataFolder::path)

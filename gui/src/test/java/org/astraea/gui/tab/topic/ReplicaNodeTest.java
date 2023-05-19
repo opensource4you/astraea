@@ -124,7 +124,7 @@ public class ReplicaNodeTest {
               .join()
               .replicas()
               .get(0)
-              .nodeInfo()
+              .broker()
               .id());
       Assertions.assertEquals(
           path,
@@ -150,7 +150,7 @@ public class ReplicaNodeTest {
                 .isLeader(true)
                 .topic(topic)
                 .partition(partition)
-                .nodeInfo(nodes.get(0))
+                .broker(nodes.get(0))
                 .size(leaderSize)
                 .path("/tmp/aaa")
                 .build(),
@@ -158,14 +158,14 @@ public class ReplicaNodeTest {
                 .isLeader(false)
                 .topic(topic)
                 .partition(partition)
-                .nodeInfo(nodes.get(1))
+                .broker(nodes.get(1))
                 .size(20)
                 .build(),
             Replica.builder()
                 .isLeader(false)
                 .topic(topic)
                 .partition(partition)
-                .nodeInfo(nodes.get(2))
+                .broker(nodes.get(2))
                 .size(30)
                 .build());
     var results = ReplicaNode.allResult(ClusterInfo.of("fake", nodes, Map.of(), replicas));

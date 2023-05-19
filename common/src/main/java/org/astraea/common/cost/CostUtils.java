@@ -20,7 +20,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.Replica;
 
 final class CostUtils {
@@ -33,7 +33,7 @@ final class CostUtils {
     var totalAddedSize = 0L;
     for (var id :
         Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
+            .map(Broker::id)
             .parallel()
             .collect(Collectors.toSet())) {
       var removed =

@@ -74,28 +74,28 @@ class ReplicaLeaderSizeCostTest {
                 .topic("t")
                 .partition(10)
                 .isLeader(true)
-                .nodeInfo(NodeInfo.of(0, "", -1))
+                .broker(NodeInfo.of(0, "", -1))
                 .size(777)
                 .build(),
             Replica.builder()
                 .topic("t")
                 .partition(11)
                 .isLeader(true)
-                .nodeInfo(NodeInfo.of(1, "", -1))
+                .broker(NodeInfo.of(1, "", -1))
                 .size(700)
                 .build(),
             Replica.builder()
                 .topic("t")
                 .partition(12)
                 .isLeader(true)
-                .nodeInfo(NodeInfo.of(2, "", -1))
+                .broker(NodeInfo.of(2, "", -1))
                 .size(500)
                 .build(),
             Replica.builder()
                 .topic("t")
                 .partition(12)
                 .isLeader(false)
-                .nodeInfo(NodeInfo.of(0, "", -1))
+                .broker(NodeInfo.of(0, "", -1))
                 .size(499)
                 .build());
     return ClusterInfo.of(

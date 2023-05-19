@@ -26,6 +26,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Config;
 import org.astraea.common.admin.NodeInfo;
@@ -218,9 +220,9 @@ public final class ByteUtils {
                             .setPartition(replica.partition())
                             .setNodeInfo(
                                 ClusterInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()
-                                    .setId(replica.nodeInfo().id())
-                                    .setHost(replica.nodeInfo().host())
-                                    .setPort(replica.nodeInfo().port())
+                                    .setId(replica.broker().id())
+                                    .setHost(replica.broker().host())
+                                    .setPort(replica.broker().port())
                                     .build())
                             .setLag(replica.lag())
                             .setSize(replica.size())
@@ -320,6 +322,7 @@ public final class ByteUtils {
     }
   }
 
+  // TODO: change NodeInfo to Broker. Some information has not yet been serialized.
   /** Deserialize to ClusterInfo with protocol buffer */
   public static ClusterInfo readClusterInfo(byte[] bytes) {
     try {
@@ -328,7 +331,7 @@ public final class ByteUtils {
           outerClusterInfo.getClusterId(),
           outerClusterInfo.getNodeInfoList().stream()
               .map(
-                  nodeInfo -> NodeInfo.of(nodeInfo.getId(), nodeInfo.getHost(), nodeInfo.getPort()))
+                  nodeInfo -> Broker.of(nodeInfo.getId(), nodeInfo.getHost(), nodeInfo.getPort()))
               .collect(Collectors.toList()),
           outerClusterInfo.getTopicList().stream()
               .map(
@@ -363,8 +366,8 @@ public final class ByteUtils {
                       Replica.builder()
                           .topic(replica.getTopic())
                           .partition(replica.getPartition())
-                          .nodeInfo(
-                              NodeInfo.of(
+                          .broker(
+                              Broker.of(
                                   replica.getNodeInfo().getId(),
                                   replica.getNodeInfo().getHost(),
                                   replica.getNodeInfo().getPort()))

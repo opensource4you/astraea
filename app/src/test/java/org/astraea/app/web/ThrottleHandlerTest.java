@@ -30,6 +30,7 @@ import java.util.stream.IntStream;
 import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicConfigs;
@@ -55,13 +56,13 @@ public class ThrottleHandlerTest {
   public void cleanup() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       admin
-          .nodeInfos()
+          .brokers()
           .thenApply(
               ns ->
                   ns.stream()
                       .collect(
                           Collectors.toMap(
-                              NodeInfo::id,
+                              Broker::id,
                               ignored ->
                                   Set.of(
                                       BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,

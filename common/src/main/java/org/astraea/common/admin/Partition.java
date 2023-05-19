@@ -33,9 +33,9 @@ public record Partition(
     long earliestOffset,
     long latestOffset,
     Optional<Long> maxTimestamp,
-    Optional<NodeInfo> leader,
-    List<NodeInfo> replicas,
-    List<NodeInfo> isr,
+    Optional<Broker> leader,
+    List<Broker> replicas,
+    List<Broker> isr,
     boolean internal) {
 
   public TopicPartition topicPartition() {

@@ -239,7 +239,7 @@ public abstract class BalancerConfigTestSuite {
       source
           .replicaStream()
           // for those replicas that are not allowed to move
-          .filter(r -> !allowedBroker.test(r.nodeInfo().id()))
+          .filter(r -> !allowedBroker.test(r.broker().id()))
           // they should exist as-is in the target allocation
           .forEach(
               fixedReplica -> {

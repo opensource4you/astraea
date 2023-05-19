@@ -79,67 +79,18 @@ public class FakeClusterInfo {
             .mapToObj(nodeId -> NodeInfo.of(nodeId, "host" + nodeId, 9092))
             .map(
                 node ->
-                    new Broker() {
-                      @Override
-                      public boolean isController() {
-                        throw new UnsupportedOperationException();
-                      }
-
-                      @Override
-                      public Config config() {
-                        throw new UnsupportedOperationException();
-                      }
-
-                      @Override
-                      public List<DataFolder> dataFolders() {
-                        return dataDirectories.stream()
-                            .map(
-                                x ->
-                                    new DataFolder() {
-                                      @Override
-                                      public String path() {
-                                        return x;
-                                      }
-
-                                      @Override
-                                      public Map<TopicPartition, Long> partitionSizes() {
-                                        throw new UnsupportedOperationException();
-                                      }
-
-                                      @Override
-                                      public Map<TopicPartition, Long> orphanPartitionSizes() {
-                                        throw new UnsupportedOperationException();
-                                      }
-                                    })
-                            .collect(Collectors.toUnmodifiableList());
-                      }
-
-                      @Override
-                      public Set<TopicPartition> topicPartitions() {
-                        throw new UnsupportedOperationException();
-                      }
-
-                      @Override
-                      public Set<TopicPartition> topicPartitionLeaders() {
-                        throw new UnsupportedOperationException();
-                      }
-
-                      @Override
-                      public String host() {
-                        return node.host();
-                      }
-
-                      @Override
-                      public int port() {
-                        return node.port();
-                      }
-
-                      @Override
-                      public int id() {
-                        return node.id();
-                      }
-                    })
-            .collect(Collectors.toUnmodifiableList());
+                    new Broker(
+                        node.id(),
+                        node.host(),
+                        node.port(),
+                        false,
+                        new Config(Map.of()),
+                        dataDirectories.stream()
+                            .map(path -> new Broker.DataFolder(path, Map.of(), Map.of()))
+                            .toList(),
+                        Set.of(),
+                        Set.of()))
+            .toList();
     final var dataDirectoryList = List.copyOf(dataDirectories);
     final var topics = topicNameGenerator.apply(topicCount);
     final var replicas =
@@ -156,7 +107,7 @@ public class FakeClusterInfo {
                                 Replica.builder()
                                     .topic(tp.topic())
                                     .partition(tp.partition())
-                                    .nodeInfo(nodes.get(r))
+                                    .broker(nodes.get(r))
                                     .lag(0)
                                     .size(-1)
                                     .isLeader(r == 0)

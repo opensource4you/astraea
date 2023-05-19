@@ -60,7 +60,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .nodeInfo()
+              .broker()
               .id();
       var nextBroker =
           SERVICE.dataFolders().keySet().stream().filter(i -> i != currentBroker).findAny().get();
@@ -88,7 +88,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .nodeInfo()
+              .broker()
               .id());
     }
   }
@@ -111,7 +111,7 @@ public class ReassignmentHandlerTest {
               .findFirst()
               .get();
 
-      var currentBroker = currentReplica.nodeInfo().id();
+      var currentBroker = currentReplica.broker().id();
       var currentPath = currentReplica.path();
       var nextPath =
           SERVICE.dataFolders().get(currentBroker).stream()
@@ -170,7 +170,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .nodeInfo()
+              .broker()
               .id();
 
       var body =
@@ -194,7 +194,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .nodeInfo()
+              .broker()
               .id());
       Assertions.assertEquals(
           0,
@@ -221,7 +221,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .nodeInfo()
+              .broker()
               .id();
 
       var body =
@@ -247,7 +247,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .nodeInfo()
+              .broker()
               .id());
       Assertions.assertNotEquals(
           0,

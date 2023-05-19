@@ -45,12 +45,12 @@ public class ReplicaLeaderCostTest {
                 "topic1",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(1)).build())
+                r -> Replica.builder(r).broker(baseCluster.node(1)).build())
             .addTopic(
                 "topic2",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(2)).build())
+                r -> Replica.builder(r).broker(baseCluster.node(2)).build())
             .build();
     var overFlowTargetCluster =
         ClusterInfo.builder(baseCluster)
@@ -58,12 +58,12 @@ public class ReplicaLeaderCostTest {
                 "topic1",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(2)).build())
+                r -> Replica.builder(r).broker(baseCluster.node(2)).build())
             .addTopic(
                 "topic2",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(1)).build())
+                r -> Replica.builder(r).broker(baseCluster.node(1)).build())
             .build();
 
     var overFlowMoveCost =
@@ -87,19 +87,19 @@ public class ReplicaLeaderCostTest {
             Replica.builder()
                 .topic("topic")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(10, "broker0", 1111))
+                .broker(NodeInfo.of(10, "broker0", 1111))
                 .path("/tmp/aa")
                 .buildLeader(),
             Replica.builder()
                 .topic("topic")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(10, "broker0", 1111))
+                .broker(NodeInfo.of(10, "broker0", 1111))
                 .path("/tmp/aa")
                 .buildLeader(),
             Replica.builder()
                 .topic("topic")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(11, "broker1", 1111))
+                .broker(NodeInfo.of(11, "broker1", 1111))
                 .path("/tmp/aa")
                 .buildLeader());
     var clusterInfo =

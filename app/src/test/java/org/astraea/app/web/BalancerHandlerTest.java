@@ -235,7 +235,7 @@ public class BalancerHandlerTest {
                   Replica.builder()
                       .topic("topic")
                       .partition(0)
-                      .nodeInfo(NodeInfo.of(10, "host", 22))
+                      .broker(NodeInfo.of(10, "host", 22))
                       .lag(0)
                       .size(100)
                       .isLeader(true)
@@ -987,7 +987,7 @@ public class BalancerHandlerTest {
                 (short) 10,
                 r ->
                     Replica.builder(r)
-                        .nodeInfo(base.node(srcIter.next()))
+                        .broker(base.node(srcIter.next()))
                         .isPreferredLeader(srcPrefIter.next())
                         .path(srcDirIter.next())
                         .build())
@@ -1003,7 +1003,7 @@ public class BalancerHandlerTest {
                 (short) 10,
                 r ->
                     Replica.builder(r)
-                        .nodeInfo(base.node(dstIter.next()))
+                        .broker(base.node(dstIter.next()))
                         .isPreferredLeader(dstPrefIter.next())
                         .path(dstDirIter.next())
                         .build())
