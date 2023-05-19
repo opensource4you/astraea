@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.gui.Context;
