@@ -47,6 +47,10 @@ public record Broker(
     return new Broker(id, host, port, false, Config.EMPTY, List.of(), Set.of(), Set.of());
   }
 
+  public static Broker of(org.apache.kafka.common.Node node) {
+    return of(node.id(), node.host(), node.port());
+  }
+
   public static Broker of(
       boolean isController,
       org.apache.kafka.common.Node nodeInfo,

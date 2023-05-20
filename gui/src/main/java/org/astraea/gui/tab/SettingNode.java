@@ -149,7 +149,7 @@ public class SettingNode {
                                   .url(Utils.packException(() -> new URL("http://" + url)))
                                   .build());
                   return FutureUtils.combine(
-                      newAdmin.nodeInfos(),
+                      newAdmin.brokers(),
                       client
                           .map(ConnectorClient::activeWorkers)
                           .orElse(CompletableFuture.completedFuture(List.of())),

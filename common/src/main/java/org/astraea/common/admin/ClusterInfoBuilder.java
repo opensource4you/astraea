@@ -113,7 +113,7 @@ public class ClusterInfoBuilder {
                           node.host(),
                           node.port(),
                           Stream.concat(
-                                  ((Broker) node).dataFolders().stream(),
+                                  node.dataFolders().stream(),
                                   folders.get(node.id()).stream()
                                       .map(ClusterInfoBuilder::fakeDataFolder))
                               .toList());

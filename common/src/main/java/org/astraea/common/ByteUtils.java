@@ -181,6 +181,7 @@ public final class ByteUtils {
     return beanBuilder.build().toByteArray();
   }
 
+  // TODO: Due to the change of NodeInfo to Broker. This and the test should be updated.
   /** Serialize ClusterInfo by protocol buffer. */
   public static byte[] toBytes(ClusterInfo value) {
     return ClusterInfoOuterClass.ClusterInfo.newBuilder()
@@ -320,7 +321,7 @@ public final class ByteUtils {
     }
   }
 
-  // TODO: change NodeInfo to Broker. Some information has not yet been serialized.
+  // TODO: Due to the change of NodeInfo to Broker. This and the test should be updated.
   /** Deserialize to ClusterInfo with protocol buffer */
   public static ClusterInfo readClusterInfo(byte[] bytes) {
     try {

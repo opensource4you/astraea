@@ -60,6 +60,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Config;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.AlgorithmConfig;
@@ -229,7 +230,25 @@ public class BalancerHandlerTest {
       var currentClusterInfo =
           ClusterInfo.of(
               "fake",
-              List.of(Broker.of(10, "host", 22), Broker.of(11, "host", 22)),
+              List.of(
+                  new Broker(
+                      10,
+                      "host",
+                      22,
+                      false,
+                      Config.EMPTY,
+                      List.of(new Broker.DataFolder("", Map.of(), Map.of())),
+                      Set.of(),
+                      Set.of()),
+                  new Broker(
+                      11,
+                      "host",
+                      22,
+                      false,
+                      Config.EMPTY,
+                      List.of(new Broker.DataFolder("", Map.of(), Map.of())),
+                      Set.of(),
+                      Set.of())),
               Map.of(),
               List.of(
                   Replica.builder()
