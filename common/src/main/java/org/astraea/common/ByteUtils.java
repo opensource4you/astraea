@@ -17,6 +17,7 @@
 package org.astraea.common;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Timestamp;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
@@ -178,6 +179,10 @@ public final class ByteUtils {
                 // Bean attribute may contain non-primitive value. e.g. TimeUnit, Byte.
               }
             });
+    beanBuilder.setCreatedTimestamp(
+        Timestamp.newBuilder()
+            .setSeconds(value.createdTimestamp() / 1000)
+            .setNanos((int) (value.createdTimestamp() % 1000) * 1000000));
     return beanBuilder.build().toByteArray();
   }
 
@@ -314,7 +319,9 @@ public final class ByteUtils {
           outerBean.getAttributesMap().entrySet().stream()
               .collect(
                   Collectors.toUnmodifiableMap(
-                      Map.Entry::getKey, e -> Objects.requireNonNull(toObject(e.getValue())))));
+                      Map.Entry::getKey, e -> Objects.requireNonNull(toObject(e.getValue())))),
+          outerBean.getCreatedTimestamp().getSeconds() * 1000
+              + outerBean.getCreatedTimestamp().getNanos() / 1000000);
     } catch (InvalidProtocolBufferException ex) {
       // Pack exception thrown by protoBuf to Serialization exception.
       throw new SerializationException(ex);

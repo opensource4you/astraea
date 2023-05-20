@@ -194,10 +194,7 @@ public class BalancerHandlerTest {
                 .join();
             if (skewed) {
               Utils.sleep(Duration.ofSeconds(1));
-              var placement =
-                  service.dataFolders().keySet().stream()
-                      .limit(replicas)
-                      .collect(Collectors.toUnmodifiableList());
+              var placement = service.dataFolders().keySet().stream().limit(replicas).toList();
               admin
                   .moveToBrokers(
                       admin.topicPartitions(Set.of(topic)).toCompletableFuture().join().stream()
@@ -974,13 +971,13 @@ public class BalancerHandlerTest {
             .mapToObj(partition -> Map.entry(ThreadLocalRandom.current().nextInt(), partition))
             .sorted(Map.Entry.comparingByKey())
             .map(Map.Entry::getValue)
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     var destPlacement =
         IntStream.range(0, 10)
             .mapToObj(partition -> Map.entry(ThreadLocalRandom.current().nextInt(), partition))
             .sorted(Map.Entry.comparingByKey())
             .map(Map.Entry::getValue)
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     var base =
         ClusterInfo.builder()
             .addNode(Set.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9))

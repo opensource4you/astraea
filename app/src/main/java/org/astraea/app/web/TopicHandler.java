@@ -116,7 +116,7 @@ class TopicHandler implements Handler {
                                           .filter(replica -> replica.topic().equals(p.topic()))
                                           .filter(replica -> replica.partition() == p.partition())
                                           .map(Replica::new)
-                                          .collect(Collectors.toUnmodifiableList())),
+                                          .toList()),
                               Collectors.toList())));
           // topic name -> group ids
           var gs =
@@ -149,7 +149,7 @@ class TopicHandler implements Handler {
                               gs.getOrDefault(topic.name(), Set.of()),
                               ps.get(topic.name()),
                               topic.config().raw()))
-                  .collect(Collectors.toUnmodifiableList()));
+                  .toList());
         });
   }
 
@@ -190,14 +190,14 @@ class TopicHandler implements Handler {
                           .thenApply(ignored -> null)
                           .toCompletableFuture();
                     })
-                .collect(Collectors.toList()))
+                .toList())
         .thenCompose(ignored -> get(topicNames, null, id -> true))
         .exceptionally(
             ignored ->
                 new Topics(
                     topicNames.stream()
                         .map(t -> new TopicInfo(t, Set.of(), List.of(), Map.of()))
-                        .collect(Collectors.toUnmodifiableList())));
+                        .toList()));
   }
 
   @Override

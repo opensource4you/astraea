@@ -159,7 +159,7 @@ interface Channel {
               Arrays.stream(uri.getPath().split("/"))
                   .map(String::trim)
                   .filter(s -> !s.isEmpty())
-                  .collect(Collectors.toUnmodifiableList());
+                  .toList();
           // form: /resource/target
           if (allPaths.size() == 1) return Optional.empty();
           else if (allPaths.size() == 2) return Optional.of(allPaths.get(1));

@@ -17,7 +17,6 @@
 package org.astraea.app.web;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 import java.time.Duration;
 import java.util.Base64;
@@ -163,8 +162,7 @@ public class RecordHandler implements Handler {
   // visible for testing
   GetResponse get(Consumer<byte[], byte[]> consumer, int limit, Duration timeout) {
     try {
-      return new GetResponse(
-          consumer, consumer.poll(timeout).stream().map(Record::new).collect(toList()));
+      return new GetResponse(consumer, consumer.poll(timeout).stream().map(Record::new).toList());
     } catch (Exception e) {
       consumer.close();
       throw e;
@@ -190,9 +188,7 @@ public class RecordHandler implements Handler {
                 () -> {
                   try {
                     return producer.send(
-                        records.stream()
-                            .map(record -> createRecord(producer, record))
-                            .collect(toList()));
+                        records.stream().map(record -> createRecord(producer, record)).toList());
                   } finally {
                     if (producer.transactional()) {
                       producer.close();
@@ -214,7 +210,7 @@ public class RecordHandler implements Handler {
                                           return Response.for404("missing result");
                                         }))
                             .map(CompletionStage::toCompletableFuture)
-                            .collect(toList())));
+                            .toList()));
 
     if (postRequest.async()) return CompletableFuture.completedFuture(Response.ACCEPT);
     return CompletableFuture.completedFuture(
@@ -410,8 +406,8 @@ public class RecordHandler implements Handler {
     @Override
     public void onComplete(Throwable error) {
       try {
-        if (error == null && consumer instanceof SubscribedConsumer) {
-          ((SubscribedConsumer<byte[], byte[]>) consumer).commitOffsets(Duration.ofSeconds(5));
+        if (error == null && consumer instanceof SubscribedConsumer subscribedConsumer) {
+          subscribedConsumer.commitOffsets(Duration.ofSeconds(5));
         }
       } finally {
         consumer.close();
@@ -438,7 +434,7 @@ public class RecordHandler implements Handler {
       timestamp = record.timestamp();
       serializedKeySize = record.serializedKeySize();
       serializedValueSize = record.serializedValueSize();
-      headers = record.headers().stream().map(Header::new).collect(toList());
+      headers = record.headers().stream().map(Header::new).toList();
       key = record.key();
       value = record.value();
       leaderEpoch = record.leaderEpoch().orElse(null);

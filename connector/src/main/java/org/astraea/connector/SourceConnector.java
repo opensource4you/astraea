@@ -18,7 +18,6 @@ package org.astraea.connector;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.kafka.common.config.ConfigDef;
 import org.astraea.common.Configuration;
 import org.astraea.common.VersionUtils;
@@ -41,7 +40,7 @@ public abstract class SourceConnector extends org.apache.kafka.connect.source.So
   // -------------------------[final]-------------------------//
   @Override
   public final void start(Map<String, String> props) {
-    init(Configuration.of(props), MetadataStorage.of(context().offsetStorageReader()));
+    init(new Configuration(props), MetadataStorage.of(context().offsetStorageReader()));
   }
 
   @Override
@@ -51,9 +50,7 @@ public abstract class SourceConnector extends org.apache.kafka.connect.source.So
 
   @Override
   public List<Map<String, String>> taskConfigs(int maxTasks) {
-    return takeConfiguration(maxTasks).stream()
-        .map(Configuration::raw)
-        .collect(Collectors.toList());
+    return takeConfiguration(maxTasks).stream().map(Configuration::raw).toList();
   }
 
   @Override

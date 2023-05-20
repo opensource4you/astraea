@@ -32,7 +32,7 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
   private final Configuration config;
 
   public ReplicaNumberCost() {
-    this.config = Configuration.of(Map.of());
+    this.config = new Configuration(Map.of());
   }
 
   public ReplicaNumberCost(Configuration config) {

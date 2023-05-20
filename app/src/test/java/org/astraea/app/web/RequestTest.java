@@ -20,7 +20,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.app.TestUtils;
 import org.astraea.app.web.RecordHandler.PostRecord;
@@ -60,7 +59,7 @@ class RequestTest {
     return TestUtils.getProductionClass().stream()
         .filter(Request.class::isAssignableFrom)
         .filter(c -> !c.isInterface())
-        .collect(Collectors.toList());
+        .toList();
   }
 
   public static class RequestClassProvider implements ArgumentsProvider {

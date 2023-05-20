@@ -17,12 +17,11 @@
 package org.astraea.app.argument;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class StringListField extends ListField<String> {
   @Override
   public List<String> convert(String value) {
-    return Stream.of(value.split(SEPARATOR)).collect(Collectors.toList());
+    return Stream.of(value.split(SEPARATOR)).toList();
   }
 }

@@ -167,7 +167,7 @@ public class QuotaHandler implements Handler {
     final List<Quota> quotas;
 
     Quotas(Collection<org.astraea.common.admin.Quota> quotas) {
-      this.quotas = quotas.stream().map(Quota::new).collect(Collectors.toUnmodifiableList());
+      this.quotas = quotas.stream().map(Quota::new).toList();
     }
   }
 
