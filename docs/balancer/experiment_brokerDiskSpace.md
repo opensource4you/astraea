@@ -100,12 +100,7 @@ curl -X POST http://localhost:8001/topics \
   -d '{ "topics": [ { "name":"imbalance-topic", "partitions": 250, "replicas": 2, "probability": 0.2 } ] }'
 ```
 
-對 web service 請求建立一個 leader 數量不平衡的 topic，其名為 `imbalance-topic`，在這個情境中我們設定其有250個leader，replica備份數量為2，總共500 個 partitions。 
-打開 Grafana Dashboard，能夠看到每個節點有著類似下表的 Leader 數量分佈。
-
-| broker id     | 1    | 2    | 3    | 4    | 5    | 6    |
-| ------------- | ---- | ---- | ---- | ---- | ---- | ---- |
-| leader number | 95   | 98   | 42   | 14   | 1    | 0    |
+對 web service 請求建立一個負載不平衡的 topic，其名為 `imbalance-topic`，在這個情境中我們設定其有250個leader，replica備份數量為2，總共500 個 partitions。 
 
 
 
@@ -119,7 +114,7 @@ curl -X POST http://localhost:8001/topics \
 
 ### 未套用成本限制
 
-1. 等待producer打完資料後，執行下面指令來針對leader進行負載平衡
+1. 等待producer打完資料後，執行下面指令來針對進行負載平衡
 
 ```shell
 curl -X POST http://localhost:8001/topics \
