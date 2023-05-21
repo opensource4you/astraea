@@ -176,9 +176,7 @@ public class ThrottleHandlerTest {
               handler.get(Channel.EMPTY).toCompletableFuture().join());
 
       var topic =
-          throttleSetting.topics.stream()
-              .filter(t -> t.name.get().equals(topicName))
-              .collect(Collectors.toList());
+          throttleSetting.topics.stream().filter(t -> t.name.get().equals(topicName)).toList();
       Assertions.assertEquals(2, topic.size());
 
       var leader =
@@ -228,9 +226,7 @@ public class ThrottleHandlerTest {
               ThrottleHandler.ThrottleSetting.class,
               handler.get(Channel.EMPTY).toCompletableFuture().join());
       var topic =
-          throttleSetting.topics.stream()
-              .filter(t -> t.name.get().equals(topicName))
-              .collect(Collectors.toList());
+          throttleSetting.topics.stream().filter(t -> t.name.get().equals(topicName)).toList();
       Assertions.assertEquals(9, topic.size());
 
       IntStream.range(0, 3)
