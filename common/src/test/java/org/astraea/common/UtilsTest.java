@@ -206,7 +206,7 @@ public class UtilsTest {
   @ParameterizedTest
   @ValueSource(classes = {TestCostFunction.class, TestConfigCostFunction.class})
   void testConstruct(Class<? extends CostFunction> aClass) {
-    var config = Configuration.of(Map.of());
+    var config = new Configuration(Map.of());
 
     var costFunction = Utils.construct(aClass, config);
     Assertions.assertInstanceOf(CostFunction.class, costFunction);
@@ -226,7 +226,7 @@ public class UtilsTest {
   void testConstructException() {
     // arrange
     var aClass = TestBadCostFunction.class;
-    var config = Configuration.of(Map.of());
+    var config = new Configuration(Map.of());
 
     // act, assert
     Assertions.assertThrows(RuntimeException.class, () -> Utils.construct(aClass, config));
@@ -283,7 +283,7 @@ public class UtilsTest {
   @Test
   void testCostFunctions() {
     var config =
-        Configuration.of(
+        new Configuration(
             Map.of(
                 "org.astraea.common.cost.BrokerInputCost",
                 "20",
@@ -307,7 +307,7 @@ public class UtilsTest {
 
     // test negative weight
     var config2 =
-        Configuration.of(
+        new Configuration(
             Map.of(
                 "org.astraea.common.cost.BrokerInputCost",
                 "-20",
@@ -321,7 +321,7 @@ public class UtilsTest {
     var cf =
         Set.of(
             "org.astraea.common.cost.RecordSizeCost", "org.astraea.common.cost.ReplicaLeaderCost");
-    var mConfig = Configuration.of(Map.of("maxMigratedSize", "50MB", "maxMigratedLeader", "5"));
+    var mConfig = new Configuration(Map.of("maxMigratedSize", "50MB", "maxMigratedLeader", "5"));
     var mAns = Utils.costFunctions(cf, HasMoveCost.class, mConfig);
     Assertions.assertEquals(2, mAns.size());
 

@@ -50,7 +50,7 @@ public class PerfSourceTest {
   @Test
   void testDistributeConfigs() {
     var s = new PerfSource();
-    var config = Configuration.of(Map.of(SourceConnector.TOPICS_KEY, "a,b,c,d"));
+    var config = new Configuration(Map.of(SourceConnector.TOPICS_KEY, "a,b,c,d"));
     s.init(config, MetadataStorage.EMPTY);
     var configs = s.takeConfiguration(10);
     Assertions.assertEquals(4, configs.size());
@@ -331,7 +331,7 @@ public class PerfSourceTest {
   @Test
   void testInit() {
     var task = new PerfSource.Task();
-    task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")), MetadataStorage.EMPTY);
+    task.init(new Configuration(Map.of(ConnectorConfigs.TOPICS_KEY, "a")), MetadataStorage.EMPTY);
     Assertions.assertNotNull(task.recordGenerator);
     Assertions.assertEquals(1, task.specifyPartitions.size());
   }
@@ -340,7 +340,7 @@ public class PerfSourceTest {
   void testKeyAndValue() {
     var task = new PerfSource.Task();
     task.init(
-        Configuration.of(
+        new Configuration(
             Map.of(
                 ConnectorConfigs.TOPICS_KEY,
                 "a",
@@ -362,7 +362,7 @@ public class PerfSourceTest {
   void testZeroKeySize() {
     var task = new PerfSource.Task();
     task.init(
-        Configuration.of(
+        new Configuration(
             Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_SIZE_DEF.name(), "0Byte")),
         MetadataStorage.EMPTY);
     var records = task.take();
@@ -374,7 +374,7 @@ public class PerfSourceTest {
   void testZeroValueSize() {
     var task = new PerfSource.Task();
     task.init(
-        Configuration.of(
+        new Configuration(
             Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_SIZE_DEF.name(), "0Byte")),
         MetadataStorage.EMPTY);
     var records = task.take();

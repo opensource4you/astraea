@@ -44,7 +44,8 @@ public class BeanObjectSerializerTest {
             true,
             "String",
             "str");
-    var bean = new BeanObject(domain, properties, attributes);
+    var time = System.currentTimeMillis();
+    var bean = new BeanObject(domain, properties, attributes, time);
 
     // Valid arguments should not throw
     Assertions.assertDoesNotThrow(
@@ -58,6 +59,7 @@ public class BeanObjectSerializerTest {
     Assertions.assertEquals("domain", beanObj.domainName());
     Assertions.assertEquals(properties, beanObj.properties());
     Assertions.assertEquals(attributes, beanObj.attributes());
+    Assertions.assertEquals(time, beanObj.createdTimestamp());
   }
 
   @Test
