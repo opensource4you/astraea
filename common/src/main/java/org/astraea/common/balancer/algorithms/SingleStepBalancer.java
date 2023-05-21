@@ -128,6 +128,10 @@ public class SingleStepBalancer implements Balancer {
         .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()))
         .or(
             () -> {
+              // With demotion, the implementation detail start search from a demoted state. It is
+              // possible
+              // that the start state is already the ideal answer. In this case, it is directly
+              // returned.
               if (hasDemoted
                   && currentCost.value() == 0.0
                   && !moveCostFunction

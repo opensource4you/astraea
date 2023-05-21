@@ -227,6 +227,10 @@ public class GreedyBalancer implements Balancer {
     }
     return currentSolution.or(
         () -> {
+          // With demotion, the implementation detail start search from a demoted state. It is
+          // possible
+          // that the start state is already the ideal answer. In this case, it is directly
+          // returned.
           if (hasDemoted
               && initialCost.value() == 0.0
               && !moveCostFunction
