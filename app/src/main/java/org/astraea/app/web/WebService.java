@@ -70,7 +70,7 @@ public class WebService implements AutoCloseable {
 
     MetricStore metricStore;
     switch (config.string(METRIC_STORE_KEY).orElse(METRIC_STORE_LOCAL)) {
-      case METRIC_STORE_LOCAL:
+      case METRIC_STORE_LOCAL -> {
         Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
             () ->
                 admin
@@ -90,28 +90,24 @@ public class WebService implements AutoCloseable {
                 .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
                 .sensorsSupplier(sensorsSupplier)
                 .build();
-        break;
-      case METRIC_STORE_TOPIC:
-        metricStore =
-            MetricStore.builder()
-                .beanExpiration(beanExpiration)
-                .receivers(
-                    List.of(
-                        MetricStore.Receiver.topic(config.requireString(BOOTSTRAP_SERVERS_KEY)),
-                        MetricStore.Receiver.local(
-                            () ->
-                                CompletableFuture.completedStage(Map.of(-1, JndiClient.local())))))
-                .sensorsSupplier(sensorsSupplier)
-                .build();
-        break;
-      default:
-        throw new IllegalArgumentException(
-            "unknown metric store type: "
-                + config.string(METRIC_STORE_KEY)
-                + ". use "
-                + METRIC_STORE_LOCAL
-                + " or "
-                + METRIC_STORE_TOPIC);
+      }
+      case METRIC_STORE_TOPIC -> metricStore =
+          MetricStore.builder()
+              .beanExpiration(beanExpiration)
+              .receivers(
+                  List.of(
+                      MetricStore.Receiver.topic(config.requireString(BOOTSTRAP_SERVERS_KEY)),
+                      MetricStore.Receiver.local(
+                          () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local())))))
+              .sensorsSupplier(sensorsSupplier)
+              .build();
+      default -> throw new IllegalArgumentException(
+          "unknown metric store type: "
+              + config.string(METRIC_STORE_KEY)
+              + ". use "
+              + METRIC_STORE_LOCAL
+              + " or "
+              + METRIC_STORE_TOPIC);
     }
 
     server = Utils.packException(() -> HttpServer.create(new InetSocketAddress(port), 0));
