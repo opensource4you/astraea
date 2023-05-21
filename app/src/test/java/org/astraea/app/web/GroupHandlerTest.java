@@ -22,7 +22,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -237,8 +236,7 @@ public class GroupHandlerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new GroupHandler(admin);
 
-      var groupIds =
-          IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
+      var groupIds = IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).toList();
       groupIds.forEach(
           groupId -> {
             try (var consumer =

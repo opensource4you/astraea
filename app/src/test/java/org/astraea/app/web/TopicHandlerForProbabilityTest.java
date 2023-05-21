@@ -69,8 +69,7 @@ public class TopicHandlerForProbabilityTest {
                 .partitions.stream()
                     .flatMap(p -> p.replicas.stream())
                     .collect(Collectors.groupingBy(r -> r.broker));
-        var numberOfReplicas =
-            groupByBroker.values().stream().map(List::size).collect(Collectors.toList());
+        var numberOfReplicas = groupByBroker.values().stream().map(List::size).toList();
         replica0 += numberOfReplicas.get(0);
         replica1 += numberOfReplicas.get(1);
         replica2 += numberOfReplicas.size() == 3 ? numberOfReplicas.get(2) : 0;

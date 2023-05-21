@@ -25,7 +25,7 @@ import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.common.metrics.collector.MetricSensor;
 
 public class BrokerOutputCost implements HasBrokerCost, HasClusterCost {
-  private final Dispersion dispersion = Dispersion.cov();
+  private final Dispersion dispersion = Dispersion.normalizedStandardDeviation();
 
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {

@@ -22,7 +22,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -52,7 +51,7 @@ public class MonkeyThread implements AbstractThread {
                   return unsubscribeMonkey(consumerThreads, entry.getValue());
               }
             })
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   private static MonkeyThread killMonkey(List<ConsumerThread> consumerThreads, Duration frequency) {

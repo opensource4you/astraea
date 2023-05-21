@@ -18,7 +18,6 @@ package org.astraea.connector;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.kafka.common.config.ConfigDef;
 import org.astraea.common.Configuration;
 import org.astraea.common.VersionUtils;
@@ -43,7 +42,7 @@ public abstract class SinkConnector extends org.apache.kafka.connect.sink.SinkCo
   // -------------------------[final]-------------------------//
   @Override
   public final void start(Map<String, String> props) {
-    init(Configuration.of(props));
+    init(new Configuration(props));
   }
 
   @Override
@@ -53,9 +52,7 @@ public abstract class SinkConnector extends org.apache.kafka.connect.sink.SinkCo
 
   @Override
   public List<Map<String, String>> taskConfigs(int maxTasks) {
-    return takeConfiguration(maxTasks).stream()
-        .map(Configuration::raw)
-        .collect(Collectors.toList());
+    return takeConfiguration(maxTasks).stream().map(Configuration::raw).toList();
   }
 
   @Override

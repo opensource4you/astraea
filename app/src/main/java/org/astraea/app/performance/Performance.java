@@ -76,7 +76,7 @@ public class Performance {
     var blockingQueues =
         IntStream.range(0, param.producers)
             .mapToObj(i -> new ArrayBlockingQueue<List<Record<byte[], byte[]>>>(3000))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     // ensure topics are existent
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -123,10 +123,7 @@ public class Performance {
             var current = Report.recordsConsumedTotal();
 
             if (blockingQueues.stream().allMatch(Collection::isEmpty)) {
-              var unfinishedProducers =
-                  producerThreads.stream()
-                      .filter(p -> !p.closed())
-                      .collect(Collectors.toUnmodifiableList());
+              var unfinishedProducers = producerThreads.stream().filter(p -> !p.closed()).toList();
               unfinishedProducers.forEach(AbstractThread::close);
             }
 
@@ -388,7 +385,7 @@ public class Performance {
                   .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
                   .distinct()
-                  .collect(Collectors.toUnmodifiableList());
+                  .toList();
           if (selections.isEmpty())
             throw new IllegalArgumentException(
                 "No partition match the specify.brokers requirement");
@@ -426,8 +423,7 @@ public class Performance {
                 "The following topic/partitions are nonexistent in the cluster: " + notExist);
         }
 
-        final var selection =
-            specifyPartitions.stream().distinct().collect(Collectors.toUnmodifiableList());
+        final var selection = specifyPartitions.stream().distinct().toList();
         return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       } else if (throttle) {
         // TODO: The functions of throttle and select partitioner should not conflict with each
@@ -444,15 +440,12 @@ public class Performance {
                   .replicaStream()
                   .map(Replica::topicPartition)
                   .distinct()
-                  .collect(Collectors.toUnmodifiableList());
+                  .toList();
           return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
         }
       } else {
         final var selection =
-            topics.stream()
-                .map(topic -> TopicPartition.of(topic, -1))
-                .distinct()
-                .collect(Collectors.toUnmodifiableList());
+            topics.stream().map(topic -> TopicPartition.of(topic, -1)).distinct().toList();
         return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       }
     }

@@ -45,10 +45,10 @@ public class StrictCostPartitionerTest {
   @Test
   void testJmxPort() {
     try (var partitioner = new StrictCostPartitioner()) {
-      partitioner.configure(Configuration.of(Map.of()));
+      partitioner.configure(new Configuration(Map.of()));
       Assertions.assertThrows(
           NoSuchElementException.class, () -> partitioner.jmxPortGetter.apply(0));
-      partitioner.configure(Configuration.of(Map.of(StrictCostPartitioner.JMX_PORT, "12345")));
+      partitioner.configure(new Configuration(Map.of(StrictCostPartitioner.JMX_PORT, "12345")));
       Assertions.assertEquals(12345, partitioner.jmxPortGetter.apply(0));
     }
   }
@@ -60,14 +60,14 @@ public class StrictCostPartitionerTest {
           IllegalArgumentException.class,
           () ->
               partitioner.configure(
-                  Configuration.of(
+                  new Configuration(
                       Map.of(
                           Partitioner.COST_PREFIX + "." + ReplicaLeaderCost.class.getName(),
                           "-1"))));
 
       // Test for cost functions configuring
       partitioner.configure(
-          Configuration.of(
+          new Configuration(
               Map.of(
                   Partitioner.COST_PREFIX + "." + ReplicaLeaderCost.class.getName(),
                   "0.1",
@@ -83,7 +83,7 @@ public class StrictCostPartitionerTest {
   void testConfigureCostFunctions() {
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(
-          Configuration.of(
+          new Configuration(
               Map.of(
                   Partitioner.COST_PREFIX + "." + ReplicaLeaderCost.class.getName(),
                   "0.1",
@@ -149,7 +149,7 @@ public class StrictCostPartitionerTest {
             .buildLeader();
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(
-          Configuration.of(
+          new Configuration(
               (Map.of(Partitioner.COST_PREFIX + "." + DumbHasBrokerCost.class.getName(), "1"))));
       partitioner.partition(
           "topic",
@@ -166,7 +166,7 @@ public class StrictCostPartitionerTest {
 
       // pass due to local mbean
       partitioner.configure(
-          Configuration.of(
+          new Configuration(
               Map.of(Partitioner.COST_PREFIX + "." + NodeThroughputCost.class.getName(), "1")));
     }
   }
@@ -184,7 +184,7 @@ public class StrictCostPartitionerTest {
     var partitionId = 123;
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(
-          Configuration.of(
+          new Configuration(
               Map.of(Partitioner.COST_PREFIX + "." + MyFunction.class.getName(), "1")));
 
       var replicaInfo0 =
@@ -214,7 +214,7 @@ public class StrictCostPartitionerTest {
   @Test
   void testDefaultFunction() {
     try (var partitioner = new StrictCostPartitioner()) {
-      partitioner.configure(Configuration.of(Map.of()));
+      partitioner.configure(new Configuration(Map.of()));
       Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.costFunction);
       Utils.waitFor(() -> partitioner.metricStore.sensors().size() == 1);
     }
@@ -244,7 +244,7 @@ public class StrictCostPartitionerTest {
   void testRoundRobinLease() {
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(
-          Configuration.of(Map.of(StrictCostPartitioner.ROUND_ROBIN_LEASE_KEY, "2s")));
+          new Configuration(Map.of(StrictCostPartitioner.ROUND_ROBIN_LEASE_KEY, "2s")));
       Assertions.assertEquals(Duration.ofSeconds(2), partitioner.roundRobinKeeper.roundRobinLease);
 
       partitioner.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
