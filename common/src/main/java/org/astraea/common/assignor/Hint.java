@@ -24,21 +24,21 @@ import org.astraea.common.admin.TopicPartition;
 
 @FunctionalInterface
 public interface Hint {
-  List<String> get(Map<String, List<TopicPartition>> currentCombinator, TopicPartition tp);
+  List<String> get(Map<String, List<TopicPartition>> currentAssignment, TopicPartition tp);
 
   static Hint of(Set<Hint> hints) {
-    return (currentCombinator, tp) ->
+    return (currentAssignment, tp) ->
         hints.stream()
-            .map(h -> h.get(currentCombinator, tp))
+            .map(h -> h.get(currentAssignment, tp))
             .reduce((l1, l2) -> l1.stream().filter(l2::contains).toList())
             .get();
   }
 
   static Hint lowCostHint(
       Map<String, SubscriptionInfo> subscriptions, Map<TopicPartition, Double> partitionCost) {
-    return (currentCombinator, tp) -> {
+    return (currentAssignment, tp) -> {
       var candidates =
-          currentCombinator.entrySet().stream()
+          currentAssignment.entrySet().stream()
               .filter(e -> subscriptions.get(e.getKey()).topics().contains(tp.topic()))
               .map(
                   e ->
@@ -55,7 +55,7 @@ public interface Hint {
   static Hint incompatibleHint(
       Map<String, SubscriptionInfo> subscriptions,
       Map<TopicPartition, Set<TopicPartition>> incompatibilities) {
-    return (currentCombinator, tp) -> {
+    return (currentAssignment, tp) -> {
       var subscriber =
           subscriptions.entrySet().stream()
               .filter(e -> e.getValue().topics().contains(tp.topic()))
@@ -64,7 +64,7 @@ public interface Hint {
       if (incompatibilities.get(tp).isEmpty()) return subscriber;
 
       var candidates =
-          currentCombinator.entrySet().stream()
+          currentAssignment.entrySet().stream()
               .filter(e -> subscriber.contains(e.getKey()))
               .map(
                   e ->
