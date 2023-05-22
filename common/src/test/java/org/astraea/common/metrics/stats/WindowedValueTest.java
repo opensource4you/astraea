@@ -36,10 +36,10 @@ public class WindowedValueTest {
     // So, 1 and 2 should be in the window of 20 millisecond.
     Assertions.assertEquals(List.of(1, 2), windowedValue.get());
 
-    Utils.sleep(Duration.ofMillis(10));
+    Utils.sleep(Duration.ofMillis(15));
     // Now,
-    // 1 is created 20 millisecond before.
-    // 2 is created 10 millisecond before.
+    // 1 is created 25 millisecond before.
+    // 2 is created 15 millisecond before.
     // 1 should not be in the window, so the returned list contains only 2
     Assertions.assertEquals(List.of(2), windowedValue.get());
   }

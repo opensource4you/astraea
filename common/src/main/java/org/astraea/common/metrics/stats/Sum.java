@@ -17,7 +17,6 @@
 package org.astraea.common.metrics.stats;
 
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 public interface Sum<T> extends Stat<T> {

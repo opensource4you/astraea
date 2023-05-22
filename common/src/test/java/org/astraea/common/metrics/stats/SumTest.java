@@ -45,13 +45,13 @@ public class SumTest {
     // 2L: just now
     Assertions.assertEquals(3L, stat.measure());
 
-    Utils.sleep(Duration.ofMillis(10));
-    // 1L: 20 milliseconds ago (outdated)
-    // 2L: 10 milliseconds ago
+    Utils.sleep(Duration.ofMillis(15));
+    // 1L: 25 milliseconds ago (outdated)
+    // 2L: 15 milliseconds ago
     Assertions.assertEquals(2L, stat.measure());
 
     Utils.sleep(Duration.ofMillis(10));
-    // 2L: 20 milliseconds ago (outdated)
+    // 2L: 25 milliseconds ago (outdated)
     Assertions.assertEquals(0L, stat.measure());
   }
 }
