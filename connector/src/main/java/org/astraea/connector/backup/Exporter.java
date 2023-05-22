@@ -282,15 +282,15 @@ public class Exporter extends SinkConnector {
 
       configuration
           .requireRegex(".*offset.from")
-              .forEach(
-                      (k, v) -> {
-                        var splitKey = k.split("\\.");
-                        if (splitKey.length == 3) {
-                          this.offsetForTP.put(splitKey[0], Map.of("all", Long.valueOf(v)));
-                        } else {
-                          this.offsetForTP.put(splitKey[0], Map.of(splitKey[1], Long.valueOf(v)));
-                        }
-                      });
+          .forEach(
+              (k, v) -> {
+                var splitKey = k.split("\\.");
+                if (splitKey.length == 3) {
+                  this.offsetForTP.put(splitKey[0], Map.of("all", Long.valueOf(v)));
+                } else {
+                  this.offsetForTP.put(splitKey[0], Map.of(splitKey[1], Long.valueOf(v)));
+                }
+              });
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture = CompletableFuture.runAsync(createWriter());

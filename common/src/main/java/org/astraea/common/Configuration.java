@@ -116,7 +116,7 @@ public record Configuration(Map<String, String> raw) {
    */
   public Map<String, String> requireRegex(String regex) {
     return raw.entrySet().stream()
-            .filter(entry -> Pattern.compile(regex).matcher(entry.getKey()).matches())
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .filter(entry -> Pattern.compile(regex).matcher(entry.getKey()).matches())
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }
