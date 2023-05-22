@@ -169,8 +169,7 @@ public class ClusterInfoBuilder {
                     + nodes.size()
                     + " < "
                     + replicaFactor);
-          var nodeSelector =
-              Stream.generate(nodes::stream).flatMap(x -> x).map(x -> (Broker) x).iterator();
+          var nodeSelector = Stream.generate(nodes::stream).flatMap(x -> x).iterator();
 
           // simulate the actual Kafka logic of log placement
           var folderLogCounter =
@@ -179,11 +178,10 @@ public class ClusterInfoBuilder {
                       Collectors.toUnmodifiableMap(
                           node -> node,
                           node ->
-                              ((Broker) node)
-                                  .dataFolders().stream()
-                                      .collect(
-                                          Collectors.toMap(
-                                              Broker.DataFolder::path, x -> new AtomicInteger()))));
+                              node.dataFolders().stream()
+                                  .collect(
+                                      Collectors.toMap(
+                                          Broker.DataFolder::path, x -> new AtomicInteger()))));
           replicas.forEach(
               replica ->
                   folderLogCounter.get(replica.broker()).get(replica.path()).incrementAndGet());
