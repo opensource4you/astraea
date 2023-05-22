@@ -1384,7 +1384,7 @@ class AdminImpl implements Admin {
       logDirs() {
     return brokers()
         .thenApply(
-            nodeInfos -> nodeInfos.stream().map(Broker::id).collect(Collectors.toUnmodifiableSet()))
+            brokers -> brokers.stream().map(Broker::id).collect(Collectors.toUnmodifiableSet()))
         .thenCompose(ids -> to(kafkaAdmin.describeLogDirs(ids).allDescriptions()))
         .thenApply(
             ds ->

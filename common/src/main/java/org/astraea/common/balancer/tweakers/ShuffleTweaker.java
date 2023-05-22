@@ -65,13 +65,13 @@ public class ShuffleTweaker {
 
   public Stream<ClusterInfo> generate(ClusterInfo baseAllocation) {
     // There is no broker
-    if (baseAllocation.nodes().isEmpty()) return Stream.of();
+    if (baseAllocation.brokers().isEmpty()) return Stream.of();
 
     // No replica to working on.
     if (baseAllocation.replicas().size() == 0) return Stream.of();
 
     // Only one broker & one folder exists, unable to do any meaningful log migration
-    if (baseAllocation.nodes().size() == 1
+    if (baseAllocation.brokers().size() == 1
         && baseAllocation.brokerFolders().values().stream().findFirst().orElseThrow().size() == 1)
       return Stream.of();
 

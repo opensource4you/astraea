@@ -73,7 +73,7 @@ public class BrokerDiskSpaceCost implements HasMoveCost {
   static boolean brokerDiskUsageSizeOverflow(
       ClusterInfo before, ClusterInfo after, Map<Integer, DataSize> brokerMoveCostLimit) {
     for (var id :
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
+        Stream.concat(before.brokers().stream(), after.brokers().stream())
             .map(Broker::id)
             .parallel()
             .collect(Collectors.toSet())) {

@@ -73,7 +73,7 @@ class BalancerTest {
                         .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                         .toCompletableFuture()
                         .join();
-                return clusterInfo.nodes().stream()
+                return clusterInfo.brokers().stream()
                     .collect(
                         Collectors.toMap(
                             Broker::id,

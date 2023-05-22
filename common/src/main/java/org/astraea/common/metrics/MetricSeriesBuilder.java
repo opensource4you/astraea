@@ -109,7 +109,7 @@ public interface MetricSeriesBuilder {
                       start, (t) -> t.isBefore(end) || t.isEqual(end), (t) -> t.plus(interval))
                   .flatMap(
                       time ->
-                          cluster.nodes().stream()
+                          cluster.brokers().stream()
                               .map(
                                   node ->
                                       Map.entry(node.id(), seriesGenerator.apply(time, node.id()))))
@@ -128,7 +128,7 @@ public interface MetricSeriesBuilder {
       final var interval = sampleInterval;
       this.series.add(
           () ->
-              cluster.nodes().stream()
+              cluster.brokers().stream()
                   .collect(
                       Collectors.toUnmodifiableMap(
                           Broker::id,
@@ -159,7 +159,7 @@ public interface MetricSeriesBuilder {
       final var interval = sampleInterval;
       this.series.add(
           () ->
-              cluster.nodes().stream()
+              cluster.brokers().stream()
                   .collect(
                       Collectors.toUnmodifiableMap(
                           Broker::id,
@@ -189,7 +189,7 @@ public interface MetricSeriesBuilder {
       final var interval = sampleInterval;
       this.series.add(
           () ->
-              cluster.nodes().stream()
+              cluster.brokers().stream()
                   .collect(
                       Collectors.toUnmodifiableMap(
                           Broker::id,

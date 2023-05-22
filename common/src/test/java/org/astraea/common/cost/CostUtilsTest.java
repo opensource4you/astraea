@@ -140,12 +140,12 @@ class CostUtilsTest {
             .map(Replica::broker)
             .distinct()
             .map(
-                nodeInfo ->
+                broker ->
                     Broker.of(
                         false,
-                        new Node(nodeInfo.id(), "", nodeInfo.port()),
+                        new Node(broker.id(), "", broker.port()),
                         Map.of(),
-                        dataPath.get(nodeInfo.id()),
+                        dataPath.get(broker.id()),
                         List.of()))
             .collect(Collectors.toList()),
         Map.of(),
@@ -221,12 +221,12 @@ class CostUtilsTest {
             .map(Replica::broker)
             .distinct()
             .map(
-                nodeInfo ->
+                broker ->
                     Broker.of(
                         false,
-                        new Node(nodeInfo.id(), "", nodeInfo.port()),
+                        new Node(broker.id(), "", broker.port()),
                         Map.of(),
-                        dataPath.get(nodeInfo.id()),
+                        dataPath.get(broker.id()),
                         List.of()))
             .collect(Collectors.toList()),
         Map.of(),

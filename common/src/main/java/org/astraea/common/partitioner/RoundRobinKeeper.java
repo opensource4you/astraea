@@ -46,7 +46,7 @@ public class RoundRobinKeeper {
         == now) {
       var roundRobin = RoundRobin.smooth(costToScore.get());
       var ids =
-          clusterInfo.nodes().stream().map(Broker::id).collect(Collectors.toUnmodifiableSet());
+          clusterInfo.brokers().stream().map(Broker::id).collect(Collectors.toUnmodifiableSet());
       // TODO: make ROUND_ROBIN_LENGTH configurable ???
       for (var index = 0; index < this.roundRobin.length; ++index)
         this.roundRobin[index] = roundRobin.next(ids).orElse(-1);

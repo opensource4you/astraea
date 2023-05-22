@@ -307,7 +307,7 @@ public interface ClusterInfo {
    *     associated to any node
    */
   default Broker node(int id) {
-    return nodes().stream()
+    return brokers().stream()
         .filter(n -> n.id() == id)
         .findAny()
         .orElseThrow(() -> new NoSuchElementException(id + " is nonexistent"));
@@ -355,16 +355,9 @@ public interface ClusterInfo {
   // ---------------------[abstract methods]---------------------//
 
   /**
-   * @return The known nodes
+   * @return The known brokers
    */
-  List<Broker> nodes();
-
-  default List<Broker> brokers() {
-    return nodes().stream()
-        .filter(n -> n instanceof Broker)
-        .map(n -> (Broker) n)
-        .collect(Collectors.toUnmodifiableList());
-  }
+  List<Broker> brokers();
 
   /**
    * @return replica stream to offer effective way to operate a bunch of replicas

@@ -61,7 +61,7 @@ public class ClusterInfoTest {
   @Test
   void testEmptyCluster() {
     var emptyCluster = ClusterInfo.empty();
-    Assertions.assertEquals(0, emptyCluster.nodes().size());
+    Assertions.assertEquals(0, emptyCluster.brokers().size());
     Assertions.assertEquals(0, emptyCluster.replicaStream().count());
   }
 

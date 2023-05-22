@@ -32,7 +32,7 @@ final class CostUtils {
     var totalRemovedSize = 0L;
     var totalAddedSize = 0L;
     for (var id :
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
+        Stream.concat(before.brokers().stream(), after.brokers().stream())
             .map(Broker::id)
             .parallel()
             .collect(Collectors.toSet())) {

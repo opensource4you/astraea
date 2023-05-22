@@ -110,7 +110,7 @@ public class MigrationCost {
                     r -> r.broker().id(),
                     Collectors.mapping(
                         Function.identity(), Collectors.summingLong(replicaFunction::apply))));
-    return Stream.concat(dest.nodes().stream(), source.nodes().stream())
+    return Stream.concat(dest.brokers().stream(), source.brokers().stream())
         .map(Broker::id)
         .distinct()
         .parallel()
@@ -118,7 +118,7 @@ public class MigrationCost {
   }
 
   private static Map<Integer, Long> changedReplicaNumber(ClusterInfo before, ClusterInfo after) {
-    return Stream.concat(before.nodes().stream(), after.nodes().stream())
+    return Stream.concat(before.brokers().stream(), after.brokers().stream())
         .map(Broker::id)
         .distinct()
         .parallel()

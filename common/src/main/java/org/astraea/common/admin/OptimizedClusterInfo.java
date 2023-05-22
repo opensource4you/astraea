@@ -201,7 +201,7 @@ class OptimizedClusterInfo implements ClusterInfo {
   }
 
   @Override
-  public List<Broker> nodes() {
+  public List<Broker> brokers() {
     return brokers;
   }
 

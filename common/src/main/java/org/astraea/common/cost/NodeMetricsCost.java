@@ -59,7 +59,7 @@ public abstract class NodeMetricsCost implements HasBrokerCost {
         .max()
         .ifPresent(
             max ->
-                clusterInfo.nodes().stream()
+                clusterInfo.brokers().stream()
                     .map(Broker::id)
                     .filter(id -> !result.containsKey(id))
                     .forEach(id -> result.put(id, max)));

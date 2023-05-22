@@ -154,7 +154,7 @@ public abstract class NetworkCost implements HasClusterCost {
                                 })
                             .sum()));
     // add the brokers having no replicas into map
-    clusterInfo.nodes().stream()
+    clusterInfo.brokers().stream()
         .filter(node -> !brokerIngressRate.containsKey(node.id()))
         .forEach(
             node -> {

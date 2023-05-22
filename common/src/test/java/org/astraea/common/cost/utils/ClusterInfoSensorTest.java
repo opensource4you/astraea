@@ -241,7 +241,7 @@ class ClusterInfoSensorTest {
 
     var info = ClusterInfoSensor.metricViewCluster(cb);
 
-    Assertions.assertEquals(1, info.nodes().size());
+    Assertions.assertEquals(1, info.brokers().size());
     Assertions.assertEquals(id, info.clusterId());
   }
 

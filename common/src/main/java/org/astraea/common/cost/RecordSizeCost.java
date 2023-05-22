@@ -43,7 +43,7 @@ public class RecordSizeCost
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
-        clusterInfo.nodes().stream()
+        clusterInfo.brokers().stream()
             .collect(
                 Collectors.toMap(
                     Broker::id,

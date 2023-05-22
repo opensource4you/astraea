@@ -192,7 +192,7 @@ public final class ByteUtils {
     return ClusterInfoOuterClass.ClusterInfo.newBuilder()
         .setClusterId(value.clusterId())
         .addAllNodeInfo(
-            value.nodes().stream()
+            value.brokers().stream()
                 .map(
                     nodeInfo ->
                         ClusterInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()

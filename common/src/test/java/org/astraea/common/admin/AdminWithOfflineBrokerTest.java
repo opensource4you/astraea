@@ -108,18 +108,6 @@ public class AdminWithOfflineBrokerTest {
 
   @Timeout(10)
   @Test
-  void testNodeInfos() {
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var nodeInfos = admin.brokers().toCompletableFuture().join();
-      Assertions.assertEquals(2, nodeInfos.size());
-      var offlineNodeInfos =
-          nodeInfos.stream().filter(Broker::offline).collect(Collectors.toList());
-      Assertions.assertEquals(0, offlineNodeInfos.size());
-    }
-  }
-
-  @Timeout(10)
-  @Test
   void testBrokers() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var brokers = admin.brokers().toCompletableFuture().join();

@@ -323,7 +323,7 @@ public class ClusterInfoBuilder {
    * ClusterInfo}.
    */
   public ClusterInfo build() {
-    var nodes = sourceCluster.nodes();
+    var nodes = sourceCluster.brokers();
     var replicas = sourceCluster.replicas();
     for (var alteration : alterations) {
       var e = alteration.apply(nodes, replicas);

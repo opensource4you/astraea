@@ -101,9 +101,9 @@ class BalancerUtilsTest {
     var iter = Stream.of(1, 2, 3).map(base::node).iterator();
     var cluster =
         ClusterInfo.builder(base)
-            .addTopic("A", 1, (short) 1, r -> Replica.builder(r).nodeInfo(iter.next()).build())
-            .addTopic("B", 1, (short) 1, r -> Replica.builder(r).nodeInfo(iter.next()).build())
-            .addTopic("C", 1, (short) 1, r -> Replica.builder(r).nodeInfo(iter.next()).build())
+            .addTopic("A", 1, (short) 1, r -> Replica.builder(r).broker(iter.next()).build())
+            .addTopic("B", 1, (short) 1, r -> Replica.builder(r).broker(iter.next()).build())
+            .addTopic("C", 1, (short) 1, r -> Replica.builder(r).broker(iter.next()).build())
             .build();
 
     Assertions.assertThrows(
@@ -173,13 +173,13 @@ class BalancerUtilsTest {
                     cluster, id -> id == 1 || id == 2, id -> id == 3 || id == 4));
 
     Assertions.assertEquals(
-        List.of(), clearedCluster.replicas().stream().filter(x -> x.nodeInfo().id() == 1).toList());
+        List.of(), clearedCluster.replicas().stream().filter(x -> x.broker().id() == 1).toList());
     Assertions.assertEquals(
-        List.of(), clearedCluster.replicas().stream().filter(x -> x.nodeInfo().id() == 2).toList());
+        List.of(), clearedCluster.replicas().stream().filter(x -> x.broker().id() == 2).toList());
     Assertions.assertNotEquals(
-        List.of(), clearedCluster.replicas().stream().filter(x -> x.nodeInfo().id() == 3).toList());
+        List.of(), clearedCluster.replicas().stream().filter(x -> x.broker().id() == 3).toList());
     Assertions.assertNotEquals(
-        List.of(), clearedCluster.replicas().stream().filter(x -> x.nodeInfo().id() == 4).toList());
+        List.of(), clearedCluster.replicas().stream().filter(x -> x.broker().id() == 4).toList());
 
     var sameCluster =
         Assertions.assertDoesNotThrow(
@@ -193,16 +193,16 @@ class BalancerUtilsTest {
         Assertions.assertDoesNotThrow(
             () -> BalancerUtils.clearedCluster(cluster, id -> id == 1, id -> id == 3));
     Assertions.assertEquals(
-        0, aCluster.replicas().stream().filter(r -> r.nodeInfo().id() == 1).count(), "Demoted");
+        0, aCluster.replicas().stream().filter(r -> r.broker().id() == 1).count(), "Demoted");
     Assertions.assertEquals(
         100,
-        aCluster.replicas().stream().filter(r -> r.nodeInfo().id() == 2).count(),
+        aCluster.replicas().stream().filter(r -> r.broker().id() == 2).count(),
         "Not allowed or cleared");
     Assertions.assertEquals(
         100,
-        aCluster.replicas().stream().filter(r -> r.nodeInfo().id() == 3).count(),
+        aCluster.replicas().stream().filter(r -> r.broker().id() == 3).count(),
         "Accept replicas broker demoted broker");
     Assertions.assertEquals(
-        0, aCluster.replicas().stream().filter(r -> r.nodeInfo().id() == 4).count(), "Not allowed");
+        0, aCluster.replicas().stream().filter(r -> r.broker().id() == 4).count(), "Not allowed");
   }
 }
