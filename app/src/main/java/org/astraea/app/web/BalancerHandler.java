@@ -75,7 +75,7 @@ class BalancerHandler implements Handler, AutoCloseable {
     var balancerPostRequest = channel.request(TypeRef.of(BalancerPostRequest.class));
     var request =
         admin
-            .topicNames(false)
+            .topicNames(true)
             .thenCompose(admin::clusterInfo)
             .thenApply(
                 currentClusterInfo ->

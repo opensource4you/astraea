@@ -28,9 +28,8 @@ public final class BalancerConfigs {
   private BalancerConfigs() {}
 
   /**
-   * A regular expression indicates which topics are eligible for rebalancing. When specified,
-   * topics that don't match this expression cannot be altered and must stay at their original
-   * position.
+   * A regular expression indicates which topics are eligible for balancing. When specified, topics
+   * that don't match this expression cannot be altered and must stay at their original position.
    */
   public static final String BALANCER_ALLOWED_TOPICS_REGEX = "balancer.allowed.topics.regex";
 
@@ -66,9 +65,11 @@ public final class BalancerConfigs {
    * <h3>Flag Interaction:</h3>
    *
    * <ol>
-   *   <li>When this flag is used in conjunction with {@link
-   *       BalancerConfigs#BALANCER_ALLOWED_TOPICS_REGEX}, if a demoted broker contains partition
-   *       from those forbidden topics, an exception should be raised.
+   *   <li>All partitions on the demoting brokers will be compelled to participate in the balancing
+   *       process, regardless of the explicit prohibition specified by the {@link
+   *       BalancerConfigs#BALANCER_ALLOWED_TOPICS_REGEX} configuration. This exception solely
+   *       applies to partitions located at a demoting broker, while disallowed partitions on
+   *       balancing brokers will remain excluded from the balancing decision.
    * </ol>
    *
    * <h3>Limitation:</h3>
