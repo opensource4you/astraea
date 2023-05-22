@@ -114,10 +114,9 @@ public record Configuration(Map<String, String> raw) {
    * @return an Optional containing a Map of key-value entries that match the specified regex
    *     pattern.
    */
-  public Optional<Map<String, String>> requireStringByRegex(String regex) {
-    return Optional.of(
-        raw.entrySet().stream()
+  public Map<String, String> requireRegex(String regex) {
+    return raw.entrySet().stream()
             .filter(entry -> Pattern.compile(regex).matcher(entry.getKey()).matches())
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

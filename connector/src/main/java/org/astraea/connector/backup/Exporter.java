@@ -281,10 +281,8 @@ public class Exporter extends SinkConnector {
               .bytes();
 
       configuration
-          .requireStringByRegex(".*offset.from")
-          .ifPresent(
-              targetMap ->
-                  targetMap.forEach(
+          .requireRegex(".*offset.from")
+              .forEach(
                       (k, v) -> {
                         var splitKey = k.split("\\.");
                         if (splitKey.length == 3) {
@@ -292,7 +290,7 @@ public class Exporter extends SinkConnector {
                         } else {
                           this.offsetForTP.put(splitKey[0], Map.of(splitKey[1], Long.valueOf(v)));
                         }
-                      }));
+                      });
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture = CompletableFuture.runAsync(createWriter());
