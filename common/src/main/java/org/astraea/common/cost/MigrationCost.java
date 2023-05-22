@@ -126,10 +126,6 @@ public class MigrationCost {
                     Map.Entry::getKey,
                     brokerSize ->
                         brokerSize.getValue() / brokerOutRate.get(brokerSize.getKey()).orElse(0)));
-    brokerInRate.forEach(
-        (b, rate) -> System.out.println("broker: " + b + " inRate: " + rate.orElse(0)));
-    brokerOutRate.forEach(
-        (b, rate) -> System.out.println("broker: " + b + " OutRate: " + rate.orElse(0)));
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
         .map(NodeInfo::id)
         .distinct()
