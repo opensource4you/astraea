@@ -111,7 +111,7 @@ public class ReassignmentHandler implements Handler {
                                                         .filter(
                                                             b -> b.topicPartitions().contains(tp))
                                                         .map(Broker::id)
-                                                            .toList();
+                                                        .toList();
                                                 if (!ids.isEmpty()) return ids;
                                                 return List.of(
                                                     availableBrokers

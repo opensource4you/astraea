@@ -405,7 +405,11 @@ class AdminImpl implements Admin {
             ts ->
                 ts.entrySet().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isInternal()))),
-        (earliestOffsets, latestOffsets, maxTimestamps, tpInfos, topicAndInternal) ->
+        brokers()
+            .thenApply(
+                brokers ->
+                    brokers.stream().collect(Collectors.toMap(Broker::id, broker -> broker))),
+        (earliestOffsets, latestOffsets, maxTimestamps, tpInfos, topicAndInternal, brokers) ->
             tpInfos.keySet().stream()
                 .map(
                     tp -> {
@@ -416,10 +420,15 @@ class AdminImpl implements Admin {
                       var leader =
                           tpInfo.leader() == null || tpInfo.leader().isEmpty()
                               ? null
-                              : Broker.of(tpInfo.leader());
+                              : brokers.get(tpInfo.leader().id());
                       var replicas =
-                          tpInfo.replicas().stream().map(Broker::of).collect(Collectors.toList());
-                      var isr = tpInfo.isr().stream().map(Broker::of).collect(Collectors.toList());
+                          tpInfo.replicas().stream()
+                              .map(node -> brokers.getOrDefault(node.id(), Broker.of(node)))
+                              .collect(Collectors.toList());
+                      var isr =
+                          tpInfo.isr().stream()
+                              .map(node -> brokers.getOrDefault(node.id(), Broker.of(node)))
+                              .collect(Collectors.toList());
                       return new Partition(
                           tp.topic(),
                           tp.partition(),
@@ -506,7 +515,11 @@ class AdminImpl implements Admin {
                     .collect(Collectors.toUnmodifiableList()))
             .thenApply(
                 s -> s.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
-        (consumerGroupDescriptions, consumerGroupMetadata) ->
+        brokers()
+            .thenApply(
+                brokers ->
+                    brokers.stream().collect(Collectors.toMap(Broker::id, broker -> broker))),
+        (consumerGroupDescriptions, consumerGroupMetadata, brokers) ->
             consumerGroupIds.stream()
                 .map(
                     groupId ->
@@ -514,7 +527,9 @@ class AdminImpl implements Admin {
                             groupId,
                             consumerGroupDescriptions.get(groupId).partitionAssignor(),
                             consumerGroupDescriptions.get(groupId).state().name(),
-                            Broker.of(consumerGroupDescriptions.get(groupId).coordinator()),
+                            brokers.getOrDefault(
+                                consumerGroupDescriptions.get(groupId).coordinator().id(),
+                                Broker.of(consumerGroupDescriptions.get(groupId).coordinator())),
                             consumerGroupMetadata.get(groupId).entrySet().stream()
                                 .collect(
                                     Collectors.toUnmodifiableMap(
@@ -629,7 +644,11 @@ class AdminImpl implements Admin {
             // supported version: 2.4.0
             // https://issues.apache.org/jira/browse/KAFKA-8345
             .exceptionally(exceptionHandler(UnsupportedVersionException.class, Map.of())),
-        (logDirs, ts, reassignmentMap) ->
+        brokers()
+            .thenApply(
+                brokers ->
+                    brokers.stream().collect(Collectors.toMap(Broker::id, broker -> broker))),
+        (logDirs, ts, reassignmentMap, brokers) ->
             ts.values().stream()
                 .flatMap(topic -> topic.partitions().stream().map(p -> Map.entry(topic.name(), p)))
                 .flatMap(
@@ -674,7 +693,9 @@ class AdminImpl implements Admin {
                                                   .internal(internal)
                                                   .isAdding(isAdding)
                                                   .isRemoving(isRemoving)
-                                                  .broker(Broker.of(node))
+                                                  .broker(
+                                                      brokers.getOrDefault(
+                                                          node.id(), Broker.of(node)))
                                                   .lag(pathAndReplica.getValue().offsetLag())
                                                   .size(pathAndReplica.getValue().size())
                                                   .isLeader(

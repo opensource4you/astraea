@@ -286,7 +286,9 @@ public class ReplicaBuilder {
           && isOffline == replica.isOffline
           && isPreferredLeader == replica.isPreferredLeader
           && topic.equals(replica.topic)
-          && broker.equals(replica.broker)
+          && broker.id() == replica.broker.id()
+          && broker.host().equals(replica.broker.host())
+          && broker.port() == replica.broker.port()
           && Objects.equals(path, replica.path);
     }
 
