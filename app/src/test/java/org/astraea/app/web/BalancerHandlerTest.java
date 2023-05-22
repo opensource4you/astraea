@@ -60,7 +60,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.Config;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.AlgorithmConfig;
@@ -225,45 +224,19 @@ public class BalancerHandlerTest {
   void testBestPlan() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var currentClusterInfo =
-          ClusterInfo.of(
-              "fake",
-              List.of(
-                  new Broker(
-                      10,
-                      "host",
-                      22,
-                      false,
-                      Config.EMPTY,
-                      List.of(new Broker.DataFolder("", Map.of(), Map.of())),
-                      Set.of(),
-                      Set.of()),
-                  new Broker(
-                      11,
-                      "host",
-                      22,
-                      false,
-                      Config.EMPTY,
-                      List.of(new Broker.DataFolder("", Map.of(), Map.of())),
-                      Set.of(),
-                      Set.of())),
-              Map.of(),
-              List.of(
-                  Replica.builder()
-                      .topic("topic")
-                      .partition(0)
-                      .broker(Broker.of(10, "host", 22))
-                      .lag(0)
-                      .size(100)
-                      .isLeader(true)
-                      .isSync(true)
-                      .isFuture(false)
-                      .isOffline(false)
-                      .isPreferredLeader(true)
-                      .path("/tmp/aa")
-                      .build()));
+          ClusterInfo.builder()
+              .addNode(Set.of(1, 2))
+              .addFolders(
+                  Map.ofEntries(Map.entry(1, Set.of("/folder")), Map.entry(2, Set.of("/folder"))))
+              .addTopic("topic", 1, (short) 1)
+              .build();
 
       HasClusterCost clusterCostFunction =
-          (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
+          (clusterInfo, clusterBean) ->
+              () ->
+                  ClusterInfo.findNonFulfilledAllocation(currentClusterInfo, clusterInfo).isEmpty()
+                      ? 100D
+                      : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
       HasMoveCost failMoveCostFunction = (before, after, clusterBean) -> () -> true;
 

@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -90,6 +91,18 @@ public class ClusterInfoBuilder {
           return Stream.concat(nodes.stream(), brokerIds.stream().map(ClusterInfoBuilder::fakeNode))
               .collect(Collectors.toUnmodifiableList());
         });
+  }
+
+  /**
+   * Remove specific brokers from the cluster state.
+   *
+   * @param toRemove id to remove
+   * @return this
+   */
+  public ClusterInfoBuilder removeNodes(Predicate<Integer> toRemove) {
+    return applyNodes(
+        (nodes, replicas) ->
+            nodes.stream().filter(node -> toRemove.negate().test(node.id())).toList());
   }
 
   /**

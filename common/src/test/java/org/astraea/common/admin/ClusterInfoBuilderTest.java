@@ -341,4 +341,23 @@ class ClusterInfoBuilderTest {
     Assertions.assertEquals(node0, node1);
     Assertions.assertNotEquals(node0, node2);
   }
+
+  @Test
+  void testRemoveNodes() {
+    var base = ClusterInfo.builder().addNode(Set.of(1, 2, 3, 4, 5, 6, 7, 8, 9)).build();
+    Assertions.assertEquals(
+        Set.of(1, 2, 3),
+        ClusterInfo.builder(base)
+            .removeNodes(x -> Set.of(4, 5, 6, 7, 8, 9).contains(x))
+            .build()
+            .nodes()
+            .stream()
+            .map(NodeInfo::id)
+            .collect(Collectors.toSet()));
+    Assertions.assertEquals(
+        Set.of(1, 3, 5, 7, 9),
+        ClusterInfo.builder(base).removeNodes(x -> x % 2 == 0).build().nodes().stream()
+            .map(NodeInfo::id)
+            .collect(Collectors.toSet()));
+  }
 }
