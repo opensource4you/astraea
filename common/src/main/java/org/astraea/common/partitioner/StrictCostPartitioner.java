@@ -146,48 +146,45 @@ public class StrictCostPartitioner extends Partitioner {
         .map(Utils::toDuration)
         .ifPresent(d -> this.roundRobinLease = d);
 
-    switch (config.string(METRIC_STORE_KEY).orElse(METRIC_STORE_LOCAL)) {
-      case METRIC_STORE_TOPIC -> metricStore =
-          MetricStore.builder()
-              .receivers(
-                  List.of(
-                      MetricStore.Receiver.topic(
-                          config.requireString(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG)),
-                      MetricStore.Receiver.local(
-                          () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local())))))
-              .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
-              .build();
-      case METRIC_STORE_LOCAL -> {
-        Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
-            () ->
-                admin
-                    .brokers()
-                    .thenApply(
-                        brokers -> {
-                          var map = new HashMap<Integer, JndiClient>();
-                          brokers.forEach(
-                              b ->
-                                  map.put(
-                                      b.id(),
-                                      JndiClient.of(b.host(), jmxPortGetter.apply(b.id()))));
-                          // add local client to fetch consumer metrics
-                          map.put(-1, JndiClient.local());
-                          return Collections.unmodifiableMap(map);
-                        });
-        metricStore =
-            MetricStore.builder()
-                .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
-                .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
-                .build();
-      }
-      default -> throw new IllegalArgumentException(
-          "unknown metric store type: "
-              + config.string(METRIC_STORE_KEY)
-              + ". Use "
-              + METRIC_STORE_TOPIC
-              + " or "
-              + METRIC_STORE_LOCAL);
-    }
+    List<MetricStore.Receiver> receivers =
+        switch (config.string(METRIC_STORE_KEY).orElse(METRIC_STORE_LOCAL)) {
+          case METRIC_STORE_TOPIC -> List.of(
+              MetricStore.Receiver.topic(
+                  config.requireString(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG)),
+              MetricStore.Receiver.local(
+                  () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
+          case METRIC_STORE_LOCAL -> {
+            Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+                () ->
+                    admin
+                        .brokers()
+                        .thenApply(
+                            brokers -> {
+                              var map = new HashMap<Integer, JndiClient>();
+                              brokers.forEach(
+                                  b ->
+                                      map.put(
+                                          b.id(),
+                                          JndiClient.of(b.host(), jmxPortGetter.apply(b.id()))));
+                              // add local client to fetch consumer metrics
+                              map.put(-1, JndiClient.local());
+                              return Collections.unmodifiableMap(map);
+                            });
+            yield List.of(MetricStore.Receiver.local(clientSupplier));
+          }
+          default -> throw new IllegalArgumentException(
+              "unknown metric store type: "
+                  + config.string(METRIC_STORE_KEY)
+                  + ". Use "
+                  + METRIC_STORE_TOPIC
+                  + " or "
+                  + METRIC_STORE_LOCAL);
+        };
+    metricStore =
+        MetricStore.builder()
+            .receivers(receivers)
+            .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
+            .build();
 
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
   }

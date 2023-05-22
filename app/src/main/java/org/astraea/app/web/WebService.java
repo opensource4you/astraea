@@ -25,7 +25,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -38,6 +37,7 @@ import org.astraea.app.argument.NonNegativeIntegerField;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
@@ -68,47 +68,37 @@ public class WebService implements AutoCloseable {
                 .collect(
                     Collectors.toUnmodifiableMap(Function.identity(), ignored -> (id, ee) -> {}));
 
-    MetricStore metricStore;
-    switch (config.string(METRIC_STORE_KEY).orElse(METRIC_STORE_LOCAL)) {
-      case METRIC_STORE_LOCAL -> {
-        Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
-            () ->
-                admin
-                    .brokers()
-                    .thenApply(
-                        brokers ->
-                            brokers.stream()
-                                .collect(
-                                    Collectors.toUnmodifiableMap(
-                                        NodeInfo::id,
-                                        b ->
-                                            JndiClient.of(
-                                                b.host(), brokerIdToJmxPort.apply(b.id())))));
-        metricStore =
-            MetricStore.builder()
-                .beanExpiration(beanExpiration)
-                .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
-                .sensorsSupplier(sensorsSupplier)
-                .build();
-      }
-      case METRIC_STORE_TOPIC -> metricStore =
-          MetricStore.builder()
-              .beanExpiration(beanExpiration)
-              .receivers(
-                  List.of(
-                      MetricStore.Receiver.topic(config.requireString(BOOTSTRAP_SERVERS_KEY)),
-                      MetricStore.Receiver.local(
-                          () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local())))))
-              .sensorsSupplier(sensorsSupplier)
-              .build();
-      default -> throw new IllegalArgumentException(
-          "unknown metric store type: "
-              + config.string(METRIC_STORE_KEY)
-              + ". use "
-              + METRIC_STORE_LOCAL
-              + " or "
-              + METRIC_STORE_TOPIC);
-    }
+    List<MetricStore.Receiver> receivers =
+        switch (config.string(METRIC_STORE_KEY).orElse(METRIC_STORE_LOCAL)) {
+          case METRIC_STORE_LOCAL -> {
+            Function<List<Broker>, Map<Integer, MBeanClient>> asBeanClientMap =
+                brokers ->
+                    brokers.stream()
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                NodeInfo::id,
+                                b -> JndiClient.of(b.host(), brokerIdToJmxPort.apply(b.id()))));
+            yield List.of(
+                MetricStore.Receiver.local(() -> admin.brokers().thenApply(asBeanClientMap)));
+          }
+          case METRIC_STORE_TOPIC -> List.of(
+              MetricStore.Receiver.topic(config.requireString(BOOTSTRAP_SERVERS_KEY)),
+              MetricStore.Receiver.local(
+                  () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
+          default -> throw new IllegalArgumentException(
+              "unknown metric store type: "
+                  + config.string(METRIC_STORE_KEY)
+                  + ". use "
+                  + METRIC_STORE_LOCAL
+                  + " or "
+                  + METRIC_STORE_TOPIC);
+        };
+    var metricStore =
+        MetricStore.builder()
+            .beanExpiration(beanExpiration)
+            .receivers(receivers)
+            .sensorsSupplier(sensorsSupplier)
+            .build();
 
     server = Utils.packException(() -> HttpServer.create(new InetSocketAddress(port), 0));
     server.createContext("/topics", to(new TopicHandler(admin)));
