@@ -18,16 +18,12 @@ package org.astraea.connector.backup;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,8 +36,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.consumer.Record;
-import org.astraea.common.json.JsonConverter;
-import org.astraea.common.json.TypeRef;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
 import org.astraea.connector.SinkTask;
@@ -176,159 +170,10 @@ public class Exporter extends SinkConnector {
     String path;
     DataSize size;
     long interval;
-    private final Map<String, Boolean> topicWithTarget = new HashMap<>();
 
-    final ConcurrentHashMap<String, TargetStatus> targetForTopicPartition =
-        new ConcurrentHashMap<>();
+    private final Map<String, Map<String, Long>> offsetForTP = new HashMap<>();
 
     private final Map<TopicPartition, Long> seekOffset = new HashMap<>();
-
-    //  package public for test
-    static class TargetStatus {
-
-      private final Map<String, List<Long>> targets;
-
-      private final Map<String, Boolean> initExclude;
-
-      private Long nextInvalidOffset = 0L;
-
-      TargetStatus() {
-        this.targets = new HashMap<>();
-        this.targets.put("offset", new ArrayList<>());
-        this.targets.put("timestamp", new ArrayList<>());
-        this.initExclude = new HashMap<>();
-      }
-
-      TargetStatus(TargetStatus base) {
-        // deep copy the base status
-        this.targets = new HashMap<>();
-        for (Map.Entry<String, List<Long>> entry : base.targets.entrySet()) {
-          String key = entry.getKey();
-          List<Long> value = entry.getValue();
-          this.targets.put(key, new ArrayList<>(value));
-        }
-        this.nextInvalidOffset = 0L;
-        this.initExclude = new HashMap<>(base.initExcludes());
-      }
-
-      private boolean calStatus(boolean initStatus, int index) {
-        if (index % 2 == 1) return !initStatus;
-        return initStatus;
-      }
-
-      void initRange(String type, Long from, boolean exclude) {
-        var target = this.targets.get(type);
-        if (from == 0) {
-          target.add(from);
-          this.initExclude.put(type, exclude);
-        }
-      }
-
-      /**
-       * Inserts a range of values into the target list for a given type. The range starts from the
-       * "from" value (inclusive) and ends at the "to" value (inclusive). If "exclude" is true, the
-       * range is excluded from the target list. If the target list for the given type is empty, a
-       * default value of 0 is added at the beginning, and the exclude flag is set to the opposite
-       * of the given "exclude" value.
-       *
-       * @param type the type of target list to modify
-       * @param from the starting value of the range to insert (inclusive)
-       * @param to the ending value of the range to insert (inclusive)
-       * @param exclude whether to exclude the inserted range from the target list
-       */
-      void insertRange(String type, Long from, Long to, boolean exclude) {
-        to++;
-        var target = this.targets.get(type);
-        if (target.isEmpty()) {
-          this.initRange(type, from, !exclude);
-        }
-
-        int indexBeforeFromShouldBe = 0;
-        int indexAfterToShouldBe = target.size();
-
-        for (var i = 1; i < target.size(); i++) {
-          if (target.get(i) > from) {
-            indexBeforeFromShouldBe = i - 1;
-            break;
-          }
-        }
-
-        for (var i = indexBeforeFromShouldBe + 1; i < target.size(); i++) {
-          if (target.get(i) > to) {
-            indexAfterToShouldBe = i;
-            break;
-          }
-        }
-
-        var deletedIndexFrom = indexBeforeFromShouldBe + 1;
-        var deletedIndexTo = indexAfterToShouldBe;
-
-        if (exclude == calStatus(this.initExclude.get(type), indexAfterToShouldBe)) {
-          target.add(indexAfterToShouldBe, to);
-        }
-
-        if (from == 0 && from == indexBeforeFromShouldBe) {
-          this.initExclude.put(type, exclude);
-        } else {
-          if (exclude != calStatus(this.initExclude.get(type), indexBeforeFromShouldBe)) {
-            target.add(indexBeforeFromShouldBe + 1, from);
-            deletedIndexFrom++;
-            deletedIndexTo++;
-          }
-        }
-
-        if (indexAfterToShouldBe - indexBeforeFromShouldBe != 1) {
-          target.subList(deletedIndexFrom, deletedIndexTo).clear();
-        }
-      }
-
-      void updateNextInvalidOffset(Long offset) {
-        this.nextInvalidOffset = this.nextInvalidOffset(offset).orElse(Long.MAX_VALUE);
-      }
-
-      Map<String, List<Long>> targets() {
-        return this.targets;
-      }
-
-      List<Long> targets(String type) {
-        return this.targets.get(type);
-      }
-
-      Map<String, Boolean> initExcludes() {
-        return this.initExclude;
-      }
-
-      Boolean initialExclude(String type) {
-        return this.initExclude.get(type);
-      }
-
-      Boolean isTargetOffset(Long offset) {
-        for (var i = 0; i < targets("offset").size(); i++) {
-          if (targets("offset").get(i) > offset) {
-            return !calStatus(initialExclude("offset"), i - 1);
-          }
-        }
-        return !calStatus(initialExclude("offset"), targets("offset").size() - 1);
-      }
-
-      // Finds the next valid offset given a current offset
-      Optional<Long> nextValidOffset(Long currentOffset) {
-        // find the next offset in targets.offset which value greater or equal to currentOffset.
-        return targets("offset").stream()
-            .filter(offset -> offset > currentOffset)
-            .filter(
-                offset -> !calStatus(initialExclude("offset"), targets("offset").indexOf(offset)))
-            .findFirst();
-      }
-
-      Optional<Long> nextInvalidOffset(Long currentOffset) {
-        return targets("offset").stream()
-            .filter(offset -> offset > currentOffset)
-            .filter(
-                offset -> calStatus(initialExclude("offset"), targets("offset").indexOf(offset)))
-            .findFirst();
-      }
-    }
 
     RecordWriter createRecordWriter(TopicPartition tp, long offset) {
       var fileName = String.valueOf(offset);
@@ -417,50 +262,6 @@ public class Exporter extends SinkConnector {
       return list;
     }
 
-    void updateTargetRangesForTopicPartitions(List<HashMap<String, Object>> targets) {
-      targets.forEach(
-          target -> {
-            var topic = target.get("topic");
-            var partition = target.get("partition");
-
-            if (partition == null) {
-              partition = "all";
-            }
-
-            this.topicWithTarget.put((String) topic, true);
-
-            if (target.get("range") instanceof Map<?, ?>) {
-              Map<String, Object> range = (Map<String, Object>) target.get("range");
-              var type = (String) range.get("type");
-              var from = Long.parseLong((String) range.get("from"));
-              var to = Long.parseLong((String) range.get("to"));
-              var exclude = (boolean) range.get("exclude");
-              // Get the TargetStatus for the topic-partition or create a new one if it doesn't
-              // exist
-              this.targetForTopicPartition
-                  .computeIfAbsent(
-                      topic + "-" + partition,
-                      tp -> {
-                        var base = this.targetForTopicPartition.get(topic + "-all");
-                        if (base == null) {
-                          return new TargetStatus();
-                        }
-                        return new TargetStatus(base);
-                      })
-                  .insertRange(type, from, to, exclude);
-              // If the partition is "all", insert the range into all the TargetStatus
-              if (partition == "all") {
-                this.targetForTopicPartition.forEach(
-                    (key, value) -> value.insertRange(type, from, to, exclude));
-              }
-            } else {
-              this.targetForTopicPartition
-                  .computeIfAbsent(topic + "-" + partition, tp -> new TargetStatus())
-                  .initRange("offset", 0L, false);
-            }
-          });
-    }
-
     @Override
     protected void init(Configuration configuration) {
       this.path = configuration.requireString(PATH_KEY.name());
@@ -479,13 +280,19 @@ public class Exporter extends SinkConnector {
               .orElse(BUFFER_SIZE_DEFAULT)
               .bytes();
 
-      List<HashMap<String, Object>> targets =
-          JsonConverter.jackson()
-              .fromJson(configuration.string("targets").orElse("[]"), new TypeRef<>() {});
-
-      if (targets.size() > 0) {
-        updateTargetRangesForTopicPartitions(targets);
-      }
+      configuration
+          .requireStringByRegex(".*offset.from")
+          .ifPresent(
+              targetMap ->
+                  targetMap.forEach(
+                      (k, v) -> {
+                        var splitKey = k.split("\\.");
+                        if (splitKey.length == 3) {
+                          this.offsetForTP.put(splitKey[0], Map.of("all", Long.valueOf(v)));
+                        } else {
+                          this.offsetForTP.put(splitKey[0], Map.of(splitKey[1], Long.valueOf(v)));
+                        }
+                      }));
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture = CompletableFuture.runAsync(createWriter());
@@ -497,7 +304,7 @@ public class Exporter extends SinkConnector {
           r ->
               Utils.packException(
                   () -> {
-                    if (!isValid(r, true)) return;
+                    if (!isValid(r)) return;
 
                     int recordLength =
                         Stream.of(r.key(), r.value())
@@ -515,58 +322,39 @@ public class Exporter extends SinkConnector {
                     this.bufferSize.add(recordLength);
                   }));
       if (this.seekOffset.size() != 0) {
-        this.seekOffset.forEach(
-            (tp, offset) -> {
-              this.taskContext.requestCommit();
-              this.taskContext.offset(tp, offset);
-              this.seekOffset.remove(tp);
-            });
+        this.seekOffset
+            .entrySet()
+            .iterator()
+            .forEachRemaining(
+                entry -> {
+                  this.taskContext.requestCommit();
+                  this.taskContext.offset(entry.getKey(), entry.getValue());
+                  this.seekOffset.remove(entry.getKey());
+                });
       }
     }
 
-    boolean isValid(Record<byte[], byte[]> r) {
-      return isValid(r, false);
-    }
+    protected boolean isValid(Record<byte[], byte[]> r) {
+      var topicMap = this.offsetForTP.get(r.topic());
+      if (topicMap != null) {
+        var targetOffset = topicMap.get(String.valueOf(r.partition()));
 
-    private boolean isValid(Record<byte[], byte[]> r, boolean contextOperation) {
-      if (this.topicWithTarget.get(r.topic()) != null) {
-        // this topic has user target, we should check this offset is valid.
-        var target = this.targetForTopicPartition.get(r.topic() + "-" + r.partition());
-        if (target == null) {
-          target = this.targetForTopicPartition.get(r.topic() + "-all");
-        }
-        if (r.offset() >= target.nextInvalidOffset) {
-          // this record is not in the previous valid target range, we should check this offset is
-          // valid or not.
-
-          if (target.isTargetOffset(r.offset())) {
-            // we are in 1 of the range, we just update the nextInvalidOffset.
-            target.updateNextInvalidOffset(r.offset());
-          } else {
-            // we are not in the valid target rang, we should seek the next valid offset.
-            var nextValidOffset = target.nextValidOffset(r.offset());
-            Collection<TopicPartition> pausedTopicPartitions =
-                new ArrayList<>(Collections.emptyList());
-            if (nextValidOffset.isPresent()) {
-              // todo have to check the max offset of this topic partition before we reset
-              // the offset.
-              if (contextOperation) this.seekOffset.put(r.topicPartition(), nextValidOffset.get());
-            } else {
-              // subsequent offsets are not within the user-specified range, so ew should stop
-              // consuming to avoid consuming more unnecessary data.
-              this.seekOffset.remove(r.topicPartition());
-              if (contextOperation) pausedTopicPartitions.add(r.topicPartition());
-            }
-            this.taskContext.pause(pausedTopicPartitions);
+        // If the target offset exists and the record's offset is less than the target offset,
+        // set the seek offset to the target offset and return false
+        if (targetOffset != null && r.offset() < targetOffset) {
+          this.seekOffset.put(r.topicPartition(), targetOffset);
+          return false;
+        } else {
+          targetOffset = topicMap.get("all");
+          if (targetOffset != null && r.offset() < targetOffset) {
+            this.seekOffset.put(r.topicPartition(), targetOffset);
             return false;
           }
         }
       }
       var seekOffset = this.seekOffset.get(r.topicPartition());
-      if (seekOffset != null) {
-        this.seekOffset.put(
-            r.topicPartition(), Math.max(r.offset() + 1, this.seekOffset.get(r.topicPartition())));
-      }
+      if (seekOffset != null && seekOffset <= r.offset())
+        this.seekOffset.remove(r.topicPartition());
       return true;
     }
 
