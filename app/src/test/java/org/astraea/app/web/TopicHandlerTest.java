@@ -322,8 +322,7 @@ public class TopicHandlerTest {
 
   @Test
   void testDeleteTopic() {
-    var topicNames =
-        IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).collect(Collectors.toList());
+    var topicNames = IntStream.range(0, 3).mapToObj(x -> Utils.randomString(10)).toList();
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var handler = new TopicHandler(admin);
       for (var name : topicNames)

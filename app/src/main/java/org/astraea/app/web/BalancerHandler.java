@@ -29,7 +29,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -284,11 +283,11 @@ class BalancerHandler implements Handler, AutoCloseable {
           before.stream()
               .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
               .map(r -> new Placement(r, Optional.of(r.size())))
-              .collect(Collectors.toList()),
+              .toList(),
           after.stream()
               .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
               .map(r -> new Placement(r, Optional.empty()))
-              .collect(Collectors.toList()));
+              .toList());
     }
 
     Change(String topic, int partition, List<Placement> before, List<Placement> after) {

@@ -190,7 +190,7 @@ class TopicHandler implements Handler {
                           .thenApply(ignored -> null)
                           .toCompletableFuture();
                     })
-                .collect(Collectors.toList()))
+                .toList())
         .thenCompose(ignored -> get(topicNames, null, id -> true))
         .exceptionally(
             ignored ->
