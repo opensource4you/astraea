@@ -36,7 +36,7 @@ dependencies {
     implementation (project(':common')) {
         // those dependencies are included by kafka worker
         exclude group: "org.apache.kafka"
-//        exclude group: "com.fasterxml.jackson.datatype"
+        exclude group: "com.fasterxml.jackson.datatype"
         exclude group: "org.slf4j"
     }
     // those dependencies are included by kafka worker
