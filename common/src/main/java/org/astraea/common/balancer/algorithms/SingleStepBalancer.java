@@ -140,6 +140,7 @@ public class SingleStepBalancer implements Balancer {
                       .overflow()) {
                 return Optional.of(
                     new Plan(
+                        config.clusterBean(),
                         config.clusterInfo(),
                         config.clusterCostFunction().clusterCost(config.clusterInfo(), clusterBean),
                         currentClusterInfo,
