@@ -76,20 +76,20 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
       var inRate = maxRateSensor.measure(REPLICATION_IN_RATE);
       var outRate = maxRateSensor.measure(REPLICATION_OUT_RATE);
       return List.of(
-          (MaxReplicationInRateBean)
+          new MaxReplicationInRateBean(
               () ->
                   new BeanObject(
                       newInMetrics.beanObject().domainName(),
                       newInMetrics.beanObject().properties(),
                       Map.of(STATISTICS_RATE_KEY, Math.max(oldInRate.orElse(0), inRate)),
-                      current.toMillis()),
-          (MaxReplicationOutRateBean)
+                      current.toMillis())),
+          new MaxReplicationOutRateBean(
               () ->
                   new BeanObject(
                       newOutMetrics.beanObject().domainName(),
                       newOutMetrics.beanObject().properties(),
                       Map.of(STATISTICS_RATE_KEY, Math.max(oldOutRate.orElse(0), outRate)),
-                      current.toMillis()));
+                      current.toMillis())));
     };
   }
 
@@ -103,7 +103,17 @@ public class PartitionMigrateTimeCost implements HasMoveCost {
     return () -> planMigrateSecond > this.maxMigrateTime.getSeconds();
   }
 
-  public interface MaxReplicationInRateBean extends HasMaxRate {}
+  public record MaxReplicationInRateBean(HasMaxRate hasMaxRate) implements HasMaxRate {
+    @Override
+    public BeanObject beanObject() {
+      return hasMaxRate.beanObject();
+    }
+  }
 
-  public interface MaxReplicationOutRateBean extends HasMaxRate {}
+  public record MaxReplicationOutRateBean(HasMaxRate hasMaxRate) implements HasMaxRate {
+    @Override
+    public BeanObject beanObject() {
+      return hasMaxRate.beanObject();
+    }
+  }
 }

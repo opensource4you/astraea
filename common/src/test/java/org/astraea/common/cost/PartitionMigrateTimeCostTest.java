@@ -168,15 +168,15 @@ class PartitionMigrateTimeCostTest {
         Map.of(
             0,
             List.of(
-                (PartitionMigrateTimeCost.MaxReplicationInRateBean) () -> inBean0,
-                (PartitionMigrateTimeCost.MaxReplicationOutRateBean) () -> outBean0),
+                new PartitionMigrateTimeCost.MaxReplicationInRateBean(() -> inBean0),
+                new PartitionMigrateTimeCost.MaxReplicationOutRateBean(() -> outBean0)),
             1,
             List.of(
-                (PartitionMigrateTimeCost.MaxReplicationInRateBean) () -> inBean1,
-                (PartitionMigrateTimeCost.MaxReplicationOutRateBean) () -> outBean1),
+                new PartitionMigrateTimeCost.MaxReplicationInRateBean(() -> inBean1),
+                new PartitionMigrateTimeCost.MaxReplicationOutRateBean(() -> outBean1)),
             2,
             List.of(
-                (PartitionMigrateTimeCost.MaxReplicationInRateBean) () -> inBean2,
-                (PartitionMigrateTimeCost.MaxReplicationOutRateBean) () -> outBean2)));
+                new PartitionMigrateTimeCost.MaxReplicationInRateBean(() -> inBean2),
+                new PartitionMigrateTimeCost.MaxReplicationOutRateBean(() -> outBean2))));
   }
 }
