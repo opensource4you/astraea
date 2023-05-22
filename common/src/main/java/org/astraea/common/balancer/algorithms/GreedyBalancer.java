@@ -155,7 +155,7 @@ public class GreedyBalancer implements Balancer {
         id -> balancingMode.get(id) == BalancerUtils.BalancingModes.DEMOTED;
     final var hasDemoted =
         balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.DEMOTED);
-    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isDemoted, allowedTopics);
+    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isDemoted);
 
     final var currentClusterInfo =
         BalancerUtils.clearedCluster(config.clusterInfo(), isDemoted, isBalancing);

@@ -62,8 +62,7 @@ public final class BalancerUtils {
   }
 
   /** Performs common validness checks to the cluster. */
-  public static void verifyClearBrokerValidness(
-      ClusterInfo cluster, Predicate<Integer> isDemoted, Predicate<String> allowedTopics) {
+  public static void verifyClearBrokerValidness(ClusterInfo cluster, Predicate<Integer> isDemoted) {
     var ongoingEventReplica =
         cluster.replicas().stream()
             .filter(r -> isDemoted.test(r.nodeInfo().id()))

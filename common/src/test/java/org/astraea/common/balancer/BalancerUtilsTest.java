@@ -106,25 +106,6 @@ class BalancerUtilsTest {
             .addTopic("C", 1, (short) 1, r -> Replica.builder(r).nodeInfo(iter.next()).build())
             .build();
 
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 1, t -> !t.equals("A")));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 2, t -> !t.equals("B")));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 3, t -> !t.equals("C")));
-    Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 1, t -> t.equals("A")));
-    Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 2, t -> t.equals("B")));
-    Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 3, t -> t.equals("C")));
-
     var hasAdding =
         ClusterInfo.builder(cluster).mapLog(r -> Replica.builder(r).isAdding(true).build()).build();
     var hasRemoving =
@@ -135,19 +116,19 @@ class BalancerUtilsTest {
         ClusterInfo.builder(cluster).mapLog(r -> Replica.builder(r).isFuture(true).build()).build();
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> BalancerUtils.verifyClearBrokerValidness(hasAdding, x -> true, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasAdding, x -> true));
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> BalancerUtils.verifyClearBrokerValidness(hasRemoving, x -> true, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasRemoving, x -> true));
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> BalancerUtils.verifyClearBrokerValidness(hasFuture, x -> true, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasFuture, x -> true));
     Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(hasAdding, x -> false, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasAdding, x -> false));
     Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(hasRemoving, x -> false, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasRemoving, x -> false));
     Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(hasFuture, x -> false, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasFuture, x -> false));
   }
 
   @Test
