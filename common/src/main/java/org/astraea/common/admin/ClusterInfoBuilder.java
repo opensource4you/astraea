@@ -161,8 +161,6 @@ public class ClusterInfoBuilder {
       String topicName, int partitionSize, short replicaFactor, Function<Replica, Replica> mapper) {
     return applyReplicas(
         (nodes, replicas) -> {
-          if (nodes.stream().anyMatch(node -> !(node instanceof Broker)))
-            throw new IllegalStateException("All the nodes must include the folder info");
           if (nodes.size() < replicaFactor)
             throw new IllegalArgumentException(
                 "Insufficient node for this replica factor: "
