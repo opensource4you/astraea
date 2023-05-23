@@ -110,7 +110,7 @@ public class ByteUtilsTest {
   }
 
   @Test
-  void test() {
+  void testReadAndToBytesClusterBean() {
     var topic = Utils.randomString();
     try (var service = Service.builder().numberOfBrokers(3).build()) {
       try (var admin = Admin.of(service.bootstrapServers())) {
