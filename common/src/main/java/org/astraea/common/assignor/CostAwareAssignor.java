@@ -66,9 +66,8 @@ public class CostAwareAssignor extends Assignor {
             .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     var incompatiblePartition = partitionCost.incompatibility();
 
-    var assignment = Combinator.greedy().combine(subscriptions, cost);
-    return Shuffler.incompatible(shuffleTime)
-        .shuffle(subscriptions, assignment, incompatiblePartition, cost);
+    var shuffler = Shuffler.randomShuffler(subscriptions, cost, incompatiblePartition, config);
+    return shuffler.shuffle();
   }
 
   @Override

@@ -44,7 +44,7 @@ import org.astraea.common.partitioner.PartitionerUtils;
 
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
 public abstract class Assignor implements ConsumerPartitionAssignor, Configurable {
-  private Configuration config;
+  protected Configuration config;
   public static final String COST_PREFIX = "assignor.cost";
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Integer> jmxPortGetter =
