@@ -131,8 +131,39 @@ public class BalancerBenchmarkApp {
 
   private String optimizationSummary(
       CommonArgument arg, ClusterInfo info, ClusterBean bean, BalancerProblemFormat optimization) {
-    var format =
-        """
+
+    var metricStart =
+        bean.all().values().stream()
+            .flatMap(Collection::stream)
+            .map(HasBeanObject::beanObject)
+            .mapToLong(BeanObject::createdTimestamp)
+            .min()
+            .stream()
+            .mapToObj(
+                time ->
+                    ZonedDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
+                        .toLocalDateTime())
+            .findFirst()
+            .orElse(null);
+    var metricEnd =
+        bean.all().values().stream()
+            .flatMap(Collection::stream)
+            .map(HasBeanObject::beanObject)
+            .mapToLong(BeanObject::createdTimestamp)
+            .max()
+            .stream()
+            .mapToObj(
+                time ->
+                    ZonedDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
+                        .toLocalDateTime())
+            .findFirst()
+            .orElse(null);
+    var duration =
+        metricStart != null && metricEnd != null
+            ? Duration.between(metricStart, metricEnd)
+            : Duration.ZERO;
+
+    return """
         Balancer Benchmark
         ===============================
 
@@ -173,83 +204,52 @@ public class BalancerBenchmarkApp {
         * Metrics End at: %s
         * Recorded Duration: %s
 
-        """;
-
-    var metricStart =
-        bean.all().values().stream()
-            .flatMap(Collection::stream)
-            .map(HasBeanObject::beanObject)
-            .mapToLong(BeanObject::createdTimestamp)
-            .min()
-            .stream()
-            .mapToObj(
-                time ->
-                    ZonedDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-                        .toLocalDateTime())
-            .findFirst()
-            .orElse(null);
-    var metricEnd =
-        bean.all().values().stream()
-            .flatMap(Collection::stream)
-            .map(HasBeanObject::beanObject)
-            .mapToLong(BeanObject::createdTimestamp)
-            .max()
-            .stream()
-            .mapToObj(
-                time ->
-                    ZonedDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneId.systemDefault())
-                        .toLocalDateTime())
-            .findFirst()
-            .orElse(null);
-    var duration =
-        metricStart != null && metricEnd != null
-            ? Duration.between(metricStart, metricEnd)
-            : Duration.ZERO;
-
-    return String.format(
-        format,
-        // astraea version
-        VersionUtils.VERSION,
-        VersionUtils.DATE,
-        VersionUtils.REVISION,
-        VersionUtils.BUILDER,
-        // Balancer Problem Summary
-        arg.fetchBalancerProblemJson(),
-        optimization.timeout,
-        optimization.balancer,
-        Optional.of(
-                optimization.balancerConfig.entrySet().stream()
-                    .map(e -> String.format("  * \"%s\": %s", e.getKey(), e.getValue()))
-                    .collect(Collectors.joining(System.lineSeparator())))
-            .filter(Predicate.not(String::isEmpty))
-            .orElse("  * no config"),
-        optimization.parse().clusterCostFunction().toString(),
-        optimization.parse().moveCostFunction().toString(),
-        Optional.of(
-                optimization.costConfig.entrySet().stream()
-                    .map(e -> String.format("  * \"%s\": %s", e.getKey(), e.getValue()))
-                    .collect(Collectors.joining(System.lineSeparator())))
-            .filter(Predicate.not(String::isEmpty))
-            .orElse("  * no config"),
-        // ClusterInfo Summary
-        info.clusterId(),
-        info.topicNames().size(),
-        info.topicPartitions().size(),
-        info.replicas().size(),
-        info.brokers().size(),
-        // ClusterBean Summary
-        bean.all().values().stream().mapToInt(Collection::size).sum(),
-        (double) bean.all().values().stream().mapToInt(Collection::size).sum()
-            / bean.brokerIds().size(),
-        bean.brokerIds().size(),
-        metricStart != null ? metricStart : "no metric",
-        metricEnd != null ? metricEnd : "no metric",
-        duration);
+        """
+        .formatted(
+            // astraea version
+            VersionUtils.VERSION,
+            VersionUtils.DATE,
+            VersionUtils.REVISION,
+            VersionUtils.BUILDER,
+            // Balancer Problem Summary
+            arg.fetchBalancerProblemJson(),
+            optimization.timeout,
+            optimization.balancer,
+            Optional.of(
+                    optimization.balancerConfig.entrySet().stream()
+                        .map(e -> String.format("  * \"%s\": %s", e.getKey(), e.getValue()))
+                        .collect(Collectors.joining(System.lineSeparator())))
+                .filter(Predicate.not(String::isEmpty))
+                .orElse("  * no config"),
+            optimization.parse().clusterCostFunction().toString(),
+            optimization.parse().moveCostFunction().toString(),
+            Optional.of(
+                    optimization.costConfig.entrySet().stream()
+                        .map(e -> String.format("  * \"%s\": %s", e.getKey(), e.getValue()))
+                        .collect(Collectors.joining(System.lineSeparator())))
+                .filter(Predicate.not(String::isEmpty))
+                .orElse("  * no config"),
+            // ClusterInfo Summary
+            info.clusterId(),
+            info.topicNames().size(),
+            info.topicPartitions().size(),
+            info.replicas().size(),
+            info.brokers().size(),
+            // ClusterBean Summary
+            bean.all().values().stream().mapToInt(Collection::size).sum(),
+            (double) bean.all().values().stream().mapToInt(Collection::size).sum()
+                / bean.brokerIds().size(),
+            bean.brokerIds().size(),
+            metricStart != null ? metricStart : "no metric",
+            metricEnd != null ? metricEnd : "no metric",
+            duration);
   }
 
   private String experimentSummary(BalancerBenchmark.ExperimentResult result) {
-    var format =
-        """
+
+    var count = result.costSummary().getCount();
+
+    return """
         Balancer Experiment Result
         ===============================
 
@@ -278,67 +278,37 @@ public class BalancerBenchmarkApp {
         %s
         ```
 
-        """;
-
-    var count = result.costSummary().getCount();
-
-    return String.format(
-        format,
-        // Trials
-        result.trials(),
-        result.costs().size(),
-        result.trials() - result.costs().size(),
-        // Cost Detail
-        result.initial().value(),
-        result.initial(),
-        result
-            .bestCost()
-            .map(ClusterCost::value)
-            .map(Object::toString)
-            .orElse("no usable solution found"),
-        result.bestCost().map(Object::toString).orElse("no usable solution found"),
-        // Cost Statistics
-        result.initial().value(),
-        count > 0 ? result.costSummary().getMin() : -1,
-        count > 0 ? result.costSummary().getAverage() : -1,
-        count > 0 ? result.costSummary().getMax() : -1,
-        result.variance().orElse(-1),
-        // All values
-        result.costs().stream()
-            .mapToDouble(ClusterCost::value)
-            .sorted()
-            .mapToObj(Double::toString)
-            .collect(Collectors.joining(System.lineSeparator())));
+        """
+        .formatted(
+            // Trials
+            result.trials(),
+            result.costs().size(),
+            result.trials() - result.costs().size(),
+            // Cost Detail
+            result.initial().value(),
+            result.initial(),
+            result
+                .bestCost()
+                .map(ClusterCost::value)
+                .map(Object::toString)
+                .orElse("no usable solution found"),
+            result.bestCost().map(Object::toString).orElse("no usable solution found"),
+            // Cost Statistics
+            result.initial().value(),
+            count > 0 ? result.costSummary().getMin() : -1,
+            count > 0 ? result.costSummary().getAverage() : -1,
+            count > 0 ? result.costSummary().getMax() : -1,
+            result.variance().orElse(-1),
+            // All values
+            result.costs().stream()
+                .mapToDouble(ClusterCost::value)
+                .sorted()
+                .mapToObj(Double::toString)
+                .collect(Collectors.joining(System.lineSeparator())));
   }
 
   private String costProfilingSummary(
       CostProfilingArgument arg, BalancerBenchmark.CostProfilingResult result) {
-    var format =
-        """
-        Balancer Cost Profiling Result
-        ===============================
-
-        * Initial Cost Value: %f
-          > %s
-
-        * Best Cost Value: %s
-          > %s
-
-        ## Runtime Statistics
-
-        * Execution Time: %s
-        * Average Iteration Time: %.3f ms
-        * Average Balancer Operation Time: %.3f ms
-        * Average ClusterCost Processing Time: %.3f ms
-        * Average MoveCost Processing Time: %.3f ms
-        * Total ClusterCost Evaluation: %d
-        * Total MoveCost Evaluation: %d
-
-        ## Detail
-
-        * Cost Profiling Result (ClusterCost Only) in CSV: %s
-        * Cost Profiling Result (All) in CSV: %s
-        """;
 
     // use the move cost evaluation count as the number of iteration(an optimization attempt) been
     // performed. we are not using cluster cost since some balancer implementation won't perform
@@ -371,39 +341,63 @@ public class BalancerBenchmarkApp {
                                 e.getKey(), "", e.getValue().overflow() ? 1 : 0, "", e.getValue())))
             .sorted(Comparator.comparingLong(x -> (long) x.get(0))));
 
-    return String.format(
-        format,
-        // summary
-        result.initial().value(),
-        result.initial(),
-        result
-            .plan()
-            .map(Balancer.Plan::proposalClusterCost)
-            .map(ClusterCost::value)
-            .map(Object::toString)
-            .orElse("no solution found"),
-        result
-            .plan()
-            .map(Balancer.Plan::proposalClusterCost)
-            .map(Object::toString)
-            .orElse("no solution found"),
-        // runtime statistics
-        result.executionTime(),
-        result.executionTime().dividedBy(iterations).toNanos() / 1e6,
-        result
-                .executionTime()
-                .minusNanos(result.clusterCostProcessingTimeNs().getSum())
-                .minusNanos(result.moveCostProcessingTimeNs().getSum())
-                .dividedBy(iterations)
-                .toNanos()
-            / 1e6,
-        result.clusterCostProcessingTimeNs().getAverage() / 1e6,
-        result.moveCostProcessingTimeNs().getAverage() / 1e6,
-        result.clusterCostProcessingTimeNs().getCount(),
-        result.moveCostProcessingTimeNs().getCount(),
-        // details
-        csv0,
-        csv1);
+    return """
+        Balancer Cost Profiling Result
+        ===============================
+
+        * Initial Cost Value: %f
+          > %s
+
+        * Best Cost Value: %s
+          > %s
+
+        ## Runtime Statistics
+
+        * Execution Time: %s
+        * Average Iteration Time: %.3f ms
+        * Average Balancer Operation Time: %.3f ms
+        * Average ClusterCost Processing Time: %.3f ms
+        * Average MoveCost Processing Time: %.3f ms
+        * Total ClusterCost Evaluation: %d
+        * Total MoveCost Evaluation: %d
+
+        ## Detail
+
+        * Cost Profiling Result (ClusterCost Only) in CSV: %s
+        * Cost Profiling Result (All) in CSV: %s
+        """
+        .formatted(
+            // summary
+            result.initial().value(),
+            result.initial(),
+            result
+                .plan()
+                .map(Balancer.Plan::proposalClusterCost)
+                .map(ClusterCost::value)
+                .map(Object::toString)
+                .orElse("no solution found"),
+            result
+                .plan()
+                .map(Balancer.Plan::proposalClusterCost)
+                .map(Object::toString)
+                .orElse("no solution found"),
+            // runtime statistics
+            result.executionTime(),
+            result.executionTime().dividedBy(iterations).toNanos() / 1e6,
+            result
+                    .executionTime()
+                    .minusNanos(result.clusterCostProcessingTimeNs().getSum())
+                    .minusNanos(result.moveCostProcessingTimeNs().getSum())
+                    .dividedBy(iterations)
+                    .toNanos()
+                / 1e6,
+            result.clusterCostProcessingTimeNs().getAverage() / 1e6,
+            result.moveCostProcessingTimeNs().getAverage() / 1e6,
+            result.clusterCostProcessingTimeNs().getCount(),
+            result.moveCostProcessingTimeNs().getCount(),
+            // details
+            csv0,
+            csv1);
   }
 
   static void exportCsv(Path location, Stream<List<Object>> timeSeries) {
