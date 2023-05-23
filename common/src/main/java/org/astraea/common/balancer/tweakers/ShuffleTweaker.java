@@ -16,9 +16,10 @@
  */
 package org.astraea.common.balancer.tweakers;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -29,7 +30,7 @@ import org.astraea.common.EnumInfo;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.admin.TopicPartitionReplica;
+import org.astraea.common.admin.TopicPartition;
 
 /**
  * The {@link ShuffleTweaker} proposes a new log placement based on the current log placement, but
@@ -87,43 +88,37 @@ public class ShuffleTweaker {
         () -> {
           final var shuffleCount = numberOfShuffle.get();
           final var replicaOrder = Utils.shuffledPermutation(legalReplicas).iterator();
-          final var forbiddenReplica = new HashSet<TopicPartitionReplica>();
+          final var allocation = new HashMap<TopicPartition, List<Replica>>();
 
-          final var finalCluster = ClusterInfo.builder(baseAllocation);
           for (int shuffled = 0; replicaOrder.hasNext() && shuffled < shuffleCount; ) {
             final var sourceReplica = replicaOrder.next();
 
-            // the leadership change operation will not only affect source target but also the
-            // target replica. To prevent mutating one replica twice in the tweaking loop. We have
-            // to mandatory exclude the target replica since it has been touched in this tweak.
-            // Tweaking a replica twice is meaningless and incompatible with the design of
-            // ClusterInfoBuilder.
-            if (forbiddenReplica.contains(sourceReplica.topicPartitionReplica())) continue;
-
             Supplier<Boolean> leadershipChange =
                 () -> {
-                  var targetReplica =
-                      baseAllocation
-                          .replicaStream(sourceReplica.topicPartition())
+                  var replicaList =
+                      allocation.computeIfAbsent(
+                          sourceReplica.topicPartition(),
+                          (tp) -> new ArrayList<>(baseAllocation.replicas(tp)));
+                  if (!replicaList.contains(sourceReplica)) return false;
+                  var maybeTargetReplica =
+                      replicaList.stream()
                           // leader pair follower, follower pair leader
                           .filter(r -> r.isFollower() != sourceReplica.isFollower())
                           // this follower is located at allowed broker
                           .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
-                          // not forbidden
-                          .filter(r -> !forbiddenReplica.contains(r.topicPartitionReplica()))
                           .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
                           .min(Map.Entry.comparingByValue())
                           .map(Map.Entry::getKey);
 
                   // allowed broker filter might cause no legal exchange target
-                  if (targetReplica.isPresent()) {
-                    var theFollower =
-                        sourceReplica.isFollower() ? sourceReplica : targetReplica.orElseThrow();
-                    finalCluster.setPreferredLeader(theFollower.topicPartitionReplica());
-
-                    forbiddenReplica.add(sourceReplica.topicPartitionReplica());
-                    forbiddenReplica.add(targetReplica.orElseThrow().topicPartitionReplica());
-
+                  if (maybeTargetReplica.isPresent()) {
+                    var targetReplica = maybeTargetReplica.get();
+                    replicaList.remove(sourceReplica);
+                    replicaList.remove(targetReplica);
+                    replicaList.add(
+                        Replica.builder(sourceReplica).isLeader(!sourceReplica.isLeader()).build());
+                    replicaList.add(
+                        Replica.builder(targetReplica).isLeader(!targetReplica.isLeader()).build());
                     return true;
                   } else {
                     return false;
@@ -131,7 +126,11 @@ public class ShuffleTweaker {
                 };
             Supplier<Boolean> replicaListChange =
                 () -> {
-                  var replicaList = baseAllocation.replicas(sourceReplica.topicPartition());
+                  var replicaList =
+                      allocation.computeIfAbsent(
+                          sourceReplica.topicPartition(),
+                          (tp) -> new ArrayList<>(baseAllocation.replicas(tp)));
+                  if (!replicaList.contains(sourceReplica)) return false;
                   var targetBroker =
                       baseAllocation.brokers().stream()
                           // the candidate should not be part of the replica list
@@ -144,13 +143,15 @@ public class ShuffleTweaker {
                           .map(Map.Entry::getKey);
 
                   if (targetBroker.isPresent()) {
-                    finalCluster.reassignReplica(
-                        sourceReplica.topicPartitionReplica(),
-                        targetBroker.orElseThrow().id(),
-                        randomElement(
-                            baseAllocation.brokerFolders().get(targetBroker.orElseThrow().id())));
-
-                    forbiddenReplica.add(sourceReplica.topicPartitionReplica());
+                    var targetReplica =
+                        Replica.builder(sourceReplica)
+                            .nodeInfo(targetBroker.get())
+                            .path(
+                                randomElement(
+                                    baseAllocation.brokerFolders().get(targetBroker.get().id())))
+                            .build();
+                    replicaList.remove(sourceReplica);
+                    replicaList.add(targetReplica);
                     return true;
                   } else {
                     return false;
@@ -173,7 +174,14 @@ public class ShuffleTweaker {
             shuffled += isFinished ? 1 : 0;
           }
 
-          return finalCluster.build();
+          return ClusterInfo.of(
+              baseAllocation.clusterId(),
+              baseAllocation.nodes(),
+              baseAllocation.topics(),
+              baseAllocation.topicPartitions().stream()
+                  .map(tp -> allocation.getOrDefault(tp, baseAllocation.replicas(tp)))
+                  .flatMap(Collection::stream)
+                  .toList());
         });
   }
 

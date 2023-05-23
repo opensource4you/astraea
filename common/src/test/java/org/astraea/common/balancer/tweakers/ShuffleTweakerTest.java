@@ -30,6 +30,7 @@ import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.FakeClusterInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -210,6 +211,47 @@ class ShuffleTweakerTest {
                       .map(TopicPartition::topic)
                       .allMatch(x -> x.equals("normal-topic")),
                   "only normal-topic get altered. Actual: " + notFulfilled);
+            });
+  }
+
+  @Test
+  void testReplicaFactorSafety() {
+    var testCluster =
+        ClusterInfo.builder()
+            .addNode(Set.of(1, 2, 3, 4, 5, 6))
+            .addFolders(Map.of(1, Set.of("/folder1", "/folder2", "/folder3")))
+            .addFolders(Map.of(2, Set.of("/folder1", "/folder2", "/folder3")))
+            .addFolders(Map.of(3, Set.of("/folder1", "/folder2", "/folder3")))
+            .addFolders(Map.of(4, Set.of("/folder1", "/folder2", "/folder3")))
+            .addFolders(Map.of(5, Set.of("/folder1", "/folder2", "/folder3")))
+            .addFolders(Map.of(6, Set.of("/folder1", "/folder2", "/folder3")))
+            .addTopic("topic2", 100, (short) 2)
+            .addTopic("topic3", 100, (short) 3)
+            .addTopic("topic4", 100, (short) 4)
+            .build();
+
+    var tweaker = ShuffleTweaker.builder().numberOfShuffle(() -> 50).build();
+
+    tweaker
+        .generate(testCluster)
+        .map(x -> tweaker.generate(x).findFirst().orElseThrow())
+        .map(x -> tweaker.generate(x).findFirst().orElseThrow())
+        .map(x -> tweaker.generate(x).findFirst().orElseThrow())
+        .map(x -> tweaker.generate(x).findFirst().orElseThrow())
+        .limit(1000)
+        .forEach(
+            cluster -> {
+              for (var partition : cluster.topicPartitions()) {
+                Set<TopicPartitionReplica> collect =
+                    cluster.replicas(partition).stream()
+                        .map(Replica::topicPartitionReplica)
+                        .collect(Collectors.toSet());
+                switch (partition.topic()) {
+                  case "topic2" -> Assertions.assertEquals(2, collect.size(), collect.toString());
+                  case "topic3" -> Assertions.assertEquals(3, collect.size(), collect.toString());
+                  case "topic4" -> Assertions.assertEquals(4, collect.size(), collect.toString());
+                }
+              }
             });
   }
 }
