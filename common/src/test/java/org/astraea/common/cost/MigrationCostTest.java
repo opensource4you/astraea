@@ -16,16 +16,11 @@
  */
 package org.astraea.common.cost;
 
-import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
-import static org.astraea.common.cost.MigrationCost.recordSizeToFetch;
-import static org.astraea.common.cost.MigrationCost.recordSizeToSync;
 import static org.astraea.common.cost.MigrationCost.replicaLeaderToAdd;
 import static org.astraea.common.cost.MigrationCost.replicaLeaderToRemove;
 import static org.astraea.common.cost.MigrationCost.replicaNumChanged;
 
 import java.util.List;
-import java.util.Map;
-import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
@@ -294,143 +289,5 @@ class MigrationCostTest {
     Assertions.assertEquals(-1, changedReplicaCount.get(0));
     Assertions.assertEquals(-1, changedReplicaCount.get(1));
     Assertions.assertEquals(2, changedReplicaCount.get(2));
-  }
-
-  @Test
-  void testChangedRecordSizeOverflow() {
-    var limit = 1600;
-    var moveInResult = recordSizeToSync(beforeClusterInfo(), afterClusterInfo());
-    Assertions.assertEquals(3, moveInResult.size());
-    Assertions.assertEquals(0, moveInResult.get(0));
-    Assertions.assertEquals(1000, moveInResult.get(1));
-    Assertions.assertEquals(100 + 500, moveInResult.get(2));
-
-    var moveOutResult = recordSizeToFetch(beforeClusterInfo(), afterClusterInfo());
-    Assertions.assertEquals(3, moveOutResult.size());
-    Assertions.assertEquals(100 + 500, moveOutResult.get(0));
-    Assertions.assertEquals(0, moveOutResult.get(1));
-    Assertions.assertEquals(1000, moveOutResult.get(2));
-
-    var totalResult =
-        changedRecordSizeOverflow(beforeClusterInfo(), afterClusterInfo(), ignored -> true, limit);
-    var overflowResult =
-        changedRecordSizeOverflow(
-            beforeClusterInfo(), afterClusterInfo(), ignored -> true, limit - 100);
-    Assertions.assertFalse(totalResult);
-    Assertions.assertTrue(overflowResult);
-  }
-
-  /*
-  before distribution:
-      p0: 0,1
-      p1: 0,1
-      p2: 2,0
-  after distribution:
-      p0: 2,1
-      p1: 0,2
-      p2: 1,0
-  leader log size:
-      p0: 100
-      p1: 500
-      p2  1000
-   */
-  private static ClusterInfo beforeClusterInfo() {
-    return ClusterInfo.of(
-        "fake",
-        List.of(NodeInfo.of(0, "aa", 22), NodeInfo.of(1, "aa", 22), NodeInfo.of(2, "aa", 22)),
-        Map.of(),
-        List.of(
-            Replica.builder()
-                .topic("topic1")
-                .partition(0)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
-                .size(100)
-                .isLeader(true)
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(0)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
-                .size(99)
-                .isLeader(false)
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(1)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
-                .size(500)
-                .isLeader(true)
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(1)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
-                .size(499)
-                .isLeader(false)
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(2)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
-                .size(1000)
-                .isLeader(true)
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(2)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
-                .size(1000)
-                .isLeader(false)
-                .build()));
-  }
-
-  private static ClusterInfo afterClusterInfo() {
-    return ClusterInfo.of(
-        "fake",
-        List.of(NodeInfo.of(0, "aa", 22), NodeInfo.of(1, "aa", 22), NodeInfo.of(2, "aa", 22)),
-        Map.of(),
-        List.of(
-            Replica.builder()
-                .topic("topic1")
-                .partition(0)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
-                .size(100)
-                .isLeader(true)
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(0)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
-                .size(99)
-                .isLeader(false)
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(1)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
-                .size(500)
-                .isLeader(true)
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(1)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
-                .size(500)
-                .isLeader(false)
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(2)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
-                .size(1000)
-                .isLeader(true)
-                .build(),
-            Replica.builder()
-                .topic("topic1")
-                .partition(2)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
-                .size(1000)
-                .isLeader(false)
-                .build()));
   }
 }

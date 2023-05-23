@@ -88,7 +88,7 @@ public class DistributionTypeTest {
     // fixed seed
     var zip100 =
         DistributionType.ZIPFIAN.create(
-            10000, Configuration.of(Map.of(DistributionType.ZIPFIAN_SEED, "100")));
+            10000, new Configuration(Map.of(DistributionType.ZIPFIAN_SEED, "100")));
     Assertions.assertEquals(
         List.of(11, 18, 0, 1126, 12),
         IntStream.range(0, 5)
@@ -101,10 +101,12 @@ public class DistributionTypeTest {
     var seed = ThreadLocalRandom.current().nextInt();
     var zipA =
         DistributionType.ZIPFIAN.create(
-            10000, Configuration.of(Map.of(DistributionType.ZIPFIAN_SEED, Integer.toString(seed))));
+            10000,
+            new Configuration(Map.of(DistributionType.ZIPFIAN_SEED, Integer.toString(seed))));
     var zipB =
         DistributionType.ZIPFIAN.create(
-            10000, Configuration.of(Map.of(DistributionType.ZIPFIAN_SEED, Integer.toString(seed))));
+            10000,
+            new Configuration(Map.of(DistributionType.ZIPFIAN_SEED, Integer.toString(seed))));
     var sequenceA = IntStream.range(0, 1000).map(i -> zipA.get().intValue()).toArray();
     var sequenceB = IntStream.range(0, 1000).map(i -> zipB.get().intValue()).toArray();
     Assertions.assertArrayEquals(sequenceA, sequenceB);
@@ -112,10 +114,12 @@ public class DistributionTypeTest {
     // high exponent come with high skewness
     var zip1 =
         DistributionType.ZIPFIAN.create(
-            100, Configuration.of(Map.of(DistributionType.ZIPFIAN_EXPONENT, Double.toString(1.0))));
+            100,
+            new Configuration(Map.of(DistributionType.ZIPFIAN_EXPONENT, Double.toString(1.0))));
     var zip2 =
         DistributionType.ZIPFIAN.create(
-            100, Configuration.of(Map.of(DistributionType.ZIPFIAN_EXPONENT, Double.toString(2.0))));
+            100,
+            new Configuration(Map.of(DistributionType.ZIPFIAN_EXPONENT, Double.toString(2.0))));
     var counting1 =
         IntStream.range(0, 10000)
             .map(x -> zip1.get().intValue())

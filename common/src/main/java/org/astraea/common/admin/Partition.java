@@ -19,101 +19,26 @@ package org.astraea.common.admin;
 import java.util.List;
 import java.util.Optional;
 
-public interface Partition {
-  static Partition of(
-      String topic,
-      int partition,
-      NodeInfo leader,
-      List<NodeInfo> replicas,
-      List<NodeInfo> isr,
-      long earliestOffset,
-      long latestOffset,
-      Optional<Long> maxTimestamp,
-      boolean internal) {
-    return new Partition() {
+/**
+ * @param earliestOffset existent earliest offset
+ * @param latestOffset existent latest offset
+ * @param maxTimestamp max timestamp of existent records. If the kafka servers don't support to
+ *     fetch max timestamp, this method will return empty
+ * @param leader null if the node gets offline. otherwise, it returns node info.
+ * @param internal true if this topic is internal (system) topic
+ */
+public record Partition(
+    String topic,
+    int partition,
+    long earliestOffset,
+    long latestOffset,
+    Optional<Long> maxTimestamp,
+    Optional<NodeInfo> leader,
+    List<NodeInfo> replicas,
+    List<NodeInfo> isr,
+    boolean internal) {
 
-      @Override
-      public String topic() {
-        return topic;
-      }
-
-      @Override
-      public int partition() {
-        return partition;
-      }
-
-      @Override
-      public long earliestOffset() {
-        return earliestOffset;
-      }
-
-      @Override
-      public long latestOffset() {
-        return latestOffset;
-      }
-
-      @Override
-      public Optional<Long> maxTimestamp() {
-        return maxTimestamp;
-      }
-
-      @Override
-      public Optional<NodeInfo> leader() {
-        return Optional.ofNullable(leader);
-      }
-
-      @Override
-      public List<NodeInfo> replicas() {
-        return replicas;
-      }
-
-      @Override
-      public List<NodeInfo> isr() {
-        return isr;
-      }
-
-      @Override
-      public boolean internal() {
-        return internal;
-      }
-    };
-  }
-
-  default TopicPartition topicPartition() {
+  public TopicPartition topicPartition() {
     return TopicPartition.of(topic(), partition());
   }
-
-  String topic();
-
-  int partition();
-
-  /**
-   * @return existent earliest offset
-   */
-  long earliestOffset();
-
-  /**
-   * @return existent latest offset
-   */
-  long latestOffset();
-
-  /**
-   * @return max timestamp of existent records. If the kafka servers don't support to fetch max
-   *     timestamp, this method will return empty
-   */
-  Optional<Long> maxTimestamp();
-
-  /**
-   * @return null if the node gets offline. otherwise, it returns node info.
-   */
-  Optional<NodeInfo> leader();
-
-  List<NodeInfo> replicas();
-
-  List<NodeInfo> isr();
-
-  /**
-   * @return true if this topic is internal (system) topic
-   */
-  boolean internal();
 }

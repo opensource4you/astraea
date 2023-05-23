@@ -18,7 +18,6 @@ package org.astraea.common.cost;
 
 import java.util.Comparator;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
@@ -46,8 +45,8 @@ public interface CostFunction {
   /**
    * @return the metrics getters. Those getters are used to fetch mbeans.
    */
-  default Optional<MetricSensor> metricSensor() {
-    return Optional.empty();
+  default MetricSensor metricSensor() {
+    return MetricSensor.EMPTY;
   }
 
   static String toStringComposite(Map<? extends CostFunction, Double> costWeights) {

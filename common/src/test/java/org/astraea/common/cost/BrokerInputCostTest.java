@@ -53,8 +53,11 @@ public class BrokerInputCostTest {
     Assertions.assertEquals(5000D, scores.get(3));
 
     // testClusterCost
+    var total = scores.values().stream().mapToDouble(x -> x).sum();
+    var sd = scores.values().stream().map(x -> x / total).toList();
+    var dispersion = Dispersion.standardDeviation();
     var clusterCost = brokerInputCost.clusterCost(ClusterInfo.empty(), clusterBean).value();
-    Assertions.assertEquals(0.535, Math.round(clusterCost * 1000.0) / 1000.0);
+    Assertions.assertEquals(dispersion.calculate(sd), clusterCost);
   }
 
   @Test
@@ -66,7 +69,7 @@ public class BrokerInputCostTest {
     var f = new BrokerInputCost();
     var clusterBean =
         MetricsTestUtils.clusterBean(
-            Map.of(0, JndiClient.of(SERVICE.jmxServiceURL())), f.metricSensor().get());
+            Map.of(0, JndiClient.of(SERVICE.jmxServiceURL())), f.metricSensor());
 
     Assertions.assertNotEquals(
         0, clusterBean.brokerMetrics(0, ServerMetrics.BrokerTopic.Meter.class).count());

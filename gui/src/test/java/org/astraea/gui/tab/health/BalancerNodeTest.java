@@ -96,7 +96,7 @@ class BalancerNodeTest {
                   log::set);
       s.toCompletableFuture().join();
       Assertions.assertTrue(s.toCompletableFuture().isDone());
-      Assertions.assertTrue(log.get().contains("better assignments"));
+      Assertions.assertTrue(log.get().contains("find a plan"));
     }
   }
 

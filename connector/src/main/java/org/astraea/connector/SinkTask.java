@@ -21,8 +21,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.header.Headers;
@@ -52,13 +50,13 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
 
   @Override
   public final void start(Map<String, String> props) {
-    init(Configuration.of(props));
+    init(new Configuration(props));
   }
 
   @Override
   public final void put(Collection<SinkRecord> records) {
     if (records != null && !records.isEmpty())
-      put(records.stream().map(SinkTask::toRecord).collect(Collectors.toList()));
+      put(records.stream().map(SinkTask::toRecord).toList());
   }
 
   private static byte[] toBytes(Schema schema, Object value) {
@@ -74,61 +72,19 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
   }
 
   private static Record<byte[], byte[]> toRecord(SinkRecord record) {
-    return new Record<>() {
-      private final byte[] key = toBytes(record.keySchema(), record.key());
-      private final byte[] value = toBytes(record.valueSchema(), record.value());
-
-      @Override
-      public String topic() {
-        return record.topic();
-      }
-
-      @Override
-      public List<Header> headers() {
-        return toHeaders(record.headers());
-      }
-
-      @Override
-      public byte[] key() {
-        return key;
-      }
-
-      @Override
-      public byte[] value() {
-        return value;
-      }
-
-      @Override
-      public long offset() {
-        return record.kafkaOffset();
-      }
-
-      @Override
-      public long timestamp() {
-        return record.timestamp();
-      }
-
-      @Override
-      public int partition() {
-        // partition is non-null in SinkRecord
-        return record.kafkaPartition();
-      }
-
-      @Override
-      public int serializedKeySize() {
-        return key == null ? 0 : key.length;
-      }
-
-      @Override
-      public int serializedValueSize() {
-        return value == null ? 0 : value.length;
-      }
-
-      @Override
-      public Optional<Integer> leaderEpoch() {
-        return Optional.empty();
-      }
-    };
+    var key = toBytes(record.keySchema(), record.key());
+    var value = toBytes(record.valueSchema(), record.value());
+    return Record.builder()
+        .topic(record.topic())
+        .headers(toHeaders(record.headers()))
+        .key(key)
+        .value(value)
+        .offset(record.kafkaOffset())
+        .timestamp(record.timestamp())
+        .partition(record.kafkaPartition())
+        .serializedKeySize(key == null ? 0 : key.length)
+        .serializedValueSize(value == null ? 0 : value.length)
+        .build();
   }
 
   private static List<Header> toHeaders(Headers headers) {

@@ -18,6 +18,7 @@ package org.astraea.common.metrics.collector;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.astraea.common.Utils;
@@ -42,7 +43,10 @@ public class LocalMetricsTest {
     try (var store =
         MetricStore.builder()
             .beanExpiration(Duration.ofSeconds(1))
-            .localReceiver(() -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local())))
+            .receivers(
+                List.of(
+                    MetricStore.Receiver.local(
+                        () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local())))))
             .build()) {
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertNotEquals(0, store.clusterBean().all().size());

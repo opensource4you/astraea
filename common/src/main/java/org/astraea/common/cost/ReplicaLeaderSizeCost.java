@@ -16,17 +16,15 @@
  */
 package org.astraea.common.cost;
 
-import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
+import static org.astraea.common.cost.CostUtils.changedRecordSizeOverflow;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
-import org.astraea.common.metrics.collector.MetricSensor;
 
 /**
  * PartitionCost: more replica log size -> higher partition score BrokerCost: more replica log size
@@ -41,22 +39,14 @@ public class ReplicaLeaderSizeCost
   public static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
 
   public ReplicaLeaderSizeCost() {
-    this.config = Configuration.of(Map.of());
+    this.config = new Configuration(Map.of());
   }
 
   public ReplicaLeaderSizeCost(Configuration config) {
     this.config = config;
   }
 
-  private final Dispersion dispersion = Dispersion.cov();
-
-  /**
-   * @return the metrics getters. Those getters are used to fetch mbeans.
-   */
-  @Override
-  public Optional<MetricSensor> metricSensor() {
-    return Optional.empty();
-  }
+  private final Dispersion dispersion = Dispersion.standardDeviation();
 
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
@@ -104,15 +94,7 @@ public class ReplicaLeaderSizeCost
   public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
         clusterInfo.replicaLeaders().stream()
-            .collect(
-                Collectors.toMap(
-                    Replica::topicPartition,
-                    r ->
-                        (double)
-                            clusterInfo
-                                .replicaLeader(r.topicPartition())
-                                .map(Replica::size)
-                                .orElseThrow()));
+            .collect(Collectors.toMap(Replica::topicPartition, r -> (double) r.size()));
     return () -> result;
   }
 

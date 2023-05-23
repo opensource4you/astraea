@@ -117,39 +117,6 @@ public class MigrationCost {
         .collect(Collectors.toMap(Function.identity(), n -> cost.getOrDefault(n, 0L)));
   }
 
-  static boolean changedRecordSizeOverflow(
-      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate, long limit) {
-    var totalRemovedSize = 0L;
-    var totalAddedSize = 0L;
-    for (var id :
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
-            .parallel()
-            .collect(Collectors.toSet())) {
-      var removed =
-          (int)
-              before
-                  .replicaStream(id)
-                  .filter(predicate)
-                  .filter(r -> !after.replicas(r.topicPartition()).contains(r))
-                  .mapToLong(Replica::size)
-                  .sum();
-      var added =
-          (int)
-              after
-                  .replicaStream(id)
-                  .filter(predicate)
-                  .filter(r -> !before.replicas(r.topicPartition()).contains(r))
-                  .mapToLong(Replica::size)
-                  .sum();
-      totalRemovedSize = totalRemovedSize + removed;
-      totalAddedSize = totalAddedSize + added;
-      // if migrate cost overflow, leave early and return true
-      if (totalRemovedSize > limit || totalAddedSize > limit) return true;
-    }
-    return Math.max(totalRemovedSize, totalAddedSize) > limit;
-  }
-
   private static Map<Integer, Long> changedReplicaNumber(ClusterInfo before, ClusterInfo after) {
     return Stream.concat(before.nodes().stream(), after.nodes().stream())
         .map(NodeInfo::id)

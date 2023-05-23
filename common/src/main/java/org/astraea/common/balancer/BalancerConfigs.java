@@ -35,9 +35,53 @@ public final class BalancerConfigs {
   public static final String BALANCER_ALLOWED_TOPICS_REGEX = "balancer.allowed.topics.regex";
 
   /**
-   * A regular expression indicates which brokers are eligible for moving loading. When specified, a
-   * broker with an id that doesn't match this expression cannot accept a partition from the other
-   * broker or move its partition to other brokers.
+   * This configuration indicates the balancing mode for each broker.
+   *
+   * <p>This configuration requires a string with a series of key-value pairs, each pair is
+   * separated by a comma, and the key and value are separated by a colon. <code>
+   *  (brokerId_A|"default"):(mode),(brokerId_B):(mode), ...</code> The key indicates the integer id
+   * for a broker. And the value indicates the balancing mode for the associated broker. When the
+   * key is a string value <code>"default"</code>(without the double quotes), it indicates the
+   * associated balancing mode should be the default mode for the rest of the brokers that are not
+   * addressed in the configuration. By default, all the brokers use <code> "balancing"</code> mode.
+   *
+   * <h3>Possible balancing modes</h3>
+   *
+   * <ul>
+   *   <li><code>balancing</code>: The broker will participate in the load balancing process. The
+   *       replica assignment for this broker is eligible for changes.
+   *   <li><code>demoted</code>: The broker should become empty after the rebalance. This mode
+   *       allows the user to clear all the loadings for certain brokers, enabling a graceful
+   *       removal of those brokers. Note to the balancer implementation: A broker in this mode
+   *       assumes it will be out of service after the balancing is finished. Therefore, when
+   *       evaluating the cluster cost, the brokers to demote should be excluded. However, these
+   *       brokers will be included in the move cost evaluation. Since these brokers are still part
+   *       of the cluster right now, and move cost focusing on the cost associated during the
+   *       ongoing balancing process itself.
+   *   <li><code>excluded</code>: The broker will not participate in the load balancing process. The
+   *       replica assignment for this broker is not eligible for changes. It will neither accept
+   *       replicas from other brokers nor reassign replicas to other brokers.
+   * </ul>
+   *
+   * <h3>Flag Interaction:</h3>
+   *
+   * <ol>
+   *   <li>When this flag is used in conjunction with {@link
+   *       BalancerConfigs#BALANCER_ALLOWED_TOPICS_REGEX}, if a demoted broker contains partition
+   *       from those forbidden topics, an exception should be raised.
+   * </ol>
+   *
+   * <h3>Limitation:</h3>
+   *
+   * <ol>
+   *   <li>Demoting a broker may be infeasible if there are not enough brokers to fit the required
+   *       replica factor for a specific partition. This situation is more likely to occur if there
+   *       are many <code>excluded</code> brokers that reject accepting new replicas. If such a case
+   *       is detected, an exception should be raised.
+   *   <li>Any broker with ongoing replica-move-in, replica-move-out, or inter-folder movement
+   *       cannot be the demoting target. An exception will be raised if any of the demoting brokers
+   *       have such ongoing events. *
+   * </ol>
    */
-  public static final String BALANCER_ALLOWED_BROKERS_REGEX = "balancer.allowed.brokers.regex";
+  public static final String BALANCER_BROKER_BALANCING_MODE = "balancer.broker.balancing.mode";
 }

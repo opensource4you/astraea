@@ -141,7 +141,7 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
   @Override
   public final void configure(Map<String, ?> configs) {
     var config =
-        Configuration.of(
+        new Configuration(
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
     config.string(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> admin = Admin.of(s));

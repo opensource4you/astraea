@@ -14,27 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.admin;
+package org.astraea.common;
 
-public final class Offset {
-  private final long earliest;
-  private final long latest;
-
-  Offset(long earliest, long latest) {
-    this.earliest = earliest;
-    this.latest = latest;
+public class SerializationException extends IllegalArgumentException {
+  public SerializationException(Exception ex) {
+    super(ex);
   }
 
-  @Override
-  public String toString() {
-    return "Offset{" + "earliest=" + earliest + ", latest=" + latest + '}';
-  }
-
-  public long earliest() {
-    return earliest;
-  }
-
-  public long latest() {
-    return latest;
+  public SerializationException(String message) {
+    super(message);
   }
 }

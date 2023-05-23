@@ -23,14 +23,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -39,11 +37,9 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.BalancerConsole;
-import org.astraea.common.balancer.algorithms.GreedyBalancer;
+import org.astraea.common.balancer.BalancerProblemFormat;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.balancer.executor.StraightPlanExecutor;
-import org.astraea.common.cost.HasClusterCost;
-import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.MigrationCost;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.collector.MetricStore;
@@ -116,7 +112,7 @@ class BalancerHandler implements Handler, AutoCloseable {
     final var request = channel.request(TypeRef.of(BalancerPutRequest.class));
     final var taskId = request.id;
     final var taskPhase = balancerConsole.taskPhase(taskId);
-    final var executorConfig = Configuration.of(request.executorConfig);
+    final var executorConfig = new Configuration(request.executorConfig);
     final var executor =
         Utils.construct(request.executor, RebalancePlanExecutor.class, executorConfig);
 
@@ -182,7 +178,7 @@ class BalancerHandler implements Handler, AutoCloseable {
                         tp ->
                             Change.from(
                                 contextCluster.replicas(tp), solution.proposal().replicas(tp)))
-                    .collect(Collectors.toUnmodifiableList());
+                    .toList();
     var report =
         (Supplier<PlanReport>)
             () ->
@@ -219,53 +215,12 @@ class BalancerHandler implements Handler, AutoCloseable {
 
     return new PostRequestWrapper(
         balancerPostRequest.balancer,
-        Configuration.of(balancerPostRequest.balancerConfig),
-        AlgorithmConfig.builder()
-            .clusterCost(balancerPostRequest.clusterCost())
-            .moveCost(balancerPostRequest.moveCost())
-            .timeout(balancerPostRequest.timeout)
-            .configs(balancerPostRequest.balancerConfig)
-            .build(),
+        new Configuration(balancerPostRequest.balancerConfig),
+        balancerPostRequest.parse(),
         currentClusterInfo);
   }
 
-  static class BalancerPostRequest implements Request {
-
-    String balancer = GreedyBalancer.class.getName();
-    Map<String, String> balancerConfig = Map.of();
-    Map<String, String> costConfig = Map.of();
-    Duration timeout = Duration.ofSeconds(3);
-    List<CostWeight> clusterCosts = List.of();
-    Set<String> moveCosts =
-        Set.of(
-            "org.astraea.common.cost.ReplicaLeaderCost",
-            "org.astraea.common.cost.RecordSizeCost",
-            "org.astraea.common.cost.ReplicaNumberCost",
-            "org.astraea.common.cost.ReplicaLeaderSizeCost");
-
-    HasClusterCost clusterCost() {
-      if (clusterCosts.isEmpty())
-        throw new IllegalArgumentException("clusterCosts is not specified");
-      var config = Configuration.of(costConfig);
-      return HasClusterCost.of(
-          Utils.costFunctions(
-              clusterCosts.stream()
-                  .collect(Collectors.toMap(e -> e.cost, e -> String.valueOf(e.weight))),
-              HasClusterCost.class,
-              config));
-    }
-
-    HasMoveCost moveCost() {
-      var config = Configuration.of(costConfig);
-      var cf = Utils.costFunctions(moveCosts, HasMoveCost.class, config);
-      return HasMoveCost.of(cf);
-    }
-  }
-
-  static class CostWeight implements Request {
-    String cost;
-    double weight = 1.D;
-  }
+  static class BalancerPostRequest extends BalancerProblemFormat implements Request {}
 
   static class BalancerPutRequest implements Request {
     String id;
@@ -327,11 +282,11 @@ class BalancerHandler implements Handler, AutoCloseable {
           before.stream()
               .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
               .map(r -> new Placement(r, Optional.of(r.size())))
-              .collect(Collectors.toList()),
+              .toList(),
           after.stream()
               .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
               .map(r -> new Placement(r, Optional.empty()))
-              .collect(Collectors.toList()));
+              .toList());
     }
 
     Change(String topic, int partition, List<Placement> before, List<Placement> after) {

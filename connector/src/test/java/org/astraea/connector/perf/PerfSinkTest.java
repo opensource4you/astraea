@@ -103,7 +103,7 @@ public class PerfSinkTest {
   @Test
   void testTask() {
     var task = new PerfSink.Task();
-    task.init(Configuration.of(Map.of(PerfSink.FREQUENCY_DEF.name(), "1s")));
+    task.init(new Configuration(Map.of(PerfSink.FREQUENCY_DEF.name(), "1s")));
 
     var now = System.currentTimeMillis();
     task.put(List.<Record<byte[], byte[]>>of());

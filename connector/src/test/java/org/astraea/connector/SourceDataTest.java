@@ -31,7 +31,6 @@ import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
-import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -148,7 +147,7 @@ public class SourceDataTest {
     }
 
     @Override
-    protected Collection<Record<byte[], byte[]>> take() throws InterruptedException {
+    protected Collection<SourceRecord> take() throws InterruptedException {
       if (isDone) return List.of();
       isDone = true;
       return topics.stream()

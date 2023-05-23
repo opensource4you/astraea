@@ -54,7 +54,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.app.web.BalancerHandler.BalancerPostRequest;
-import org.astraea.app.web.BalancerHandler.CostWeight;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
@@ -65,10 +64,12 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.BalancerConfigs;
+import org.astraea.common.balancer.BalancerProblemFormat;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.balancer.executor.RebalancePlanExecutor;
 import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.cost.CostFunction;
 import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
@@ -86,8 +87,9 @@ import org.astraea.common.metrics.platform.JvmMemory;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.it.Service;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -97,31 +99,35 @@ import org.mockito.Mockito;
 public class BalancerHandlerTest {
 
   private static final int numberOfBrokers = 3;
-  private static final Service SERVICE = Service.builder().numberOfBrokers(numberOfBrokers).build();
-
-  @AfterAll
-  static void closeService() {
-    SERVICE.close();
-  }
-
   static final String TIMEOUT_KEY = "timeout";
   static final String CLUSTER_COSTS_KEY = "clusterCosts";
   static final String BALANCER_IMPLEMENTATION_KEY = "balancer";
   static final int TIMEOUT_DEFAULT = 3;
+  private Service SERVICE;
 
-  private static final List<BalancerHandler.CostWeight> defaultIncreasing =
+  private static final List<BalancerProblemFormat.CostWeight> defaultIncreasing =
       List.of(costWeight(IncreasingCost.class.getName(), 1));
-  private static final List<BalancerHandler.CostWeight> defaultDecreasing =
+  private static final List<BalancerProblemFormat.CostWeight> defaultDecreasing =
       List.of(costWeight(DecreasingCost.class.getName(), 1));
   private static final Channel defaultPostPlan =
       httpRequest(Map.of(CLUSTER_COSTS_KEY, defaultDecreasing));
 
+  @BeforeEach
+  public void initService() {
+    SERVICE = Service.builder().numberOfBrokers(numberOfBrokers).build();
+  }
+
+  @AfterEach
+  public void closeService() {
+    SERVICE.close();
+  }
+
   @Test
   @Timeout(value = 60)
   void testReport() {
-    var topics = createAndProduceTopic(3);
+    var topics = createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var handler = new BalancerHandler(admin, metricStore(admin, List.of()));
+      var handler = new BalancerHandler(admin, metricStore(admin, Set.of()));
       // make sure all replicas have
       admin
           .clusterInfo(Set.copyOf(topics))
@@ -161,17 +167,16 @@ public class BalancerHandlerTest {
               .findFirst()
               .get();
       Assertions.assertNotEquals(0, sizeMigration.brokerCosts.size());
-      sizeMigration.brokerCosts.values().forEach(v -> Assertions.assertNotEquals(0, v));
     }
   }
 
-  private static Set<String> createAndProduceTopic(int topicCount) {
-    return createAndProduceTopic(topicCount, 3, (short) 1, true);
+  private static Set<String> createAndProduceTopic(int topicCount, Service service) {
+    return createAndProduceTopic(topicCount, 3, (short) 1, true, service);
   }
 
   private static Set<String> createAndProduceTopic(
-      int topicCount, int partitions, short replicas, boolean skewed) {
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
+      int topicCount, int partitions, short replicas, boolean skewed, Service service) {
+    try (var admin = Admin.of(service.bootstrapServers())) {
       var topics =
           IntStream.range(0, topicCount)
               .mapToObj(ignored -> Utils.randomString(10))
@@ -188,10 +193,7 @@ public class BalancerHandlerTest {
                 .join();
             if (skewed) {
               Utils.sleep(Duration.ofSeconds(1));
-              var placement =
-                  SERVICE.dataFolders().keySet().stream()
-                      .limit(replicas)
-                      .collect(Collectors.toUnmodifiableList());
+              var placement = service.dataFolders().keySet().stream().limit(replicas).toList();
               admin
                   .moveToBrokers(
                       admin.topicPartitions(Set.of(topic)).toCompletableFuture().join().stream()
@@ -201,7 +203,7 @@ public class BalancerHandlerTest {
             }
           });
       Utils.sleep(Duration.ofSeconds(3));
-      try (var producer = Producer.of(SERVICE.bootstrapServers())) {
+      try (var producer = Producer.of(service.bootstrapServers())) {
         IntStream.range(0, 30)
             .forEach(
                 index ->
@@ -222,27 +224,19 @@ public class BalancerHandlerTest {
   void testBestPlan() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var currentClusterInfo =
-          ClusterInfo.of(
-              "fake",
-              List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
-              Map.of(),
-              List.of(
-                  Replica.builder()
-                      .topic("topic")
-                      .partition(0)
-                      .nodeInfo(NodeInfo.of(10, "host", 22))
-                      .lag(0)
-                      .size(100)
-                      .isLeader(true)
-                      .isSync(true)
-                      .isFuture(false)
-                      .isOffline(false)
-                      .isPreferredLeader(true)
-                      .path("/tmp/aa")
-                      .build()));
+          ClusterInfo.builder()
+              .addNode(Set.of(1, 2))
+              .addFolders(
+                  Map.ofEntries(Map.entry(1, Set.of("/folder")), Map.entry(2, Set.of("/folder"))))
+              .addTopic("topic", 1, (short) 1)
+              .build();
 
       HasClusterCost clusterCostFunction =
-          (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
+          (clusterInfo, clusterBean) ->
+              () ->
+                  ClusterInfo.findNonFulfilledAllocation(currentClusterInfo, clusterInfo).isEmpty()
+                      ? 100D
+                      : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
       HasMoveCost failMoveCostFunction = (before, after, clusterBean) -> () -> true;
 
@@ -254,7 +248,6 @@ public class BalancerHandlerTest {
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
-                      .clusterConstraint((before, after) -> after.value() <= before.value())
                       .moveCost(moveCostFunction)
                       .build());
       Assertions.assertNotEquals(Optional.empty(), Best);
@@ -270,7 +263,6 @@ public class BalancerHandlerTest {
                           .clusterBean(ClusterBean.EMPTY)
                           .timeout(Duration.ofSeconds(3))
                           .clusterCost(clusterCostFunction)
-                          .clusterConstraint((before, after) -> true)
                           .config("iteration", "0")
                           .moveCost(moveCostFunction)
                           .build()));
@@ -289,7 +281,6 @@ public class BalancerHandlerTest {
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
-                      .clusterConstraint((before, after) -> false)
                       .moveCost(moveCostFunction)
                       .build()));
 
@@ -303,7 +294,6 @@ public class BalancerHandlerTest {
                       .clusterBean(ClusterBean.EMPTY)
                       .timeout(Duration.ofSeconds(3))
                       .clusterCost(clusterCostFunction)
-                      .clusterConstraint((before, after) -> true)
                       .moveCost(failMoveCostFunction)
                       .build()));
     }
@@ -312,9 +302,9 @@ public class BalancerHandlerTest {
   @CsvSource(value = {"5,500Byte", "10,500Byte", "5,1GB"})
   @ParameterizedTest
   void testMoveCost(String leaderLimit, String sizeLimit) {
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.moveCosts =
           Set.of(
@@ -346,6 +336,7 @@ public class BalancerHandlerTest {
             }
           });
     }
+    SERVICE.close();
   }
 
   @Test
@@ -353,7 +344,7 @@ public class BalancerHandlerTest {
   void testNoReport() {
     var topic = Utils.randomString(10);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       admin.creator().topic(topic).numberOfPartitions(1).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(1));
       var post =
@@ -393,15 +384,16 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(SearchFailed, progress1.phase, "No plan");
       Assertions.assertNotNull(progress1.exception);
     }
+    SERVICE.close();
   }
 
   @Test
   @Timeout(value = 60)
   void testPut() {
     // arrange
-    createAndProduceTopic(3, 10, (short) 2, false);
+    createAndProduceTopic(3, 10, (short) 2, false, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.balancerConfig = Map.of("iteration", "100");
       var progress = submitPlanGeneration(handler, request);
@@ -423,14 +415,15 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(Response.ACCEPT.code(), response.code());
       Assertions.assertEquals(thePlanId, response.id);
     }
+    SERVICE.close();
   }
 
   @Test
   @Timeout(value = 60)
   void testBadPut() {
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
 
       // no id offered
       Assertions.assertThrows(
@@ -451,7 +444,7 @@ public class BalancerHandlerTest {
   void testSubmitRebalancePlanThreadSafe() {
     var topic = Utils.randomString();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       admin.creator().topic(topic).numberOfPartitions(30).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(3));
       admin
@@ -493,13 +486,14 @@ public class BalancerHandlerTest {
       // the rebalance task is triggered in async manner, it may take some time to getting schedule
       Utils.sleep(Duration.ofSeconds(2));
     }
+    SERVICE.close();
   }
 
   @Test
   @Timeout(value = 60)
   void testRebalanceDetectOngoing() {
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       // create topic
       var theTopic = Utils.randomString();
       admin.creator().topic(theTopic).numberOfPartitions(1).run().toCompletableFuture().join();
@@ -536,6 +530,7 @@ public class BalancerHandlerTest {
       Assertions.assertEquals(ExecutionFailed, progress1.phase, "Ongoing Migration");
       Assertions.assertNotNull(progress1.exception);
     }
+    SERVICE.close();
   }
 
   @Test
@@ -573,7 +568,7 @@ public class BalancerHandlerTest {
         .thenAnswer(invoke -> CompletableFuture.completedFuture(Set.of("A", "B", "C")));
     Mockito.when(admin.clusterInfo(Mockito.any()))
         .thenAnswer(invoke -> CompletableFuture.completedFuture(clusterHasFuture));
-    try (var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+    try (var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       var task0 =
           (BalancerHandler.PostPlanResponse)
               handler.post(defaultPostPlan).toCompletableFuture().join();
@@ -616,9 +611,9 @@ public class BalancerHandlerTest {
   @Test
   @Timeout(value = 60)
   void testPutSanityCheck() {
-    var topic = createAndProduceTopic(1).iterator().next();
+    var topic = createAndProduceTopic(1, SERVICE).iterator().next();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.balancerConfig =
           Map.of(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, Pattern.quote(topic));
@@ -651,14 +646,15 @@ public class BalancerHandlerTest {
       Assertions.assertNotNull(
           result.exception, "The cluster state has changed, prevent the plan from execution");
     }
+    SERVICE.close();
   }
 
   @Test
   @Timeout(value = 60)
   void testLookupRebalanceProgress() {
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       var progress = submitPlanGeneration(handler, new BalancerPostRequest());
       Assertions.assertEquals(Searched, progress.phase);
 
@@ -710,9 +706,9 @@ public class BalancerHandlerTest {
   @Test
   @Timeout(value = 60)
   void testLookupBadExecutionProgress() {
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       var post =
           Assertions.assertInstanceOf(
               BalancerHandler.PostPlanResponse.class,
@@ -764,9 +760,9 @@ public class BalancerHandlerTest {
   @Test
   @Timeout(value = 60)
   void testBadLookupRequest() {
-    createAndProduceTopic(3);
+    createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       Assertions.assertEquals(
           404, handler.get(Channel.ofTarget("no such plan")).toCompletableFuture().join().code());
 
@@ -781,9 +777,9 @@ public class BalancerHandlerTest {
   @Test
   @Timeout(value = 60)
   void testPutIdempotent() {
-    var topics = createAndProduceTopic(3);
+    var topics = createAndProduceTopic(3, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.balancerConfig =
           Map.of(
@@ -874,8 +870,7 @@ public class BalancerHandlerTest {
             "Negative timeout");
 
         var balancerRequest4 = new BalancerPostRequest();
-        var costWeight = new CostWeight();
-        costWeight.cost = "yes";
+        var costWeight = costWeight("yes", 1);
         balancerRequest4.clusterCosts = List.of(costWeight);
         Assertions.assertThrows(
             IllegalArgumentException.class,
@@ -887,10 +882,10 @@ public class BalancerHandlerTest {
 
   @Test
   void testTimeout() {
-    createAndProduceTopic(5);
+    createAndProduceTopic(5, SERVICE);
     var costFunction = Collections.singleton(costWeight(TimeoutCost.class.getName(), 1));
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       var channel = httpRequest(Map.of(TIMEOUT_KEY, "10", CLUSTER_COSTS_KEY, costFunction));
       var post =
           (BalancerHandler.PostPlanResponse) handler.post(channel).toCompletableFuture().join();
@@ -907,10 +902,11 @@ public class BalancerHandlerTest {
 
   @Test
   void testCostWithSensor() {
-    var topics = createAndProduceTopic(3);
+    var topics = createAndProduceTopic(3, SERVICE);
     var function = List.of(costWeight(SensorAndCost.class.getName(), 1));
+    var functionName = function.stream().map(x -> x.cost).collect(Collectors.toUnmodifiableSet());
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, function))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, functionName))) {
       var invoked = new AtomicBoolean();
       SensorAndCost.callback.set(
           (clusterBean) -> {
@@ -948,13 +944,13 @@ public class BalancerHandlerTest {
             .mapToObj(partition -> Map.entry(ThreadLocalRandom.current().nextInt(), partition))
             .sorted(Map.Entry.comparingByKey())
             .map(Map.Entry::getValue)
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     var destPlacement =
         IntStream.range(0, 10)
             .mapToObj(partition -> Map.entry(ThreadLocalRandom.current().nextInt(), partition))
             .sorted(Map.Entry.comparingByKey())
             .map(Map.Entry::getValue)
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     var base =
         ClusterInfo.builder()
             .addNode(Set.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9))
@@ -1056,9 +1052,9 @@ public class BalancerHandlerTest {
 
   @Test
   void testExecutorConfig() {
-    var topic = createAndProduceTopic(1).iterator().next();
+    var topic = createAndProduceTopic(1, SERVICE).iterator().next();
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       var request = new BalancerHandler.BalancerPostRequest();
       request.balancerConfig = Map.of(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, topic);
       var theProgress = submitPlanGeneration(handler, request);
@@ -1090,9 +1086,9 @@ public class BalancerHandlerTest {
 
   @Test
   void testBalancerConfig() {
-    createAndProduceTopic(1);
+    createAndProduceTopic(1, SERVICE);
     try (var admin = Admin.of(SERVICE.bootstrapServers());
-        var handler = new BalancerHandler(admin, metricStore(admin, List.of()))) {
+        var handler = new BalancerHandler(admin, metricStore(admin, Set.of()))) {
       var request = new BalancerPostRequest();
       request.balancer = SpyBalancer.class.getName();
       request.balancerConfig =
@@ -1205,8 +1201,8 @@ public class BalancerHandlerTest {
     }
 
     @Override
-    public Optional<MetricSensor> metricSensor() {
-      return Optional.of((c, ignored) -> List.of(HostMetrics.jvmMemory(c)));
+    public MetricSensor metricSensor() {
+      return (c, ignored) -> List.of(HostMetrics.jvmMemory(c));
     }
 
     @Override
@@ -1278,8 +1274,8 @@ public class BalancerHandlerTest {
     }
   }
 
-  private static BalancerHandler.CostWeight costWeight(String cost, double weight) {
-    var cw = new BalancerHandler.CostWeight();
+  private static BalancerProblemFormat.CostWeight costWeight(String cost, double weight) {
+    var cw = new BalancerProblemFormat.CostWeight();
     cw.cost = cost;
     cw.weight = weight;
     return cw;
@@ -1333,10 +1329,10 @@ public class BalancerHandlerTest {
                 "{\"balancer\":\"org.astraea.common.balancer.algorithms.GreedyBalancer\"}",
                 TypeRef.of(BalancerPostRequest.class));
 
-    Assertions.assertThrows(IllegalArgumentException.class, noCostRequest::clusterCost);
+    Assertions.assertThrows(IllegalArgumentException.class, noCostRequest::parse);
   }
 
-  private MetricStore metricStore(Admin admin, List<CostWeight> costWeights) {
+  private MetricStore metricStore(Admin admin, Set<String> costFunctions) {
     Function<Integer, Integer> brokerIdToJmxPort = (id) -> SERVICE.jmxServiceURL().getPort();
     Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
         () ->
@@ -1350,12 +1346,11 @@ public class BalancerHandlerTest {
                                     NodeInfo::id,
                                     b ->
                                         JndiClient.of(b.host(), brokerIdToJmxPort.apply(b.id())))));
-    var cw = costWeights.stream().map(x -> x.cost).collect(Collectors.toSet());
-    var cf = Utils.costFunctions(cw, HasClusterCost.class, Configuration.EMPTY);
-    var metricSensors = cf.stream().map(c -> c.metricSensor().get()).collect(Collectors.toList());
+    var cf = Utils.costFunctions(costFunctions, HasClusterCost.class, Configuration.EMPTY);
+    var metricSensors = cf.stream().map(CostFunction::metricSensor).toList();
     return MetricStore.builder()
         .beanExpiration(Duration.ofMinutes(2))
-        .localReceiver(clientSupplier)
+        .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
         .sensorsSupplier(
             () ->
                 metricSensors.stream()

@@ -40,7 +40,7 @@ public class FileSystemTest {
     Assertions.assertThrows(
         IllegalArgumentException.class, () -> FileSystem.of("unknown", Configuration.EMPTY));
 
-    var fs = FileSystem.of("local", Configuration.of(Map.of("local.impl", Tmp.class.getName())));
+    var fs = FileSystem.of("local", new Configuration(Map.of("local.impl", Tmp.class.getName())));
     Assertions.assertInstanceOf(Tmp.class, fs);
   }
 

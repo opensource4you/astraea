@@ -26,33 +26,27 @@ public class ConfigurationTest {
 
   @Test
   void testString() {
-    var config = Configuration.of(Map.of("key", "value"));
+    var config = new Configuration(Map.of("key", "value"));
     Assertions.assertEquals(Optional.of("value"), config.string("key"));
     Assertions.assertEquals("value", config.requireString("key"));
   }
 
   @Test
   void testList() {
-    var config = Configuration.of(Map.of("key", "v0,v1"));
+    var config = new Configuration(Map.of("key", "v0,v1"));
     Assertions.assertEquals(List.of("v0", "v1"), config.list("key", ","));
-  }
-
-  @Test
-  void testMap() {
-    var config = Configuration.of(Map.of("key", "v0:0,v1:1"));
-    Assertions.assertEquals(
-        Map.of("v0", 0, "v1", 1), config.map("key", ",", ":", Integer::valueOf));
+    Assertions.assertEquals(List.of(), config.list("nonExistKey", ","));
   }
 
   @Test
   void testFilteredConfigs() {
-    var config = Configuration.of(Map.of("key", "v1", "filtered.key", "v2", "key.filtered", "v3"));
+    var config = new Configuration(Map.of("key", "v1", "filtered.key", "v2", "key.filtered", "v3"));
     Assertions.assertEquals(Map.of("key", "v2"), config.filteredPrefixConfigs("filtered").raw());
   }
 
   @Test
   void testDuration() {
-    var config = Configuration.of(Map.of("wait.time", "15ms", "response", "3s"));
+    var config = new Configuration(Map.of("wait.time", "15ms", "response", "3s"));
     var waitTime = config.duration("wait.time");
     var response = config.duration("response");
     var empty = config.duration("walala");
@@ -63,13 +57,13 @@ public class ConfigurationTest {
 
   @Test
   void testLong() {
-    var config = Configuration.of(Map.of("long.value", "2147483648"));
+    var config = new Configuration(Map.of("long.value", "2147483648"));
     Assertions.assertEquals(2147483648L, config.longInteger("long.value").orElse(0L));
   }
 
   @Test
   void testDataSize() {
-    var config = Configuration.of(Map.of("upper.bound", "30MiB", "traffic.interval", "5MB"));
+    var config = new Configuration(Map.of("upper.bound", "30MiB", "traffic.interval", "5MB"));
     var upper = config.dataSize("upper.bound");
     var interval = config.dataSize("traffic.interval");
     var empty = config.dataSize("kekw");

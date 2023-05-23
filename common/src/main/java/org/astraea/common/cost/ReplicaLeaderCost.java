@@ -20,7 +20,6 @@ import static org.astraea.common.cost.MigrationCost.replicaLeaderToAdd;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
@@ -30,12 +29,12 @@ import org.astraea.common.metrics.collector.MetricSensor;
 
 /** more replica leaders -> higher cost */
 public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
-  private final Dispersion dispersion = Dispersion.cov();
+  private final Dispersion dispersion = Dispersion.normalizedStandardDeviation();
   private final Configuration config;
   public static final String MAX_MIGRATE_LEADER_KEY = "max.migrated.leader.number";
 
   public ReplicaLeaderCost() {
-    this.config = Configuration.of(Map.of());
+    this.config = new Configuration(Map.of());
   }
 
   public ReplicaLeaderCost(Configuration config) {
@@ -53,7 +52,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerScore = leaderCount(clusterInfo);
-    var value = dispersion.calculate(brokerScore.values());
+    var value = dispersion.calculate(brokerScore.values()) * 2;
     return ClusterCost.of(
         value,
         () ->
@@ -69,9 +68,8 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   }
 
   @Override
-  public Optional<MetricSensor> metricSensor() {
-    return Optional.of(
-        (client, ignored) -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(client)));
+  public MetricSensor metricSensor() {
+    return (client, ignored) -> List.of(ServerMetrics.ReplicaManager.LEADER_COUNT.fetch(client));
   }
 
   public Configuration config() {

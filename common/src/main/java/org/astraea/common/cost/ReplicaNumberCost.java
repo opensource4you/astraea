@@ -19,13 +19,11 @@ package org.astraea.common.cost;
 import static org.astraea.common.cost.MigrationCost.replicaNumChanged;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.ClusterBean;
-import org.astraea.common.metrics.collector.MetricSensor;
 
 /** more replicas migrate -> higher cost */
 public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
@@ -34,16 +32,11 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
   private final Configuration config;
 
   public ReplicaNumberCost() {
-    this.config = Configuration.of(Map.of());
+    this.config = new Configuration(Map.of());
   }
 
   public ReplicaNumberCost(Configuration config) {
     this.config = config;
-  }
-
-  @Override
-  public Optional<MetricSensor> metricSensor() {
-    return Optional.empty();
   }
 
   @Override

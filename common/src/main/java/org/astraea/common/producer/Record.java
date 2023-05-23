@@ -22,31 +22,23 @@ import java.util.Optional;
 import org.astraea.common.Header;
 import org.astraea.common.admin.TopicPartition;
 
-public interface Record<Key, Value> {
+/**
+ * @param timestamp timestamp of record
+ * @param partition expected partition, or null if you don't care for it.
+ */
+public record Record<Key, Value>(
+    String topic,
+    List<Header> headers,
+    Key key,
+    Value value,
+    Optional<Long> timestamp,
+    Optional<Integer> partition) {
 
-  static Builder<byte[], byte[]> builder() {
+  public static Builder<byte[], byte[]> builder() {
     return new Builder<>();
   }
 
-  String topic();
-
-  List<Header> headers();
-
-  Key key();
-
-  Value value();
-
-  /**
-   * @return timestamp of record
-   */
-  Optional<Long> timestamp();
-
-  /**
-   * @return expected partition, or null if you don't care for it.
-   */
-  Optional<Integer> partition();
-
-  class Builder<Key, Value> {
+  public static class Builder<Key, Value> {
     private Object key;
     private Object value;
     private String topic;
@@ -106,45 +98,13 @@ public interface Record<Key, Value> {
 
     @SuppressWarnings("unchecked")
     public Record<Key, Value> build() {
-      return new Record<>() {
-        private final Key key = (Key) Builder.this.key;
-        private final Value value = (Value) Builder.this.value;
-        private final String topic =
-            Objects.requireNonNull(Builder.this.topic, "topic must be defined");
-        private final Optional<Integer> partition = Builder.this.partition;
-        private final Optional<Long> timestamp = Builder.this.timestamp;
-        private final List<Header> headers = Objects.requireNonNull(Builder.this.headers);
-
-        @Override
-        public String topic() {
-          return topic;
-        }
-
-        @Override
-        public List<Header> headers() {
-          return headers;
-        }
-
-        @Override
-        public Key key() {
-          return key;
-        }
-
-        @Override
-        public Value value() {
-          return value;
-        }
-
-        @Override
-        public Optional<Long> timestamp() {
-          return timestamp;
-        }
-
-        @Override
-        public Optional<Integer> partition() {
-          return partition;
-        }
-      };
+      return new Record<>(
+          Objects.requireNonNull(topic, "topic must be defined"),
+          Objects.requireNonNull(headers),
+          (Key) key,
+          (Value) value,
+          timestamp,
+          partition);
     }
   }
 }

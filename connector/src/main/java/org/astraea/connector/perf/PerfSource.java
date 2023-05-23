@@ -29,87 +29,105 @@ import org.astraea.common.DataSize;
 import org.astraea.common.DistributionType;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.producer.Record;
 import org.astraea.common.producer.RecordGenerator;
 import org.astraea.connector.Definition;
 import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
+import org.astraea.connector.SourceRecord;
 import org.astraea.connector.SourceTask;
 
 public class PerfSource extends SourceConnector {
+
+  static DataSize THROUGHPUT_DEFAULT = DataSize.GB.of(100);
+
   static Definition THROUGHPUT_DEF =
       Definition.builder()
           .name("throughput")
           .type(Definition.Type.STRING)
-          .defaultValue("100GB")
+          .defaultValue(THROUGHPUT_DEFAULT.toString())
           .validator((name, value) -> DataSize.of(value.toString()))
           .documentation("the data rate (in second) of sending records")
           .build();
+
+  static DistributionType KEY_DISTRIBUTION_DEFAULT = DistributionType.UNIFORM;
 
   static Definition KEY_DISTRIBUTION_DEF =
       Definition.builder()
           .name("key.distribution")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DistributionType.ofAlias(obj.toString()))
-          .defaultValue(DistributionType.UNIFORM.alias())
+          .defaultValue(KEY_DISTRIBUTION_DEFAULT.alias())
           .documentation(
               "Distribution name for key and key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
           .build();
+
+  static DistributionType KEY_SIZE_DISTRIBUTION_DEFAULT = DistributionType.FIXED;
   static Definition KEY_SIZE_DISTRIBUTION_DEF =
       Definition.builder()
           .name("key.size.distribution")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DistributionType.ofAlias(obj.toString()))
-          .defaultValue(DistributionType.FIXED.alias())
+          .defaultValue(KEY_SIZE_DISTRIBUTION_DEFAULT.alias())
           .documentation(
               "Distribution name for key size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: fixed")
           .build();
+
+  static DataSize KEY_SIZE_DEFAULT = DataSize.Byte.of(50);
+
   static Definition KEY_SIZE_DEF =
       Definition.builder()
           .name("key.size")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
-          .defaultValue(DataSize.Byte.of(50).toString())
+          .defaultValue(KEY_SIZE_DEFAULT.toString())
           .documentation(
               "the max length of key. The distribution of length is defined by "
                   + KEY_DISTRIBUTION_DEF.name())
           .build();
+
+  static DistributionType VALUE_DISTRIBUTION_DEFAULT = DistributionType.UNIFORM;
 
   static Definition VALUE_DISTRIBUTION_DEF =
       Definition.builder()
           .name("value.distribution")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DistributionType.ofAlias(obj.toString()))
-          .defaultValue(DistributionType.UNIFORM.alias())
+          .defaultValue(VALUE_DISTRIBUTION_DEFAULT.alias())
           .documentation(
               "Distribution name for value and value size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: uniform")
           .build();
+
+  static DataSize VALUE_SIZE_DEFAULT = DataSize.KB.of(1);
+
   static Definition VALUE_SIZE_DEF =
       Definition.builder()
           .name("value.size")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
-          .defaultValue(DataSize.KB.of(1).toString())
+          .defaultValue(VALUE_SIZE_DEFAULT.toString())
           .documentation(
               "the max length of value. The distribution of length is defined by "
                   + VALUE_DISTRIBUTION_DEF.name())
           .build();
+  static DistributionType VALUE_SIZE_DISTRIBUTION_DEFAULT = DistributionType.FIXED;
   static Definition VALUE_SIZE_DISTRIBUTION_DEF =
       Definition.builder()
           .name("value.size.distribution")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DistributionType.ofAlias(obj.toString()))
-          .defaultValue(DistributionType.FIXED.alias())
+          .defaultValue(VALUE_SIZE_DISTRIBUTION_DEFAULT.alias())
           .documentation(
               "Distribution name for value size. Available distribution names: \"fixed\" \"uniform\", \"zipfian\", \"latest\". Default: fixed")
           .build();
+  static int BATCH_SIZE_DEFAULT = 1;
   static Definition BATCH_SIZE_DEF =
       Definition.builder()
           .name("batch.size")
           .type(Definition.Type.INT)
-          .defaultValue(1)
+          .defaultValue(BATCH_SIZE_DEFAULT)
           .documentation("the max length of batching messages.")
           .build();
+
   static Definition KEY_TABLE_SEED =
       Definition.builder()
           .name("key.table.seed")
@@ -146,7 +164,7 @@ public class PerfSource extends SourceConnector {
               t -> {
                 var copy = new HashMap<>(config.raw());
                 copy.put(SourceConnector.TOPICS_KEY, t);
-                return Configuration.of(copy);
+                return new Configuration(copy);
               })
           .collect(Collectors.toUnmodifiableList());
     return Utils.chunk(topics, maxTasks).stream()
@@ -154,7 +172,7 @@ public class PerfSource extends SourceConnector {
             tps -> {
               var copy = new HashMap<>(config.raw());
               copy.put(SourceConnector.TOPICS_KEY, String.join(",", tps));
-              return Configuration.of(copy);
+              return new Configuration(copy);
             })
         .collect(Collectors.toUnmodifiableList());
   }
@@ -182,53 +200,40 @@ public class PerfSource extends SourceConnector {
     @Override
     protected void init(Configuration configuration, MetadataStorage storage) {
       var throughput =
-          DataSize.of(
-              configuration
-                  .string(THROUGHPUT_DEF.name())
-                  .orElse(THROUGHPUT_DEF.defaultValue().toString()));
+          configuration.string(THROUGHPUT_DEF.name()).map(DataSize::of).orElse(THROUGHPUT_DEFAULT);
       var KeySize =
-          DataSize.of(
-              configuration
-                  .string(KEY_SIZE_DEF.name())
-                  .orElse(KEY_SIZE_DEF.defaultValue().toString()));
+          configuration.string(KEY_SIZE_DEF.name()).map(DataSize::of).orElse(KEY_SIZE_DEFAULT);
       var keyDistribution =
-          DistributionType.ofAlias(
-              configuration
-                  .string(KEY_DISTRIBUTION_DEF.name())
-                  .orElse(KEY_DISTRIBUTION_DEF.defaultValue().toString()));
-      var keySizeDistribution =
-          DistributionType.ofAlias(
-              configuration
-                  .string(KEY_SIZE_DISTRIBUTION_DEF.name())
-                  .orElse(KEY_SIZE_DISTRIBUTION_DEF.defaultValue().toString()));
-      var valueSize =
-          DataSize.of(
-              configuration
-                  .string(VALUE_SIZE_DEF.name())
-                  .orElse(VALUE_SIZE_DEF.defaultValue().toString()));
-      var valueDistribution =
-          DistributionType.ofAlias(
-              configuration
-                  .string(VALUE_DISTRIBUTION_DEF.name())
-                  .orElse(VALUE_DISTRIBUTION_DEF.defaultValue().toString()));
-      var valueSizeDistribution =
-          DistributionType.ofAlias(
-              configuration
-                  .string(VALUE_SIZE_DISTRIBUTION_DEF.name())
-                  .orElse(VALUE_SIZE_DISTRIBUTION_DEF.defaultValue().toString()));
-
-      var batchSize =
           configuration
-              .integer(BATCH_SIZE_DEF.name())
-              .orElse((Integer) BATCH_SIZE_DEF.defaultValue());
+              .string(KEY_DISTRIBUTION_DEF.name())
+              .map(DistributionType::ofAlias)
+              .orElse(KEY_DISTRIBUTION_DEFAULT);
+      var keySizeDistribution =
+          configuration
+              .string(KEY_SIZE_DISTRIBUTION_DEF.name())
+              .map(DistributionType::ofAlias)
+              .orElse(KEY_SIZE_DISTRIBUTION_DEFAULT);
+      var valueSize =
+          configuration.string(VALUE_SIZE_DEF.name()).map(DataSize::of).orElse(VALUE_SIZE_DEFAULT);
+      var valueDistribution =
+          configuration
+              .string(VALUE_DISTRIBUTION_DEF.name())
+              .map(DistributionType::ofAlias)
+              .orElse(VALUE_DISTRIBUTION_DEFAULT);
+      var valueSizeDistribution =
+          configuration
+              .string(VALUE_SIZE_DISTRIBUTION_DEF.name())
+              .map(DistributionType::ofAlias)
+              .orElse(VALUE_SIZE_DISTRIBUTION_DEFAULT);
+      var batchSize = configuration.integer(BATCH_SIZE_DEF.name()).orElse(BATCH_SIZE_DEFAULT);
       var keyTableSeed =
           configuration
               .longInteger(KEY_TABLE_SEED.name())
-              .orElse((Long) KEY_TABLE_SEED.defaultValue());
+              .orElse(ThreadLocalRandom.current().nextLong());
       var valueTableSeed =
           configuration
               .longInteger(VALUE_TABLE_SEED.name())
-              .orElse((Long) VALUE_TABLE_SEED.defaultValue());
+              .orElse(ThreadLocalRandom.current().nextLong());
 
       specifyPartitions =
           configuration.list(SourceConnector.TOPICS_KEY, ",").stream()
@@ -253,10 +258,11 @@ public class PerfSource extends SourceConnector {
     }
 
     @Override
-    protected Collection<Record<byte[], byte[]>> take() {
+    protected Collection<SourceRecord> take() {
       return specifyPartitions.stream()
           .flatMap(tp -> recordGenerator.apply(tp).stream())
-          .collect(Collectors.toUnmodifiableList());
+          .map(r -> SourceRecord.builder().record(r).build())
+          .toList();
     }
   }
 }

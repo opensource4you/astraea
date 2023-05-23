@@ -18,77 +18,31 @@ package org.astraea.common;
 
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public interface Configuration {
+public record Configuration(Map<String, String> raw) {
 
-  Configuration EMPTY = Configuration.of(Map.of());
-
-  static Configuration of(Map<String, String> configs) {
-    return new Configuration() {
-      @Override
-      public Map<String, String> raw() {
-        return Collections.unmodifiableMap(configs);
-      }
-
-      @Override
-      public Optional<String> string(String key) {
-        return Optional.ofNullable(configs.get(key)).map(Object::toString);
-      }
-
-      @Override
-      public List<String> list(String key, String separator) {
-        return Arrays.asList(requireString(key).split(separator));
-      }
-
-      @Override
-      public <K, V> Map<K, V> map(
-          String key,
-          String listSeparator,
-          String mapSeparator,
-          Function<String, K> keyConverter,
-          Function<String, V> valueConverter) {
-        Function<String, Map.Entry<K, V>> split =
-            s -> {
-              var items = s.split(mapSeparator);
-              if (items.length != 2)
-                throw new IllegalArgumentException(
-                    "the value: " + s + " is using incorrect separator");
-              return Map.entry(keyConverter.apply(items[0]), valueConverter.apply(items[1]));
-            };
-        return list(key, listSeparator).stream()
-            .map(split)
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      }
-
-      @Override
-      public Set<Map.Entry<String, String>> entrySet() {
-        return configs.entrySet();
-      }
-    };
-  }
-
-  Map<String, String> raw();
+  public static final Configuration EMPTY = new Configuration(Map.of());
 
   /**
    * @param key the key whose associated value is to be returned
    * @return string value. never null
    */
-  Optional<String> string(String key);
+  public Optional<String> string(String key) {
+    return Optional.ofNullable(raw.get(Objects.requireNonNull(key)));
+  }
 
   /**
    * @param key the key whose associated value is to be returned
    * @return optional {@link Pattern} compiled from the string associated with the key. never null
    */
-  default Optional<Pattern> regexString(String key) {
+  public Optional<Pattern> regexString(String key) {
     return string(key).map(Pattern::compile);
   }
 
@@ -96,11 +50,11 @@ public interface Configuration {
    * @param key the key whose associated value is to be returned
    * @return integer value. never null
    */
-  default Optional<Integer> integer(String key) {
+  public Optional<Integer> integer(String key) {
     return string(key).map(Integer::parseInt);
   }
 
-  default Optional<Long> longInteger(String key) {
+  public Optional<Long> longInteger(String key) {
     return string(key).map(Long::parseLong);
   }
 
@@ -108,7 +62,7 @@ public interface Configuration {
    * @param key the key whose associated value is to be returned
    * @return duration value. If there is no key, return Optional.Empty
    */
-  default Optional<Duration> duration(String key) {
+  public Optional<Duration> duration(String key) {
     return string(key).map(Utils::toDuration);
   }
 
@@ -116,11 +70,11 @@ public interface Configuration {
    * @param key the key whose associated value is to be returned
    * @return DataSize value. If there is no key, return Optional.Empty
    */
-  default Optional<DataSize> dataSize(String key) {
+  public Optional<DataSize> dataSize(String key) {
     return string(key).map(DataSize::of);
   }
 
-  default int requireInteger(String key) {
+  public int requireInteger(String key) {
     return integer(key).orElseThrow(() -> new NoSuchElementException(key + " is nonexistent"));
   }
 
@@ -128,7 +82,7 @@ public interface Configuration {
    * @param key the key whose associated value is to be returned
    * @return string value. never null
    */
-  default String requireString(String key) {
+  public String requireString(String key) {
     return string(key).orElseThrow(() -> new NoSuchElementException(key + " is nonexistent"));
   }
 
@@ -137,9 +91,9 @@ public interface Configuration {
    * @return new Configuration only contains which the key value starts with the prefix, and the
    *     prefix string and the following dot will be removed from the key
    */
-  default Configuration filteredPrefixConfigs(String prefix) {
-    return of(
-        entrySet().stream()
+  public Configuration filteredPrefixConfigs(String prefix) {
+    return new Configuration(
+        raw().entrySet().stream()
             .filter(k -> k.getKey().startsWith(prefix))
             .collect(
                 Collectors.toMap(
@@ -151,53 +105,7 @@ public interface Configuration {
    * @param separator to split string to multiple strings
    * @return string list. never null
    */
-  List<String> list(String key, String separator);
-
-  /**
-   * parse the map structure from value associated to specify key
-   *
-   * @param key the key whose associated value is to be returned
-   * @param listSeparator to split string to multiple strings
-   * @param mapSeparator to split multiple strings to map
-   * @return map. never null
-   */
-  default Map<String, String> map(String key, String listSeparator, String mapSeparator) {
-    return map(key, listSeparator, mapSeparator, s -> s);
+  public List<String> list(String key, String separator) {
+    return string(key).map(s -> Arrays.asList(s.split(separator))).orElseGet(List::of);
   }
-
-  /**
-   * parse the map structure from value associated to specify key
-   *
-   * @param key the key whose associated value is to be returned
-   * @param listSeparator to split string to multiple strings
-   * @param mapSeparator to split multiple strings to map
-   * @param valueConverter used to convert value string to specify type
-   * @return map. never null
-   */
-  default <T> Map<String, T> map(
-      String key, String listSeparator, String mapSeparator, Function<String, T> valueConverter) {
-    return map(key, listSeparator, mapSeparator, s -> s, valueConverter);
-  }
-
-  /**
-   * parse the map structure from value associated to specify key
-   *
-   * @param key the key whose associated value is to be returned
-   * @param listSeparator to split string to multiple strings
-   * @param mapSeparator to split multiple strings to map
-   * @param keyConverter used to convert key string to specify type
-   * @param valueConverter used to convert value string to specify type
-   * @return map. never null
-   */
-  <K, V> Map<K, V> map(
-      String key,
-      String listSeparator,
-      String mapSeparator,
-      Function<String, K> keyConverter,
-      Function<String, V> valueConverter);
-
-  /**
-   * @return a {@link Set} view of the mappings contained in this map.
-   */
-  Set<Map.Entry<String, String>> entrySet();
 }

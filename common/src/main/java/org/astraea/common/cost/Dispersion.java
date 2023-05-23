@@ -21,37 +21,6 @@ import java.util.Collection;
 /** Aggregate a sequence into a number */
 @FunctionalInterface
 public interface Dispersion {
-  /**
-   * Apply coefficient of variation to a series of values.
-   *
-   * <p>This implementation come with some assumption:
-   *
-   * <ul>
-   *   <li>If no number was given, then the cov is zero.
-   *   <li>If all numbers are zero, then the cov is zero.
-   * </ul>
-   */
-  static Dispersion cov() {
-    return numbers -> {
-      // special case: no number
-      if (numbers.isEmpty()) return 0;
-      var numSummary = numbers.stream().mapToDouble(Number::doubleValue).summaryStatistics();
-      // special case: all value zero
-      if (numSummary.getMax() == 0 && numSummary.getMin() == 0) return 0;
-      // special case: zero average, no cov defined here
-      if (numSummary.getAverage() == 0)
-        throw new ArithmeticException(
-            "Coefficient of variation has no definition with zero average");
-      var numVariance =
-          numbers.stream()
-              .mapToDouble(Number::doubleValue)
-              .map(score -> score - numSummary.getAverage())
-              .map(score -> score * score)
-              .summaryStatistics()
-              .getAverage();
-      return Math.sqrt(numVariance) / numSummary.getAverage();
-    };
-  }
 
   /**
    * Obtain standard deviation from a series of values.
@@ -73,6 +42,27 @@ public interface Dispersion {
               .summaryStatistics()
               .getSum();
       return Math.sqrt(numVariance / numbers.size());
+    };
+  }
+
+  /**
+   * Obtain standard deviation from a series of values after normalizing to [0,1].
+   *
+   * <ul>
+   *   <li>If no number was given, then the standard deviation is zero.
+   * </ul>
+   */
+  static Dispersion normalizedStandardDeviation() {
+    return numbers -> {
+      // special case: no number
+      if (numbers.isEmpty()) return 0;
+      var totalNumber = numbers.stream().mapToInt(Number::intValue).sum();
+      var standardDeviation = standardDeviation();
+      var normalized =
+          numbers.stream()
+              .map(score -> totalNumber == 0 ? 0 : score.doubleValue() / totalNumber)
+              .toList();
+      return standardDeviation.calculate(normalized);
     };
   }
 

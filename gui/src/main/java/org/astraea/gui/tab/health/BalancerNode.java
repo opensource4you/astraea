@@ -219,7 +219,7 @@ class BalancerNode {
                   logger.log("searching better assignments ... ");
                   return Utils.construct(
                           GreedyBalancer.class,
-                          Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
+                          new Configuration(Map.of(GreedyBalancer.ITERATION_CONFIG, "10000")))
                       .offer(
                           AlgorithmConfig.builder()
                               .clusterInfo(clusterInfo)

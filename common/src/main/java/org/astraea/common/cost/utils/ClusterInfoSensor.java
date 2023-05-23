@@ -17,7 +17,6 @@
 package org.astraea.common.cost.utils;
 
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -44,7 +43,7 @@ public class ClusterInfoSensor implements MetricSensor {
             LogMetrics.Log.SIZE.fetch(client),
             ClusterMetrics.Partition.REPLICAS_COUNT.fetch(client))
         .flatMap(Collection::stream)
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   /**
@@ -61,6 +60,22 @@ public class ClusterInfoSensor implements MetricSensor {
             .filter(id -> id != -1)
             .map(id -> NodeInfo.of(id, "", -1))
             .collect(Collectors.toUnmodifiableMap(NodeInfo::id, x -> x));
+    var replicaMap =
+        clusterBean.brokerIds().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    broker -> broker,
+                    broker ->
+                        clusterBean
+                            .brokerMetrics(broker, LogMetrics.Log.Gauge.class)
+                            .filter(x -> LogMetrics.Log.SIZE.metricName().equals(x.metricsName()))
+                            .filter(x -> x.partitionIndex().isPresent())
+                            .collect(
+                                Collectors.toUnmodifiableMap(
+                                    x -> x.partitionIndex().orElseThrow(),
+                                    x -> x,
+                                    (a, b) ->
+                                        a.createdTimestamp() > b.createdTimestamp() ? a : b))));
     var replicas =
         clusterBean.brokerTopics().stream()
             .filter(bt -> bt.broker() != -1)
@@ -70,50 +85,40 @@ public class ClusterInfoSensor implements MetricSensor {
                   var partitions =
                       clusterBean
                           .brokerTopicMetrics(bt, ClusterMetrics.PartitionMetric.class)
-                          .sorted(
-                              Comparator.comparingLong(HasBeanObject::createdTimestamp).reversed())
+                          .collect(
+                              Collectors.toUnmodifiableMap(
+                                  ClusterMetrics.PartitionMetric::topicPartition,
+                                  x -> x,
+                                  (a, b) -> a.createdTimestamp() > b.createdTimestamp() ? a : b))
+                          .values()
+                          .stream()
                           .collect(
                               Collectors.toUnmodifiableMap(
                                   ClusterMetrics.PartitionMetric::topicPartition,
                                   m -> {
                                     var tp = m.topicPartition();
-                                    var size =
-                                        clusterBean
-                                            .brokerMetrics(broker, LogMetrics.Log.Gauge.class)
-                                            .filter(x -> x.partition() == tp.partition())
-                                            .filter(x -> x.topic().equals(tp.topic()))
-                                            .filter(
-                                                x ->
-                                                    LogMetrics.Log.SIZE
-                                                        .metricName()
-                                                        .equals(x.metricsName()))
-                                            .max(
-                                                Comparator.comparingLong(
-                                                    HasBeanObject::createdTimestamp))
-                                            .orElseThrow(
-                                                () ->
-                                                    new IllegalStateException(
-                                                        "Partition "
-                                                            + tp
-                                                            + " detected, but its size metric doesn't exists. "
-                                                            + "Maybe the given cluster bean is partially sampled"))
-                                            .value();
+                                    var size = replicaMap.get(broker).get(tp);
+                                    if (size == null)
+                                      throw new IllegalStateException(
+                                          "Partition "
+                                              + tp
+                                              + " detected, but its size metric doesn't exists. "
+                                              + "Maybe the given cluster bean is partially sampled");
                                     var build =
                                         Replica.builder()
                                             .topic(tp.topic())
                                             .partition(tp.partition())
                                             .nodeInfo(nodes.get(broker))
                                             .path("")
-                                            .size(size);
+                                            .size(size.value());
                                     var isLeader = m.value() != 0;
                                     return isLeader
                                         ? build.buildLeader()
                                         : build.buildInSyncFollower();
-                                  },
-                                  (latest, earlier) -> latest));
+                                  }));
                   return partitions.values().stream();
                 })
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     var clusterId =
         clusterBean.all().entrySet().stream()
             .filter(e -> e.getKey() != -1)

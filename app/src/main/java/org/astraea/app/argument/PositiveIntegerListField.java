@@ -17,12 +17,11 @@
 package org.astraea.app.argument;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class PositiveIntegerListField extends PositiveNumberListField<Integer> {
   @Override
   public List<Integer> convert(String value) {
-    return Stream.of(value.split(SEPARATOR)).map(Integer::valueOf).collect(Collectors.toList());
+    return Stream.of(value.split(SEPARATOR)).map(Integer::valueOf).toList();
   }
 }

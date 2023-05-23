@@ -116,12 +116,7 @@ public class GroupHandler implements Handler {
                                                 entry ->
                                                     new Member(
                                                         entry.getKey().memberId(),
-                                                        // gson does not support Optional see
-                                                        // https://github.com/google/gson/issues/1102
-                                                        entry
-                                                            .getKey()
-                                                            .groupInstanceId()
-                                                            .orElse(null),
+                                                        entry.getKey().groupInstanceId(),
                                                         entry.getKey().clientId(),
                                                         entry.getKey().host(),
                                                         entry.getValue().stream()
@@ -149,10 +144,9 @@ public class GroupHandler implements Handler {
                                                                                 empty())
                                                             .filter(Optional::isPresent)
                                                             .map(Optional::get)
-                                                            .collect(
-                                                                Collectors.toUnmodifiableList())))
-                                            .collect(Collectors.toUnmodifiableList())))
-                            .collect(Collectors.toUnmodifiableList())))
+                                                            .toList()))
+                                            .toList()))
+                            .toList()))
         .thenApply(
             groups -> {
               if (channel.target().isPresent() && groups.size() == 1) return groups.get(0);
@@ -178,14 +172,14 @@ public class GroupHandler implements Handler {
 
   static class Member implements Response {
     final String memberId;
-    final String groupInstanceId;
+    final Optional<String> groupInstanceId;
     final String clientId;
     final String host;
     final List<OffsetProgress> offsetProgress;
 
     Member(
         String memberId,
-        String groupInstanceId,
+        Optional<String> groupInstanceId,
         String clientId,
         String host,
         List<OffsetProgress> offsetProgress) {

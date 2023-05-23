@@ -46,18 +46,7 @@ class ConnectorClientBuilderTest {
     var httpExecutor = Mockito.mock(HttpExecutor.class);
     Mockito.when(httpExecutor.get(Mockito.any(), Mockito.eq(TypeRef.set(String.class))))
         .thenReturn(
-            CompletableFuture.completedFuture(
-                new Response<>() {
-                  @Override
-                  public int statusCode() {
-                    return 200;
-                  }
-
-                  @Override
-                  public Set<String> body() {
-                    return Set.of("SpecialConnectorName");
-                  }
-                }));
+            CompletableFuture.completedFuture(new Response<>(Set.of("SpecialConnectorName"), 200)));
 
     var connectorClient =
         ConnectorClient.builder()

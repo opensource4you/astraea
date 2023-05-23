@@ -18,6 +18,7 @@ package org.astraea.common;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,6 +26,7 @@ import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.cost.CostFunction;
@@ -38,6 +40,54 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 public class UtilsTest {
+
+  @Test
+  void testShuffledPermutation() {
+    var items = IntStream.range(0, 100000).boxed().toList();
+
+    Assertions.assertEquals(
+        100000,
+        Utils.shuffledPermutation(items).stream().distinct().count(),
+        "No duplicate element");
+    Assertions.assertEquals(
+        Set.copyOf(items),
+        Utils.shuffledPermutation(items).stream().collect(Collectors.toSet()),
+        "No element lost");
+    Assertions.assertEquals(
+        100000, Utils.shuffledPermutation(items).stream().count(), "Size correct");
+    Assertions.assertNotEquals(
+        items, Utils.shuffledPermutation(items).stream().toList(), "Content randomized");
+  }
+
+  @Test
+  void testShuffledPermutationStatistics() {
+    // Generate 10 elements, perform the shuffle multiple time and counting the number frequency of
+    // each position. See if under large number of experiments, the number is uniformly distributed.
+    var items = IntStream.range(0, 10).boxed().toList();
+    var buckets = new int[10][10];
+
+    var trials = 100000;
+    for (int i = 0; i < trials; i++) {
+      var index = 0;
+      for (int x : Utils.shuffledPermutation(items)) {
+        buckets[x][index++] += 1;
+      }
+    }
+
+    var expectedValue = trials / 10.0;
+    var error = 1.0;
+    var result =
+        IntStream.range(0, buckets.length)
+            .boxed()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    i -> i, i -> Arrays.stream(buckets[i]).boxed().toList()));
+    Assertions.assertTrue(
+        result.values().stream()
+            .map(x -> x.stream().mapToInt(i -> i).average().orElse(0))
+            .allMatch(x -> expectedValue - error <= x && x <= expectedValue + error),
+        "The implementation might be biased: " + result);
+  }
 
   @Test
   void testChunk() {
@@ -156,7 +206,7 @@ public class UtilsTest {
   @ParameterizedTest
   @ValueSource(classes = {TestCostFunction.class, TestConfigCostFunction.class})
   void testConstruct(Class<? extends CostFunction> aClass) {
-    var config = Configuration.of(Map.of());
+    var config = new Configuration(Map.of());
 
     var costFunction = Utils.construct(aClass, config);
     Assertions.assertInstanceOf(CostFunction.class, costFunction);
@@ -176,7 +226,7 @@ public class UtilsTest {
   void testConstructException() {
     // arrange
     var aClass = TestBadCostFunction.class;
-    var config = Configuration.of(Map.of());
+    var config = new Configuration(Map.of());
 
     // act, assert
     Assertions.assertThrows(RuntimeException.class, () -> Utils.construct(aClass, config));
@@ -233,7 +283,7 @@ public class UtilsTest {
   @Test
   void testCostFunctions() {
     var config =
-        Configuration.of(
+        new Configuration(
             Map.of(
                 "org.astraea.common.cost.BrokerInputCost",
                 "20",
@@ -257,7 +307,7 @@ public class UtilsTest {
 
     // test negative weight
     var config2 =
-        Configuration.of(
+        new Configuration(
             Map.of(
                 "org.astraea.common.cost.BrokerInputCost",
                 "-20",
@@ -271,7 +321,7 @@ public class UtilsTest {
     var cf =
         Set.of(
             "org.astraea.common.cost.RecordSizeCost", "org.astraea.common.cost.ReplicaLeaderCost");
-    var mConfig = Configuration.of(Map.of("maxMigratedSize", "50MB", "maxMigratedLeader", "5"));
+    var mConfig = new Configuration(Map.of("maxMigratedSize", "50MB", "maxMigratedLeader", "5"));
     var mAns = Utils.costFunctions(cf, HasMoveCost.class, mConfig);
     Assertions.assertEquals(2, mAns.size());
 
@@ -306,5 +356,12 @@ public class UtilsTest {
     Closeable obj = count::incrementAndGet;
     Assertions.assertDoesNotThrow(() -> Utils.close(obj));
     Assertions.assertEquals(1, count.get());
+  }
+
+  @Test
+  void testRequireNonEmpty() {
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> Utils.requireNonEmpty(Set.of(), ""));
+    Assertions.assertDoesNotThrow(() -> Utils.requireNonEmpty(List.of(1), ""));
   }
 }
