@@ -75,7 +75,7 @@ public class WebService implements AutoCloseable {
                     brokers.stream()
                         .collect(
                             Collectors.toUnmodifiableMap(
-                                    Broker::id,
+                                Broker::id,
                                 b -> JndiClient.of(b.host(), brokerIdToJmxPort.apply(b.id()))));
             yield List.of(
                 MetricStore.Receiver.local(() -> admin.brokers().thenApply(asBeanClientMap)));
