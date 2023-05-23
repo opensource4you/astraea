@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -34,9 +35,12 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.generated.BeanObjectOuterClass;
+import org.astraea.common.generated.ClusterBeanOuterClass;
 import org.astraea.common.generated.ClusterInfoOuterClass;
 import org.astraea.common.generated.PrimitiveOuterClass;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.ClusterBean;
+import org.astraea.common.metrics.HasBeanObject;
 
 public final class ByteUtils {
 
@@ -241,6 +245,52 @@ public final class ByteUtils {
         .toByteArray();
   }
 
+  public static byte[] toBytes(ClusterBean value) {
+    var mapOfBeanObjects =
+        value.all().entrySet().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Map.Entry::getKey,
+                    e ->
+                        e.getValue().stream()
+                            .map(HasBeanObject::beanObject)
+                            // convert BeanObject to protocol buffer
+                            .map(
+                                beanObject ->
+                                    BeanObjectOuterClass.BeanObject.newBuilder()
+                                        .setDomain(beanObject.domainName())
+                                        .putAllProperties(beanObject.properties())
+                                        .putAllAttributes(
+                                            beanObject.attributes().entrySet().stream()
+                                                .collect(
+                                                    Collectors.toUnmodifiableMap(
+                                                        Map.Entry::getKey,
+                                                        a -> primitive(a.getValue()))))
+                                        .setCreatedTimestamp(
+                                            Timestamp.newBuilder()
+                                                .setSeconds(beanObject.createdTimestamp() / 1000)
+                                                .setNanos(
+                                                    (int)
+                                                        (beanObject.createdTimestamp()
+                                                            % 1000
+                                                            * 1000000)))
+                                        .build())
+                            .toList()));
+
+    return ClusterBeanOuterClass.ClusterBean.newBuilder()
+        .putAllAllBeans(
+            mapOfBeanObjects.entrySet().stream()
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey,
+                        Objects ->
+                            ClusterBeanOuterClass.ClusterBean.BeanObjects.newBuilder()
+                                .addAllBeanObjects(Objects.getValue())
+                                .build())))
+        .build()
+        .toByteArray();
+  }
+
   public static int readInt(ReadableByteChannel channel) {
     return Utils.packException(
         () -> {
@@ -385,6 +435,35 @@ public final class ByteUtils {
                           .path(replica.getPath())
                           .build())
               .collect(Collectors.toList()));
+    } catch (InvalidProtocolBufferException ex) {
+      throw new SerializationException(ex);
+    }
+  }
+
+  public static Map<Integer, List<BeanObject>> readClusterBean(byte[] bytes) {
+    try {
+      var outerClusterBean = ClusterBeanOuterClass.ClusterBean.parseFrom(bytes);
+      return outerClusterBean.getAllBeansMap().entrySet().stream()
+          .collect(
+              Collectors.toUnmodifiableMap(
+                  k -> k.getKey(),
+                  v ->
+                      v.getValue().getBeanObjectsList().stream()
+                          .map(
+                              i ->
+                                  new BeanObject(
+                                      i.getDomain(),
+                                      i.getPropertiesMap(),
+                                      i.getAttributesMap().entrySet().stream()
+                                          .collect(
+                                              Collectors.toUnmodifiableMap(
+                                                  Map.Entry::getKey,
+                                                  e ->
+                                                      Objects.requireNonNull(
+                                                          toObject(e.getValue())))),
+                                      i.getCreatedTimestamp().getSeconds() * 1000
+                                          + i.getCreatedTimestamp().getNanos() / 1000000))
+                          .toList()));
     } catch (InvalidProtocolBufferException ex) {
       throw new SerializationException(ex);
     }

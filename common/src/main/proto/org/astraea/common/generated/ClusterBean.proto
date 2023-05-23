@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package org.astraea.common.generated;
+
+import "org/astraea/common/generated/BeanObject.proto";
+
+message ClusterBean{
+
+  message BeanObjects {
+    repeated BeanObject beanObjects = 1;
+  }
+
+  map<int32, BeanObjects> allBeans = 1;
+}
+
+
