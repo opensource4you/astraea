@@ -81,7 +81,7 @@ public class BalancerBenchmarkApp {
     var balancer =
         Utils.construct(
             (Class<Balancer>) Utils.packException(() -> Class.forName(problem.balancer)),
-            Configuration.of(problem.balancerConfig));
+            new Configuration(problem.balancerConfig));
 
     System.out.println("Running Experiment...");
     System.out.println();
@@ -109,7 +109,7 @@ public class BalancerBenchmarkApp {
     var balancer =
         Utils.construct(
             (Class<Balancer>) Utils.packException(() -> Class.forName(problem.balancer)),
-            Configuration.of(problem.balancerConfig));
+            new Configuration(problem.balancerConfig));
 
     System.out.println("Running CostProfiling...");
     System.out.println();
