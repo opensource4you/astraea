@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.astraea.common.Configuration;
 import org.astraea.common.admin.TopicPartition;
 
 public interface Shuffler {
@@ -32,7 +31,7 @@ public interface Shuffler {
       Map<String, SubscriptionInfo> subscriptions,
       Map<TopicPartition, Double> partitionCost,
       Map<TopicPartition, Set<TopicPartition>> incompatible,
-      Configuration config) {
+      long shuffleTime) {
     var limiters =
         Limiter.of(
             Set.of(
@@ -43,7 +42,6 @@ public interface Shuffler {
                 Hint.lowCostHint(subscriptions, partitionCost),
                 Hint.incompatibleHint(subscriptions, incompatible)));
     var generator = Generator.randomGenerator(subscriptions, partitionCost, hints);
-    var shuffleTime = config.duration("shuffle.time").get().toMillis();
     var standardDeviation =
         (Function<Map<String, List<TopicPartition>>, Double>)
             (combinator) -> {
