@@ -999,7 +999,7 @@ public class AdminTest {
               .forEach(
                   c -> {
                     Assertions.assertNotNull(c.groupId());
-                    Assertions.assertNotNull(c.coordinator());
+                    Assertions.assertNotNull(c.coordinatorId());
                     Assertions.assertNotNull(c.assignor());
                     Assertions.assertNotNull(c.state());
                   });

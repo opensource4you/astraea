@@ -515,11 +515,7 @@ class AdminImpl implements Admin {
                     .collect(Collectors.toUnmodifiableList()))
             .thenApply(
                 s -> s.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
-        brokers()
-            .thenApply(
-                brokers ->
-                    brokers.stream().collect(Collectors.toMap(Broker::id, broker -> broker))),
-        (consumerGroupDescriptions, consumerGroupMetadata, brokers) ->
+        (consumerGroupDescriptions, consumerGroupMetadata) ->
             consumerGroupIds.stream()
                 .map(
                     groupId ->
@@ -527,9 +523,7 @@ class AdminImpl implements Admin {
                             groupId,
                             consumerGroupDescriptions.get(groupId).partitionAssignor(),
                             consumerGroupDescriptions.get(groupId).state().name(),
-                            brokers.getOrDefault(
-                                consumerGroupDescriptions.get(groupId).coordinator().id(),
-                                Broker.of(consumerGroupDescriptions.get(groupId).coordinator())),
+                            consumerGroupDescriptions.get(groupId).coordinator().id(),
                             consumerGroupMetadata.get(groupId).entrySet().stream()
                                 .collect(
                                     Collectors.toUnmodifiableMap(
