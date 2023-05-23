@@ -189,7 +189,7 @@ public class ExporterTest {
               "roll.duration",
               "100m");
 
-      var fs = FileSystem.of("ftp", Configuration.of(configs));
+      var fs = FileSystem.of("ftp", new Configuration(configs));
 
       task.start(configs);
 
@@ -276,7 +276,7 @@ public class ExporterTest {
               "roll.duration",
               "300ms");
 
-      var fs = FileSystem.of("ftp", Configuration.of(configs));
+      var fs = FileSystem.of("ftp", new Configuration(configs));
 
       task.start(configs);
 
@@ -351,7 +351,7 @@ public class ExporterTest {
               "roll.duration",
               "100ms");
 
-      var fs = FileSystem.of("ftp", Configuration.of(configs));
+      var fs = FileSystem.of("ftp", new Configuration(configs));
 
       task.start(configs);
 
@@ -485,7 +485,7 @@ public class ExporterTest {
 
       Assertions.assertTrue(task.isWriterDone());
 
-      var fs = FileSystem.of("hdfs", Configuration.of(configs));
+      var fs = FileSystem.of("hdfs", new Configuration(configs));
 
       Assertions.assertEquals(
           2, fs.listFolders("/" + String.join("/", fileSize, topicName)).size());
@@ -559,7 +559,7 @@ public class ExporterTest {
 
       Utils.sleep(Duration.ofMillis(1000));
 
-      var fs = FileSystem.of("hdfs", Configuration.of(configs));
+      var fs = FileSystem.of("hdfs", new Configuration(configs));
 
       Assertions.assertEquals(
           1, fs.listFiles("/" + String.join("/", fileSize, topicName, "0")).size());
@@ -657,7 +657,7 @@ public class ExporterTest {
       task.put(List.of(record3));
       Utils.sleep(Duration.ofMillis(1000));
 
-      var fs = FileSystem.of("hdfs", Configuration.of(configs));
+      var fs = FileSystem.of("hdfs", new Configuration(configs));
 
       Assertions.assertEquals(
           2, fs.listFolders("/" + String.join("/", fileSize, topicName)).size());
@@ -761,7 +761,7 @@ public class ExporterTest {
       var writers = new HashMap<TopicPartition, RecordWriter>();
 
       var task = new Exporter.Task();
-      task.fs = FileSystem.of("hdfs", Configuration.of(configs));
+      task.fs = FileSystem.of("hdfs", new Configuration(configs));
       task.interval = 1000;
 
       RecordWriter recordWriter = task.createRecordWriter(tp, offset);
@@ -822,7 +822,7 @@ public class ExporterTest {
       var writers = new HashMap<TopicPartition, RecordWriter>();
 
       var task = new Exporter.Task();
-      task.fs = FileSystem.of("hdfs", Configuration.of(configs));
+      task.fs = FileSystem.of("hdfs", new Configuration(configs));
       task.size = DataSize.of("100MB");
       task.bufferSize.reset();
       task.recordsQueue.add(

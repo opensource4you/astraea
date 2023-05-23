@@ -193,10 +193,7 @@ public class BalancerHandlerTest {
                 .join();
             if (skewed) {
               Utils.sleep(Duration.ofSeconds(1));
-              var placement =
-                  service.dataFolders().keySet().stream()
-                      .limit(replicas)
-                      .collect(Collectors.toUnmodifiableList());
+              var placement = service.dataFolders().keySet().stream().limit(replicas).toList();
               admin
                   .moveToBrokers(
                       admin.topicPartitions(Set.of(topic)).toCompletableFuture().join().stream()
@@ -227,27 +224,19 @@ public class BalancerHandlerTest {
   void testBestPlan() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var currentClusterInfo =
-          ClusterInfo.of(
-              "fake",
-              List.of(NodeInfo.of(10, "host", 22), NodeInfo.of(11, "host", 22)),
-              Map.of(),
-              List.of(
-                  Replica.builder()
-                      .topic("topic")
-                      .partition(0)
-                      .nodeInfo(NodeInfo.of(10, "host", 22))
-                      .lag(0)
-                      .size(100)
-                      .isLeader(true)
-                      .isSync(true)
-                      .isFuture(false)
-                      .isOffline(false)
-                      .isPreferredLeader(true)
-                      .path("/tmp/aa")
-                      .build()));
+          ClusterInfo.builder()
+              .addNode(Set.of(1, 2))
+              .addFolders(
+                  Map.ofEntries(Map.entry(1, Set.of("/folder")), Map.entry(2, Set.of("/folder"))))
+              .addTopic("topic", 1, (short) 1)
+              .build();
 
       HasClusterCost clusterCostFunction =
-          (clusterInfo, clusterBean) -> () -> clusterInfo == currentClusterInfo ? 100D : 10D;
+          (clusterInfo, clusterBean) ->
+              () ->
+                  ClusterInfo.findNonFulfilledAllocation(currentClusterInfo, clusterInfo).isEmpty()
+                      ? 100D
+                      : 10D;
       HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
       HasMoveCost failMoveCostFunction = (before, after, clusterBean) -> () -> true;
 
@@ -955,13 +944,13 @@ public class BalancerHandlerTest {
             .mapToObj(partition -> Map.entry(ThreadLocalRandom.current().nextInt(), partition))
             .sorted(Map.Entry.comparingByKey())
             .map(Map.Entry::getValue)
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     var destPlacement =
         IntStream.range(0, 10)
             .mapToObj(partition -> Map.entry(ThreadLocalRandom.current().nextInt(), partition))
             .sorted(Map.Entry.comparingByKey())
             .map(Map.Entry::getValue)
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     var base =
         ClusterInfo.builder()
             .addNode(Set.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9))
@@ -1361,7 +1350,7 @@ public class BalancerHandlerTest {
     var metricSensors = cf.stream().map(CostFunction::metricSensor).toList();
     return MetricStore.builder()
         .beanExpiration(Duration.ofMinutes(2))
-        .localReceiver(clientSupplier)
+        .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
         .sensorsSupplier(
             () ->
                 metricSensors.stream()

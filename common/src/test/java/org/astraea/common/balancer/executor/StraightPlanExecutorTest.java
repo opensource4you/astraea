@@ -114,7 +114,7 @@ class StraightPlanExecutorTest {
 
       var execute =
           new StraightPlanExecutor(
-                  Configuration.of(
+                  new Configuration(
                       Map.of(StraightPlanExecutor.CONFIG_ENABLE_DATA_DIRECTORY_MIGRATION, "true")))
               .run(admin, expectedAllocation, Duration.ofSeconds(10));
 
@@ -173,7 +173,7 @@ class StraightPlanExecutorTest {
       var spiedAdmin = Mockito.spy(admin);
       var executor =
           new StraightPlanExecutor(
-              Configuration.of(
+              new Configuration(
                   Map.of(StraightPlanExecutor.CONFIG_ENABLE_DATA_DIRECTORY_MIGRATION, "false")));
 
       executor.run(spiedAdmin, target, Duration.ofSeconds(30)).toCompletableFuture().join();

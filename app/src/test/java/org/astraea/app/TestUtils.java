@@ -46,14 +46,14 @@ public class TestUtils {
         FileUtils.listFiles(mainDir.toFile(), new String[] {"class"}, true).stream()
             .map(File::toPath)
             .map(mainDir::relativize)
-            .collect(Collectors.toList());
+            .toList();
 
     var classNames =
         dirFiles.stream()
             .map(Path::toString)
             .map(FilenameUtils::removeExtension)
             .map(x -> x.replace(File.separatorChar, '.'))
-            .collect(Collectors.toList());
+            .toList();
 
     return classNames.stream()
         .map(x -> Utils.packException(() -> Class.forName(x)))

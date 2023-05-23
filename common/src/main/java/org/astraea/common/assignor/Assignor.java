@@ -116,7 +116,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                     });
     metricStore =
         MetricStore.builder()
-            .localReceiver(clientSupplier)
+            .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
             .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
             .build();
   }
@@ -161,7 +161,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   @Override
   public final void configure(Map<String, ?> configs) {
     this.config =
-        Configuration.of(
+        new Configuration(
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
     var costFunctions =

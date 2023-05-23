@@ -60,7 +60,7 @@ class ProducerHandler implements Handler {
                         .entrySet()
                         .stream()
                         .map(e -> new Partition(e.getKey(), e.getValue()))
-                        .collect(Collectors.toUnmodifiableList())));
+                        .toList()));
   }
 
   static class ProducerState implements Response {
@@ -88,8 +88,7 @@ class ProducerHandler implements Handler {
         Collection<org.astraea.common.admin.ProducerState> states) {
       this.topic = tp.topic();
       this.partition = tp.partition();
-      this.states =
-          states.stream().map(ProducerState::new).collect(Collectors.toUnmodifiableList());
+      this.states = states.stream().map(ProducerState::new).toList();
     }
   }
 

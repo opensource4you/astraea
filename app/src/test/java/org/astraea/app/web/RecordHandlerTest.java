@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.app.web.RecordHandler.Metadata;
@@ -150,8 +149,7 @@ public class RecordHandlerTest {
             .keyDeserializer(Deserializer.STRING)
             .valueDeserializer(Deserializer.STRING)
             .build()) {
-      var records =
-          consumer.poll(Duration.ofSeconds(5)).stream().collect(Collectors.toUnmodifiableList());
+      var records = consumer.poll(Duration.ofSeconds(5)).stream().toList();
       Assertions.assertEquals(1, records.size());
       Assertions.assertEquals(0, records.get(0).partition());
       Assertions.assertEquals("abc", records.get(0).key());
@@ -209,8 +207,7 @@ public class RecordHandlerTest {
             .keyDeserializer(Deserializer.STRING)
             .valueDeserializer(Deserializer.INTEGER)
             .build()) {
-      var records =
-          consumer.poll(Duration.ofSeconds(10)).stream().collect(Collectors.toUnmodifiableList());
+      var records = consumer.poll(Duration.ofSeconds(10)).stream().toList();
       Assertions.assertEquals(2, records.size());
 
       var record = records.get(0);
@@ -820,7 +817,7 @@ public class RecordHandlerTest {
       var records =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
               .map(x -> Record.builder().topic(topicName).partition(x).value(new byte[100]).build())
-              .collect(Collectors.toList());
+              .toList();
       producer.send(records);
       producer.flush();
 
@@ -904,7 +901,7 @@ public class RecordHandlerTest {
       var records =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
               .map(x -> Record.builder().topic(topicName).partition(x).value(new byte[100]).build())
-              .collect(Collectors.toList());
+              .toList();
       producer.send(records);
       producer.flush();
 
@@ -961,7 +958,7 @@ public class RecordHandlerTest {
       var records =
           Stream.of(0, 0, 1, 1, 1, 2, 2, 2, 2)
               .map(x -> Record.builder().topic(topicName).partition(x).value(new byte[100]).build())
-              .collect(Collectors.toList());
+              .toList();
       producer.send(records);
       producer.flush();
 

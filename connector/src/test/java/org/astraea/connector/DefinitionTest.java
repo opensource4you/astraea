@@ -29,6 +29,7 @@ public class DefinitionTest {
     var kafkaConf = Definition.toConfigDef(List.of(def));
     var kafkaDef = kafkaConf.configKeys().entrySet().iterator().next().getValue();
     Assertions.assertEquals(ConfigDef.NO_DEFAULT_VALUE, kafkaDef.defaultValue);
+    Assertions.assertTrue(def.required());
   }
 
   @Test
