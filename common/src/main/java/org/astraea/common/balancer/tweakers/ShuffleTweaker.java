@@ -113,12 +113,24 @@ public class ShuffleTweaker {
                   // allowed broker filter might cause no legal exchange target
                   if (maybeTargetReplica.isPresent()) {
                     var targetReplica = maybeTargetReplica.get();
-                    replicaList.remove(sourceReplica);
-                    replicaList.remove(targetReplica);
-                    replicaList.add(
-                        Replica.builder(sourceReplica).isLeader(!sourceReplica.isLeader()).build());
-                    replicaList.add(
-                        Replica.builder(targetReplica).isLeader(!targetReplica.isLeader()).build());
+                    var newLeader = sourceReplica.isFollower() ? sourceReplica : targetReplica;
+                    for (int i = 0; i < replicaList.size(); i++) {
+                      if (replicaList.get(i).equals(newLeader))
+                        replicaList.set(
+                            i,
+                            Replica.builder(replicaList.get(i))
+                                .isLeader(true)
+                                .isPreferredLeader(true)
+                                .build());
+                      else if (replicaList.get(i).isLeader()
+                          || replicaList.get(i).isPreferredLeader())
+                        replicaList.set(
+                            i,
+                            Replica.builder(replicaList.get(i))
+                                .isLeader(false)
+                                .isPreferredLeader(false)
+                                .build());
+                    }
                     return true;
                   } else {
                     return false;

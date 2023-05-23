@@ -30,7 +30,6 @@ import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.balancer.FakeClusterInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -242,15 +241,28 @@ class ShuffleTweakerTest {
         .forEach(
             cluster -> {
               for (var partition : cluster.topicPartitions()) {
-                Set<TopicPartitionReplica> collect =
+                var replicaSet =
                     cluster.replicas(partition).stream()
                         .map(Replica::topicPartitionReplica)
-                        .collect(Collectors.toSet());
+                        .collect(Collectors.toUnmodifiableSet());
                 switch (partition.topic()) {
-                  case "topic2" -> Assertions.assertEquals(2, collect.size(), collect.toString());
-                  case "topic3" -> Assertions.assertEquals(3, collect.size(), collect.toString());
-                  case "topic4" -> Assertions.assertEquals(4, collect.size(), collect.toString());
+                  case "topic2" -> Assertions.assertEquals(
+                      2, replicaSet.size(), replicaSet.toString());
+                  case "topic3" -> Assertions.assertEquals(
+                      3, replicaSet.size(), replicaSet.toString());
+                  case "topic4" -> Assertions.assertEquals(
+                      4, replicaSet.size(), replicaSet.toString());
                 }
+
+                var replicas = cluster.replicas(partition).stream().toList();
+                Assertions.assertEquals(
+                    1,
+                    replicas.stream().filter(Replica::isLeader).count(),
+                    "One leader only: " + replicas);
+                Assertions.assertEquals(
+                    1,
+                    replicas.stream().filter(Replica::isPreferredLeader).count(),
+                    "One preferred leader only: " + replicas);
               }
             });
   }
