@@ -53,21 +53,7 @@ public interface Limiter {
             == 0;
   }
 
-  static Limiter skewCostLimiter(
-      Map<TopicPartition, Double> partitionCost, Map<String, SubscriptionInfo> subscriptions) {
-    var tmpConsumerCost =
-        subscriptions.keySet().stream()
-            .map(c -> Map.entry(c, 0.0))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    partitionCost.entrySet().stream()
-        .sorted(Map.Entry.comparingByValue())
-        .map(Map.Entry::getKey)
-        .forEach(
-            tp -> {
-              var minCostConsumer =
-                  tmpConsumerCost.entrySet().stream().min(Map.Entry.comparingByValue()).get();
-              minCostConsumer.setValue(minCostConsumer.getValue() + partitionCost.get(tp));
-            });
+  static Limiter skewCostLimiter(Map<TopicPartition, Double> partitionCost) {
     var standardDeviation =
         (Function<Collection<Double>, Double>)
             (vs) -> {
@@ -75,7 +61,6 @@ public interface Limiter {
               return Math.sqrt(
                   vs.stream().mapToDouble(v -> Math.pow(v - average, 2)).average().getAsDouble());
             };
-    var limit = standardDeviation.apply(tmpConsumerCost.values());
 
     return (combinator) -> {
       var sd =
@@ -84,7 +69,7 @@ public interface Limiter {
                   .map(tps -> tps.stream().mapToDouble(partitionCost::get).sum())
                   .collect(Collectors.toSet()));
 
-      return sd < limit;
+      return sd == 0.0;
     };
   }
 }

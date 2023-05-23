@@ -61,7 +61,8 @@ public interface Hint {
               .filter(e -> e.getValue().topics().contains(tp.topic()))
               .map(Map.Entry::getKey)
               .toList();
-      if (incompatibilities.get(tp).isEmpty()) return subscriber;
+      if (incompatibilities.containsKey(tp) && incompatibilities.get(tp).isEmpty())
+        return subscriber;
 
       var candidates =
           currentAssignment.entrySet().stream()
@@ -71,6 +72,7 @@ public interface Hint {
                       Map.entry(
                           e.getKey(),
                           e.getValue().stream()
+                              .filter(incompatibilities::containsKey)
                               .filter(p -> incompatibilities.get(p).contains(tp))
                               .count()))
               .collect(

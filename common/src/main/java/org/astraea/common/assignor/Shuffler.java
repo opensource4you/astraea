@@ -36,8 +36,7 @@ public interface Shuffler {
     var limiters =
         Limiter.of(
             Set.of(
-                Limiter.skewCostLimiter(partitionCost, subscriptions),
-                Limiter.incompatibleLimiter(incompatible)));
+                Limiter.skewCostLimiter(partitionCost), Limiter.incompatibleLimiter(incompatible)));
     var hints =
         Hint.of(
             Set.of(
@@ -79,7 +78,6 @@ public interface Shuffler {
         }
         rejectedCombinators.add(combinator);
       }
-
       return result == null
           ? rejectedCombinators.stream()
               .map(c -> Map.entry(c, standardDeviation.apply(c)))
