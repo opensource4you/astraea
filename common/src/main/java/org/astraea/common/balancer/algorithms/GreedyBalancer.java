@@ -28,6 +28,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
@@ -160,10 +161,17 @@ public class GreedyBalancer implements Balancer {
     final var currentClusterInfo =
         BalancerUtils.clearedCluster(config.clusterInfo(), isDemoted, isBalancing);
     final var clusterBean = config.clusterBean();
+    final var fixedReplicas =
+        config.clusterInfo().topicPartitionReplicas().stream()
+            // if a topic is not allowed to move, it should be fixed.
+            // if a topic is not allowed to move, but originally it located on a demoting broker, it
+            // is ok to move.
+            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isDemoted.test(tpr.brokerId()))
+            .collect(Collectors.toUnmodifiableSet());
     final var allocationTweaker =
         ShuffleTweaker.builder()
             .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(minStep, maxStep))
-            .allowedTopics(allowedTopics)
+            .allowedReplicas(r -> !fixedReplicas.contains(r.topicPartitionReplica()))
             .allowedBrokers(isBalancing)
             .build();
     final var moveCostFunction = config.moveCostFunction();
