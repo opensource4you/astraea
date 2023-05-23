@@ -23,7 +23,6 @@ package org.astraea.common.balancer;
  * raise an exception.
  */
 public final class BalancerConfigs {
-  // TODO: Add tests for the above requirement described in javadoc.
 
   private BalancerConfigs() {}
 
