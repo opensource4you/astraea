@@ -25,10 +25,10 @@ import org.junit.jupiter.api.Test;
 public class WindowedValueTest {
   @Test
   void testGet() {
-    var windowedValue = new WindowedValue<Integer>(Duration.ofMillis(20));
+    var windowedValue = new WindowedValue<Integer>(Duration.ofMillis(200));
 
     windowedValue.add(1);
-    Utils.sleep(Duration.ofMillis(10));
+    Utils.sleep(Duration.ofMillis(100));
     windowedValue.add(2);
 
     // 1 is created 10 millisecond before.
@@ -36,7 +36,7 @@ public class WindowedValueTest {
     // So, 1 and 2 should be in the window of 20 millisecond.
     Assertions.assertEquals(List.of(1, 2), windowedValue.get());
 
-    Utils.sleep(Duration.ofMillis(15));
+    Utils.sleep(Duration.ofMillis(150));
     // Now,
     // 1 is created 25 millisecond before.
     // 2 is created 15 millisecond before.
