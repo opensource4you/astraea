@@ -53,7 +53,12 @@ public interface Hint {
                 .filter(e -> e.getValue() == 0.0)
                 .map(Map.Entry::getKey)
                 .toList();
-      else candidates = consumerPerCost.entrySet().stream().map(Map.Entry::getKey).toList();
+      else
+        candidates =
+            consumerPerCost.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .toList();
 
       return candidates.stream().limit((long) Math.ceil(candidates.size() / 2.0)).toList();
     };
