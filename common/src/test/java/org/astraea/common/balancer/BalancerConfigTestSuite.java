@@ -50,6 +50,30 @@ public abstract class BalancerConfigTestSuite {
   }
 
   @Test
+  public void testUnsupportedConfigException() {
+    final var balancer = Utils.construct(balancerClass, Configuration.EMPTY);
+    final var cluster = cluster(20, 10, 10, (short) 5);
+    final var testName =
+        """
+          Balancer implementation should raise an exception \
+          when seeing an unsupported config with 'balancer.' prefix.
+          """;
+
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            balancer.offer(
+                AlgorithmConfig.builder()
+                    .clusterInfo(cluster)
+                    .clusterCost(decreasingCost())
+                    .timeout(Duration.ofSeconds(2))
+                    .configs(customConfig.raw())
+                    .config("balancer.no.such.configuration", "oops")
+                    .build()),
+        testName);
+  }
+
+  @Test
   public void testBalancerAllowedTopicsRegex() {
     final var balancer = Utils.construct(balancerClass, Configuration.EMPTY);
     final var cluster = cluster(20, 10, 10, (short) 5);
