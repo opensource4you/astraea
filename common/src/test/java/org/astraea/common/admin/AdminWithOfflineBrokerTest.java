@@ -80,7 +80,7 @@ public class AdminWithOfflineBrokerTest {
       var allPs = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().join();
       NUMBER_OF_ONLINE_PARTITIONS =
           PARTITIONS
-              - (int) allPs.stream().filter(p -> p.leader().get().id() == CLOSED_BROKER_ID).count();
+              - (int) allPs.stream().filter(p -> p.leaderId().get() == CLOSED_BROKER_ID).count();
       Assertions.assertEquals(PARTITIONS, allPs.size());
       Utils.sleep(Duration.ofSeconds(2));
     }
@@ -128,7 +128,7 @@ public class AdminWithOfflineBrokerTest {
       var partitions = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().join();
       Assertions.assertEquals(PARTITIONS, partitions.size());
       var offlinePartitions =
-          partitions.stream().filter(p -> p.leader().isEmpty()).collect(Collectors.toList());
+          partitions.stream().filter(p -> p.leaderId().isEmpty()).collect(Collectors.toList());
       offlinePartitions.forEach(
           p -> {
             Assertions.assertEquals(1, p.replicas().size());

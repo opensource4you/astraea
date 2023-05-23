@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
@@ -378,10 +379,10 @@ public class AdminTest {
       var ids =
           List.of(
               SERVICE.dataFolders().keySet().stream()
-                  .filter(i -> i != partition.leader().get().id())
+                  .filter(i -> !Objects.equals(i, partition.leaderId().get()))
                   .findFirst()
                   .get(),
-              partition.leader().get().id());
+              partition.leaderId().get());
       admin.moveToBrokers(Map.of(TopicPartition.of(topic, 0), ids)).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
 
@@ -390,7 +391,7 @@ public class AdminTest {
       var newPartition = newPartitions.get(0);
       Assertions.assertEquals(ids.size(), newPartition.replicas().size());
       Assertions.assertEquals(ids.size(), newPartition.isr().size());
-      Assertions.assertNotEquals(ids.get(0), newPartition.leader().get().id());
+      Assertions.assertNotEquals(ids.get(0), newPartition.leaderId().get());
 
       admin
           .preferredLeaderElection(
@@ -400,7 +401,7 @@ public class AdminTest {
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           ids.get(0),
-          admin.partitions(Set.of(topic)).toCompletableFuture().join().get(0).leader().get().id());
+          admin.partitions(Set.of(topic)).toCompletableFuture().join().get(0).leaderId().get());
     }
   }
 
@@ -858,8 +859,8 @@ public class AdminTest {
       Assertions.assertEquals(
           List.of(2, 1),
           partitions.get(1).replicas().stream().map(Broker::id).collect(Collectors.toList()));
-      Assertions.assertEquals(0, partitions.get(0).leader().get().id());
-      Assertions.assertEquals(2, partitions.get(1).leader().get().id());
+      Assertions.assertEquals(0, partitions.get(0).leaderId().get());
+      Assertions.assertEquals(2, partitions.get(1).leaderId().get());
     }
   }
 

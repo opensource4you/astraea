@@ -420,7 +420,7 @@ class AdminImpl implements Admin {
                       var leader =
                           tpInfo.leader() == null || tpInfo.leader().isEmpty()
                               ? null
-                              : brokers.get(tpInfo.leader().id());
+                              : tpInfo.leader().id();
                       var replicas =
                           tpInfo.replicas().stream()
                               .map(node -> brokers.getOrDefault(node.id(), Broker.of(node)))
