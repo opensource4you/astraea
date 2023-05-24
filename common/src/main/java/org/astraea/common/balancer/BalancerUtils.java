@@ -26,8 +26,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 
 public final class BalancerUtils {
@@ -57,7 +57,7 @@ public final class BalancerUtils {
         (id) -> map.getOrDefault(id, map.getOrDefault("default", BalancingModes.BALANCING));
 
     return cluster.brokers().stream()
-        .map(NodeInfo::id)
+        .map(Broker::id)
         .collect(Collectors.toUnmodifiableMap(Function.identity(), mode));
   }
 
@@ -82,7 +82,7 @@ public final class BalancerUtils {
 
     var ongoingEventReplica =
         cluster.replicas().stream()
-            .filter(r -> isDemoted.test(r.nodeInfo().id()))
+            .filter(r -> isDemoted.test(r.broker().id()))
             .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
             .map(Replica::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
@@ -102,7 +102,7 @@ public final class BalancerUtils {
   public static ClusterInfo clearedCluster(
       ClusterInfo initial, Predicate<Integer> clearBrokers, Predicate<Integer> allowedBrokers) {
     final var allowed =
-        initial.nodes().stream()
+        initial.brokers().stream()
             .filter(node -> allowedBrokers.test(node.id()))
             .filter(node -> Predicate.not(clearBrokers).test(node.id()))
             .collect(Collectors.toUnmodifiableSet());
@@ -121,12 +121,12 @@ public final class BalancerUtils {
                     tp -> tp,
                     tp ->
                         initial.replicas(tp).stream()
-                            .map(Replica::nodeInfo)
+                            .map(Replica::broker)
                             .collect(Collectors.toSet())));
     return ClusterInfo.builder(initial)
         .mapLog(
             replica -> {
-              if (!clearBrokers.test(replica.nodeInfo().id())) return replica;
+              if (!clearBrokers.test(replica.broker().id())) return replica;
               var currentReplicaList = trackingReplicaList.get(replica.topicPartition());
               var broker =
                   IntStream.range(0, allowed.size())
@@ -139,10 +139,10 @@ public final class BalancerUtils {
                                   "Unable to clear replica "
                                       + replica.topicPartitionReplica()
                                       + " for broker "
-                                      + replica.nodeInfo().id()
+                                      + replica.broker().id()
                                       + ", the allowed destination brokers are "
                                       + allowed.stream()
-                                          .map(NodeInfo::id)
+                                          .map(Broker::id)
                                           .collect(Collectors.toUnmodifiableSet())
                                       + " but all of them already hosting a replica for this partition. "
                                       + "There is no broker can adopt this replica."));
@@ -150,10 +150,10 @@ public final class BalancerUtils {
 
               // update the tracking list. have to do this to avoid putting two replicas from the
               // same tp to one broker.
-              currentReplicaList.remove(replica.nodeInfo());
+              currentReplicaList.remove(replica.broker());
               currentReplicaList.add(broker);
 
-              return Replica.builder(replica).nodeInfo(broker).path(folder).build();
+              return Replica.builder(replica).broker(broker).path(folder).build();
             })
         .build();
   }

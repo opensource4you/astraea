@@ -48,8 +48,8 @@ public class ClusterInfoTest {
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(Replica::nodeInfo)
-            .collect(Collectors.groupingBy(NodeInfo::id, Collectors.reducing((x, y) -> x)))
+            .map(Replica::broker)
+            .collect(Collectors.groupingBy(Broker::id, Collectors.reducing((x, y) -> x)))
             .values()
             .stream()
             .flatMap(Optional::stream)
@@ -61,7 +61,7 @@ public class ClusterInfoTest {
   @Test
   void testEmptyCluster() {
     var emptyCluster = ClusterInfo.empty();
-    Assertions.assertEquals(0, emptyCluster.nodes().size());
+    Assertions.assertEquals(0, emptyCluster.brokers().size());
     Assertions.assertEquals(0, emptyCluster.replicaStream().count());
   }
 
@@ -100,7 +100,7 @@ public class ClusterInfoTest {
         Replica.builder()
             .topic("topic")
             .partition(0)
-            .nodeInfo(NodeInfo.of(0, "", -1))
+            .broker(Broker.of(0, "", -1))
             .path("f")
             .buildLeader();
     Assertions.assertThrows(Exception.class, () -> cluster.replicas().add(replica));

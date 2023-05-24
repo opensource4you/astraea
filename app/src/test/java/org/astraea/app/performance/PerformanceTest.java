@@ -193,7 +193,7 @@ public class PerformanceTest {
               .join()
               .replicaStream()
               .filter(Replica::isLeader)
-              .filter(r -> r.nodeInfo().id() == 1)
+              .filter(r -> r.broker().id() == 1)
               .map(Replica::topicPartition)
               .collect(Collectors.toUnmodifiableSet());
 
@@ -239,7 +239,7 @@ public class PerformanceTest {
               .join()
               .replicaStream()
               .filter(Replica::isLeader)
-              .filter(replica -> replica.nodeInfo().id() == 1)
+              .filter(replica -> replica.broker().id() == 1)
               .map(Replica::topicPartition)
               .collect(Collectors.toSet());
       var selector2 = args.topicPartitionSelector();
@@ -273,7 +273,7 @@ public class PerformanceTest {
               .replicaStream()
               .findFirst()
               .get()
-              .nodeInfo()
+              .broker()
               .id();
       var noPartitionBroker = (validBroker == 3) ? 1 : validBroker + 1;
       args =

@@ -27,9 +27,9 @@ import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.it.Service;
@@ -78,7 +78,7 @@ class StraightPlanExecutorTest {
                       Replica.builder()
                           .topic(tp.topic())
                           .partition(tp.partition())
-                          .nodeInfo(NodeInfo.of(broker0, "", -1))
+                          .broker(Broker.of(broker0, "", -1))
                           .lag(0)
                           .size(0)
                           .isLeader(true)
@@ -91,7 +91,7 @@ class StraightPlanExecutorTest {
                       Replica.builder()
                           .topic(tp.topic())
                           .partition(tp.partition())
-                          .nodeInfo(NodeInfo.of(broker1, "", -1))
+                          .broker(Broker.of(broker1, "", -1))
                           .lag(0)
                           .size(0)
                           .isLeader(false)
@@ -163,7 +163,7 @@ class StraightPlanExecutorTest {
                   replica ->
                       Replica.builder(replica)
                           .path(
-                              source.brokerFolders().get(replica.nodeInfo().id()).stream()
+                              source.brokerFolders().get(replica.broker().id()).stream()
                                   .filter(p -> !replica.path().equals(p))
                                   .findAny()
                                   .orElseThrow())

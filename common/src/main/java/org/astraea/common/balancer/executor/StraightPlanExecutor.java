@@ -79,8 +79,7 @@ public class StraightPlanExecutor implements RebalancePlanExecutor {
                             .collect(
                                 Collectors.groupingBy(
                                     Replica::topicPartition,
-                                    Collectors.mapping(
-                                        r -> r.nodeInfo().id(), Collectors.toList()))))
+                                    Collectors.mapping(r -> r.broker().id(), Collectors.toList()))))
                     .thenApply(ignored -> replicas))
         // step 2: wait replicas get reassigned
         .thenCompose(

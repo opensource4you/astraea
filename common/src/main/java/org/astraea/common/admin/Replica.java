@@ -32,7 +32,7 @@ public interface Replica {
    * @return TopicPartitionReplica
    */
   default TopicPartitionReplica topicPartitionReplica() {
-    return TopicPartitionReplica.of(topic(), partition(), nodeInfo().id());
+    return TopicPartitionReplica.of(topic(), partition(), broker().id());
   }
 
   /**
@@ -57,7 +57,7 @@ public interface Replica {
   /**
    * @return information of the node hosts this replica
    */
-  NodeInfo nodeInfo();
+  Broker broker();
 
   /**
    * @return true if this replica is a leader replica

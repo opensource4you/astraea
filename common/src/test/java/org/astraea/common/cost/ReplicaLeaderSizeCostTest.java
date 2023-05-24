@@ -18,8 +18,8 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.ClusterBean;
@@ -74,33 +74,33 @@ class ReplicaLeaderSizeCostTest {
                 .topic("t")
                 .partition(10)
                 .isLeader(true)
-                .nodeInfo(NodeInfo.of(0, "", -1))
+                .broker(Broker.of(0, "", -1))
                 .size(777)
                 .build(),
             Replica.builder()
                 .topic("t")
                 .partition(11)
                 .isLeader(true)
-                .nodeInfo(NodeInfo.of(1, "", -1))
+                .broker(Broker.of(1, "", -1))
                 .size(700)
                 .build(),
             Replica.builder()
                 .topic("t")
                 .partition(12)
                 .isLeader(true)
-                .nodeInfo(NodeInfo.of(2, "", -1))
+                .broker(Broker.of(2, "", -1))
                 .size(500)
                 .build(),
             Replica.builder()
                 .topic("t")
                 .partition(12)
                 .isLeader(false)
-                .nodeInfo(NodeInfo.of(0, "", -1))
+                .broker(Broker.of(0, "", -1))
                 .size(499)
                 .build());
     return ClusterInfo.of(
         "fake",
-        List.of(NodeInfo.of(0, "", -1), NodeInfo.of(1, "", -1), NodeInfo.of(2, "", -1)),
+        List.of(Broker.of(0, "", -1), Broker.of(1, "", -1), Broker.of(2, "", -1)),
         Map.of(),
         replicas);
   }
