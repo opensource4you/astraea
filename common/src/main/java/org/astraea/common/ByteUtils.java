@@ -266,6 +266,9 @@ public final class ByteUtils {
                                                     Collectors.toUnmodifiableMap(
                                                         Map.Entry::getKey,
                                                         a -> primitive(a.getValue()))))
+                                        // the following code sets the created timestamp field using
+                                        // the recommended
+                                        // style by protobuf documentation.
                                         .setCreatedTimestamp(
                                             Timestamp.newBuilder()
                                                 .setSeconds(beanObject.createdTimestamp() / 1000)
@@ -440,7 +443,7 @@ public final class ByteUtils {
     }
   }
 
-  public static Map<Integer, List<BeanObject>> readClusterBean(byte[] bytes) {
+  public static Map<Integer, List<BeanObject>> readBeanObjects(byte[] bytes) {
     try {
       var outerClusterBean = BeanObjectOuterClass.MapOfBeanObjects.parseFrom(bytes);
       return outerClusterBean.getAllBeansMap().entrySet().stream()

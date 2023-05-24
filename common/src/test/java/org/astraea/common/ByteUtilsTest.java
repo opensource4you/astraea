@@ -93,7 +93,7 @@ public class ByteUtilsTest {
     var clusterBean = ClusterBean.of(Map.of(1, List.of(HasGauge.of(testBeanObject))));
 
     var bytes = ByteUtils.toBytes(clusterBean.all());
-    var deserializedClusterBean = ByteUtils.readClusterBean(bytes);
+    var deserializedClusterBean = ByteUtils.readBeanObjects(bytes);
 
     Assertions.assertEquals(1, deserializedClusterBean.size());
     Assertions.assertEquals(
