@@ -382,7 +382,7 @@ public class Performance {
                   .join()
                   .replicaStream()
                   .filter(Replica::isLeader)
-                  .filter(replica -> specifyBrokers.contains(replica.nodeInfo().id()))
+                  .filter(replica -> specifyBrokers.contains(replica.broker().id()))
                   .map(replica -> TopicPartition.of(replica.topic(), replica.partition()))
                   .distinct()
                   .toList();

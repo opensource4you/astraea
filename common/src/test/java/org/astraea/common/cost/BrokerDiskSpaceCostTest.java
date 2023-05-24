@@ -28,7 +28,6 @@ import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
@@ -54,42 +53,42 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .broker(Broker.of(0, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .broker(Broker.of(1, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .broker(Broker.of(0, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .broker(Broker.of(1, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .broker(Broker.of(0, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .broker(Broker.of(2, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build());
@@ -98,42 +97,42 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .broker(Broker.of(2, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path1")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .broker(Broker.of(1, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .broker(Broker.of(0, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .broker(Broker.of(2, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path1")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .broker(Broker.of(0, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .broker(Broker.of(2, "broker0", 1111))
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build());
@@ -235,15 +234,15 @@ class BrokerDiskSpaceCostTest {
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(Replica::nodeInfo)
+            .map(Replica::broker)
             .distinct()
             .map(
-                nodeInfo ->
+                broker ->
                     Broker.of(
                         false,
-                        new Node(nodeInfo.id(), "", nodeInfo.port()),
+                        new Node(broker.id(), "", broker.port()),
                         Map.of(),
-                        dataPath.get(nodeInfo.id()),
+                        dataPath.get(broker.id()),
                         List.of()))
             .collect(Collectors.toList()),
         Map.of(),
@@ -282,7 +281,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .broker(Broker.of(0, "broker0", 1111))
                 .size(100)
                 .isLeader(true)
                 .path("/path0")
@@ -290,7 +289,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .broker(Broker.of(1, "broker0", 1111))
                 .size(99)
                 .isLeader(false)
                 .path("/path0")
@@ -298,7 +297,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .broker(Broker.of(0, "broker0", 1111))
                 .size(500)
                 .isLeader(true)
                 .path("/path0")
@@ -306,7 +305,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .broker(Broker.of(1, "broker0", 1111))
                 .size(499)
                 .isLeader(false)
                 .path("/path0")
@@ -314,7 +313,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .broker(Broker.of(2, "broker0", 1111))
                 .size(1000)
                 .isLeader(true)
                 .path("/path0")
@@ -322,7 +321,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .broker(Broker.of(0, "broker0", 1111))
                 .size(1000)
                 .isLeader(false)
                 .path("/path0")
@@ -330,15 +329,15 @@ class BrokerDiskSpaceCostTest {
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(Replica::nodeInfo)
+            .map(Replica::broker)
             .distinct()
             .map(
-                nodeInfo ->
+                broker ->
                     Broker.of(
                         false,
-                        new Node(nodeInfo.id(), "", nodeInfo.port()),
+                        new Node(broker.id(), "", broker.port()),
                         Map.of(),
-                        dataPath.get(nodeInfo.id()),
+                        dataPath.get(broker.id()),
                         List.of()))
             .collect(Collectors.toList()),
         Map.of(),
@@ -363,7 +362,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .broker(Broker.of(2, "broker0", 1111))
                 .size(100)
                 .isLeader(true)
                 .path("/path1")
@@ -371,7 +370,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .broker(Broker.of(1, "broker0", 1111))
                 .size(99)
                 .isLeader(false)
                 .path("/path0")
@@ -379,7 +378,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .broker(Broker.of(0, "broker0", 1111))
                 .size(500)
                 .isLeader(true)
                 .path("/path0")
@@ -387,7 +386,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .broker(Broker.of(2, "broker0", 1111))
                 .size(500)
                 .isLeader(false)
                 .path("/path1")
@@ -395,7 +394,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .broker(Broker.of(1, "broker0", 1111))
                 .size(1000)
                 .isLeader(true)
                 .path("/path1")
@@ -403,7 +402,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .broker(Broker.of(0, "broker0", 1111))
                 .size(1000)
                 .isLeader(false)
                 .path("/path0")
@@ -411,15 +410,15 @@ class BrokerDiskSpaceCostTest {
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(Replica::nodeInfo)
+            .map(Replica::broker)
             .distinct()
             .map(
-                nodeInfo ->
+                broker ->
                     Broker.of(
                         false,
-                        new Node(nodeInfo.id(), "", nodeInfo.port()),
+                        new Node(broker.id(), "", broker.port()),
                         Map.of(),
-                        dataPath.get(nodeInfo.id()),
+                        dataPath.get(broker.id()),
                         List.of()))
             .collect(Collectors.toList()),
         Map.of(),

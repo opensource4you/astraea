@@ -17,13 +17,18 @@
 package org.astraea.app.web;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.astraea.app.argument.Argument;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.metrics.collector.MetricStore;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
 
 public class WebServiceTest {
 
@@ -40,7 +45,9 @@ public class WebServiceTest {
   @Timeout(10)
   @Test
   void testClose() {
-    var web = new WebService(Mockito.mock(Admin.class), 0, id -> -1, Duration.ofMillis(5));
+    var web =
+        new WebService(
+            Mockito.mock(Admin.class), 0, id -> -1, Duration.ofMillis(5), Configuration.EMPTY);
     web.close();
   }
 
@@ -83,5 +90,82 @@ public class WebServiceTest {
     Assertions.assertEquals(portC, noDefaultArgument.jmxPortMapping(3));
     Assertions.assertThrows(
         IllegalArgumentException.class, () -> noDefaultArgument.jmxPortMapping(4));
+  }
+
+  @Test
+  void testMetricStoreConfiguration() {
+    try (var mockedReceiver = Mockito.mockStatic(MetricStore.Receiver.class)) {
+      var topicReceiverCount = new AtomicInteger(0);
+      var localReceiverCount = new AtomicInteger(0);
+      mockedReceiver
+          .when(() -> MetricStore.Receiver.topic(Mockito.any()))
+          .then(
+              (Answer<MetricStore.Receiver>)
+                  invocation -> {
+                    topicReceiverCount.incrementAndGet();
+                    return Mockito.mock(MetricStore.Receiver.class);
+                  });
+      mockedReceiver
+          .when(() -> MetricStore.Receiver.local(Mockito.any()))
+          .then(
+              (Answer<MetricStore.Receiver>)
+                  invocation -> {
+                    localReceiverCount.incrementAndGet();
+                    return Mockito.mock(MetricStore.Receiver.class);
+                  });
+      // Test default metric store configuration
+      try (var web =
+          new WebService(
+              Mockito.mock(Admin.class), 0, id -> -1, Duration.ofMillis(5), Configuration.EMPTY)) {
+
+        Assertions.assertEquals(1, localReceiverCount.get());
+        Assertions.assertEquals(0, topicReceiverCount.get());
+      }
+      localReceiverCount.set(0);
+      topicReceiverCount.set(0);
+      // Test local metric store configuration
+      try (var web =
+          new WebService(
+              Mockito.mock(Admin.class),
+              0,
+              id -> -1,
+              Duration.ofMillis(5),
+              new Configuration(
+                  Map.of(WebService.METRIC_STORE_KEY, WebService.METRIC_STORE_LOCAL)))) {
+
+        Assertions.assertEquals(1, localReceiverCount.get());
+        Assertions.assertEquals(0, topicReceiverCount.get());
+      }
+      localReceiverCount.set(0);
+      topicReceiverCount.set(0);
+      // Test topic metric store configuration
+      try (var web =
+          new WebService(
+              Mockito.mock(Admin.class),
+              0,
+              id -> -1,
+              Duration.ofMillis(5),
+              new Configuration(
+                  Map.of(
+                      WebService.METRIC_STORE_KEY,
+                      WebService.METRIC_STORE_TOPIC,
+                      WebService.BOOTSTRAP_SERVERS_KEY,
+                      "ignore")))) {
+
+        // topic collector may create local receiver to receive local jmx metric
+        Assertions.assertEquals(1, topicReceiverCount.get());
+      }
+
+      // Test invalid metric store configuration
+      Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              new WebService(
+                  Mockito.mock(Admin.class),
+                  0,
+                  id -> -1,
+                  Duration.ofMillis(5),
+                  new Configuration(Map.of(WebService.METRIC_STORE_KEY, "unknown"))));
+    }
   }
 }

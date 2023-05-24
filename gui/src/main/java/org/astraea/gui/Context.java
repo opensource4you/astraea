@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.stage.Stage;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.metrics.JndiClient;
 
@@ -73,9 +73,9 @@ public class Context {
   }
 
   @SuppressWarnings("resource")
-  public Map<Integer, JndiClient> addBrokerClients(List<NodeInfo> nodeInfos) {
+  public Map<Integer, JndiClient> addBrokerClients(List<Broker> brokers) {
     if (brokerClients == null) return Map.of();
-    nodeInfos.forEach(
+    brokers.forEach(
         n ->
             brokerClients.clients.computeIfAbsent(
                 n.id(), ignored -> JndiClient.of(n.host(), brokerClients.jmxPort)));

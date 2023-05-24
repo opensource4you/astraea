@@ -60,7 +60,7 @@ public class NetworkIngressCost extends NetworkCost implements HasPartitionCost 
             .filter(Replica::isOnline)
             .collect(
                 Collectors.groupingBy(
-                    replica -> replica.nodeInfo().id(),
+                    replica -> replica.broker().id(),
                     Collectors.toMap(
                         Replica::topicPartition, r -> partitionTraffic.get(r.topicPartition()))));
 

@@ -149,16 +149,16 @@ public class SettingNode {
                                   .url(Utils.packException(() -> new URL("http://" + url)))
                                   .build());
                   return FutureUtils.combine(
-                      newAdmin.nodeInfos(),
+                      newAdmin.brokers(),
                       client
                           .map(ConnectorClient::activeWorkers)
                           .orElse(CompletableFuture.completedFuture(List.of())),
-                      (nodeInfos, workers) -> {
+                      (brokers, workers) -> {
                         context.replace(newAdmin);
                         client.ifPresent(context::replace);
                         prop.brokerJmxPort.ifPresent(context::brokerJmxPort);
                         prop.workerJmxPort.ifPresent(context::workerJmxPort);
-                        context.addBrokerClients(nodeInfos);
+                        context.addBrokerClients(brokers);
                         context.addWorkerClients(
                             workers.stream()
                                 .map(WorkerStatus::hostname)

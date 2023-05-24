@@ -38,7 +38,6 @@ import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
@@ -224,7 +223,7 @@ public class BrokerNode {
                 (argument, logger) ->
                     context
                         .admin()
-                        .nodeInfos()
+                        .brokers()
                         .thenApply(
                             nodes ->
                                 context.addBrokerClients(nodes).entrySet().stream()
@@ -378,12 +377,11 @@ public class BrokerNode {
                             var unset =
                                 brokers.stream()
                                     .collect(
-                                        Collectors.toMap(
-                                            NodeInfo::id, b -> input.emptyValueKeys()));
+                                        Collectors.toMap(Broker::id, b -> input.emptyValueKeys()));
                             var set =
                                 brokers.stream()
                                     .collect(
-                                        Collectors.toMap(NodeInfo::id, b -> input.nonEmptyTexts()));
+                                        Collectors.toMap(Broker::id, b -> input.nonEmptyTexts()));
                             if (unset.isEmpty() && set.isEmpty()) {
                               logger.log("nothing to alter");
                               return CompletableFuture.completedStage(null);
