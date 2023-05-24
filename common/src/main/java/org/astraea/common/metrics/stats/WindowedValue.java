@@ -30,25 +30,25 @@ import java.util.concurrent.ConcurrentLinkedDeque;
  * Assertions.assertEquals(List.of(1,2), windowedValue.get());
  * }</pre>
  */
-public class WindowedValue<V> {
+class WindowedValue<V> {
   private final ConcurrentLinkedDeque<ValueAndTime<V>> values = new ConcurrentLinkedDeque<>();
   private final Duration window;
 
-  public WindowedValue(Duration window) {
+  WindowedValue(Duration window) {
     this.window = window;
   }
 
-  public void add(V value) {
+  void add(V value) {
     values.add(new ValueAndTime<>(value, System.currentTimeMillis()));
-    popOutdated();
+    removeAllOutdated();
   }
 
-  public List<V> get() {
-    popOutdated();
+  List<V> get() {
+    removeAllOutdated();
     return values.stream().map(ValueAndTime::value).toList();
   }
 
-  private synchronized void popOutdated() {
+  private synchronized void removeAllOutdated() {
     var outdated = System.currentTimeMillis() - window.toMillis();
     while (!values.isEmpty() && values.peekFirst().timestamp < outdated) {
       values.poll();
