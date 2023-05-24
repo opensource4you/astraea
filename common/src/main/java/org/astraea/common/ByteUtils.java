@@ -37,7 +37,6 @@ import org.astraea.common.generated.BeanObjectOuterClass;
 import org.astraea.common.generated.PrimitiveOuterClass;
 import org.astraea.common.generated.admin.BrokerOuterClass;
 import org.astraea.common.generated.admin.ClusterInfoOuterClass;
-import org.astraea.common.generated.admin.NodeInfoOuterClass;
 import org.astraea.common.generated.admin.ReplicaOuterClass;
 import org.astraea.common.generated.admin.TopicOuterClass;
 import org.astraea.common.generated.admin.TopicPartitionOuterClass;
@@ -269,15 +268,72 @@ public final class ByteUtils {
                         ReplicaOuterClass.Replica.newBuilder()
                             .setTopic(replica.topic())
                             .setPartition(replica.partition())
-                            .setNodeInfo(
-                                    NodeInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()
+                            .setBroker(
+                                BrokerOuterClass.Broker.newBuilder()
                                     .setId(replica.broker().id())
                                     .setHost(replica.broker().host())
                                     .setPort(replica.broker().port())
+                                    .setIsController(replica.broker().isController())
+                                    .putAllConfig(replica.broker().config().raw())
+                                    .addAllDatafolder(
+                                        replica.broker().dataFolders().stream()
+                                            .map(
+                                                dataFolder ->
+                                                    BrokerOuterClass.Broker.Datafolder.newBuilder()
+                                                        .setPath(dataFolder.path())
+                                                        .putAllPartitionSizes(
+                                                            dataFolder
+                                                                .partitionSizes()
+                                                                .entrySet()
+                                                                .stream()
+                                                                .collect(
+                                                                    Collectors.toMap(
+                                                                        entry ->
+                                                                            entry
+                                                                                .getKey()
+                                                                                .toString(),
+                                                                        Map.Entry::getValue)))
+                                                        .putAllOrphanPartitionSizes(
+                                                            dataFolder
+                                                                .orphanPartitionSizes()
+                                                                .entrySet()
+                                                                .stream()
+                                                                .collect(
+                                                                    Collectors.toMap(
+                                                                        entry ->
+                                                                            entry
+                                                                                .getKey()
+                                                                                .toString(),
+                                                                        Map.Entry::getValue)))
+                                                        .build())
+                                            .toList())
+                                    .addAllTopicPartitions(
+                                        replica.broker().topicPartitions().stream()
+                                            .map(
+                                                tp ->
+                                                    TopicPartitionOuterClass.TopicPartition
+                                                        .newBuilder()
+                                                        .setPartition(tp.partition())
+                                                        .setTopic(tp.topic())
+                                                        .build())
+                                            .toList())
+                                    .addAllTopicPartitionLeaders(
+                                        replica.broker().topicPartitionLeaders().stream()
+                                            .map(
+                                                tp ->
+                                                    TopicPartitionOuterClass.TopicPartition
+                                                        .newBuilder()
+                                                        .setPartition(tp.partition())
+                                                        .setTopic(tp.topic())
+                                                        .build())
+                                            .toList())
                                     .build())
                             .setLag(replica.lag())
                             .setSize(replica.size())
+                            .setInternal(replica.internal())
                             .setIsLeader(replica.isLeader())
+                            .setIsAdding(replica.isAdding())
+                            .setIsRemoving(replica.isRemoving())
                             .setIsSync(replica.isSync())
                             .setIsFuture(replica.isFuture())
                             .setIsOffline(replica.isOffline())
@@ -418,16 +474,15 @@ public final class ByteUtils {
                         broker.getTopicPartitionLeadersList().stream()
                             .map(tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
                             .collect(Collectors.toSet());
-                    return (NodeInfo)
-                        new Broker(
-                            id,
-                            host,
-                            port,
-                            isController,
-                            config,
-                            dataFolders,
-                            topicPartitions,
-                            topicPartitionLeaders);
+                    return new Broker(
+                        id,
+                        host,
+                        port,
+                        isController,
+                        config,
+                        dataFolders,
+                        topicPartitions,
+                        topicPartitionLeaders);
                   })
               .toList(),
           outerClusterInfo.getTopicList().stream()
@@ -464,13 +519,54 @@ public final class ByteUtils {
                           .topic(replica.getTopic())
                           .partition(replica.getPartition())
                           .broker(
-                              Broker.of(
-                                  replica.getNodeInfo().getId(),
-                                  replica.getNodeInfo().getHost(),
-                                  replica.getNodeInfo().getPort()))
+                              new Broker(
+                                  replica.getBroker().getId(),
+                                  replica.getBroker().getHost(),
+                                  replica.getBroker().getPort(),
+                                  replica.getBroker().getIsController(),
+                                  new Config(replica.getBroker().getConfigMap()),
+                                  replica.getBroker().getDatafolderList().stream()
+                                      .map(
+                                          datafolder -> {
+                                            var path = datafolder.getPath();
+                                            var partitionSizes =
+                                                datafolder
+                                                    .getPartitionSizesMap()
+                                                    .entrySet()
+                                                    .stream()
+                                                    .collect(
+                                                        Collectors.toMap(
+                                                            entry ->
+                                                                TopicPartition.of(entry.getKey()),
+                                                            Map.Entry::getValue));
+                                            var orphanPartitionSizes =
+                                                datafolder
+                                                    .getOrphanPartitionSizesMap()
+                                                    .entrySet()
+                                                    .stream()
+                                                    .collect(
+                                                        Collectors.toMap(
+                                                            entry ->
+                                                                TopicPartition.of(entry.getKey()),
+                                                            Map.Entry::getValue));
+                                            return new Broker.DataFolder(
+                                                path, partitionSizes, orphanPartitionSizes);
+                                          })
+                                      .toList(),
+                                  replica.getBroker().getTopicPartitionsList().stream()
+                                      .map(
+                                          tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
+                                      .collect(Collectors.toSet()),
+                                  replica.getBroker().getTopicPartitionLeadersList().stream()
+                                      .map(
+                                          tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
+                                      .collect(Collectors.toSet())))
                           .lag(replica.getLag())
                           .size(replica.getSize())
+                          .internal(replica.getInternal())
                           .isLeader(replica.getIsLeader())
+                          .isAdding(replica.getIsAdding())
+                          .isRemoving(replica.getIsRemoving())
                           .isSync(replica.getIsSync())
                           .isFuture(replica.getIsFuture())
                           .isOffline(replica.getIsOffline())

@@ -95,7 +95,7 @@ public class ByteUtilsTest {
         Assertions.assertDoesNotThrow(() -> ByteUtils.readClusterInfo(bytes));
         var deserializedClusterInfo = ByteUtils.readClusterInfo(bytes);
         Assertions.assertEquals(clusterInfo.clusterId(), deserializedClusterInfo.clusterId());
-        Assertions.assertEquals(clusterInfo.nodes(), deserializedClusterInfo.nodes());
+        Assertions.assertEquals(clusterInfo.brokers(), deserializedClusterInfo.brokers());
         Assertions.assertEquals(clusterInfo.topics(), deserializedClusterInfo.topics());
         Assertions.assertEquals(clusterInfo.replicas(), deserializedClusterInfo.replicas());
       }
@@ -109,7 +109,7 @@ public class ByteUtilsTest {
     var deserializedClusterInfo = ByteUtils.readClusterInfo(serializedInfo);
 
     Assertions.assertEquals(clusterInfo.clusterId(), deserializedClusterInfo.clusterId());
-    Assertions.assertEquals(clusterInfo.nodes(), deserializedClusterInfo.nodes());
+    Assertions.assertEquals(clusterInfo.brokers(), deserializedClusterInfo.brokers());
     Assertions.assertEquals(clusterInfo.topics(), deserializedClusterInfo.topics());
     Assertions.assertEquals(clusterInfo.replicas(), deserializedClusterInfo.replicas());
   }

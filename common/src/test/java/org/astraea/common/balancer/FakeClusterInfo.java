@@ -118,7 +118,7 @@ public class FakeClusterInfo {
                                         dataDirectoryList.get(
                                             tp.partition() % dataDirectories.size()))
                                     .build()))
-            .toList();
+            .collect(Collectors.toUnmodifiableList());
 
     return ClusterInfo.of("fake", List.copyOf(nodes), Map.of(), replicas);
   }

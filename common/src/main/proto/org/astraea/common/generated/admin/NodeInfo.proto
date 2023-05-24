@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-package org.astraea.common.generated.admin;
-
-message NodeInfo {
-  int32 id = 1;
-  string host = 2;
-  int32 port = 3;
-}

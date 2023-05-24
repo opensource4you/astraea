@@ -89,7 +89,7 @@ public class ClusterInfoBuilder {
                             + " but another broker with this id already existed");
                   });
           return Stream.concat(nodes.stream(), brokerIds.stream().map(ClusterInfoBuilder::fakeNode))
-              .toList();
+              .collect(Collectors.toUnmodifiableList());
         });
   }
 
@@ -132,7 +132,7 @@ public class ClusterInfoBuilder {
                               .toList());
                     else return node;
                   })
-              .toList();
+              .collect(Collectors.toUnmodifiableList());
         });
   }
 
@@ -227,7 +227,8 @@ public class ClusterInfoBuilder {
                                   }))
                   .map(mapper);
 
-          return Stream.concat(replicas.stream(), newTopic).toList();
+          return Stream.concat(replicas.stream(), newTopic)
+              .collect(Collectors.toUnmodifiableList());
         });
   }
 
@@ -238,7 +239,9 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder mapLog(Function<Replica, Replica> mapper) {
-    return applyReplicas((nodes, replicas) -> replicas.stream().map(mapper).toList());
+    return applyReplicas(
+        (nodes, replicas) ->
+            replicas.stream().map(mapper).collect(Collectors.toUnmodifiableList()));
   }
 
   /**
@@ -271,7 +274,7 @@ public class ClusterInfoBuilder {
                           return r;
                         }
                       })
-                  .toList();
+                  .collect(Collectors.toUnmodifiableList());
           if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
           return collect;
         });
@@ -304,7 +307,7 @@ public class ClusterInfoBuilder {
                           return r;
                         }
                       })
-                  .toList();
+                  .collect(Collectors.toUnmodifiableList());
           if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
 
           return collect;
