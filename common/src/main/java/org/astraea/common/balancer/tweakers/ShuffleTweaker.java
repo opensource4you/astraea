@@ -65,13 +65,13 @@ public class ShuffleTweaker {
 
   public Stream<ClusterInfo> generate(ClusterInfo baseAllocation) {
     // There is no broker
-    if (baseAllocation.nodes().isEmpty()) return Stream.of();
+    if (baseAllocation.brokers().isEmpty()) return Stream.of();
 
     // No replica to working on.
     if (baseAllocation.replicas().size() == 0) return Stream.of();
 
     // Only one broker & one folder exists, unable to do any meaningful log migration
-    if (baseAllocation.nodes().size() == 1
+    if (baseAllocation.brokers().size() == 1
         && baseAllocation.brokerFolders().values().stream().findFirst().orElseThrow().size() == 1)
       return Stream.of();
 
@@ -79,7 +79,7 @@ public class ShuffleTweaker {
         baseAllocation.topicPartitions().stream()
             .filter(tp -> eligiblePartition(baseAllocation.replicas(tp)))
             .flatMap(baseAllocation::replicaStream)
-            .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
+            .filter(r -> this.allowedBrokers.test(r.broker().id()))
             .filter(this.allowedReplicas)
             .toList();
 
@@ -108,7 +108,7 @@ public class ShuffleTweaker {
                           // leader pair follower, follower pair leader
                           .filter(r -> r.isFollower() != sourceReplica.isFollower())
                           // this leader/follower is located at allowed broker
-                          .filter(r -> this.allowedBrokers.test(r.nodeInfo().id()))
+                          .filter(r -> this.allowedBrokers.test(r.broker().id()))
                           // this leader/follower is allowed to tweak
                           .filter(this.allowedReplicas)
                           // not forbidden
@@ -138,7 +138,7 @@ public class ShuffleTweaker {
                       baseAllocation.brokers().stream()
                           // the candidate should not be part of the replica list
                           .filter(
-                              b -> replicaList.stream().noneMatch(r -> r.nodeInfo().id() == b.id()))
+                              b -> replicaList.stream().noneMatch(r -> r.broker().id() == b.id()))
                           // should be an allowed broker
                           .filter(b -> this.allowedBrokers.test(b.id()))
                           .map(b -> Map.entry(b, ThreadLocalRandom.current().nextInt()))

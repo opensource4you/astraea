@@ -31,8 +31,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -110,7 +110,7 @@ public class ReassignmentHandler implements Handler {
                                                     availableBrokers.stream()
                                                         .filter(
                                                             b -> b.topicPartitions().contains(tp))
-                                                        .map(NodeInfo::id)
+                                                        .map(Broker::id)
                                                         .toList();
                                                 if (!ids.isEmpty()) return ids;
                                                 return List.of(
@@ -211,7 +211,7 @@ public class ReassignmentHandler implements Handler {
     AddingReplica(Replica addingReplica, long leaderSize) {
       this.topicName = addingReplica.topic();
       this.partition = addingReplica.partition();
-      this.broker = addingReplica.nodeInfo().id();
+      this.broker = addingReplica.broker().id();
       this.dataFolder = addingReplica.path();
       this.size = addingReplica.size();
       this.leaderSize = leaderSize;

@@ -58,8 +58,8 @@ import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.AlgorithmConfig;
@@ -976,7 +976,7 @@ public class BalancerHandlerTest {
                 (short) 10,
                 r ->
                     Replica.builder(r)
-                        .nodeInfo(base.node(srcIter.next()))
+                        .broker(base.node(srcIter.next()))
                         .isPreferredLeader(srcPrefIter.next())
                         .path(srcDirIter.next())
                         .build())
@@ -992,7 +992,7 @@ public class BalancerHandlerTest {
                 (short) 10,
                 r ->
                     Replica.builder(r)
-                        .nodeInfo(base.node(dstIter.next()))
+                        .broker(base.node(dstIter.next()))
                         .isPreferredLeader(dstPrefIter.next())
                         .path(dstDirIter.next())
                         .build())
@@ -1343,7 +1343,7 @@ public class BalancerHandlerTest {
                         brokers.stream()
                             .collect(
                                 Collectors.toUnmodifiableMap(
-                                    NodeInfo::id,
+                                    Broker::id,
                                     b ->
                                         JndiClient.of(b.host(), brokerIdToJmxPort.apply(b.id())))));
     var cf = Utils.costFunctions(costFunctions, HasClusterCost.class, Configuration.EMPTY);

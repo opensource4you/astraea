@@ -27,8 +27,8 @@ import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.function.Bi3Function;
@@ -109,7 +109,7 @@ public interface MetricSeriesBuilder {
                       start, (t) -> t.isBefore(end) || t.isEqual(end), (t) -> t.plus(interval))
                   .flatMap(
                       time ->
-                          cluster.nodes().stream()
+                          cluster.brokers().stream()
                               .map(
                                   node ->
                                       Map.entry(node.id(), seriesGenerator.apply(time, node.id()))))
@@ -128,10 +128,10 @@ public interface MetricSeriesBuilder {
       final var interval = sampleInterval;
       this.series.add(
           () ->
-              cluster.nodes().stream()
+              cluster.brokers().stream()
                   .collect(
                       Collectors.toUnmodifiableMap(
-                          NodeInfo::id,
+                          Broker::id,
                           node ->
                               Stream.iterate(
                                       start,
@@ -159,10 +159,10 @@ public interface MetricSeriesBuilder {
       final var interval = sampleInterval;
       this.series.add(
           () ->
-              cluster.nodes().stream()
+              cluster.brokers().stream()
                   .collect(
                       Collectors.toUnmodifiableMap(
-                          NodeInfo::id,
+                          Broker::id,
                           node ->
                               Stream.iterate(
                                       start,
@@ -189,10 +189,10 @@ public interface MetricSeriesBuilder {
       final var interval = sampleInterval;
       this.series.add(
           () ->
-              cluster.nodes().stream()
+              cluster.brokers().stream()
                   .collect(
                       Collectors.toUnmodifiableMap(
-                          NodeInfo::id,
+                          Broker::id,
                           node ->
                               Stream.iterate(
                                       start,
