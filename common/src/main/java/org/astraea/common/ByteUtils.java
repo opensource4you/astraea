@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,11 +36,9 @@ import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.generated.BeanObjectOuterClass;
-import org.astraea.common.generated.ClusterBeanOuterClass;
 import org.astraea.common.generated.ClusterInfoOuterClass;
 import org.astraea.common.generated.PrimitiveOuterClass;
 import org.astraea.common.metrics.BeanObject;
-import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 
 public final class ByteUtils {
@@ -245,9 +244,9 @@ public final class ByteUtils {
         .toByteArray();
   }
 
-  public static byte[] toBytes(ClusterBean value) {
+  public static byte[] toBytes(Map<Integer, Collection<HasBeanObject>> values) {
     var mapOfBeanObjects =
-        value.all().entrySet().stream()
+        values.entrySet().stream()
             .collect(
                 Collectors.toUnmodifiableMap(
                     Map.Entry::getKey,
@@ -277,14 +276,14 @@ public final class ByteUtils {
                                         .build())
                             .toList()));
 
-    return ClusterBeanOuterClass.ClusterBean.newBuilder()
+    return BeanObjectOuterClass.MapOfBeanObjects.newBuilder()
         .putAllAllBeans(
             mapOfBeanObjects.entrySet().stream()
                 .collect(
                     Collectors.toUnmodifiableMap(
                         Map.Entry::getKey,
                         Objects ->
-                            ClusterBeanOuterClass.ClusterBean.BeanObjects.newBuilder()
+                            BeanObjectOuterClass.MapOfBeanObjects.BeanObjects.newBuilder()
                                 .addAllBeanObjects(Objects.getValue())
                                 .build())))
         .build()
@@ -442,7 +441,7 @@ public final class ByteUtils {
 
   public static Map<Integer, List<BeanObject>> readClusterBean(byte[] bytes) {
     try {
-      var outerClusterBean = ClusterBeanOuterClass.ClusterBean.parseFrom(bytes);
+      var outerClusterBean = BeanObjectOuterClass.MapOfBeanObjects.parseFrom(bytes);
       return outerClusterBean.getAllBeansMap().entrySet().stream()
           .collect(
               Collectors.toUnmodifiableMap(
