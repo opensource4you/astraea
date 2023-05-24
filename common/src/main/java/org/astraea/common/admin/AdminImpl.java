@@ -405,7 +405,11 @@ class AdminImpl implements Admin {
             ts ->
                 ts.entrySet().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isInternal()))),
-        (earliestOffsets, latestOffsets, maxTimestamps, tpInfos, topicAndInternal) ->
+        brokers()
+            .thenApply(
+                brokers ->
+                    brokers.stream().collect(Collectors.toMap(Broker::id, broker -> broker))),
+        (earliestOffsets, latestOffsets, maxTimestamps, tpInfos, topicAndInternal, brokers) ->
             tpInfos.keySet().stream()
                 .map(
                     tp -> {
@@ -416,11 +420,15 @@ class AdminImpl implements Admin {
                       var leader =
                           tpInfo.leader() == null || tpInfo.leader().isEmpty()
                               ? null
-                              : NodeInfo.of(tpInfo.leader());
+                              : tpInfo.leader().id();
                       var replicas =
-                          tpInfo.replicas().stream().map(NodeInfo::of).collect(Collectors.toList());
+                          tpInfo.replicas().stream()
+                              .map(node -> brokers.getOrDefault(node.id(), Broker.of(node)))
+                              .collect(Collectors.toList());
                       var isr =
-                          tpInfo.isr().stream().map(NodeInfo::of).collect(Collectors.toList());
+                          tpInfo.isr().stream()
+                              .map(node -> brokers.getOrDefault(node.id(), Broker.of(node)))
+                              .collect(Collectors.toList());
                       return new Partition(
                           tp.topic(),
                           tp.partition(),
@@ -434,13 +442,6 @@ class AdminImpl implements Admin {
                     })
                 .sorted(Comparator.comparing(Partition::topicPartition))
                 .collect(Collectors.toList()));
-  }
-
-  @Override
-  public CompletionStage<List<NodeInfo>> nodeInfos() {
-    return to(kafkaAdmin.describeCluster().nodes())
-        .thenApply(
-            nodes -> nodes.stream().map(NodeInfo::of).collect(Collectors.toUnmodifiableList()));
   }
 
   @Override
@@ -483,7 +484,7 @@ class AdminImpl implements Admin {
                                 configs.get(String.valueOf(node.id())),
                                 logDirs.get(node.id()),
                                 topics.values()))
-                    .sorted(Comparator.comparing(NodeInfo::id))
+                    .sorted(Comparator.comparing(Broker::id))
                     .collect(Collectors.toList())));
   }
 
@@ -522,7 +523,7 @@ class AdminImpl implements Admin {
                             groupId,
                             consumerGroupDescriptions.get(groupId).partitionAssignor(),
                             consumerGroupDescriptions.get(groupId).state().name(),
-                            NodeInfo.of(consumerGroupDescriptions.get(groupId).coordinator()),
+                            consumerGroupDescriptions.get(groupId).coordinator().id(),
                             consumerGroupMetadata.get(groupId).entrySet().stream()
                                 .collect(
                                     Collectors.toUnmodifiableMap(
@@ -622,12 +623,7 @@ class AdminImpl implements Admin {
           var topicMap =
               topicList.stream().collect(Collectors.toUnmodifiableMap(Topic::name, t -> t));
           return ClusterInfo.of(
-              clusterIdAndBrokers.getKey(),
-              clusterIdAndBrokers.getValue().stream()
-                  .map(x -> (NodeInfo) x)
-                  .collect(Collectors.toUnmodifiableList()),
-              topicMap,
-              replicas);
+              clusterIdAndBrokers.getKey(), clusterIdAndBrokers.getValue(), topicMap, replicas);
         });
   }
 
@@ -642,7 +638,11 @@ class AdminImpl implements Admin {
             // supported version: 2.4.0
             // https://issues.apache.org/jira/browse/KAFKA-8345
             .exceptionally(exceptionHandler(UnsupportedVersionException.class, Map.of())),
-        (logDirs, ts, reassignmentMap) ->
+        brokers()
+            .thenApply(
+                brokers ->
+                    brokers.stream().collect(Collectors.toMap(Broker::id, broker -> broker))),
+        (logDirs, ts, reassignmentMap, brokers) ->
             ts.values().stream()
                 .flatMap(topic -> topic.partitions().stream().map(p -> Map.entry(topic.name(), p)))
                 .flatMap(
@@ -687,7 +687,9 @@ class AdminImpl implements Admin {
                                                   .internal(internal)
                                                   .isAdding(isAdding)
                                                   .isRemoving(isRemoving)
-                                                  .nodeInfo(NodeInfo.of(node))
+                                                  .broker(
+                                                      brokers.getOrDefault(
+                                                          node.id(), Broker.of(node)))
                                                   .lag(pathAndReplica.getValue().offsetLag())
                                                   .size(pathAndReplica.getValue().size())
                                                   .isLeader(
@@ -716,7 +718,7 @@ class AdminImpl implements Admin {
                 .sorted(
                     Comparator.comparing(Replica::topic)
                         .thenComparing(Replica::partition)
-                        .thenComparing(r -> r.nodeInfo().id()))
+                        .thenComparing(r -> r.broker().id()))
                 .collect(Collectors.toUnmodifiableList()));
   }
 
@@ -1374,10 +1376,9 @@ class AdminImpl implements Admin {
               Integer,
               Map<TopicPartition, Map<String, org.apache.kafka.clients.admin.ReplicaInfo>>>>
       logDirs() {
-    return nodeInfos()
+    return brokers()
         .thenApply(
-            nodeInfos ->
-                nodeInfos.stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet()))
+            brokers -> brokers.stream().map(Broker::id).collect(Collectors.toUnmodifiableSet()))
         .thenCompose(ids -> to(kafkaAdmin.describeLogDirs(ids).allDescriptions()))
         .thenApply(
             ds ->

@@ -29,33 +29,34 @@ import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
-import org.astraea.common.metrics.MBeanRegister;
+import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.ClusterBean;
+import org.astraea.common.metrics.client.HasNodeMetrics;
+import org.astraea.common.metrics.collector.MetricStore;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class StrictCostPartitionerPerfTest {
 
-  private static AtomicLong createMetric(int brokerId) {
-    var latency = new AtomicLong(100);
-    MBeanRegister.local()
-        .domainName("kafka.producer")
-        .property("type", "producer-node-metrics")
-        .property("node-id", String.valueOf(brokerId))
-        .property("client-id", "xxxx")
-        .attribute("request-latency-avg", Double.class, () -> (double) latency.get())
-        .register();
-    return latency;
+  private static BeanObject getBeanObject(int brokerId, double latency) {
+    return new BeanObject(
+        "kafka.producer",
+        Map.of(
+            "type", "producer-node-metrics",
+            "node-id", String.valueOf(brokerId),
+            "client-id", "xxxx"),
+        Map.of("request-latency-avg", latency));
   }
 
   @Test
   void test() {
-    var node0 = NodeInfo.of(0, "node0", 2222);
-    var node1 = NodeInfo.of(1, "node1", 2222);
-    var node2 = NodeInfo.of(2, "node2", 2222);
+    var node0 = Broker.of(0, "node0", 2222);
+    var node1 = Broker.of(1, "node1", 2222);
+    var node2 = Broker.of(2, "node2", 2222);
     var clusterInfo =
         ClusterInfo.of(
             "fake",
@@ -65,19 +66,19 @@ public class StrictCostPartitionerPerfTest {
                 Replica.builder()
                     .topic("topic")
                     .partition(0)
-                    .nodeInfo(node0)
+                    .broker(node0)
                     .path("/tmp/aa")
                     .buildLeader(),
                 Replica.builder()
                     .topic("topic")
                     .partition(1)
-                    .nodeInfo(node1)
+                    .broker(node1)
                     .path("/tmp/aa")
                     .buildLeader(),
                 Replica.builder()
                     .topic("topic")
                     .partition(2)
-                    .nodeInfo(node2)
+                    .broker(node2)
                     .path("/tmp/aa")
                     .buildLeader()));
     var admin = Mockito.mock(Admin.class);
@@ -86,15 +87,27 @@ public class StrictCostPartitionerPerfTest {
     Mockito.when(admin.clusterInfo(Mockito.anySet()))
         .thenReturn(CompletableFuture.completedStage(clusterInfo));
 
-    var node0Latency = createMetric(0);
-    var node1Latency = createMetric(1);
-    var node2Latency = createMetric(2);
+    var node0Latency = new AtomicLong(100);
+    var node1Latency = new AtomicLong(100);
+    var node2Latency = new AtomicLong(100);
+
+    var metricStore = Mockito.mock(MetricStore.class);
+    Mockito.when(metricStore.clusterBean())
+        .thenReturn(
+            ClusterBean.of(
+                Map.of(
+                    -1,
+                    List.of(
+                        (HasNodeMetrics) () -> getBeanObject(0, node0Latency.get()),
+                        () -> getBeanObject(1, node1Latency.get()),
+                        () -> getBeanObject(2, node2Latency.get())))));
 
     var key = "key".getBytes(StandardCharsets.UTF_8);
     var value = "value".getBytes(StandardCharsets.UTF_8);
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.admin = admin;
       partitioner.configure(new Configuration(Map.of("round.robin.lease", "2s")));
+      partitioner.metricStore = metricStore;
 
       Supplier<Map<Integer, List<Integer>>> resultSupplier =
           () -> {

@@ -23,9 +23,42 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.requests.DescribeLogDirsResponse;
 
-public interface Broker extends NodeInfo {
+/**
+ * @param id
+ * @param host
+ * @param port
+ * @param isController
+ * @param config config used by this node
+ * @param dataFolders the disk folder used to stored data by this node
+ * @param topicPartitions
+ * @param topicPartitionLeaders partition leaders hosted by this broker
+ */
+public record Broker(
+    int id,
+    String host,
+    int port,
+    boolean isController,
+    Config config,
+    List<DataFolder> dataFolders,
+    Set<TopicPartition> topicPartitions,
+    Set<TopicPartition> topicPartitionLeaders) {
 
-  static Broker of(
+  /**
+   * @return true if the broker is offline. An offline node can't offer host or port information.
+   */
+  public boolean offline() {
+    return host() == null || host().isEmpty() || port() < 0;
+  }
+
+  public static Broker of(int id, String host, int port) {
+    return new Broker(id, host, port, false, Config.EMPTY, List.of(), Set.of(), Set.of());
+  }
+
+  public static Broker of(org.apache.kafka.common.Node node) {
+    return of(node.id(), node.host(), node.port());
+  }
+
+  public static Broker of(
       boolean isController,
       org.apache.kafka.common.Node nodeInfo,
       Map<String, String> configs,
@@ -60,26 +93,9 @@ public interface Broker extends NodeInfo {
                               tpAndSize -> !partitionsFromTopicDesc.contains(tpAndSize.getKey()))
                           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-                  return (DataFolder)
-                      new DataFolder() {
-
-                        @Override
-                        public String path() {
-                          return path;
-                        }
-
-                        @Override
-                        public Map<TopicPartition, Long> partitionSizes() {
-                          return partitionSizes;
-                        }
-
-                        @Override
-                        public Map<TopicPartition, Long> orphanPartitionSizes() {
-                          return orphanPartitionSizes;
-                        }
-                      };
+                  return new DataFolder(path, partitionSizes, orphanPartitionSizes);
                 })
-            .collect(Collectors.toList());
+            .toList();
     var topicPartitionLeaders =
         topics.stream()
             .flatMap(
@@ -88,83 +104,24 @@ public interface Broker extends NodeInfo {
                         .filter(p -> p.leader() != null && p.leader().id() == nodeInfo.id())
                         .map(p -> TopicPartition.of(topic.name(), p.partition())))
             .collect(Collectors.toUnmodifiableSet());
-    return new Broker() {
-      @Override
-      public String host() {
-        return nodeInfo.host();
-      }
-
-      @Override
-      public int port() {
-        return nodeInfo.port();
-      }
-
-      @Override
-      public int id() {
-        return nodeInfo.id();
-      }
-
-      @Override
-      public boolean isController() {
-        return isController;
-      }
-
-      @Override
-      public Config config() {
-        return config;
-      }
-
-      @Override
-      public List<DataFolder> dataFolders() {
-        return folders;
-      }
-
-      @Override
-      public Set<TopicPartition> topicPartitions() {
-        return partitionsFromTopicDesc;
-      }
-
-      @Override
-      public Set<TopicPartition> topicPartitionLeaders() {
-        return topicPartitionLeaders;
-      }
-    };
+    return new Broker(
+        nodeInfo.id(),
+        nodeInfo.host(),
+        nodeInfo.port(),
+        isController,
+        config,
+        folders,
+        partitionsFromTopicDesc,
+        topicPartitionLeaders);
   }
 
-  boolean isController();
-
   /**
-   * @return config used by this node
+   * @param path the path on the local disk
+   * @param partitionSizes topic partition hosed by this node and size of files
+   * @param orphanPartitionSizes topic partition located by this node but not traced by cluster
    */
-  Config config();
-
-  /**
-   * @return the disk folder used to stored data by this node
-   */
-  List<DataFolder> dataFolders();
-
-  Set<TopicPartition> topicPartitions();
-
-  /**
-   * @return partition leaders hosted by this broker
-   */
-  Set<TopicPartition> topicPartitionLeaders();
-
-  interface DataFolder {
-
-    /**
-     * @return the path on the local disk
-     */
-    String path();
-
-    /**
-     * @return topic partition hosed by this node and size of files
-     */
-    Map<TopicPartition, Long> partitionSizes();
-
-    /**
-     * @return topic partition located by this node but not traced by cluster
-     */
-    Map<TopicPartition, Long> orphanPartitionSizes();
-  }
+  public record DataFolder(
+      String path,
+      Map<TopicPartition, Long> partitionSizes,
+      Map<TopicPartition, Long> orphanPartitionSizes) {}
 }
