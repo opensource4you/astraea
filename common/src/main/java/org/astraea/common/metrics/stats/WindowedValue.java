@@ -40,15 +40,15 @@ class WindowedValue<V> {
 
   void add(V value) {
     values.add(new ValueAndTime<>(value, System.currentTimeMillis()));
-    removeAllOutdated();
+    removeIfOutdated();
   }
 
   List<V> get() {
-    removeAllOutdated();
+    removeIfOutdated();
     return values.stream().map(ValueAndTime::value).toList();
   }
 
-  private synchronized void removeAllOutdated() {
+  private synchronized void removeIfOutdated() {
     var outdated = System.currentTimeMillis() - window.toMillis();
     while (!values.isEmpty() && values.peekFirst().timestamp < outdated) {
       values.poll();
