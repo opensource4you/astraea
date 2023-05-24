@@ -22,8 +22,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 
 public class MigrationCost {
@@ -107,52 +107,19 @@ public class MigrationCost {
                 })
             .collect(
                 Collectors.groupingBy(
-                    r -> r.nodeInfo().id(),
+                    r -> r.broker().id(),
                     Collectors.mapping(
                         Function.identity(), Collectors.summingLong(replicaFunction::apply))));
-    return Stream.concat(dest.nodes().stream(), source.nodes().stream())
-        .map(NodeInfo::id)
+    return Stream.concat(dest.brokers().stream(), source.brokers().stream())
+        .map(Broker::id)
         .distinct()
         .parallel()
         .collect(Collectors.toMap(Function.identity(), n -> cost.getOrDefault(n, 0L)));
   }
 
-  static boolean changedRecordSizeOverflow(
-      ClusterInfo before, ClusterInfo after, Predicate<Replica> predicate, long limit) {
-    var totalRemovedSize = 0L;
-    var totalAddedSize = 0L;
-    for (var id :
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
-            .parallel()
-            .collect(Collectors.toSet())) {
-      var removed =
-          (int)
-              before
-                  .replicaStream(id)
-                  .filter(predicate)
-                  .filter(r -> !after.replicas(r.topicPartition()).contains(r))
-                  .mapToLong(Replica::size)
-                  .sum();
-      var added =
-          (int)
-              after
-                  .replicaStream(id)
-                  .filter(predicate)
-                  .filter(r -> !before.replicas(r.topicPartition()).contains(r))
-                  .mapToLong(Replica::size)
-                  .sum();
-      totalRemovedSize = totalRemovedSize + removed;
-      totalAddedSize = totalAddedSize + added;
-      // if migrate cost overflow, leave early and return true
-      if (totalRemovedSize > limit || totalAddedSize > limit) return true;
-    }
-    return Math.max(totalRemovedSize, totalAddedSize) > limit;
-  }
-
   private static Map<Integer, Long> changedReplicaNumber(ClusterInfo before, ClusterInfo after) {
-    return Stream.concat(before.nodes().stream(), after.nodes().stream())
-        .map(NodeInfo::id)
+    return Stream.concat(before.brokers().stream(), after.brokers().stream())
+        .map(Broker::id)
         .distinct()
         .parallel()
         .collect(

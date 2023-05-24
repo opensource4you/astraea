@@ -31,7 +31,7 @@ public class FtpFileSystemTest extends AbstractFileSystemTest {
   protected FileSystem fileSystem() {
     return FileSystem.of(
         "ftp",
-        Configuration.of(
+        new Configuration(
             Map.of(
                 FtpFileSystem.HOSTNAME_KEY,
                 server.hostname(),

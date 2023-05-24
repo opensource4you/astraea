@@ -55,10 +55,7 @@ public class ProducerHandlerTest {
               handler.get(Channel.EMPTY).toCompletableFuture().join());
       Assertions.assertNotEquals(0, result.partitions.size());
 
-      var partitions =
-          result.partitions.stream()
-              .filter(t -> t.topic.equals(topicName))
-              .collect(Collectors.toUnmodifiableList());
+      var partitions = result.partitions.stream().filter(t -> t.topic.equals(topicName)).toList();
       Assertions.assertEquals(1, partitions.size());
       Assertions.assertEquals(topicName, partitions.iterator().next().topic);
       Assertions.assertEquals(0, partitions.iterator().next().partition);

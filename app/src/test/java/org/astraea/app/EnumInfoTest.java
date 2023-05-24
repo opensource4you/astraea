@@ -17,7 +17,6 @@
 package org.astraea.app;
 
 import java.util.Arrays;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
 import org.junit.jupiter.api.Assertions;
@@ -104,14 +103,13 @@ class EnumInfoTest {
     Assertions.assertTrue(productionClasses.size() > 100);
     Assertions.assertTrue(
         productionClasses.stream().allMatch(x -> x.getPackageName().startsWith("org.astraea")));
-    System.out.println(
-        productionClasses.stream().filter(Class::isEnum).collect(Collectors.toList()));
+    System.out.println(productionClasses.stream().filter(Class::isEnum).toList());
   }
 
   @Test
   void testEnumClassProvider() {
     var enumClassProvider = new EnumClassProvider();
-    var enumCls = enumClassProvider.provideArguments(null).collect(Collectors.toList());
+    var enumCls = enumClassProvider.provideArguments(null).toList();
     Assertions.assertTrue(enumCls.size() > 0);
     Assertions.assertTrue(enumCls.stream().map(x -> (Class<?>) x.get()[0]).allMatch(Class::isEnum));
   }

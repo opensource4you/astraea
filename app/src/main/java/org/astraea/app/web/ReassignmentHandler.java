@@ -31,8 +31,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
@@ -90,9 +90,7 @@ public class ReassignmentHandler implements Handler {
                               if (excludedBroker.isEmpty())
                                 return CompletableFuture.completedFuture(Response.BAD_REQUEST);
                               var availableBrokers =
-                                  brokers.stream()
-                                      .filter(b -> b.id() != exclude)
-                                      .collect(Collectors.toList());
+                                  brokers.stream().filter(b -> b.id() != exclude).toList();
                               var partitions =
                                   excludedBroker.get().topicPartitions().stream()
                                       .filter(
@@ -112,8 +110,8 @@ public class ReassignmentHandler implements Handler {
                                                     availableBrokers.stream()
                                                         .filter(
                                                             b -> b.topicPartitions().contains(tp))
-                                                        .map(NodeInfo::id)
-                                                        .collect(Collectors.toList());
+                                                        .map(Broker::id)
+                                                        .toList();
                                                 if (!ids.isEmpty()) return ids;
                                                 return List.of(
                                                     availableBrokers
@@ -131,7 +129,7 @@ public class ReassignmentHandler implements Handler {
             Stream.of(process2Folders, process2Nodes, processExclude)
                 .flatMap(Function.identity())
                 .map(CompletionStage::toCompletableFuture)
-                .collect(Collectors.toUnmodifiableList()))
+                .toList())
         .thenApply(
             rs -> {
               if (!rs.isEmpty() && rs.stream().allMatch(r -> r == Response.ACCEPT))
@@ -161,7 +159,7 @@ public class ReassignmentHandler implements Handler {
                           r ->
                               new AddingReplica(
                                   r, leaderSizes.getOrDefault(r.topicPartition(), 0L)))
-                      .collect(Collectors.toUnmodifiableList()));
+                      .toList());
             });
   }
 
@@ -213,7 +211,7 @@ public class ReassignmentHandler implements Handler {
     AddingReplica(Replica addingReplica, long leaderSize) {
       this.topicName = addingReplica.topic();
       this.partition = addingReplica.partition();
-      this.broker = addingReplica.nodeInfo().id();
+      this.broker = addingReplica.broker().id();
       this.dataFolder = addingReplica.path();
       this.size = addingReplica.size();
       this.leaderSize = leaderSize;

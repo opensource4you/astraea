@@ -17,6 +17,7 @@
 package org.astraea.common;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Timestamp;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
@@ -29,7 +30,6 @@ import java.util.stream.Collectors;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Config;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
@@ -184,6 +184,10 @@ public final class ByteUtils {
                 // Bean attribute may contain non-primitive value. e.g. TimeUnit, Byte.
               }
             });
+    beanBuilder.setCreatedTimestamp(
+        Timestamp.newBuilder()
+            .setSeconds(value.createdTimestamp() / 1000)
+            .setNanos((int) (value.createdTimestamp() % 1000) * 1000000));
     return beanBuilder.build().toByteArray();
   }
 
@@ -266,10 +270,10 @@ public final class ByteUtils {
                             .setTopic(replica.topic())
                             .setPartition(replica.partition())
                             .setNodeInfo(
-                                NodeInfoOuterClass.NodeInfo.newBuilder()
-                                    .setId(replica.nodeInfo().id())
-                                    .setHost(replica.nodeInfo().host())
-                                    .setPort(replica.nodeInfo().port())
+                                    NodeInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()
+                                    .setId(replica.broker().id())
+                                    .setHost(replica.broker().host())
+                                    .setPort(replica.broker().port())
                                     .build())
                             .setLag(replica.lag())
                             .setSize(replica.size())
@@ -362,7 +366,9 @@ public final class ByteUtils {
           outerBean.getAttributesMap().entrySet().stream()
               .collect(
                   Collectors.toUnmodifiableMap(
-                      Map.Entry::getKey, e -> Objects.requireNonNull(toObject(e.getValue())))));
+                      Map.Entry::getKey, e -> Objects.requireNonNull(toObject(e.getValue())))),
+          outerBean.getCreatedTimestamp().getSeconds() * 1000
+              + outerBean.getCreatedTimestamp().getNanos() / 1000000);
     } catch (InvalidProtocolBufferException ex) {
       // Pack exception thrown by protoBuf to Serialization exception.
       throw new SerializationException(ex);
@@ -457,8 +463,8 @@ public final class ByteUtils {
                       Replica.builder()
                           .topic(replica.getTopic())
                           .partition(replica.getPartition())
-                          .nodeInfo(
-                              NodeInfo.of(
+                          .broker(
+                              Broker.of(
                                   replica.getNodeInfo().getId(),
                                   replica.getNodeInfo().getHost(),
                                   replica.getNodeInfo().getPort()))

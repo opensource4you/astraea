@@ -17,17 +17,23 @@
 package org.astraea.common.balancer;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.HasClusterCost;
+import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -121,7 +127,7 @@ public abstract class BalancerConfigTestSuite {
   }
 
   @Test
-  public void testBalancerAllowedBrokersRegex() {
+  public void testBalancingMode() {
     final var balancer = Utils.construct(balancerClass, Configuration.EMPTY);
     final var cluster = cluster(10, 10, 10, (short) 5);
 
@@ -134,7 +140,7 @@ public abstract class BalancerConfigTestSuite {
                   .clusterCost(decreasingCost())
                   .timeout(Duration.ofSeconds(2))
                   .configs(customConfig.raw())
-                  .config(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, "[0-9]*")
+                  .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "default:balancing")
                   .build());
       AssertionsHelper.assertSomeMovement(cluster, plan.orElseThrow().proposal(), testName);
     }
@@ -148,7 +154,7 @@ public abstract class BalancerConfigTestSuite {
                   .clusterCost(decreasingCost())
                   .timeout(Duration.ofSeconds(2))
                   .configs(customConfig.raw())
-                  .config(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, "NoMatch")
+                  .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "default:excluded")
                   .build());
       // since nothing can be moved. It is ok to return no plan.
       if (plan.isPresent()) {
@@ -160,8 +166,10 @@ public abstract class BalancerConfigTestSuite {
     {
       var testName = "[test some match]";
       var allowedBrokers = IntStream.range(1, 6).boxed().collect(Collectors.toUnmodifiableSet());
-      var rawRegex =
-          allowedBrokers.stream().map(Object::toString).collect(Collectors.joining("|", "(", ")"));
+      var config =
+          allowedBrokers.stream()
+              .map(i -> i + ":balancing")
+              .collect(Collectors.joining(",", "default:excluded,", ""));
       var plan =
           balancer.offer(
               AlgorithmConfig.builder()
@@ -169,10 +177,336 @@ public abstract class BalancerConfigTestSuite {
                   .clusterCost(decreasingCost())
                   .timeout(Duration.ofSeconds(2))
                   .configs(customConfig.raw())
-                  .config(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX, rawRegex)
+                  .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, config)
                   .build());
       AssertionsHelper.assertOnlyAllowedBrokerMovement(
           cluster, plan.orElseThrow().proposal(), allowedBrokers::contains, testName);
+    }
+  }
+
+  @Test
+  public void testBalancingModeDemoted() {
+    final var balancer = Utils.construct(balancerClass, Configuration.EMPTY);
+    final var cluster = cluster(10, 30, 10, (short) 5);
+
+    {
+      var testName = "[test all clear]";
+      Assertions.assertThrows(
+          Exception.class,
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(cluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "default:demoted")
+                      .build()),
+          testName);
+    }
+
+    {
+      var testName = "[test some clear]";
+      var plan =
+          balancer.offer(
+              AlgorithmConfig.builder()
+                  .clusterInfo(cluster)
+                  .clusterCost(decreasingCost())
+                  .timeout(Duration.ofSeconds(2))
+                  .configs(customConfig.raw())
+                  .config(
+                      BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
+                      "0:demoted,1:demoted,2:demoted")
+                  .build());
+      Assertions.assertTrue(plan.isPresent(), testName);
+      var finalCluster = plan.get().proposal();
+      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.broker().id() == 0));
+      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.broker().id() == 1));
+      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.broker().id() == 2));
+      Assertions.assertTrue(finalCluster.replicas().stream().noneMatch(x -> x.broker().id() == 0));
+      Assertions.assertTrue(finalCluster.replicas().stream().noneMatch(x -> x.broker().id() == 1));
+      Assertions.assertTrue(finalCluster.replicas().stream().noneMatch(x -> x.broker().id() == 2));
+      AssertionsHelper.assertBrokerEmpty(
+          finalCluster, (x) -> Set.of(0, 1, 2).contains(x), testName);
+    }
+
+    {
+      var testName = "[test replication factor violation]";
+      // 6 brokers, clear 3 brokers, remain 3 brokers, topic with replication factor 3 can fit this
+      // cluster.
+      var noViolatedCluster = cluster(6, 10, 10, (short) 3);
+      Assertions.assertDoesNotThrow(
+          () -> {
+            var solution =
+                balancer
+                    .offer(
+                        AlgorithmConfig.builder()
+                            .clusterInfo(noViolatedCluster)
+                            .clusterCost(decreasingCost())
+                            .timeout(Duration.ofSeconds(2))
+                            .configs(customConfig.raw())
+                            .config(
+                                BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
+                                "0:demoted,1:demoted,2:demoted")
+                            .build())
+                    .orElseThrow()
+                    .proposal();
+            AssertionsHelper.assertBrokerEmpty(
+                solution, (x) -> Set.of(0, 1, 2).contains(x), testName);
+          },
+          testName);
+
+      // 5 brokers, clear 3 brokers, remain 2 brokers, topic with replication factor 3 CANNOT fit
+      // this cluster.
+      var violatedCluster = cluster(5, 10, 10, (short) 3);
+      Assertions.assertThrows(
+          Exception.class,
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(violatedCluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      .config(
+                          BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
+                          "0:demoted,1:demoted,2:demoted")
+                      .build()));
+    }
+
+    {
+      var testName = "[test if allowed topics is used, clear disallow topic will raise an error]";
+      var base =
+          ClusterInfo.builder()
+              .addNode(Set.of(1, 2, 3))
+              .addFolders(
+                  Map.ofEntries(
+                      Map.entry(1, Set.of("/folder")),
+                      Map.entry(2, Set.of("/folder")),
+                      Map.entry(3, Set.of("/folder"))))
+              .build();
+      var node12 = Stream.of(1, 2).map(base::node).iterator();
+      var node13 = Stream.of(1, 3).map(base::node).iterator();
+      var node123 = Stream.of(1, 2, 3).map(base::node).iterator();
+      var testCluster =
+          ClusterInfo.builder(base)
+              .addTopic("OK", 1, (short) 1, r -> Replica.builder(r).broker(base.node(1)).build())
+              .addTopic(
+                  "OK_SKIP", 2, (short) 1, r -> Replica.builder(r).broker(node12.next()).build())
+              .addTopic(
+                  "Replica", 1, (short) 2, r -> Replica.builder(r).broker(node13.next()).build())
+              .addTopic(
+                  "Partition", 3, (short) 1, r -> Replica.builder(r).broker(node123.next()).build())
+              .build();
+
+      Assertions.assertDoesNotThrow(
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(testCluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow anything other than "OK" topic
+                      .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, "(?!OK).*")
+                      // clear broker 3
+                      .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "3:demoted")
+                      // this won't raise an error since that topic didn't locate at 3
+                      .build()),
+          testName);
+      Assertions.assertDoesNotThrow(
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(testCluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow anything other than "OK" topic
+                      .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, "(?!OK_SKIP).*")
+                      // clear broker 3
+                      .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "3:demoted")
+                      // this won't raise an error since that topic didn't locate at 3
+                      .build()),
+          testName);
+      Assertions.assertThrows(
+          Exception.class,
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(testCluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow anything other than "Replica" topic
+                      .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, "(?!Replica).*")
+                      // clear broker 3
+                      .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "3:demoted")
+                      // this will raise an error since that topic has a replica at 3
+                      .build()),
+          testName);
+      Assertions.assertThrows(
+          Exception.class,
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(testCluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // allow anything other than "Replica" topic
+                      .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, "(?!Partition).*")
+                      // clear broker 3
+                      .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "3:demoted")
+                      // this will raise an error since that topic has a partition at 3
+                      .build()),
+          testName);
+    }
+
+    {
+      var testName = "[test if allowed brokers is used, disallowed broker won't be altered]";
+      var solution =
+          balancer
+              .offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(cluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // clear broker 0
+                      .config(
+                          BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
+                          "0:demoted,"
+                              +
+                              // allow broker 1,2,3,4,5,6
+                              "1:balancing,2:balancing,3:balancing,4:balancing,5:balancing,6:balancing,default:excluded")
+                      // this will be ok since any replica at 0 can move to 1~6 without breaking
+                      // replica factors
+                      .build())
+              .orElseThrow()
+              .proposal();
+      var before = cluster.topicPartitionReplicas();
+      var after = solution.topicPartitionReplicas();
+      var changed =
+          after.stream()
+              .filter(Predicate.not(before::contains))
+              .collect(Collectors.toUnmodifiableSet());
+      Assertions.assertTrue(after.stream().noneMatch(r -> r.brokerId() == 0), testName);
+      Assertions.assertTrue(
+          changed.stream().allMatch(r -> Set.of(1, 2, 3, 4, 5, 6).contains(r.brokerId())),
+          testName);
+    }
+
+    {
+      var testName =
+          "[test if allowed brokers is used, insufficient allowed broker to fit replica factor requirement will raise an error]";
+      Assertions.assertThrows(
+          Exception.class,
+          () ->
+              balancer.offer(
+                  AlgorithmConfig.builder()
+                      .clusterInfo(cluster)
+                      .clusterCost(decreasingCost())
+                      .timeout(Duration.ofSeconds(2))
+                      .configs(customConfig.raw())
+                      // clear broker 0, allow broker 1
+                      .config(
+                          BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
+                          "0:demoted,1:balancing,default:excluded")
+                      // this will raise an error if a partition has replicas at both 0 and 1. In
+                      // this case, there is no allowed broker to adopt replica from 0, since the
+                      // only allowed broker already has one replica on it. we cannot assign two
+                      // replicas to one broker.
+                      .build()),
+          testName);
+    }
+
+    {
+      var testName = "[if replica on clear broker is adding/removing/future, raise an exception]";
+      var adding =
+          ClusterInfo.builder(cluster)
+              .mapLog(r -> r.broker().id() != 0 ? r : Replica.builder(r).isAdding(true).build())
+              .build();
+      var removing =
+          ClusterInfo.builder(cluster)
+              .mapLog(r -> r.broker().id() != 0 ? r : Replica.builder(r).isRemoving(true).build())
+              .build();
+      var future =
+          ClusterInfo.builder(cluster)
+              .mapLog(r -> r.broker().id() != 0 ? r : Replica.builder(r).isFuture(true).build())
+              .build();
+      for (var cc : List.of(adding, removing, future)) {
+        Assertions.assertThrows(
+            Exception.class,
+            () ->
+                balancer.offer(
+                    AlgorithmConfig.builder()
+                        .clusterInfo(cc)
+                        .clusterCost(decreasingCost())
+                        .timeout(Duration.ofSeconds(1))
+                        .configs(customConfig.raw())
+                        // clear broker 0 allow broker 1,2,3,4,5,6
+                        .config(
+                            BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
+                            "0:demoted,"
+                                + "1:balancing,2:balancing,3:balancing,4:balancing,5:balancing,6:balancing")
+                        .build()),
+            testName);
+      }
+      for (var cc : List.of(adding, removing, future)) {
+        Assertions.assertDoesNotThrow(
+            () ->
+                balancer.offer(
+                    AlgorithmConfig.builder()
+                        .clusterInfo(cc)
+                        .clusterCost(decreasingCost())
+                        .timeout(Duration.ofSeconds(1))
+                        .configs(customConfig.raw())
+                        // clear broker 1 allow broker 0,2,3,4,5,6,7
+                        .config(
+                            BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
+                            "1:demoted,"
+                                + "0:balancing,2:balancing,3:balancing,4:balancing,5:balancing,6:balancing,"
+                                + "7:balancing,default:excluded")
+                        // adding/removing/future at 0 not 1, unrelated so no error
+                        .build()),
+            testName);
+      }
+    }
+
+    {
+      // Some balancer implementations have such logic flaw:
+      // 1. The initial state[A] cannot be solution.
+      // 2. There are brokers that need to be demoted.
+      // 3. The load on those brokers been redistributed to other brokers. Creating the start
+      //    state[B] for the solution search.
+      // 4. The start state[B] solution is actually the best solution.
+      // 5. Balancer think the start state[B] is the initial state[A]. And cannot be a solution(as
+      // mentioned in 1).
+      // 6. In fact, the start state[B] doesn't equal to the initial state[A]. Since there is a
+      //    cleaning work performed at step 3.
+      // 7. Balancer cannot find any solution that is better than the start state(4) and therefore
+      //    returns no solution.
+      var testName =
+          "[If the cluster after clear is the best solution, balancer should be able to return it]";
+      var testCluster =
+          ClusterInfo.builder()
+              .addNode(Set.of(1, 2))
+              .addFolders(
+                  Map.ofEntries(Map.entry(1, Set.of("/folder")), Map.entry(2, Set.of("/folder"))))
+              .addTopic("topic", 100, (short) 1)
+              .build();
+      Assertions.assertNotEquals(
+          Optional.empty(),
+          balancer.offer(
+              AlgorithmConfig.builder()
+                  .clusterInfo(testCluster)
+                  .clusterBean(ClusterBean.EMPTY)
+                  .clusterCost(new ReplicaLeaderCost())
+                  .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "1:demoted")
+                  .timeout(Duration.ofSeconds(2))
+                  .build()),
+          testName);
     }
   }
 
@@ -239,7 +573,7 @@ public abstract class BalancerConfigTestSuite {
       source
           .replicaStream()
           // for those replicas that are not allowed to move
-          .filter(r -> !allowedBroker.test(r.nodeInfo().id()))
+          .filter(r -> !allowedBroker.test(r.broker().id()))
           // they should exist as-is in the target allocation
           .forEach(
               fixedReplica -> {
@@ -257,6 +591,17 @@ public abstract class BalancerConfigTestSuite {
                                   + " not moved, but it appears to disappear from the target allocation");
                         });
               });
+    }
+
+    static void assertBrokerEmpty(ClusterInfo target, Predicate<Integer> clearBroker, String name) {
+      var violated =
+          target
+              .replicaStream()
+              .filter(i -> clearBroker.test(i.broker().id()))
+              .collect(Collectors.toUnmodifiableSet());
+      Assertions.assertTrue(
+          violated.isEmpty(),
+          name + ": the following replica should move to somewhere else " + violated);
     }
   }
 }

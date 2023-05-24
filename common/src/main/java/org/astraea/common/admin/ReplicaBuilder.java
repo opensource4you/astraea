@@ -22,7 +22,7 @@ public class ReplicaBuilder {
 
   private String topic;
   private int partition;
-  private NodeInfo nodeInfo;
+  private Broker broker;
   private long lag;
   private long size;
 
@@ -40,7 +40,7 @@ public class ReplicaBuilder {
   ReplicaBuilder replica(Replica replica) {
     this.topic = replica.topic();
     this.partition = replica.partition();
-    this.nodeInfo = replica.nodeInfo();
+    this.broker = replica.broker();
     this.lag = replica.lag();
     this.size = replica.size();
     this.isLeader = replica.isLeader();
@@ -63,8 +63,8 @@ public class ReplicaBuilder {
     return this;
   }
 
-  public ReplicaBuilder nodeInfo(NodeInfo nodeInfo) {
-    this.nodeInfo = nodeInfo;
+  public ReplicaBuilder broker(Broker broker) {
+    this.broker = broker;
     return this;
   }
 
@@ -166,7 +166,7 @@ public class ReplicaBuilder {
   private static class ReplicaImpl implements Replica {
     private final String topic;
     private final int partition;
-    private final NodeInfo nodeInfo;
+    private final Broker broker;
     private final long lag;
     private final long size;
 
@@ -185,7 +185,7 @@ public class ReplicaBuilder {
     private ReplicaImpl(ReplicaBuilder builder) {
       this.topic = Objects.requireNonNull(builder.topic);
       this.partition = builder.partition;
-      this.nodeInfo = Objects.requireNonNull(builder.nodeInfo);
+      this.broker = Objects.requireNonNull(builder.broker);
       this.isAdding = builder.isAdding;
       this.isRemoving = builder.isRemoving;
       this.lag = builder.lag;
@@ -240,8 +240,8 @@ public class ReplicaBuilder {
     }
 
     @Override
-    public NodeInfo nodeInfo() {
-      return nodeInfo;
+    public Broker broker() {
+      return broker;
     }
 
     @Override
@@ -286,7 +286,9 @@ public class ReplicaBuilder {
           && isOffline == replica.isOffline
           && isPreferredLeader == replica.isPreferredLeader
           && topic.equals(replica.topic)
-          && nodeInfo.equals(replica.nodeInfo)
+          && broker.id() == replica.broker.id()
+          && broker.host().equals(replica.broker.host())
+          && broker.port() == replica.broker.port()
           && Objects.equals(path, replica.path);
     }
 
@@ -299,7 +301,7 @@ public class ReplicaBuilder {
           + ", partition="
           + partition()
           + ", broker="
-          + nodeInfo()
+          + broker()
           + ", path='"
           + path()
           + '\''
@@ -313,7 +315,7 @@ public class ReplicaBuilder {
       return Objects.hash(
           topic,
           partition,
-          nodeInfo,
+          broker,
           lag,
           size,
           internal,

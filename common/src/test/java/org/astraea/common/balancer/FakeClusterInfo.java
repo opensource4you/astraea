@@ -26,7 +26,6 @@ import java.util.stream.IntStream;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Config;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 
@@ -76,7 +75,7 @@ public class FakeClusterInfo {
             .collect(Collectors.toUnmodifiableSet());
     final var nodes =
         IntStream.range(0, nodeCount)
-            .mapToObj(nodeId -> NodeInfo.of(nodeId, "host" + nodeId, 9092))
+            .mapToObj(nodeId -> Broker.of(nodeId, "host" + nodeId, 9092))
             .map(
                 node ->
                     new Broker(
@@ -107,7 +106,7 @@ public class FakeClusterInfo {
                                 Replica.builder()
                                     .topic(tp.topic())
                                     .partition(tp.partition())
-                                    .nodeInfo(nodes.get(r))
+                                    .broker(nodes.get(r))
                                     .lag(0)
                                     .size(-1)
                                     .isLeader(r == 0)

@@ -16,14 +16,14 @@
  */
 package org.astraea.common.cost;
 
-import static org.astraea.common.cost.MigrationCost.changedRecordSizeOverflow;
+import static org.astraea.common.cost.CostUtils.changedRecordSizeOverflow;
 
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
 
@@ -33,7 +33,7 @@ public class RecordSizeCost
   public static final String MAX_MIGRATE_SIZE_KEY = "max.migrated.size";
 
   public RecordSizeCost() {
-    this.config = Configuration.of(Map.of());
+    this.config = new Configuration(Map.of());
   }
 
   public RecordSizeCost(Configuration config) {
@@ -43,10 +43,10 @@ public class RecordSizeCost
   @Override
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
-        clusterInfo.nodes().stream()
+        clusterInfo.brokers().stream()
             .collect(
                 Collectors.toMap(
-                    NodeInfo::id,
+                    Broker::id,
                     n -> clusterInfo.replicaStream(n.id()).mapToDouble(Replica::size).sum()));
     return () -> result;
   }

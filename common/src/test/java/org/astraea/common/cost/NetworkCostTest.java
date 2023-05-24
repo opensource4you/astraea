@@ -184,7 +184,7 @@ class NetworkCostTest {
                 (short) 2,
                 (r) ->
                     Replica.builder(r)
-                        .nodeInfo(base.node(iter1.next()))
+                        .broker(base.node(iter1.next()))
                         .isPreferredLeader(iter2.next())
                         .isLeader(iter3.next())
                         .size(1)
@@ -195,7 +195,7 @@ class NetworkCostTest {
                 (short) 2,
                 (r) ->
                     Replica.builder(r)
-                        .nodeInfo(base.node(iter4.next()))
+                        .broker(base.node(iter4.next()))
                         .isPreferredLeader(iter5.next())
                         .isLeader(iter6.next())
                         .size(1)
@@ -536,19 +536,19 @@ class NetworkCostTest {
     var oneCost =
         Utils.construct(
             clz,
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BROKER_TOPIC_ONE_MINUTE_RATE")));
     var fiveCost =
         Utils.construct(
             clz,
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BROKER_TOPIC_FIVE_MINUTE_RATE")));
     var fifteenCost =
         Utils.construct(
             clz,
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     NetworkCost.NETWORK_COST_ESTIMATION_METHOD,
                     "BROKER_TOPIC_FIFTEEN_MINUTE_RATE")));
@@ -633,8 +633,7 @@ class NetworkCostTest {
               .timeRange(LocalDateTime.now(), Duration.ZERO)
               .seriesByBrokerTopic(
                   (time, broker, topic) ->
-                      ServerMetrics.Topic.BYTES_IN_PER_SEC
-                          .builder()
+                      new ServerMetricsMeterBuilder(ServerMetrics.Topic.BYTES_IN_PER_SEC)
                           .topic(topic)
                           .time(time.toEpochSecond(ZoneOffset.UTC))
                           .oneMinuteRate(
@@ -661,8 +660,7 @@ class NetworkCostTest {
                           .build())
               .seriesByBrokerTopic(
                   (time, broker, topic) ->
-                      ServerMetrics.Topic.BYTES_OUT_PER_SEC
-                          .builder()
+                      new ServerMetricsMeterBuilder(ServerMetrics.Topic.BYTES_OUT_PER_SEC)
                           .topic(topic)
                           .time(time.toEpochSecond(ZoneOffset.UTC))
                           .oneMinuteRate(
@@ -701,8 +699,8 @@ class NetworkCostTest {
                       IntStream.range(0, 10)
                           .mapToObj(
                               i ->
-                                  ServerMetrics.Topic.TOTAL_FETCH_REQUESTS_PER_SEC
-                                      .builder()
+                                  new ServerMetricsMeterBuilder(
+                                          ServerMetrics.Topic.TOTAL_FETCH_REQUESTS_PER_SEC)
                                       .topic("Noise_" + i)
                                       .time(time.toEpochSecond(ZoneOffset.UTC))
                                       .build()))

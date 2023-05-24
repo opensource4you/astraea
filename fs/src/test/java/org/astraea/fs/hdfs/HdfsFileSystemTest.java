@@ -33,7 +33,7 @@ public class HdfsFileSystemTest extends AbstractFileSystemTest {
   void testCreate() {
     var fs =
         HdfsFileSystem.create(
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     HdfsFileSystem.HOSTNAME_KEY,
                     server.hostname(),
@@ -50,7 +50,7 @@ public class HdfsFileSystemTest extends AbstractFileSystemTest {
   protected FileSystem fileSystem() {
     return FileSystem.of(
         "hdfs",
-        Configuration.of(
+        new Configuration(
             Map.of(
                 HdfsFileSystem.HOSTNAME_KEY,
                 server.hostname(),

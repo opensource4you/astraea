@@ -23,21 +23,42 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.common.requests.DescribeLogDirsResponse;
 
+/**
+ * @param id
+ * @param host
+ * @param port
+ * @param isController
+ * @param config config used by this node
+ * @param dataFolders the disk folder used to stored data by this node
+ * @param topicPartitions
+ * @param topicPartitionLeaders partition leaders hosted by this broker
+ */
 public record Broker(
     int id,
     String host,
     int port,
     boolean isController,
-    // config used by this node
     Config config,
-    // the disk folder used to stored data by this node
     List<DataFolder> dataFolders,
     Set<TopicPartition> topicPartitions,
-    // partition leaders hosted by this broker
-    Set<TopicPartition> topicPartitionLeaders)
-    implements NodeInfo {
+    Set<TopicPartition> topicPartitionLeaders) {
 
-  static Broker of(
+  /**
+   * @return true if the broker is offline. An offline node can't offer host or port information.
+   */
+  public boolean offline() {
+    return host() == null || host().isEmpty() || port() < 0;
+  }
+
+  public static Broker of(int id, String host, int port) {
+    return new Broker(id, host, port, false, Config.EMPTY, List.of(), Set.of(), Set.of());
+  }
+
+  public static Broker of(org.apache.kafka.common.Node node) {
+    return of(node.id(), node.host(), node.port());
+  }
+
+  public static Broker of(
       boolean isController,
       org.apache.kafka.common.Node nodeInfo,
       Map<String, String> configs,
@@ -94,11 +115,13 @@ public record Broker(
         topicPartitionLeaders);
   }
 
+  /**
+   * @param path the path on the local disk
+   * @param partitionSizes topic partition hosed by this node and size of files
+   * @param orphanPartitionSizes topic partition located by this node but not traced by cluster
+   */
   public record DataFolder(
-      // the path on the local disk
       String path,
-      // topic partition hosed by this node and size of files
       Map<TopicPartition, Long> partitionSizes,
-      // topic partition located by this node but not traced by cluster
       Map<TopicPartition, Long> orphanPartitionSizes) {}
 }

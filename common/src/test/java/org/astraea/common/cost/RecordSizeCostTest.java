@@ -18,8 +18,8 @@ package org.astraea.common.cost;
 
 import java.util.List;
 import java.util.Map;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.ClusterBean;
@@ -34,27 +34,27 @@ public class RecordSizeCostTest {
   private final ClusterInfo clusterInfo =
       ClusterInfo.of(
           "fake",
-          List.of(NodeInfo.of(0, "aa", 22), NodeInfo.of(1, "aa", 22), NodeInfo.of(2, "aa", 22)),
+          List.of(Broker.of(0, "aa", 22), Broker.of(1, "aa", 22), Broker.of(2, "aa", 22)),
           Map.of(),
           List.of(
               Replica.builder()
                   .topic("topic")
                   .partition(0)
-                  .nodeInfo(NodeInfo.of(1, "aa", 22))
+                  .broker(Broker.of(1, "aa", 22))
                   .size(100)
                   .path("/tmp/aa")
                   .buildLeader(),
               Replica.builder()
                   .topic("topic")
                   .partition(0)
-                  .nodeInfo(NodeInfo.of(2, "aa", 22))
+                  .broker(Broker.of(2, "aa", 22))
                   .size(99)
                   .path("/tmp/aa")
                   .buildInSyncFollower(),
               Replica.builder()
                   .topic("topic")
                   .partition(1)
-                  .nodeInfo(NodeInfo.of(1, "aa", 22))
+                  .broker(Broker.of(1, "aa", 22))
                   .size(11)
                   .path("/tmp/aa")
                   .buildLeader()));
