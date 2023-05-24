@@ -4,7 +4,7 @@ package org.astraea.common.generated.admin;
 
 import "org/astraea/common/generated/admin/Broker.proto";
 
-message Replica{
+message Replica {
   string topic = 1;
   int32  partition = 2;
   Broker broker = 3;
