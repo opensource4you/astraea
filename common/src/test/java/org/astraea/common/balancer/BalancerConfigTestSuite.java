@@ -289,9 +289,9 @@ public abstract class BalancerConfigTestSuite {
       var testCluster =
           ClusterInfo.builder(base)
               .addTopic("topic", 3, (short) 1)
-              .addTopic("ok0", 1, (short) 1, r -> Replica.builder(r).broker(node3).build())
-              .addTopic("ok1", 1, (short) 1, r -> Replica.builder(r).broker(node3).build())
-              .addTopic("ok2", 1, (short) 1, r -> Replica.builder(r).broker(node3).build())
+              .addTopic("ok0", 10, (short) 1, r -> Replica.builder(r).broker(node3).build())
+              .addTopic("ok1", 10, (short) 1, r -> Replica.builder(r).broker(node3).build())
+              .addTopic("ok2", 10, (short) 1, r -> Replica.builder(r).broker(node3).build())
               .build();
 
       var result =
@@ -320,6 +320,17 @@ public abstract class BalancerConfigTestSuite {
           List.of(),
           result.get().proposal().replicas().stream().filter(x -> x.broker().id() == 3).toList(),
           "Returned allocation has no replica located at broker 3");
+      var toStay =
+          testCluster.replicas().stream()
+              .filter(x -> x.topic().equals("topic"))
+              .filter(x -> x.broker().id() != 3)
+              .collect(Collectors.toSet());
+      Assertions.assertTrue(
+          result.get().proposal().replicas().stream()
+              .filter(x -> x.topic().equals("topic"))
+              .collect(Collectors.toSet())
+              .containsAll(toStay),
+          "Disallowed partition stay still except those at broker 3");
     }
 
     {
