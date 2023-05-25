@@ -23,7 +23,7 @@ import static org.astraea.common.balancer.BalancerConsole.TaskPhase.SearchFailed
 import static org.astraea.common.balancer.BalancerConsole.TaskPhase.Searched;
 import static org.astraea.common.cost.MigrationCost.REPLICA_LEADERS_TO_ADDED;
 import static org.astraea.common.cost.MigrationCost.REPLICA_LEADERS_TO_REMOVE;
-import static org.astraea.common.cost.MigrationCost.TO_FETCH_BYTES;
+import static org.astraea.common.cost.MigrationCost.TO_FETCHED_BYTES;
 import static org.astraea.common.cost.MigrationCost.TO_SYNC_BYTES;
 
 import java.nio.charset.StandardCharsets;
@@ -322,7 +322,7 @@ public class BalancerHandlerTest {
           migrationCost -> {
             switch (migrationCost.name) {
               case TO_SYNC_BYTES:
-              case TO_FETCH_BYTES:
+              case TO_FETCHED_BYTES:
                 Assertions.assertTrue(
                     migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
                         <= DataSize.of(sizeLimit).bytes());

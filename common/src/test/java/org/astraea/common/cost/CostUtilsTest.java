@@ -17,7 +17,7 @@
 package org.astraea.common.cost;
 
 import static org.astraea.common.cost.CostUtils.changedRecordSizeOverflow;
-import static org.astraea.common.cost.MigrationCost.recordSizeToFetch;
+import static org.astraea.common.cost.MigrationCost.recordSizeToFetched;
 import static org.astraea.common.cost.MigrationCost.recordSizeToSync;
 
 import java.util.List;
@@ -43,7 +43,7 @@ class CostUtilsTest {
     Assertions.assertEquals(1000, moveInResult.get(1));
     Assertions.assertEquals(100 + 500, moveInResult.get(2));
 
-    var moveOutResult = recordSizeToFetch(beforeClusterInfo(), afterClusterInfo());
+    var moveOutResult = recordSizeToFetched(beforeClusterInfo(), afterClusterInfo());
     Assertions.assertEquals(3, moveOutResult.size());
     Assertions.assertEquals(100 + 500, moveOutResult.get(0));
     Assertions.assertEquals(0, moveOutResult.get(1));
