@@ -341,29 +341,11 @@ public final class ByteUtils {
           outerClusterInfo.getTopicList().stream()
               .map(
                   protoTopic ->
-                      new Topic() {
-                        @Override
-                        public String name() {
-                          return protoTopic.getName();
-                        }
-
-                        @Override
-                        public Config config() {
-                          return new Config(protoTopic.getConfigMap());
-                        }
-
-                        @Override
-                        public boolean internal() {
-                          return protoTopic.getInternal();
-                        }
-
-                        @Override
-                        public Set<TopicPartition> topicPartitions() {
-                          return protoTopic.getPartitionList().stream()
-                              .map(tp -> TopicPartition.of(protoTopic.getName(), tp))
-                              .collect(Collectors.toSet());
-                        }
-                      })
+                      new Topic(
+                          protoTopic.getName(),
+                          new Config(protoTopic.getConfigMap()),
+                          protoTopic.getInternal(),
+                          Set.copyOf(protoTopic.getPartitionList())))
               .collect(Collectors.toMap(Topic::name, Function.identity())),
           outerClusterInfo.getReplicaList().stream()
               .map(
