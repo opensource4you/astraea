@@ -317,6 +317,14 @@ public final class ByteUtils {
         .build();
   }
 
+  private static TopicPartitionOuterClass.TopicPartition toOuterClass(
+      TopicPartition topicPartition) {
+    return TopicPartitionOuterClass.TopicPartition.newBuilder()
+        .setPartition(topicPartition.partition())
+        .setTopic(topicPartition.topic())
+        .build();
+  }
+
   private static BrokerOuterClass.Broker toOuterClass(Broker broker) {
     return BrokerOuterClass.Broker.newBuilder()
         .setId(broker.id())
@@ -326,23 +334,9 @@ public final class ByteUtils {
         .putAllConfig(broker.config().raw())
         .addAllDataFolder(broker.dataFolders().stream().map(ByteUtils::toOuterClass).toList())
         .addAllTopicPartitions(
-            broker.topicPartitions().stream()
-                .map(
-                    tp ->
-                        TopicPartitionOuterClass.TopicPartition.newBuilder()
-                            .setPartition(tp.partition())
-                            .setTopic(tp.topic())
-                            .build())
-                .toList())
+            broker.topicPartitions().stream().map(ByteUtils::toOuterClass).toList())
         .addAllTopicPartitionLeaders(
-            broker.topicPartitionLeaders().stream()
-                .map(
-                    tp ->
-                        TopicPartitionOuterClass.TopicPartition.newBuilder()
-                            .setPartition(tp.partition())
-                            .setTopic(tp.topic())
-                            .build())
-                .toList())
+            broker.topicPartitionLeaders().stream().map(ByteUtils::toOuterClass).toList())
         .build();
   }
 
@@ -392,6 +386,11 @@ public final class ByteUtils {
     return new Broker.DataFolder(path, partitionSizes, orphanPartitionSizes);
   }
 
+  private static TopicPartition toTopicPartition(
+      TopicPartitionOuterClass.TopicPartition topicPartition) {
+    return TopicPartition.of(topicPartition.getTopic(), topicPartition.getPartition());
+  }
+
   private static Broker toBroker(BrokerOuterClass.Broker broker) {
     var host = broker.getHost();
     var port = broker.getPort();
@@ -401,11 +400,11 @@ public final class ByteUtils {
     var dataFolders = broker.getDataFolderList().stream().map(ByteUtils::toDataFolder).toList();
     var topicPartitions =
         broker.getTopicPartitionsList().stream()
-            .map(tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
+            .map(ByteUtils::toTopicPartition)
             .collect(Collectors.toSet());
     var topicPartitionLeaders =
         broker.getTopicPartitionLeadersList().stream()
-            .map(tp -> TopicPartition.of(tp.getTopic(), tp.getPartition()))
+            .map(ByteUtils::toTopicPartition)
             .collect(Collectors.toSet());
     return new Broker(
         id, host, port, isController, config, dataFolders, topicPartitions, topicPartitionLeaders);
