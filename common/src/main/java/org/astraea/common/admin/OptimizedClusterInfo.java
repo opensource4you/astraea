@@ -28,7 +28,7 @@ import org.astraea.common.Lazy;
 /** It optimizes all queries by pre-allocated Map collection. */
 class OptimizedClusterInfo implements ClusterInfo {
   private final String clusterId;
-  private final List<NodeInfo> nodeInfos;
+  private final List<Broker> brokers;
   private final List<Replica> all;
 
   private final Lazy<Map<String, Topic>> topics;
@@ -44,12 +44,9 @@ class OptimizedClusterInfo implements ClusterInfo {
   private final Lazy<Map<TopicPartitionReplica, List<Replica>>> byReplica;
 
   OptimizedClusterInfo(
-      String clusterId,
-      List<NodeInfo> nodeInfos,
-      Map<String, Topic> topics,
-      List<Replica> replicas) {
+      String clusterId, List<Broker> brokers, Map<String, Topic> topics, List<Replica> replicas) {
     this.clusterId = clusterId;
-    this.nodeInfos = nodeInfos;
+    this.brokers = brokers;
     this.all = replicas;
     this.topics =
         Lazy.of(
@@ -104,7 +101,7 @@ class OptimizedClusterInfo implements ClusterInfo {
                 all.stream()
                     .collect(
                         Collectors.groupingBy(
-                            r -> BrokerTopic.of(r.nodeInfo().id(), r.topic()),
+                            r -> BrokerTopic.of(r.broker().id(), r.topic()),
                             Collectors.toUnmodifiableList())));
     this.byBrokerTopicForLeader =
         Lazy.of(
@@ -114,7 +111,7 @@ class OptimizedClusterInfo implements ClusterInfo {
                     .filter(Replica::isLeader)
                     .collect(
                         Collectors.groupingBy(
-                            r -> BrokerTopic.of(r.nodeInfo().id(), r.topic()),
+                            r -> BrokerTopic.of(r.broker().id(), r.topic()),
                             Collectors.toUnmodifiableList())));
 
     this.byBroker =
@@ -123,7 +120,7 @@ class OptimizedClusterInfo implements ClusterInfo {
                 all.stream()
                     .collect(
                         Collectors.groupingBy(
-                            r -> r.nodeInfo().id(), Collectors.toUnmodifiableList())));
+                            r -> r.broker().id(), Collectors.toUnmodifiableList())));
 
     this.byTopic =
         Lazy.of(
@@ -204,8 +201,8 @@ class OptimizedClusterInfo implements ClusterInfo {
   }
 
   @Override
-  public List<NodeInfo> nodes() {
-    return nodeInfos;
+  public List<Broker> brokers() {
+    return brokers;
   }
 
   @Override

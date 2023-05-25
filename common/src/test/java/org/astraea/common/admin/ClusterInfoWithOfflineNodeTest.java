@@ -77,18 +77,17 @@ public class ClusterInfoWithOfflineNodeTest {
           "One of the rest replicas should take over the leadership");
       Assertions.assertTrue(
           after.availableReplicas(topicName).stream()
-              .allMatch(x -> x.nodeInfo().id() != brokerToClose));
+              .allMatch(x -> x.broker().id() != brokerToClose));
       Assertions.assertTrue(
-          after.replicaLeaders(topicName).stream()
-              .allMatch(x -> x.nodeInfo().id() != brokerToClose));
+          after.replicaLeaders(topicName).stream().allMatch(x -> x.broker().id() != brokerToClose));
       Assertions.assertTrue(
           after.replicas(topicName).stream()
               .filter(Replica::isOffline)
-              .allMatch(x -> x.nodeInfo().id() == brokerToClose));
+              .allMatch(x -> x.broker().id() == brokerToClose));
       Assertions.assertTrue(
           after.replicas(topicName).stream()
               .filter(x -> !x.isOffline())
-              .allMatch(x -> x.nodeInfo().id() != brokerToClose));
+              .allMatch(x -> x.broker().id() != brokerToClose));
     }
   }
 }

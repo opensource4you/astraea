@@ -27,9 +27,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Config;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
@@ -186,12 +186,13 @@ public final class ByteUtils {
     return beanBuilder.build().toByteArray();
   }
 
+  // TODO: Due to the change of NodeInfo to Broker. This and the test should be updated.
   /** Serialize ClusterInfo by protocol buffer. */
   public static byte[] toBytes(ClusterInfo value) {
     return ClusterInfoOuterClass.ClusterInfo.newBuilder()
         .setClusterId(value.clusterId())
         .addAllNodeInfo(
-            value.nodes().stream()
+            value.brokers().stream()
                 .map(
                     nodeInfo ->
                         ClusterInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()
@@ -223,9 +224,9 @@ public final class ByteUtils {
                             .setPartition(replica.partition())
                             .setNodeInfo(
                                 ClusterInfoOuterClass.ClusterInfo.NodeInfo.newBuilder()
-                                    .setId(replica.nodeInfo().id())
-                                    .setHost(replica.nodeInfo().host())
-                                    .setPort(replica.nodeInfo().port())
+                                    .setId(replica.broker().id())
+                                    .setHost(replica.broker().host())
+                                    .setPort(replica.broker().port())
                                     .build())
                             .setLag(replica.lag())
                             .setSize(replica.size())
@@ -327,6 +328,7 @@ public final class ByteUtils {
     }
   }
 
+  // TODO: Due to the change of NodeInfo to Broker. This and the test should be updated.
   /** Deserialize to ClusterInfo with protocol buffer */
   public static ClusterInfo readClusterInfo(byte[] bytes) {
     try {
@@ -334,8 +336,7 @@ public final class ByteUtils {
       return ClusterInfo.of(
           outerClusterInfo.getClusterId(),
           outerClusterInfo.getNodeInfoList().stream()
-              .map(
-                  nodeInfo -> NodeInfo.of(nodeInfo.getId(), nodeInfo.getHost(), nodeInfo.getPort()))
+              .map(nodeInfo -> Broker.of(nodeInfo.getId(), nodeInfo.getHost(), nodeInfo.getPort()))
               .collect(Collectors.toList()),
           outerClusterInfo.getTopicList().stream()
               .map(
@@ -370,8 +371,8 @@ public final class ByteUtils {
                       Replica.builder()
                           .topic(replica.getTopic())
                           .partition(replica.getPartition())
-                          .nodeInfo(
-                              NodeInfo.of(
+                          .broker(
+                              Broker.of(
                                   replica.getNodeInfo().getId(),
                                   replica.getNodeInfo().getHost(),
                                   replica.getNodeInfo().getPort()))

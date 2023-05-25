@@ -23,7 +23,6 @@ import org.apache.kafka.common.Node;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.ClusterBean;
@@ -53,20 +52,23 @@ class PartitionMigrateTimeCostTest {
 
   @Test
   void testMigratedCost() {
-    // before(partition-broker): p10-1, p11-2, p12-0, p12-0
-    // after(partition-broker):  p10-0, p11-1, p12-2, p12-0
-    // p10:777, p11:700, p12:500
+    // before(partition-broker): p10-0, p11-1, p12-2, p12-0
+    // after(partition-broker):  p10-1, p11-2, p12-0, p12-1
+    // b0: migrate in:  ; migrate out: p10
+    // b1: migrate in: p10,p12 ; migrate out: p11
+    // b2: migrate in: p11;  migrate out: p12
     var before = of(before(), brokers());
     var after = of(after(), brokers());
     var migrationCost = MigrationCost.brokerMigrationSecond(before, after, clusterBean());
-    Assertions.assertEquals(Math.max(10000000 / 1000, 30000000 / 1500), migrationCost.get(0));
-    Assertions.assertEquals(Math.max(20000000 / 2000, 10000000 / 2500), migrationCost.get(1));
-    Assertions.assertEquals(Math.max(30000000 / 3000, 20000000 / 3500), migrationCost.get(2));
+    Assertions.assertEquals(Math.max(0, 10000000 / 1500), migrationCost.get(0));
+    Assertions.assertEquals(
+        Math.max((10000000 + 30000000) / 2000, 20000000 / 2500), migrationCost.get(1));
+    Assertions.assertEquals(Math.max(20000000 / 3000, 30000000 / 3500), migrationCost.get(2));
   }
 
-  private List<NodeInfo> brokers() {
+  private List<Broker> brokers() {
     return before().stream()
-        .map(Replica::nodeInfo)
+        .map(Replica::broker)
         .distinct()
         .map(
             nodeInfo ->
@@ -95,7 +97,7 @@ class PartitionMigrateTimeCostTest {
     Assertions.assertTrue(overflowCost.overflow());
   }
 
-  public static ClusterInfo of(List<Replica> replicas, List<NodeInfo> nodeInfos) {
+  public static ClusterInfo of(List<Replica> replicas, List<Broker> nodeInfos) {
     return ClusterInfo.of("fake", nodeInfos, Map.of(), replicas);
   }
 
@@ -106,28 +108,28 @@ class PartitionMigrateTimeCostTest {
             .partition(10)
             .isLeader(true)
             .size(10000000)
-            .nodeInfo(NodeInfo.of(1, "", -1))
+            .broker(Broker.of(1, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(11)
             .isLeader(true)
             .size(20000000)
-            .nodeInfo(NodeInfo.of(2, "", -1))
+            .broker(Broker.of(2, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(true)
             .size(30000000)
-            .nodeInfo(NodeInfo.of(0, "", -1))
+            .broker(Broker.of(0, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(false)
             .size(30000000)
-            .nodeInfo(NodeInfo.of(0, "", -1))
+            .broker(Broker.of(1, "", -1))
             .build());
   }
 
@@ -138,28 +140,28 @@ class PartitionMigrateTimeCostTest {
             .partition(10)
             .isLeader(true)
             .size(10000000)
-            .nodeInfo(NodeInfo.of(0, "", -1))
+            .broker(Broker.of(0, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(11)
             .isLeader(true)
             .size(20000000)
-            .nodeInfo(NodeInfo.of(1, "", -1))
+            .broker(Broker.of(1, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(true)
             .size(30000000)
-            .nodeInfo(NodeInfo.of(2, "", -1))
+            .broker(Broker.of(2, "", -1))
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(false)
             .size(30000000)
-            .nodeInfo(NodeInfo.of(0, "", -1))
+            .broker(Broker.of(0, "", -1))
             .build());
   }
 

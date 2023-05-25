@@ -220,15 +220,12 @@ public abstract class BalancerConfigTestSuite {
                   .build());
       Assertions.assertTrue(plan.isPresent(), testName);
       var finalCluster = plan.get().proposal();
-      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.nodeInfo().id() == 0));
-      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.nodeInfo().id() == 1));
-      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.nodeInfo().id() == 2));
-      Assertions.assertTrue(
-          finalCluster.replicas().stream().noneMatch(x -> x.nodeInfo().id() == 0));
-      Assertions.assertTrue(
-          finalCluster.replicas().stream().noneMatch(x -> x.nodeInfo().id() == 1));
-      Assertions.assertTrue(
-          finalCluster.replicas().stream().noneMatch(x -> x.nodeInfo().id() == 2));
+      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.broker().id() == 0));
+      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.broker().id() == 1));
+      Assertions.assertTrue(cluster.replicas().stream().anyMatch(x -> x.broker().id() == 2));
+      Assertions.assertTrue(finalCluster.replicas().stream().noneMatch(x -> x.broker().id() == 0));
+      Assertions.assertTrue(finalCluster.replicas().stream().noneMatch(x -> x.broker().id() == 1));
+      Assertions.assertTrue(finalCluster.replicas().stream().noneMatch(x -> x.broker().id() == 2));
       AssertionsHelper.assertBrokerEmpty(
           finalCluster, (x) -> Set.of(0, 1, 2).contains(x), testName);
     }
@@ -293,16 +290,13 @@ public abstract class BalancerConfigTestSuite {
       var node123 = Stream.of(1, 2, 3).map(base::node).iterator();
       var testCluster =
           ClusterInfo.builder(base)
-              .addTopic("OK", 1, (short) 1, r -> Replica.builder(r).nodeInfo(base.node(1)).build())
+              .addTopic("OK", 1, (short) 1, r -> Replica.builder(r).broker(base.node(1)).build())
               .addTopic(
-                  "OK_SKIP", 2, (short) 1, r -> Replica.builder(r).nodeInfo(node12.next()).build())
+                  "OK_SKIP", 2, (short) 1, r -> Replica.builder(r).broker(node12.next()).build())
               .addTopic(
-                  "Replica", 1, (short) 2, r -> Replica.builder(r).nodeInfo(node13.next()).build())
+                  "Replica", 1, (short) 2, r -> Replica.builder(r).broker(node13.next()).build())
               .addTopic(
-                  "Partition",
-                  3,
-                  (short) 1,
-                  r -> Replica.builder(r).nodeInfo(node123.next()).build())
+                  "Partition", 3, (short) 1, r -> Replica.builder(r).broker(node123.next()).build())
               .build();
 
       Assertions.assertDoesNotThrow(
@@ -431,15 +425,15 @@ public abstract class BalancerConfigTestSuite {
       var testName = "[if replica on clear broker is adding/removing/future, raise an exception]";
       var adding =
           ClusterInfo.builder(cluster)
-              .mapLog(r -> r.nodeInfo().id() != 0 ? r : Replica.builder(r).isAdding(true).build())
+              .mapLog(r -> r.broker().id() != 0 ? r : Replica.builder(r).isAdding(true).build())
               .build();
       var removing =
           ClusterInfo.builder(cluster)
-              .mapLog(r -> r.nodeInfo().id() != 0 ? r : Replica.builder(r).isRemoving(true).build())
+              .mapLog(r -> r.broker().id() != 0 ? r : Replica.builder(r).isRemoving(true).build())
               .build();
       var future =
           ClusterInfo.builder(cluster)
-              .mapLog(r -> r.nodeInfo().id() != 0 ? r : Replica.builder(r).isFuture(true).build())
+              .mapLog(r -> r.broker().id() != 0 ? r : Replica.builder(r).isFuture(true).build())
               .build();
       for (var cc : List.of(adding, removing, future)) {
         Assertions.assertThrows(
@@ -579,7 +573,7 @@ public abstract class BalancerConfigTestSuite {
       source
           .replicaStream()
           // for those replicas that are not allowed to move
-          .filter(r -> !allowedBroker.test(r.nodeInfo().id()))
+          .filter(r -> !allowedBroker.test(r.broker().id()))
           // they should exist as-is in the target allocation
           .forEach(
               fixedReplica -> {
@@ -603,7 +597,7 @@ public abstract class BalancerConfigTestSuite {
       var violated =
           target
               .replicaStream()
-              .filter(i -> clearBroker.test(i.nodeInfo().id()))
+              .filter(i -> clearBroker.test(i.broker().id()))
               .collect(Collectors.toUnmodifiableSet());
       Assertions.assertTrue(
           violated.isEmpty(),

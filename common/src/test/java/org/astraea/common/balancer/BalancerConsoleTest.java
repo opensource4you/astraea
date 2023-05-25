@@ -286,7 +286,7 @@ class BalancerConsoleTest {
                         CompletableFuture.completedFuture(
                             ClusterInfo.of(
                                 cluster.clusterId(),
-                                cluster.nodes(),
+                                cluster.brokers(),
                                 cluster.topics(),
                                 cluster
                                     .replicaStream()

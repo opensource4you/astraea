@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
@@ -345,7 +346,7 @@ public class AdminTest {
               .toCompletableFuture()
               .join());
 
-      Assertions.assertInstanceOf(List.class, admin.nodeInfos().toCompletableFuture().join());
+      Assertions.assertInstanceOf(List.class, admin.brokers().toCompletableFuture().join());
 
       var brokers = admin.brokers().toCompletableFuture().join();
       Assertions.assertEquals(
@@ -358,7 +359,7 @@ public class AdminTest {
               .sorted(
                   Comparator.comparing(Replica::topic)
                       .thenComparing(Replica::partition)
-                      .thenComparing(r -> r.nodeInfo().id()))
+                      .thenComparing(r -> r.broker().id()))
               .collect(Collectors.toList()),
           replicas);
     }
@@ -378,10 +379,10 @@ public class AdminTest {
       var ids =
           List.of(
               SERVICE.dataFolders().keySet().stream()
-                  .filter(i -> i != partition.leader().get().id())
+                  .filter(i -> !Objects.equals(i, partition.leaderId().get()))
                   .findFirst()
                   .get(),
-              partition.leader().get().id());
+              partition.leaderId().get());
       admin.moveToBrokers(Map.of(TopicPartition.of(topic, 0), ids)).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
 
@@ -390,7 +391,7 @@ public class AdminTest {
       var newPartition = newPartitions.get(0);
       Assertions.assertEquals(ids.size(), newPartition.replicas().size());
       Assertions.assertEquals(ids.size(), newPartition.isr().size());
-      Assertions.assertNotEquals(ids.get(0), newPartition.leader().get().id());
+      Assertions.assertNotEquals(ids.get(0), newPartition.leaderId().get());
 
       admin
           .preferredLeaderElection(
@@ -400,7 +401,7 @@ public class AdminTest {
       Utils.sleep(Duration.ofSeconds(2));
       Assertions.assertEquals(
           ids.get(0),
-          admin.partitions(Set.of(topic)).toCompletableFuture().join().get(0).leader().get().id());
+          admin.partitions(Set.of(topic)).toCompletableFuture().join().get(0).leaderId().get());
     }
   }
 
@@ -416,7 +417,7 @@ public class AdminTest {
       var replica = replicas.get(0);
       var idAndFolder =
           SERVICE.dataFolders().entrySet().stream()
-              .filter(e -> e.getKey() == replica.nodeInfo().id())
+              .filter(e -> e.getKey() == replica.broker().id())
               .map(e -> Map.of(e.getKey(), e.getValue().iterator().next()))
               .findFirst()
               .get();
@@ -433,7 +434,7 @@ public class AdminTest {
       Assertions.assertEquals(1, newReplicas.size());
 
       var newReplica = newReplicas.get(0);
-      Assertions.assertEquals(idAndFolder.get(newReplica.nodeInfo().id()), newReplica.path());
+      Assertions.assertEquals(idAndFolder.get(newReplica.broker().id()), newReplica.path());
     }
   }
 
@@ -589,7 +590,7 @@ public class AdminTest {
                   r ->
                       Replica.builder(r)
                           .path(
-                              source.brokerFolders().get(r.nodeInfo().id()).stream()
+                              source.brokerFolders().get(r.broker().id()).stream()
                                   .filter(p -> !p.equals(r.path()))
                                   .findAny()
                                   .orElseThrow())
@@ -719,7 +720,7 @@ public class AdminTest {
               .replicaStream()
               .iterator()
               .next()
-              .nodeInfo()
+              .broker()
               .id();
       var paths = new ArrayList<>(SERVICE.dataFolders().get(id));
 
@@ -854,12 +855,12 @@ public class AdminTest {
       Assertions.assertTrue(config.raw().containsValue("lz4"));
       Assertions.assertEquals(
           List.of(0, 2),
-          partitions.get(0).replicas().stream().map(NodeInfo::id).collect(Collectors.toList()));
+          partitions.get(0).replicas().stream().map(Broker::id).collect(Collectors.toList()));
       Assertions.assertEquals(
           List.of(2, 1),
-          partitions.get(1).replicas().stream().map(NodeInfo::id).collect(Collectors.toList()));
-      Assertions.assertEquals(0, partitions.get(0).leader().get().id());
-      Assertions.assertEquals(2, partitions.get(1).leader().get().id());
+          partitions.get(1).replicas().stream().map(Broker::id).collect(Collectors.toList()));
+      Assertions.assertEquals(0, partitions.get(0).leaderId().get());
+      Assertions.assertEquals(2, partitions.get(1).leaderId().get());
     }
   }
 
@@ -999,7 +1000,7 @@ public class AdminTest {
               .forEach(
                   c -> {
                     Assertions.assertNotNull(c.groupId());
-                    Assertions.assertNotNull(c.coordinator());
+                    Assertions.assertNotNull(c.coordinatorId());
                     Assertions.assertNotNull(c.assignor());
                     Assertions.assertNotNull(c.state());
                   });
@@ -1047,7 +1048,7 @@ public class AdminTest {
             var partitionReplicas =
                 admin.clusterInfo(Set.of(topic)).toCompletableFuture().join().replicas();
             return partitionReplicas.size() == 1
-                && partitionReplicas.get(0).nodeInfo().id() == broker;
+                && partitionReplicas.get(0).broker().id() == broker;
           });
 
       var currentBroker =
@@ -1059,7 +1060,7 @@ public class AdminTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .nodeInfo()
+              .broker()
               .id();
       var allPath = admin.brokerFolders().toCompletableFuture().join();
       var otherPath =
@@ -1114,7 +1115,7 @@ public class AdminTest {
               .findFirst()
               .get();
 
-      var currentBroker = currentReplica.nodeInfo().id();
+      var currentBroker = currentReplica.broker().id();
       var notExistReplica = (currentBroker + 1) % SERVICE.dataFolders().keySet().size();
       var nextDir = SERVICE.dataFolders().get(notExistReplica).iterator().next();
 
@@ -1144,7 +1145,7 @@ public class AdminTest {
       Utils.waitFor(
           () -> {
             var replicas = admin.clusterInfo(Set.of(topic)).toCompletableFuture().join().replicas();
-            return replicas.stream().allMatch(r -> r.nodeInfo().id() == broker);
+            return replicas.stream().allMatch(r -> r.broker().id() == broker);
           });
     }
   }
@@ -1388,7 +1389,7 @@ public class AdminTest {
                           Collectors.groupingBy(
                               replica -> TopicPartition.of(replica.topic(), replica.partition()),
                               Collectors.mapping(
-                                  replica -> replica.nodeInfo().id(), Collectors.toList())));
+                                  replica -> replica.broker().id(), Collectors.toList())));
 
       IntStream.range(0, partitionCount)
           .forEach(p -> admin.moveToBrokers(Map.of(TopicPartition.of(topic, p), List.of(0, 1, 2))));

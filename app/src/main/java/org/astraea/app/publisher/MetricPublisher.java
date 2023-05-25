@@ -25,7 +25,7 @@ import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.StringMapField;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.collector.MetricFetcher;
 
@@ -50,17 +50,17 @@ public class MetricPublisher {
             .clientSupplier(
                 () ->
                     admin
-                        .nodeInfos()
+                        .brokers()
                         .thenApply(
-                            nodes ->
-                                nodes.stream()
+                            brokers ->
+                                brokers.stream()
                                     .collect(
                                         Collectors.toUnmodifiableMap(
-                                            NodeInfo::id,
-                                            node ->
+                                            Broker::id,
+                                            broker ->
                                                 JndiClient.of(
-                                                    node.host(),
-                                                    arguments.idToJmxPort().apply(node.id()))))))
+                                                    broker.host(),
+                                                    arguments.idToJmxPort().apply(broker.id()))))))
             .fetchBeanDelay(arguments.period)
             .fetchMetadataDelay(Duration.ofMinutes(5))
             .threads(3)

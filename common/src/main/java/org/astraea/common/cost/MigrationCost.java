@@ -23,8 +23,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
@@ -93,20 +93,20 @@ public class MigrationCost {
   public static Map<Integer, Long> brokerMigrationSecond(
       ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var brokerInRate =
-        before.nodes().stream()
+        before.brokers().stream()
             .collect(
                 Collectors.toMap(
-                    NodeInfo::id,
+                    Broker::id,
                     nodeInfo ->
                         brokerMaxRate(
                             nodeInfo.id(),
                             clusterBean,
                             PartitionMigrateTimeCost.MaxReplicationInRateBean.class)));
     var brokerOutRate =
-        before.nodes().stream()
+        before.brokers().stream()
             .collect(
                 Collectors.toMap(
-                    NodeInfo::id,
+                    Broker::id,
                     nodeInfo ->
                         brokerMaxRate(
                             nodeInfo.id(),
@@ -126,8 +126,8 @@ public class MigrationCost {
                     Map.Entry::getKey,
                     brokerSize ->
                         brokerSize.getValue() / brokerOutRate.get(brokerSize.getKey()).orElse(0)));
-    return Stream.concat(before.nodes().stream(), after.nodes().stream())
-        .map(NodeInfo::id)
+    return Stream.concat(before.brokers().stream(), after.brokers().stream())
+        .map(Broker::id)
         .distinct()
         .collect(
             Collectors.toMap(
@@ -185,20 +185,19 @@ public class MigrationCost {
                 })
             .collect(
                 Collectors.groupingBy(
-                    r -> r.nodeInfo().id(),
+                    r -> r.broker().id(),
                     Collectors.mapping(
                         Function.identity(), Collectors.summingLong(replicaFunction::apply))));
-
-    return Stream.concat(dest.nodes().stream(), source.nodes().stream())
-        .map(NodeInfo::id)
+    return Stream.concat(dest.brokers().stream(), source.brokers().stream())
+        .map(Broker::id)
         .distinct()
         .parallel()
         .collect(Collectors.toMap(Function.identity(), n -> cost.getOrDefault(n, 0L)));
   }
 
   private static Map<Integer, Long> changedReplicaNumber(ClusterInfo before, ClusterInfo after) {
-    return Stream.concat(before.nodes().stream(), after.nodes().stream())
-        .map(NodeInfo::id)
+    return Stream.concat(before.brokers().stream(), after.brokers().stream())
+        .map(Broker::id)
         .distinct()
         .parallel()
         .collect(

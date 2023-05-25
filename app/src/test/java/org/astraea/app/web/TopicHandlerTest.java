@@ -27,6 +27,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.TopicPartition;
@@ -69,7 +70,8 @@ public class TopicHandlerTest {
               Admin.of(SERVICE.bootstrapServers()),
               0,
               id -> SERVICE.jmxServiceURL().getPort(),
-              Duration.ofMillis(5))) {
+              Duration.ofMillis(5),
+              Configuration.EMPTY)) {
         Response<TopicHandler.Topics> response =
             HttpExecutor.builder()
                 .build()

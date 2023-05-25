@@ -22,8 +22,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
 
@@ -73,8 +73,8 @@ public class BrokerDiskSpaceCost implements HasMoveCost {
   static boolean brokerDiskUsageSizeOverflow(
       ClusterInfo before, ClusterInfo after, Map<Integer, DataSize> brokerMoveCostLimit) {
     for (var id :
-        Stream.concat(before.nodes().stream(), after.nodes().stream())
-            .map(NodeInfo::id)
+        Stream.concat(before.brokers().stream(), after.brokers().stream())
+            .map(Broker::id)
             .parallel()
             .collect(Collectors.toSet())) {
 

@@ -25,9 +25,9 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.FakeClusterInfo;
@@ -160,14 +160,14 @@ class ShuffleTweakerTest {
             0, Set.of("/a", "/b", "c"),
             1, Set.of("/a", "/b", "c"),
             2, Set.of("/a", "/b", "c"));
-    var nodeA = NodeInfo.of(0, "", -1);
-    var nodeB = NodeInfo.of(1, "", -1);
-    var nodeC = NodeInfo.of(2, "", -1);
+    var nodeA = Broker.of(0, "", -1);
+    var nodeB = Broker.of(1, "", -1);
+    var nodeC = Broker.of(2, "", -1);
     var base =
         Replica.builder()
             .topic("topic")
             .partition(0)
-            .nodeInfo(nodeA)
+            .broker(nodeA)
             .lag(0)
             .size(0)
             .isLeader(false)
@@ -185,8 +185,8 @@ class ShuffleTweakerTest {
                     .isLeader(true)
                     .isPreferredLeader(true)
                     .build(),
-                Replica.builder(base).topic("normal-topic").nodeInfo(nodeB).build(),
-                Replica.builder(base).topic("normal-topic").nodeInfo(nodeC).build(),
+                Replica.builder(base).topic("normal-topic").broker(nodeB).build(),
+                Replica.builder(base).topic("normal-topic").broker(nodeC).build(),
                 Replica.builder(base)
                     .topic("offline-single")
                     .isPreferredLeader(true)
@@ -195,10 +195,10 @@ class ShuffleTweakerTest {
                 Replica.builder(base)
                     .topic("no-leader")
                     .isPreferredLeader(true)
-                    .nodeInfo(nodeA)
+                    .broker(nodeA)
                     .build(),
-                Replica.builder(base).topic("no-leader").nodeInfo(nodeB).build(),
-                Replica.builder(base).topic("no-leader").nodeInfo(nodeC).build()));
+                Replica.builder(base).topic("no-leader").broker(nodeB).build(),
+                Replica.builder(base).topic("no-leader").broker(nodeC).build()));
     shuffleTweaker
         .generate(allocation)
         .limit(30)

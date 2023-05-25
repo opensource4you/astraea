@@ -256,7 +256,7 @@ class BalancerHandler implements Handler, AutoCloseable {
     final Optional<Long> size;
 
     Placement(Replica replica, Optional<Long> size) {
-      this.brokerId = replica.nodeInfo().id();
+      this.brokerId = replica.broker().id();
       this.directory = replica.path();
       this.size = size;
     }
