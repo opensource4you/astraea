@@ -117,7 +117,7 @@ curl -X POST http://localhost:8001/topics \
 1. 等待producer打完資料後，執行下面指令來針對進行負載平衡
 
 ```shell
-curl -X POST http://localhost:8001/topics \
+curl -X POST http://localhost:8001/balancer \
   -H "Content-Type: application/json" \
   -d '{
   	"timeout": "30s",
@@ -162,23 +162,26 @@ broker上資料量變化:
 1. 等待producer打完資料後，進行下面指令，這次不同的是會對其broker可用空間進行限制，將broker4限制搬移過程中最多只能佔用95GB，使用costConfig來對其做限制
 
 ```shell
-curl -X POST http://localhost:8001/topics \
+curl -X POST http://localhost:8001/balancer \
   -H "Content-Type: application/json" \
   -d '{
   	"timeout": "30s",
   	"balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
   	"balancerConfig": {
-  	  "shuffle.tweaker.min.step": "1",
-  	  "shuffle.tweaker.max.step": "10"
- 	 },
-  	"clusterCosts": [
-        {
-        	"cost": "org.astraea.common.cost.ReplicaLeaderCost",
-        	"weight": 1
-        }
+  	"shuffle.tweaker.min.step": "1",
+  	"shuffle.tweaker.max.step": "10"
+ 	},
+ 	  "moveCosts": [
+ 	  "org.astraea.common.cost.BrokerDiskSpaceCost"
+    ],
+    "clusterCosts": [
+      {
+        "cost": "org.astraea.common.cost.ReplicaLeaderCost",
+        "weight": 1
+      }
     ],
     "costConfig": {
-    	"max.broker.total.disk.space": "4:95GB"
+      "max.broker.total.disk.space": "4:95GB"
     }
 }'
 ```
@@ -205,7 +208,7 @@ broker上資料量變化:
 1. 等待producer打完資料後，進行下面指令，這次不同的是會對其broker可用空間進行限制，將broker4的/tmp/log-folder-1限制搬移過程中最多只能佔用35GB，使用costConfig來對其做限制
 
 ```shell
-curl -X POST http://localhost:8001/topics \
+curl -X POST http://localhost:8001/balancer \
   -H "Content-Type: application/json" \
   -d '{
   	"timeout": "30s",
@@ -214,14 +217,17 @@ curl -X POST http://localhost:8001/topics \
   	  "shuffle.tweaker.min.step": "1",
   	  "shuffle.tweaker.max.step": "10"
  	 },
+ 	   "moveCosts": [
+ 	   "org.astraea.common.cost.BrokerDiskSpaceCost"
+    ],
   	"clusterCosts": [
         {
-        	"cost": "org.astraea.common.cost.ReplicaLeaderCost",
-        	"weight": 1
+          "cost": "org.astraea.common.cost.ReplicaLeaderCost",
+          "weight": 1
         }
     ],
     "costConfig": {
-    	"max.broker.path.disk.space":"4-/tmp/log-folder-2:30GB"
+      "max.broker.path.disk.space":"4-/tmp/log-folder-2:30GB"
     }
 }'
 ```
