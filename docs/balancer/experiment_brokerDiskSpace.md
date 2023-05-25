@@ -165,25 +165,22 @@ broker上資料量變化:
 curl -X POST http://localhost:8001/balancer \
   -H "Content-Type: application/json" \
   -d '{
-  	"timeout": "30s",
-  	"balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
-  	"balancerConfig": {
-  	"shuffle.tweaker.min.step": "1",
-  	"shuffle.tweaker.max.step": "10"
- 	},
-    "moveCosts": [
- 	  "org.astraea.common.cost.BrokerDiskSpaceCost"
-      ],
-    "clusterCosts": [
-      {
-        "cost": "org.astraea.common.cost.ReplicaLeaderCost",
-        "weight": 1
-      }
-    ],
-    "costConfig": {
-      "max.broker.total.disk.space": "4:95GB"
-    }
-}'
+       "timeout":"30s",
+       "balancer":"org.astraea.common.balancer.algorithms.GreedyBalancer",
+       "balancerConfig":{
+          "shuffle.tweaker.min.step":"1",
+          "shuffle.tweaker.max.step":"10"
+       },
+       "moveCosts":[
+          "org.astraea.common.cost.BrokerDiskSpaceCost"
+       ],
+       "clusterCosts":[
+          {
+             "cost":"org.astraea.common.cost.ReplicaLeaderCost",
+             "weight":1
+          }
+       ]
+    }'
 ```
 
 
@@ -211,25 +208,25 @@ broker上資料量變化:
 curl -X POST http://localhost:8001/balancer \
   -H "Content-Type: application/json" \
   -d '{
-  	"timeout": "30s",
-  	"balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
-  	"balancerConfig": {
-  	  "shuffle.tweaker.min.step": "1",
-  	  "shuffle.tweaker.max.step": "10"
- 	 },
- 	   "moveCosts": [
- 	   "org.astraea.common.cost.BrokerDiskSpaceCost"
-    ],
-  	"clusterCosts": [
-        {
-          "cost": "org.astraea.common.cost.ReplicaLeaderCost",
-          "weight": 1
-        }
-    ],
-    "costConfig": {
-      "max.broker.path.disk.space":"4-/tmp/log-folder-2:30GB"
-    }
-}'
+       "timeout":"30s",
+       "balancer":"org.astraea.common.balancer.algorithms.GreedyBalancer",
+       "balancerConfig":{
+          "shuffle.tweaker.min.step":"1",
+          "shuffle.tweaker.max.step":"10"
+       },
+       "moveCosts":[
+          "org.astraea.common.cost.BrokerDiskSpaceCost"
+       ],
+       "clusterCosts":[
+          {
+             "cost":"org.astraea.common.cost.ReplicaLeaderCost",
+             "weight":1
+          }
+       ],
+       "costConfig":{
+          "max.broker.path.disk.space":"4-/tmp/log-folder-2:30GB"
+       }
+    }'
 ```
 
 
