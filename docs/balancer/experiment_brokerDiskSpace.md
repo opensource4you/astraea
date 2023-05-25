@@ -126,7 +126,7 @@ curl -X POST http://localhost:8001/balancer \
   	  "shuffle.tweaker.min.step": "1",
   	  "shuffle.tweaker.max.step": "10"
   	},
- 	"moveCosts": [
+  	"moveCosts": [
       "org.astraea.common.cost.BrokerDiskSpaceCost"
     ],
   	"clusterCosts": [
@@ -171,9 +171,9 @@ curl -X POST http://localhost:8001/balancer \
   	"shuffle.tweaker.min.step": "1",
   	"shuffle.tweaker.max.step": "10"
  	},
- 	  "moveCosts": [
+    "moveCosts": [
  	  "org.astraea.common.cost.BrokerDiskSpaceCost"
-    ],
+      ],
     "clusterCosts": [
       {
         "cost": "org.astraea.common.cost.ReplicaLeaderCost",
