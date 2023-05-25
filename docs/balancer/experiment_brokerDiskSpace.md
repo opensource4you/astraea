@@ -125,17 +125,17 @@ curl -X POST http://localhost:8001/topics \
   	"balancerConfig": {
   	  "shuffle.tweaker.min.step": "1",
   	  "shuffle.tweaker.max.step": "10"
- 	},
+  	},
  	"moveCosts": [
       "org.astraea.common.cost.BrokerDiskSpaceCost"
     ],
   	"clusterCosts": [
         {
-        	"cost": "org.astraea.common.cost.ReplicaLeaderCost",
-        	"weight": 1
+          "cost": "org.astraea.common.cost.ReplicaLeaderCost",
+          "weight": 1
         }
     ]
-}'
+  }'
 ```
 
 
