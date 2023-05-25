@@ -18,6 +18,7 @@ package org.astraea.connector.backup;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -171,9 +172,12 @@ public class Exporter extends SinkConnector {
     DataSize size;
     long interval;
 
+    // a map of <Topic, <Partition, Offset>>
     private final Map<String, Map<String, Long>> offsetForTP = new HashMap<>();
 
     private final Map<TopicPartition, Long> seekOffset = new HashMap<>();
+
+    private final List<TopicPartition> seekedTopicPartitions = new ArrayList<>();
 
     RecordWriter createRecordWriter(TopicPartition tp, long offset) {
       var fileName = String.valueOf(offset);
@@ -319,17 +323,16 @@ public class Exporter extends SinkConnector {
 
                     this.bufferSize.add(recordLength);
                   }));
-      if (this.seekOffset.size() != 0) {
-        this.seekOffset
-            .entrySet()
-            .iterator()
-            .forEachRemaining(
-                entry -> {
-                  this.taskContext.requestCommit();
-                  this.taskContext.offset(entry.getKey(), entry.getValue());
-                  this.seekOffset.remove(entry.getKey());
-                });
-      }
+      this.seekOffset
+          .entrySet()
+          .iterator()
+          .forEachRemaining(
+              entry -> {
+                this.taskContext.requestCommit();
+                this.taskContext.offset(entry.getKey(), entry.getValue());
+                this.seekedTopicPartitions.add(entry.getKey());
+                this.seekOffset.remove(entry.getKey());
+              });
     }
 
     protected boolean isValid(Record<byte[], byte[]> r) {
@@ -340,7 +343,12 @@ public class Exporter extends SinkConnector {
         // If the target offset exists and the record's offset is less than the target offset,
         // set the seek offset to the target offset and return false
         if (targetOffset != null && r.offset() < targetOffset) {
-          this.seekOffset.put(r.topicPartition(), targetOffset);
+          // the topicPartition is paused to be consuming if this topicPartition was already seeked
+          // before.
+          // this can prevent reset offset infinitely.
+          if (this.seekedTopicPartitions.contains(r.topicPartition()))
+            this.taskContext.pause(Collections.singleton(r.topicPartition()));
+          else this.seekOffset.put(r.topicPartition(), targetOffset);
           return false;
         } else {
           targetOffset = topicMap.get("all");
@@ -350,6 +358,8 @@ public class Exporter extends SinkConnector {
           }
         }
       }
+      // if the offset of the record is greater or equal to the seek offset for this topicPartition,
+      // the seek offset will be removed.
       var seekOffset = this.seekOffset.get(r.topicPartition());
       if (seekOffset != null && seekOffset <= r.offset())
         this.seekOffset.remove(r.topicPartition());
