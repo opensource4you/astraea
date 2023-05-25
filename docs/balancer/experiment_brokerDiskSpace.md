@@ -120,16 +120,16 @@ curl -X POST http://localhost:8001/topics \
 curl -X POST http://localhost:8001/balancer \
   -H "Content-Type: application/json" \
   -d '{
-  	"timeout": "30s",
-  	"balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
-  	"balancerConfig": {
-  	  "shuffle.tweaker.min.step": "1",
-  	  "shuffle.tweaker.max.step": "10"
-  	},
-  	"moveCosts": [
+    "timeout": "30s",
+    "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
+    "balancerConfig": {
+      "shuffle.tweaker.min.step": "1",
+      "shuffle.tweaker.max.step": "10"
+    },
+    "moveCosts": [
       "org.astraea.common.cost.BrokerDiskSpaceCost"
     ],
-  	"clusterCosts": [
+    "clusterCosts": [
         {
           "cost": "org.astraea.common.cost.ReplicaLeaderCost",
           "weight": 1
@@ -179,7 +179,10 @@ curl -X POST http://localhost:8001/balancer \
              "cost":"org.astraea.common.cost.ReplicaLeaderCost",
              "weight":1
           }
-       ]
+       ],
+       "costConfig":{
+          "max.broker.total.disk.space":"4:95GB"
+       }
     }'
 ```
 
