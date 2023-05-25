@@ -105,7 +105,7 @@ curl -X POST http://localhost:8001/topics \
 5. 接着要開始對叢集輸入資料，我們在 P1~P5 設備上執行下面的指令以啓動 [Astraea Performance Tool](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/performance_benchmark.md)
 
 ```shell
-./start_app.sh performance --bootstrap.servers 192.168.103.177:25655 --topics imbalance-topic --run.until 5m --producers 10 --consumers 0 --value.size 10KiB --configs acks=0
+./start_app.sh performance --bootstrap.servers 192.168.103.177:25655 --topics imbalance-topic --run.until 15m --producers 10 --consumers 0 --value.size 10KiB --configs acks=0
 ```
 
 
@@ -115,22 +115,25 @@ curl -X POST http://localhost:8001/topics \
 1. 等待producer打完資料後，執行下面指令來針對進行負載平衡
 
 ```shell
-curl -X POST http://localhost:8001/topics \
+curl -X POST http://localhost:8001/balancer \
   -H "Content-Type: application/json" \
   -d '{
-  	"timeout": "30s",
-  	"balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
-  	"balancerConfig": {
-  	  "shuffle.tweaker.min.step": "1",
-  	  "shuffle.tweaker.max.step": "10"
- 	 },
-  	"clusterCosts": [
-        {
-        	"cost": "org.astraea.common.cost.ReplicaLeaderCost",
-        	"weight": 1
-        }
+      "timeout": "60s",
+      "balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
+      "balancerConfig": {
+      "shuffle.tweaker.min.step": "1",
+      "shuffle.tweaker.max.step": "10"
+    },
+    "clusterCosts": [
+    {
+      "cost": "org.astraea.common.cost.ReplicaLeaderCost",
+      "weight": 1
+    }
+    ],
+      "moveCosts": [
+        "org.astraea.common.cost.PartitionMigrateTimeCost"
     ]
-}'
+  }'
 ```
 
 
@@ -139,42 +142,44 @@ curl -X POST http://localhost:8001/topics \
 
 | 次數             | 1    | 2    | 3    |
 | ---------------- | ---- | ---- | ---- |
-| 實際搬移時間(秒) | 443  | 411  | 437  |
+| 實際搬移時間(秒) | 570  | 494  | 523  |
 
 
 
 ### 針對搬移時間做限制
 
-1. 等待producer打完資料後，進行下面指令，這次對搬移時間來做限制在300秒，並確認實際搬移時間與限制的搬移時間誤差多少
+1. 等待producer打完資料後，進行下面指令，這次對搬移時間來做限制在400秒，並確認實際搬移時間與限制的搬移時間誤差多少
 
 ```shell
-curl -X POST http://localhost:8001/topics \
+curl -X POST http://localhost:8001/balancer \
   -H "Content-Type: application/json" \
   -d '{
-  	"timeout": "30s",
-  	"balancer": "org.astraea.common.balancer.algorithms.GreedyBalancer",
-  	"balancerConfig": {
-  	  "shuffle.tweaker.min.step": "1",
-  	  "shuffle.tweaker.max.step": "10"
- 	 },
-  	"clusterCosts": [
-        {
-        	"cost": "org.astraea.common.cost.ReplicaLeaderCost",
-        	"weight": 1
-        }
-    ],
-    "costConfig": {
-    	"max.migrated.time.limit": "300s"
-    }
-}'
+       "timeout":"30s",
+       "balancer":"org.astraea.common.balancer.algorithms.GreedyBalancer",
+       "balancerConfig":{
+          "shuffle.tweaker.min.step":"1",
+          "shuffle.tweaker.max.step":"10"
+       },
+       "moveCosts":[
+          "org.astraea.common.cost.BrokerDiskSpaceCost"
+       ],
+       "clusterCosts":[
+          {
+             "cost":"org.astraea.common.cost.ReplicaLeaderCost",
+             "weight":1
+          }
+       ],
+       "costConfig": {
+         "max.migrated.time.limit": "400s"
+       }
+    }'
 ```
 
 
 
-| 次數               | 1           | 2            | 3             | 4             | 5             |
-| ------------------ | ----------- | ------------ | ------------- | ------------- | ------------- |
-| 限制的搬移時間(秒) | 300         | 300          | 300           | 300           | 300           |
-| 實際搬移時間(秒)   | 345         | 345          | 315           | 285           | 330           |
-| 誤差               | 0.130434783 | 0.1304347826 | 0.04761904762 | 0.05263157895 | 0.09090909091 |
+| 次數               | 1             | 2             | 3             | 4             | 5              |
+| ------------------ | ------------- | ------------- | ------------- | ------------- | -------------- |
+| 預設的搬移時間(秒) | 400           | 399           | 399           | 398           | 338            |
+| 實際搬移時間(秒)   | 406           | 389           | 404           | 387           | 341            |
+| 誤差               | 0.01477832512 | 0.02570694087 | 0.01237623762 | 0.02842377261 | 0.008797653959 |
 
-### 
