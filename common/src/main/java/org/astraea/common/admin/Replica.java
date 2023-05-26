@@ -270,7 +270,7 @@ public record Replica(
           isPreferredLeader,
           lag,
           size,
-          Objects.requireNonNull(path),
+          path,
           isInternal);
     }
   }
