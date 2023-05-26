@@ -398,18 +398,18 @@ public final class ByteUtils {
    * and "char" in Protocol Buffers. Use "int" and "String" instead.
    */
   private static PrimitiveOuterClass.Primitive primitive(Object v) throws SerializationException {
-    if (v instanceof Integer integerV)
-      return PrimitiveOuterClass.Primitive.newBuilder().setInt(integerV).build();
-    else if (v instanceof Long longV)
-      return PrimitiveOuterClass.Primitive.newBuilder().setLong(longV).build();
-    else if (v instanceof Float floatV)
-      return PrimitiveOuterClass.Primitive.newBuilder().setFloat(floatV).build();
-    else if (v instanceof Double doubleV)
-      return PrimitiveOuterClass.Primitive.newBuilder().setDouble(doubleV).build();
-    else if (v instanceof Boolean booleanV)
-      return PrimitiveOuterClass.Primitive.newBuilder().setBoolean(booleanV).build();
-    else if (v instanceof String stringV)
-      return PrimitiveOuterClass.Primitive.newBuilder().setStr(stringV).build();
+    if (v instanceof Integer value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setInt(value).build();
+    else if (v instanceof Long value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setLong(value).build();
+    else if (v instanceof Float value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setFloat(value).build();
+    else if (v instanceof Double value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setDouble(value).build();
+    else if (v instanceof Boolean value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setBoolean(value).build();
+    else if (v instanceof String value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setStr(value).build();
     else
       throw new SerializationException(
           "Type "
