@@ -41,7 +41,7 @@ class BalancerConfigsTest {
     Assertions.assertEquals(
         List.of(),
         badFields,
-        "The class '%s' contains bad config key pattern, it should starts with 'balancer.'"
+        "The class '%s' contains bad config key pattern, it should start with 'balancer.'"
             .formatted(aClass));
   }
 
