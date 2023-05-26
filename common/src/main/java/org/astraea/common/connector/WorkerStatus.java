@@ -16,64 +16,22 @@
  */
 package org.astraea.common.connector;
 
-/** this is not a kind of json response from kafka. We compose it with worker hostname and port. */
-public class WorkerStatus {
-
-  private final String hostname;
-
-  private final int port;
-
-  private final String version;
-  private final String commit;
-
-  private final String kafkaClusterId;
-
-  private final long numberOfConnectors;
-
-  private final long numberOfTasks;
-
-  WorkerStatus(
-      String hostname,
-      int port,
-      String version,
-      String commit,
-      String kafkaClusterId,
-      long numberOfConnectors,
-      long numberOfTasks) {
-    this.hostname = hostname;
-    this.port = port;
-    this.version = version;
-    this.commit = commit;
-    this.kafkaClusterId = kafkaClusterId;
-    this.numberOfConnectors = numberOfConnectors;
-    this.numberOfTasks = numberOfTasks;
-  }
-
-  public String hostname() {
-    return hostname;
-  }
-
-  public int port() {
-    return port;
-  }
-
-  public String version() {
-    return version;
-  }
-
-  public String commit() {
-    return commit;
-  }
-
-  public String kafkaClusterId() {
-    return kafkaClusterId;
-  }
-
-  public long numberOfConnectors() {
-    return numberOfConnectors;
-  }
-
-  public long numberOfTasks() {
-    return numberOfTasks;
-  }
-}
+/**
+ * this is not a kind of json response from kafka. We compose it with worker hostname and port.
+ *
+ * @param hostname
+ * @param port
+ * @param version
+ * @param commit
+ * @param kafkaClusterId
+ * @param numberOfConnectors
+ * @param numberOfTasks
+ */
+public record WorkerStatus(
+    String hostname,
+    int port,
+    String version,
+    String commit,
+    String kafkaClusterId,
+    long numberOfConnectors,
+    long numberOfTasks) {}
