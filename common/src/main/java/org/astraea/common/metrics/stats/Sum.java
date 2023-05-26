@@ -16,7 +16,6 @@
  */
 package org.astraea.common.metrics.stats;
 
-import java.time.Duration;
 import java.util.concurrent.atomic.LongAdder;
 
 public interface Sum<T> extends Stat<T> {
@@ -32,22 +31,6 @@ public interface Sum<T> extends Stat<T> {
       @Override
       public Long measure() {
         return sum.sum();
-      }
-    };
-  }
-
-  static Sum<Long> longByTime(Duration window) {
-    return new Sum<>() {
-      private final WindowedValue<Long> windowedValue = new WindowedValue<>(window);
-
-      @Override
-      public void record(Long value) {
-        windowedValue.add(value);
-      }
-
-      @Override
-      public Long measure() {
-        return windowedValue.get().stream().mapToLong(l -> l).sum();
       }
     };
   }

@@ -16,8 +16,6 @@
  */
 package org.astraea.common.metrics.stats;
 
-import java.time.Duration;
-import org.astraea.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -28,30 +26,5 @@ public class SumTest {
     stat.record(1L);
     stat.record(2L);
     Assertions.assertEquals(3L, stat.measure());
-  }
-
-  @Test
-  void testLongByTime() {
-    var stat = Sum.longByTime(Duration.ofMillis(200));
-
-    stat.record(1L);
-    // 1L: just now
-    Assertions.assertEquals(1L, stat.measure());
-
-    Utils.sleep(Duration.ofMillis(100));
-
-    stat.record(2L);
-    // 1L: 10 milliseconds ago
-    // 2L: just now
-    Assertions.assertEquals(3L, stat.measure());
-
-    Utils.sleep(Duration.ofMillis(150));
-    // 1L: 25 milliseconds ago (outdated)
-    // 2L: 15 milliseconds ago
-    Assertions.assertEquals(2L, stat.measure());
-
-    Utils.sleep(Duration.ofMillis(100));
-    // 2L: 25 milliseconds ago (outdated)
-    Assertions.assertEquals(0L, stat.measure());
   }
 }

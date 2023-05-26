@@ -74,25 +74,4 @@ public class Avg {
       }
     };
   }
-
-  /** Compute the average of value recorded in the given time period. */
-  public static Stat<Double> byTime(Duration period) {
-    if (period.toMillis() <= 0) {
-      throw new IllegalArgumentException(
-          "Stat, Average by time, needs period longer than 1 millisecond.");
-    }
-    return new Stat<>() {
-      private final WindowedValue<Double> windowedValue = new WindowedValue<>(period);
-
-      @Override
-      public void record(Double value) {
-        windowedValue.add(value);
-      }
-
-      @Override
-      public Double measure() {
-        return windowedValue.get().stream().mapToDouble(d -> d).average().orElse(Double.NaN);
-      }
-    };
-  }
 }
