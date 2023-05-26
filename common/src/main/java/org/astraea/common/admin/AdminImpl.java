@@ -684,7 +684,7 @@ class AdminImpl implements Admin {
                                               Replica.builder()
                                                   .topic(topicName)
                                                   .partition(partitionId)
-                                                  .internal(internal)
+                                                  .isInternal(internal)
                                                   .isAdding(isAdding)
                                                   .isRemoving(isRemoving)
                                                   .broker(
