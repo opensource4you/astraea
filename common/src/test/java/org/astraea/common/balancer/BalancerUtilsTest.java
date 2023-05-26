@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.junit.jupiter.api.Assertions;
@@ -204,5 +205,25 @@ class BalancerUtilsTest {
         "Accept replicas broker demoted broker");
     Assertions.assertEquals(
         0, aCluster.replicas().stream().filter(r -> r.broker().id() == 4).count(), "Not allowed");
+  }
+
+  @Test
+  void testBalancerConfigCheck() {
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            BalancerUtils.balancerConfigCheck(
+                new Configuration(Map.ofEntries(Map.entry("balancer.unsupported.config", ""))),
+                Set.of("balancer.supported.config")));
+    Assertions.assertDoesNotThrow(
+        () ->
+            BalancerUtils.balancerConfigCheck(
+                new Configuration(Map.ofEntries(Map.entry("balancer.supported.config", ""))),
+                Set.of("balancer.supported.config")));
+    Assertions.assertDoesNotThrow(
+        () ->
+            BalancerUtils.balancerConfigCheck(
+                new Configuration(Map.ofEntries(Map.entry("not.balancer.config", ""))),
+                Set.of("balancer.supported.config")));
   }
 }

@@ -19,12 +19,14 @@ package org.astraea.common.balancer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
@@ -156,6 +158,20 @@ public final class BalancerUtils {
               return Replica.builder(replica).broker(broker).path(folder).build();
             })
         .build();
+  }
+
+  public static void balancerConfigCheck(Configuration configs, Set<String> supportedConfig) {
+    var unsupportedBalancerConfigs =
+        configs.raw().keySet().stream()
+            .filter(key -> key.startsWith("balancer."))
+            .filter(Predicate.not(supportedConfig::contains))
+            .collect(Collectors.toSet());
+    if (!unsupportedBalancerConfigs.isEmpty())
+      throw new IllegalArgumentException(
+          "Unsupported balancer configs: "
+              + unsupportedBalancerConfigs
+              + ", this implementation support "
+              + supportedConfig);
   }
 
   public enum BalancingModes implements EnumInfo {

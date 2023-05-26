@@ -45,6 +45,12 @@ public class SingleStepBalancer implements Balancer {
 
   @Override
   public Optional<Plan> offer(AlgorithmConfig config) {
+    BalancerUtils.balancerConfigCheck(
+        config.balancerConfig(),
+        Set.of(
+            BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX,
+            BalancerConfigs.BALANCER_BROKER_BALANCING_MODE));
+
     final var minStep =
         config
             .balancerConfig()
