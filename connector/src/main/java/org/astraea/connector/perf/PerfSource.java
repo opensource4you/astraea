@@ -166,7 +166,7 @@ public class PerfSource extends SourceConnector {
                 copy.put(SourceConnector.TOPICS_KEY, t);
                 return new Configuration(copy);
               })
-          .collect(Collectors.toUnmodifiableList());
+          .toList();
     return Utils.chunk(topics, maxTasks).stream()
         .map(
             tps -> {
@@ -174,7 +174,7 @@ public class PerfSource extends SourceConnector {
               copy.put(SourceConnector.TOPICS_KEY, String.join(",", tps));
               return new Configuration(copy);
             })
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   @Override
@@ -243,13 +243,11 @@ public class PerfSource extends SourceConnector {
           RecordGenerator.builder()
               .batchSize(batchSize)
               .keyTableSeed(keyTableSeed)
-              .keyRange(
-                  LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
+              .keyRange(LongStream.rangeClosed(0, 10000).boxed().toList())
               .keyDistribution(keyDistribution.create(10000, configuration))
               .keySizeDistribution(keySizeDistribution.create((int) KeySize.bytes(), configuration))
               .valueTableSeed(valueTableSeed)
-              .valueRange(
-                  LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList()))
+              .valueRange(LongStream.rangeClosed(0, 10000).boxed().toList())
               .valueDistribution(valueDistribution.create(10000, configuration))
               .valueSizeDistribution(
                   valueSizeDistribution.create((int) valueSize.bytes(), configuration))
