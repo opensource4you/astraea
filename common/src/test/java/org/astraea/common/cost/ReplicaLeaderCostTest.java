@@ -33,6 +33,8 @@ public class ReplicaLeaderCostTest {
 
   @Test
   void testLeaderCount() {
+
+    // test sum overflow
     var baseCluster =
         ClusterInfo.builder()
             .addNode(Set.of(1, 2))
@@ -63,9 +65,36 @@ public class ReplicaLeaderCostTest {
         new ReplicaLeaderCost(
                 new Configuration(Map.of(ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY, "10")))
             .moveCost(sourceCluster, overFlowTargetCluster, ClusterBean.EMPTY);
-
     Assertions.assertTrue(overFlowMoveCost.overflow());
     Assertions.assertFalse(noOverFlowMoveCost.overflow());
+
+    // test broker overflow
+    var brokerTargetCluster =
+        ClusterInfo.builder(baseCluster)
+            .addTopic(
+                "topic1", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(1)).build())
+            .addTopic(
+                "topic2", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(2)).build())
+            .build();
+
+    var brokerOverFlowTargetCluster =
+        ClusterInfo.builder(baseCluster)
+            .addTopic(
+                "topic1", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(1)).build())
+            .addTopic(
+                "topic2", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(1)).build())
+            .build();
+    var overFlowMoveCost2 =
+        new ReplicaLeaderCost(
+                new Configuration(Map.of(ReplicaLeaderCost.BROKER_COST_LIMIT_KEY, "1:5")))
+            .moveCost(sourceCluster, brokerOverFlowTargetCluster, ClusterBean.EMPTY);
+
+    var noOverFlowMoveCost2 =
+        new ReplicaLeaderCost(
+                new Configuration(Map.of(ReplicaLeaderCost.BROKER_COST_LIMIT_KEY, "1:3")))
+            .moveCost(sourceCluster, brokerTargetCluster, ClusterBean.EMPTY);
+    Assertions.assertTrue(overFlowMoveCost2.overflow());
+    Assertions.assertFalse(noOverFlowMoveCost2.overflow());
   }
 
   @Test
