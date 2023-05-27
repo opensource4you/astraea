@@ -24,6 +24,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
 import org.astraea.common.balancer.algorithms.SingleStepBalancer;
 import org.astraea.common.cost.ClusterCost;
+import org.astraea.common.metrics.ClusterBean;
 
 public interface Balancer {
 
@@ -32,41 +33,24 @@ public interface Balancer {
    */
   Optional<Plan> offer(AlgorithmConfig config);
 
-  class Plan {
-    private final ClusterInfo initialClusterInfo;
-    private final ClusterCost initialClusterCost;
-
-    private final ClusterInfo proposal;
-    private final ClusterCost proposalClusterCost;
-
-    public Plan(
-        ClusterInfo initialClusterInfo,
-        ClusterCost initialClusterCost,
-        ClusterInfo proposal,
-        ClusterCost proposalClusterCost) {
-      this.initialClusterInfo = initialClusterInfo;
-      this.initialClusterCost = initialClusterCost;
-      this.proposal = proposal;
-      this.proposalClusterCost = proposalClusterCost;
-    }
-
-    public ClusterInfo initialClusterInfo() {
-      return initialClusterInfo;
-    }
+  record Plan(
+      ClusterBean clusterBean,
+      ClusterInfo initialClusterInfo,
+      ClusterCost initialClusterCost,
+      ClusterInfo proposal,
+      ClusterCost proposalClusterCost) {
 
     /**
      * The {@link ClusterCost} score of the original {@link ClusterInfo} when this plan is start
      * generating.
      */
+    @Override
     public ClusterCost initialClusterCost() {
       return initialClusterCost;
     }
 
-    public ClusterInfo proposal() {
-      return proposal;
-    }
-
     /** The {@link ClusterCost} score of the proposed new allocation. */
+    @Override
     public ClusterCost proposalClusterCost() {
       return proposalClusterCost;
     }

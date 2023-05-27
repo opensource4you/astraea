@@ -209,6 +209,7 @@ public class GreedyBalancer implements Balancer {
                 .map(
                     newAllocation ->
                         new Plan(
+                            config.clusterBean(),
                             config.clusterInfo(),
                             initialCost,
                             newAllocation,
@@ -254,6 +255,7 @@ public class GreedyBalancer implements Balancer {
                   .overflow()) {
             return Optional.of(
                 new Plan(
+                    config.clusterBean(),
                     config.clusterInfo(),
                     config.clusterCostFunction().clusterCost(config.clusterInfo(), clusterBean),
                     currentClusterInfo,
