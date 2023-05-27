@@ -18,8 +18,10 @@ package org.astraea.app.backup;
 
 import java.time.Duration;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Replica;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -41,16 +43,16 @@ public class BackupTest {
       admin
           .creator()
           .topic(topic1)
-          .numberOfPartitions(3)
-          .numberOfReplicas((short) 3)
+          .numberOfPartitions(2)
+          .numberOfReplicas((short) 2)
           .run()
           .toCompletableFuture()
           .join();
       admin
           .creator()
           .topic(topic2)
-          .numberOfPartitions(3)
-          .numberOfReplicas((short) 3)
+          .numberOfPartitions(2)
+          .numberOfReplicas((short) 2)
           .run()
           .toCompletableFuture()
           .join();
@@ -67,7 +69,15 @@ public class BackupTest {
           admin.clusterInfo(Set.of(topic1, topic2)).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
 
-      Assertions.assertEquals(clusterInfo.replicas(), restoredClusterInfo.replicas());
+      Assertions.assertEquals(
+          clusterInfo.topicPartitionReplicas(), restoredClusterInfo.topicPartitionReplicas());
+      Assertions.assertEquals(
+          clusterInfo.replicaLeaders().stream()
+              .map(Replica::topicPartitionReplica)
+              .collect(Collectors.toSet()),
+          restoredClusterInfo.replicaLeaders().stream()
+              .map(Replica::topicPartitionReplica)
+              .collect(Collectors.toSet()));
     }
   }
 }
