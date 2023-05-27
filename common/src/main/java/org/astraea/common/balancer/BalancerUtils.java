@@ -19,12 +19,14 @@ package org.astraea.common.balancer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
@@ -61,25 +63,8 @@ public final class BalancerUtils {
         .collect(Collectors.toUnmodifiableMap(Function.identity(), mode));
   }
 
-  /**
-   * Verify there is no logic conflict between {@link BalancerConfigs#BALANCER_ALLOWED_TOPICS_REGEX}
-   * and {@link BalancerConfigs#BALANCER_BROKER_BALANCING_MODE}. It also performs other common
-   * validness checks to the cluster.
-   */
-  public static void verifyClearBrokerValidness(
-      ClusterInfo cluster, Predicate<Integer> isDemoted, Predicate<String> allowedTopics) {
-    var disallowedTopicsToClear =
-        cluster.topicPartitionReplicas().stream()
-            .filter(tpr -> isDemoted.test(tpr.brokerId()))
-            .filter(tpr -> !allowedTopics.test(tpr.topic()))
-            .collect(Collectors.toUnmodifiableSet());
-    if (!disallowedTopicsToClear.isEmpty())
-      throw new IllegalArgumentException(
-          "Attempts to clear some brokers, but some of them contain topics that forbidden from being changed due to \""
-              + BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX
-              + "\": "
-              + disallowedTopicsToClear);
-
+  /** Performs common validness checks to the cluster. */
+  public static void verifyClearBrokerValidness(ClusterInfo cluster, Predicate<Integer> isDemoted) {
     var ongoingEventReplica =
         cluster.replicas().stream()
             .filter(r -> isDemoted.test(r.broker().id()))
@@ -156,6 +141,20 @@ public final class BalancerUtils {
               return Replica.builder(replica).broker(broker).path(folder).build();
             })
         .build();
+  }
+
+  public static void balancerConfigCheck(Configuration configs, Set<String> supportedConfig) {
+    var unsupportedBalancerConfigs =
+        configs.raw().keySet().stream()
+            .filter(key -> key.startsWith("balancer."))
+            .filter(Predicate.not(supportedConfig::contains))
+            .collect(Collectors.toSet());
+    if (!unsupportedBalancerConfigs.isEmpty())
+      throw new IllegalArgumentException(
+          "Unsupported balancer configs: "
+              + unsupportedBalancerConfigs
+              + ", this implementation support "
+              + supportedConfig);
   }
 
   public enum BalancingModes implements EnumInfo {
