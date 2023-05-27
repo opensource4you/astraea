@@ -63,25 +63,8 @@ public final class BalancerUtils {
         .collect(Collectors.toUnmodifiableMap(Function.identity(), mode));
   }
 
-  /**
-   * Verify there is no logic conflict between {@link BalancerConfigs#BALANCER_ALLOWED_TOPICS_REGEX}
-   * and {@link BalancerConfigs#BALANCER_BROKER_BALANCING_MODE}. It also performs other common
-   * validness checks to the cluster.
-   */
-  public static void verifyClearBrokerValidness(
-      ClusterInfo cluster, Predicate<Integer> isDemoted, Predicate<String> allowedTopics) {
-    var disallowedTopicsToClear =
-        cluster.topicPartitionReplicas().stream()
-            .filter(tpr -> isDemoted.test(tpr.brokerId()))
-            .filter(tpr -> !allowedTopics.test(tpr.topic()))
-            .collect(Collectors.toUnmodifiableSet());
-    if (!disallowedTopicsToClear.isEmpty())
-      throw new IllegalArgumentException(
-          "Attempts to clear some brokers, but some of them contain topics that forbidden from being changed due to \""
-              + BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX
-              + "\": "
-              + disallowedTopicsToClear);
-
+  /** Performs common validness checks to the cluster. */
+  public static void verifyClearBrokerValidness(ClusterInfo cluster, Predicate<Integer> isDemoted) {
     var ongoingEventReplica =
         cluster.replicas().stream()
             .filter(r -> isDemoted.test(r.broker().id()))
