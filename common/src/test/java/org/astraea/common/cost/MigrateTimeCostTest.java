@@ -29,26 +29,20 @@ import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class PartitionMigrateTimeCostTest {
+class MigrateTimeCostTest {
 
   private static final BeanObject inBean0 =
-      new BeanObject(
-          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 1000.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 1000.0));
   private static final BeanObject outBean0 =
-      new BeanObject(
-          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 1500.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 1500.0));
   private static final BeanObject inBean1 =
-      new BeanObject(
-          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 2000.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 2000.0));
   private static final BeanObject outBean1 =
-      new BeanObject(
-          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 2500.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 2500.0));
   private static final BeanObject inBean2 =
-      new BeanObject(
-          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 3000.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 3000.0));
   private static final BeanObject outBean2 =
-      new BeanObject(
-          "domain", Map.of(), Map.of(PartitionMigrateTimeCost.STATISTICS_RATE_KEY, 3500.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 3500.0));
 
   @Test
   void testMigratedCost() {
@@ -85,12 +79,11 @@ class PartitionMigrateTimeCostTest {
   void testMostCost() {
     var before = of(before(), brokers());
     var after = of(after(), brokers());
-    var timeLimit =
-        new Configuration(Map.of(PartitionMigrateTimeCost.MAX_MIGRATE_TIME_KEY, "20000"));
+    var timeLimit = new Configuration(Map.of(MigrateTimeCost.MAX_MIGRATE_TIME_KEY, "20000"));
     var overFlowTimeLimit =
-        new Configuration(Map.of(PartitionMigrateTimeCost.MAX_MIGRATE_TIME_KEY, "19999"));
-    var cf = new PartitionMigrateTimeCost(timeLimit);
-    var overFlowCf = new PartitionMigrateTimeCost(overFlowTimeLimit);
+        new Configuration(Map.of(MigrateTimeCost.MAX_MIGRATE_TIME_KEY, "19999"));
+    var cf = new MigrateTimeCost(timeLimit);
+    var overFlowCf = new MigrateTimeCost(overFlowTimeLimit);
     var moveCost = cf.moveCost(before, after, clusterBean());
     var overflowCost = overFlowCf.moveCost(before, after, clusterBean());
     Assertions.assertFalse(moveCost.overflow());
@@ -170,15 +163,15 @@ class PartitionMigrateTimeCostTest {
         Map.of(
             0,
             List.of(
-                new PartitionMigrateTimeCost.MaxReplicationInRateBean(() -> inBean0),
-                new PartitionMigrateTimeCost.MaxReplicationOutRateBean(() -> outBean0)),
+                new MigrateTimeCost.MaxReplicationInRateBean(() -> inBean0),
+                new MigrateTimeCost.MaxReplicationOutRateBean(() -> outBean0)),
             1,
             List.of(
-                new PartitionMigrateTimeCost.MaxReplicationInRateBean(() -> inBean1),
-                new PartitionMigrateTimeCost.MaxReplicationOutRateBean(() -> outBean1)),
+                new MigrateTimeCost.MaxReplicationInRateBean(() -> inBean1),
+                new MigrateTimeCost.MaxReplicationOutRateBean(() -> outBean1)),
             2,
             List.of(
-                new PartitionMigrateTimeCost.MaxReplicationInRateBean(() -> inBean2),
-                new PartitionMigrateTimeCost.MaxReplicationOutRateBean(() -> outBean2))));
+                new MigrateTimeCost.MaxReplicationInRateBean(() -> inBean2),
+                new MigrateTimeCost.MaxReplicationOutRateBean(() -> outBean2))));
   }
 }

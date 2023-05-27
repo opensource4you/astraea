@@ -35,25 +35,25 @@ public class MigrationCost {
   public final String name;
   public final Map<Integer, Long> brokerCosts;
   public static final String TO_SYNC_BYTES = "record size to sync (bytes)";
-  public static final String TO_FETCHED_BYTES = "record size to fetched (bytes)";
+  public static final String TO_FETCH_BYTES = "record size to fetch (bytes)";
   public static final String REPLICA_LEADERS_TO_ADDED = "leader number to add";
   public static final String REPLICA_LEADERS_TO_REMOVE = "leader number to remove";
   public static final String CHANGED_REPLICAS = "changed replicas";
-  public static final String PARTITION_MIGRATED_TIME = "partition migrated time";
+  public static final String MIGRATION_ELAPSED_TIME = "migration elapsed time";
 
   public static List<MigrationCost> migrationCosts(
       ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var migrateInBytes = recordSizeToSync(before, after);
-    var migrateOutBytes = recordSizeToFetched(before, after);
+    var migrateOutBytes = recordSizeToFetch(before, after);
     var migrateReplicaNum = replicaNumChanged(before, after);
     var migrateInLeader = replicaLeaderToAdd(before, after);
     var migrateOutLeader = replicaLeaderToRemove(before, after);
     return List.of(
         new MigrationCost(TO_SYNC_BYTES, migrateInBytes),
-        new MigrationCost(TO_FETCHED_BYTES, migrateOutBytes),
+        new MigrationCost(TO_FETCH_BYTES, migrateOutBytes),
         new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum),
         new MigrationCost(
-            PARTITION_MIGRATED_TIME, brokerMigrationSecond(before, after, clusterBean)),
+            MIGRATION_ELAPSED_TIME, brokerMigrationSecond(before, after, clusterBean)),
         new MigrationCost(REPLICA_LEADERS_TO_ADDED, migrateInLeader),
         new MigrationCost(REPLICA_LEADERS_TO_REMOVE, migrateOutLeader),
         new MigrationCost(CHANGED_REPLICAS, migrateReplicaNum));
@@ -64,7 +64,7 @@ public class MigrationCost {
     this.brokerCosts = brokerCosts;
   }
 
-  static Map<Integer, Long> recordSizeToFetched(ClusterInfo before, ClusterInfo after) {
+  static Map<Integer, Long> recordSizeToFetch(ClusterInfo before, ClusterInfo after) {
     return migratedChanged(before, after, true, (ignore) -> true, Replica::size);
   }
 
@@ -101,7 +101,7 @@ public class MigrationCost {
                         brokerMaxRate(
                             nodeInfo.id(),
                             clusterBean,
-                            PartitionMigrateTimeCost.MaxReplicationInRateBean.class)));
+                            MigrateTimeCost.MaxReplicationInRateBean.class)));
     var brokerOutRate =
         before.brokers().stream()
             .collect(
@@ -111,7 +111,7 @@ public class MigrationCost {
                         brokerMaxRate(
                             nodeInfo.id(),
                             clusterBean,
-                            PartitionMigrateTimeCost.MaxReplicationOutRateBean.class)));
+                            MigrateTimeCost.MaxReplicationOutRateBean.class)));
     var brokerMigrateInSecond =
         MigrationCost.recordSizeToSync(before, after).entrySet().stream()
             .collect(
@@ -120,7 +120,7 @@ public class MigrationCost {
                     brokerSize ->
                         brokerSize.getValue() / brokerInRate.get(brokerSize.getKey()).orElse(0)));
     var brokerMigrateOutSecond =
-        MigrationCost.recordSizeToFetched(before, after).entrySet().stream()
+        MigrationCost.recordSizeToFetch(before, after).entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
