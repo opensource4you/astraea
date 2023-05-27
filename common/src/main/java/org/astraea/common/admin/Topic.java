@@ -19,56 +19,32 @@ package org.astraea.common.admin;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.kafka.common.TopicPartitionInfo;
 
-public interface Topic {
+/**
+ * @param name topic name
+ * @param config topic configs. it includes both default configs and override configs
+ * @param internal true if this topic is internal (system) topic
+ * @param partitionIds partition id related to this topic
+ */
+public record Topic(String name, Config config, boolean internal, Set<Integer> partitionIds) {
 
   static Topic of(
       String name,
       org.apache.kafka.clients.admin.TopicDescription topicDescription,
       Map<String, String> kafkaConfig) {
-
-    var config = new Config(kafkaConfig);
-    var topicPartitions =
+    return new Topic(
+        name,
+        new Config(kafkaConfig),
+        topicDescription.isInternal(),
         topicDescription.partitions().stream()
-            .map(p -> TopicPartition.of(name, p.partition()))
-            .collect(Collectors.toUnmodifiableSet());
-    return new Topic() {
-      @Override
-      public String name() {
-        return name;
-      }
-
-      @Override
-      public Config config() {
-        return config;
-      }
-
-      @Override
-      public boolean internal() {
-        return topicDescription.isInternal();
-      }
-
-      @Override
-      public Set<TopicPartition> topicPartitions() {
-        return topicPartitions;
-      }
-    };
+            .map(TopicPartitionInfo::partition)
+            .collect(Collectors.toUnmodifiableSet()));
   }
 
-  /**
-   * @return topic name
-   */
-  String name();
-
-  /**
-   * @return config used by this topic
-   */
-  Config config();
-
-  /**
-   * @return true if this topic is internal (system) topic
-   */
-  boolean internal();
-
-  Set<TopicPartition> topicPartitions();
+  public Set<TopicPartition> topicPartitions() {
+    return partitionIds.stream()
+        .map(id -> new TopicPartition(name, id))
+        .collect(Collectors.toUnmodifiableSet());
+  }
 }

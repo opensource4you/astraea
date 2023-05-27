@@ -48,15 +48,15 @@ import org.astraea.common.admin.TopicPartition;
 public class ShuffleTweaker {
 
   private final Supplier<Integer> numberOfShuffle;
-  private final Predicate<String> allowedTopics;
+  private final Predicate<Replica> allowedReplicas;
   private final Predicate<Integer> allowedBrokers;
 
   public ShuffleTweaker(
       Supplier<Integer> numberOfShuffle,
-      Predicate<String> allowedTopics,
+      Predicate<Replica> allowedReplicas,
       Predicate<Integer> allowedBrokers) {
     this.numberOfShuffle = numberOfShuffle;
-    this.allowedTopics = allowedTopics;
+    this.allowedReplicas = allowedReplicas;
     this.allowedBrokers = allowedBrokers;
   }
 
@@ -78,10 +78,10 @@ public class ShuffleTweaker {
 
     final var legalReplicas =
         baseAllocation.topicPartitions().stream()
-            .filter(tp -> this.allowedTopics.test(tp.topic()))
             .filter(tp -> eligiblePartition(baseAllocation.replicas(tp)))
             .flatMap(baseAllocation::replicaStream)
             .filter(r -> this.allowedBrokers.test(r.broker().id()))
+            .filter(this.allowedReplicas)
             .toList();
 
     return Stream.generate(
@@ -104,8 +104,10 @@ public class ShuffleTweaker {
                       replicaList.stream()
                           // leader pair follower, follower pair leader
                           .filter(r -> r.isFollower() != sourceReplica.isFollower())
-                          // this follower is located at allowed broker
+                          // this leader/follower is located at allowed broker
                           .filter(r -> this.allowedBrokers.test(r.broker().id()))
+                          // this leader/follower is allowed to tweak
+                          .filter(this.allowedReplicas)
                           .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
                           .min(Map.Entry.comparingByValue())
                           .map(Map.Entry::getKey);
@@ -244,7 +246,7 @@ public class ShuffleTweaker {
   public static class Builder {
 
     private Supplier<Integer> numberOfShuffle = () -> ThreadLocalRandom.current().nextInt(1, 5);
-    private Predicate<String> allowedTopics = (name) -> true;
+    private Predicate<Replica> allowedReplicas = (replica) -> true;
     private Predicate<Integer> allowedBrokers = (name) -> true;
 
     private Builder() {}
@@ -254,8 +256,8 @@ public class ShuffleTweaker {
       return this;
     }
 
-    public Builder allowedTopics(Predicate<String> allowedTopics) {
-      this.allowedTopics = allowedTopics;
+    public Builder allowedReplicas(Predicate<Replica> allowedReplicas) {
+      this.allowedReplicas = allowedReplicas;
       return this;
     }
 
@@ -265,7 +267,7 @@ public class ShuffleTweaker {
     }
 
     public ShuffleTweaker build() {
-      return new ShuffleTweaker(numberOfShuffle, allowedTopics, allowedBrokers);
+      return new ShuffleTweaker(numberOfShuffle, allowedReplicas, allowedBrokers);
     }
   }
 }

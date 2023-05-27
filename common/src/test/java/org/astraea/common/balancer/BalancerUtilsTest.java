@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.junit.jupiter.api.Assertions;
@@ -106,25 +107,6 @@ class BalancerUtilsTest {
             .addTopic("C", 1, (short) 1, r -> Replica.builder(r).broker(iter.next()).build())
             .build();
 
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 1, t -> !t.equals("A")));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 2, t -> !t.equals("B")));
-    Assertions.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 3, t -> !t.equals("C")));
-    Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 1, t -> t.equals("A")));
-    Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 2, t -> t.equals("B")));
-    Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(cluster, id -> id == 3, t -> t.equals("C")));
-
     var hasAdding =
         ClusterInfo.builder(cluster).mapLog(r -> Replica.builder(r).isAdding(true).build()).build();
     var hasRemoving =
@@ -135,19 +117,19 @@ class BalancerUtilsTest {
         ClusterInfo.builder(cluster).mapLog(r -> Replica.builder(r).isFuture(true).build()).build();
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> BalancerUtils.verifyClearBrokerValidness(hasAdding, x -> true, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasAdding, x -> true));
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> BalancerUtils.verifyClearBrokerValidness(hasRemoving, x -> true, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasRemoving, x -> true));
     Assertions.assertThrows(
         IllegalArgumentException.class,
-        () -> BalancerUtils.verifyClearBrokerValidness(hasFuture, x -> true, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasFuture, x -> true));
     Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(hasAdding, x -> false, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasAdding, x -> false));
     Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(hasRemoving, x -> false, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasRemoving, x -> false));
     Assertions.assertDoesNotThrow(
-        () -> BalancerUtils.verifyClearBrokerValidness(hasFuture, x -> false, x -> true));
+        () -> BalancerUtils.verifyClearBrokerValidness(hasFuture, x -> false));
   }
 
   @Test
@@ -204,5 +186,25 @@ class BalancerUtilsTest {
         "Accept replicas broker demoted broker");
     Assertions.assertEquals(
         0, aCluster.replicas().stream().filter(r -> r.broker().id() == 4).count(), "Not allowed");
+  }
+
+  @Test
+  void testBalancerConfigCheck() {
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            BalancerUtils.balancerConfigCheck(
+                new Configuration(Map.ofEntries(Map.entry("balancer.unsupported.config", ""))),
+                Set.of("balancer.supported.config")));
+    Assertions.assertDoesNotThrow(
+        () ->
+            BalancerUtils.balancerConfigCheck(
+                new Configuration(Map.ofEntries(Map.entry("balancer.supported.config", ""))),
+                Set.of("balancer.supported.config")));
+    Assertions.assertDoesNotThrow(
+        () ->
+            BalancerUtils.balancerConfigCheck(
+                new Configuration(Map.ofEntries(Map.entry("not.balancer.config", ""))),
+                Set.of("balancer.supported.config")));
   }
 }

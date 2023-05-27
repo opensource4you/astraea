@@ -148,8 +148,8 @@ public final class Utils {
   }
 
   public static void close(Object obj) {
-    if (obj instanceof AutoCloseable) {
-      packException(() -> ((AutoCloseable) obj).close());
+    if (obj instanceof AutoCloseable autoCloseableObj) {
+      packException(autoCloseableObj::close);
     }
   }
 

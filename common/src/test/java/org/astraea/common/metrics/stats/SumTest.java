@@ -14,24 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.common.metrics.stats;
 
-/**
- * this is not a kind of json response from kafka. We compose it with worker hostname and port.
- *
- * @param hostname
- * @param port
- * @param version
- * @param commit
- * @param kafkaClusterId
- * @param numberOfConnectors
- * @param numberOfTasks
- */
-public record WorkerStatus(
-    String hostname,
-    int port,
-    String version,
-    String commit,
-    String kafkaClusterId,
-    long numberOfConnectors,
-    long numberOfTasks) {}
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class SumTest {
+  @Test
+  void testLongOf() {
+    var stat = Sum.ofLong();
+    stat.record(1L);
+    stat.record(2L);
+    Assertions.assertEquals(3L, stat.measure());
+  }
+}

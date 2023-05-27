@@ -341,29 +341,11 @@ public final class ByteUtils {
           outerClusterInfo.getTopicList().stream()
               .map(
                   protoTopic ->
-                      new Topic() {
-                        @Override
-                        public String name() {
-                          return protoTopic.getName();
-                        }
-
-                        @Override
-                        public Config config() {
-                          return new Config(protoTopic.getConfigMap());
-                        }
-
-                        @Override
-                        public boolean internal() {
-                          return protoTopic.getInternal();
-                        }
-
-                        @Override
-                        public Set<TopicPartition> topicPartitions() {
-                          return protoTopic.getPartitionList().stream()
-                              .map(tp -> TopicPartition.of(protoTopic.getName(), tp))
-                              .collect(Collectors.toSet());
-                        }
-                      })
+                      new Topic(
+                          protoTopic.getName(),
+                          new Config(protoTopic.getConfigMap()),
+                          protoTopic.getInternal(),
+                          Set.copyOf(protoTopic.getPartitionList())))
               .collect(Collectors.toMap(Topic::name, Function.identity())),
           outerClusterInfo.getReplicaList().stream()
               .map(
@@ -398,18 +380,18 @@ public final class ByteUtils {
    * and "char" in Protocol Buffers. Use "int" and "String" instead.
    */
   private static PrimitiveOuterClass.Primitive primitive(Object v) throws SerializationException {
-    if (v instanceof Integer)
-      return PrimitiveOuterClass.Primitive.newBuilder().setInt((int) v).build();
-    else if (v instanceof Long)
-      return PrimitiveOuterClass.Primitive.newBuilder().setLong((long) v).build();
-    else if (v instanceof Float)
-      return PrimitiveOuterClass.Primitive.newBuilder().setFloat((float) v).build();
-    else if (v instanceof Double)
-      return PrimitiveOuterClass.Primitive.newBuilder().setDouble((double) v).build();
-    else if (v instanceof Boolean)
-      return PrimitiveOuterClass.Primitive.newBuilder().setBoolean((boolean) v).build();
-    else if (v instanceof String)
-      return PrimitiveOuterClass.Primitive.newBuilder().setStr(v.toString()).build();
+    if (v instanceof Integer value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setInt(value).build();
+    else if (v instanceof Long value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setLong(value).build();
+    else if (v instanceof Float value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setFloat(value).build();
+    else if (v instanceof Double value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setDouble(value).build();
+    else if (v instanceof Boolean value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setBoolean(value).build();
+    else if (v instanceof String value)
+      return PrimitiveOuterClass.Primitive.newBuilder().setStr(value).build();
     else
       throw new SerializationException(
           "Type "

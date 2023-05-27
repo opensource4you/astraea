@@ -18,22 +18,10 @@ package org.astraea.common.connector;
 
 import java.util.List;
 
-/** this is not a kind of json response from kafka. We compose it with definition. */
-public class PluginInfo {
-  private final String className;
-
-  private final List<Definition> definitions;
-
-  public PluginInfo(String className, List<Definition> definitions) {
-    this.className = className;
-    this.definitions = definitions;
-  }
-
-  public String className() {
-    return className;
-  }
-
-  public List<Definition> definitions() {
-    return definitions;
-  }
-}
+/**
+ * this is not a kind of json response from kafka. We compose it with definition.
+ *
+ * @param className
+ * @param definitions
+ */
+public record PluginInfo(String className, List<Definition> definitions) {}

@@ -24,6 +24,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
@@ -45,6 +46,12 @@ public class SingleStepBalancer implements Balancer {
 
   @Override
   public Optional<Plan> offer(AlgorithmConfig config) {
+    BalancerUtils.balancerConfigCheck(
+        config.balancerConfig(),
+        Set.of(
+            BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX,
+            BalancerConfigs.BALANCER_BROKER_BALANCING_MODE));
+
     final var minStep =
         config
             .balancerConfig()
@@ -85,15 +92,24 @@ public class SingleStepBalancer implements Balancer {
         id -> balancingMode.get(id) == BalancerUtils.BalancingModes.DEMOTED;
     final var hasDemoted =
         balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.DEMOTED);
-    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isDemoted, allowedTopics);
+    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isDemoted);
 
     final var currentClusterInfo =
         BalancerUtils.clearedCluster(config.clusterInfo(), isDemoted, isBalancing);
     final var clusterBean = config.clusterBean();
+    final var fixedReplicas =
+        config
+            .clusterInfo()
+            .replicaStream()
+            // if a topic is not allowed to move, it should be fixed.
+            // if a topic is not allowed to move, but originally it located on a demoting broker, it
+            // is ok to move.
+            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isDemoted.test(tpr.broker().id()))
+            .collect(Collectors.toUnmodifiableSet());
     final var allocationTweaker =
         ShuffleTweaker.builder()
             .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(minStep, maxStep))
-            .allowedTopics(allowedTopics)
+            .allowedReplicas(r -> !fixedReplicas.contains(r))
             .allowedBrokers(isBalancing)
             .build();
     final var moveCostFunction = config.moveCostFunction();
