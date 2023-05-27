@@ -214,6 +214,60 @@ class ShuffleTweakerTest {
   }
 
   @Test
+  void testReplicaFactorSafety() {
+    var testCluster =
+        ClusterInfo.builder()
+            .addNode(Set.of(1, 2, 3, 4, 5, 6))
+            .addFolders(Map.of(1, Set.of("/folder1", "/folder2", "/folder3")))
+            .addFolders(Map.of(2, Set.of("/folder1", "/folder2", "/folder3")))
+            .addFolders(Map.of(3, Set.of("/folder1", "/folder2", "/folder3")))
+            .addFolders(Map.of(4, Set.of("/folder1", "/folder2", "/folder3")))
+            .addFolders(Map.of(5, Set.of("/folder1", "/folder2", "/folder3")))
+            .addFolders(Map.of(6, Set.of("/folder1", "/folder2", "/folder3")))
+            .addTopic("topic2", 100, (short) 2)
+            .addTopic("topic3", 100, (short) 3)
+            .addTopic("topic4", 100, (short) 4)
+            .build();
+
+    var tweaker = ShuffleTweaker.builder().numberOfShuffle(() -> 50).build();
+
+    tweaker
+        .generate(testCluster)
+        .map(x -> tweaker.generate(x).findFirst().orElseThrow())
+        .map(x -> tweaker.generate(x).findFirst().orElseThrow())
+        .map(x -> tweaker.generate(x).findFirst().orElseThrow())
+        .map(x -> tweaker.generate(x).findFirst().orElseThrow())
+        .limit(1000)
+        .forEach(
+            cluster -> {
+              for (var partition : cluster.topicPartitions()) {
+                var replicaSet =
+                    cluster.replicas(partition).stream()
+                        .map(Replica::topicPartitionReplica)
+                        .collect(Collectors.toUnmodifiableSet());
+                switch (partition.topic()) {
+                  case "topic2" -> Assertions.assertEquals(
+                      2, replicaSet.size(), replicaSet.toString());
+                  case "topic3" -> Assertions.assertEquals(
+                      3, replicaSet.size(), replicaSet.toString());
+                  case "topic4" -> Assertions.assertEquals(
+                      4, replicaSet.size(), replicaSet.toString());
+                }
+
+                var replicas = cluster.replicas(partition).stream().toList();
+                Assertions.assertEquals(
+                    1,
+                    replicas.stream().filter(Replica::isLeader).count(),
+                    "One leader only: " + replicas);
+                Assertions.assertEquals(
+                    1,
+                    replicas.stream().filter(Replica::isPreferredLeader).count(),
+                    "One preferred leader only: " + replicas);
+              }
+            });
+  }
+
+  @Test
   void testAllowedBrokers() {
     var notAllowed = ThreadLocalRandom.current().nextInt(1, 4);
     var tweaker = ShuffleTweaker.builder().allowedBrokers(b -> b != notAllowed).build();
