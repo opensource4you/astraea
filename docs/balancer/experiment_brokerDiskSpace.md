@@ -7,8 +7,6 @@
 
 * 我們透過專案內的 [WebAPI](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/web_server/web_api_topics_chinese.md#%E5%BB%BA%E7%AB%8B-topic) 工具來對測試叢集產生一個負載不平衡的情境
 
-
-
 * 本實驗報告會在搬移的過程中對磁碟空間做限制，並且對比有做磁碟空間限制與不做磁碟空間限制的差異
 
 
