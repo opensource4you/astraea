@@ -1,4 +1,4 @@
-# Astraea Balancer 測試 (Data Skew 情境) #3
+# Astraea Balancer 測試 #3 (Data Skew 情境)
 
 這個實驗是基於 [Backbone Imbalance Scenario](https://github.com/skiptests/astraea/issues/1424) 叢集情境測試，
 這個情境模擬叢集中存在一個非常高流量的骨幹 ，且該 Topic 有特定的 Record Key 有較高的出現頻率
@@ -25,26 +25,28 @@
                                                                         ┌──────────────────┐
                                [10 Gbits Switch]                        │                  │
    ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬──┴──┬─────┐         │
-   B1    B2    B3    B4    B5    B6    Ctl   P1    C1    PC2   PC3   PC4   PC5   PC6    Balancer
+   B1    B2    B3    B4    B5    B6    Ctl   Ps    Ps    Cs    PC1   PC2   PC3   PC4    Balancer
 ```
 
 每個機器負責執行的軟體：
 
-* B1: Kafka Broker, Node Exporter
-* B2: Kafka Broker, Node Exporter
-* B3: Kafka Broker, Node Exporter
-* B4: Kafka Broker, Node Exporter
-* B5: Kafka Broker, Node Exporter
-* B6: Kafka Broker, Node Exporter
-* Ctl: Kafka KRaft Controller, Prometheus, Node Exporter
-* P1: Performance Tool(Producer, Skew Data Source), Node Exporter
-* C1: Performance Tool(Consumer, Skew Data Source), Node Exporter
-* PC2: Performance Tool(Producer & Consumer), Node Exporter
-* PC3: Performance Tool(Producer & Consumer), Node Exporter
-* PC4: Performance Tool(Producer & Consumer), Node Exporter
-* PC5: Performance Tool(Producer & Consumer), Node Exporter
-* PC6: Performance Tool(Producer & Consumer), Node Exporter
-* Balancer: 執行 Astraea Balancer 的機器
+| Server   | Software                                                     |
+|----------|--------------------------------------------------------------|
+| B1       | Kafka Broker, Node Exporter                                  |
+| B2       | Kafka Broker, Node Exporter                                  |
+| B3       | Kafka Broker, Node Exporter                                  |
+| B4       | Kafka Broker, Node Exporter                                  |
+| B5       | Kafka Broker, Node Exporter                                  |
+| B6       | Kafka Broker, Node Exporter                                  |
+| Ctl      | Kafka KRaft Controller, Prometheus, Node Exporter            |
+| Ps       | Performance Tool(Producer1, Skew Data Source), Node Exporter |
+| Ps       | Performance Tool(Producer2, Skew Data Source), Node Exporter |
+| Cs       | Performance Tool(Consumer, Skew Data Source), Node Exporter  |
+| PC1      | Performance Tool(Producer & Consumer), Node Exporter         |
+| PC2      | Performance Tool(Producer & Consumer), Node Exporter         |
+| PC3      | Performance Tool(Producer & Consumer), Node Exporter         |
+| PC4      | Performance Tool(Producer & Consumer), Node Exporter         |
+| Balancer | 執行 Astraea Balancer 的機器                                      |
 
 下表為 B1, B2, B3, B4, B5, B6 的硬體規格：
 
@@ -157,7 +159,8 @@ curl -X POST --location "http://localhost:8001/balancer" \
           "clusterCosts": [
             { "cost": "org.astraea.common.cost.NetworkIngressCost", "weight": 1 },
             { "cost": "org.astraea.common.cost.NetworkEgressCost", "weight": 1 }
-          ]
+          ],
+          "moveCosts": []
     }'
 ```
 
