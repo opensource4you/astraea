@@ -345,10 +345,7 @@ public final class ByteUtils {
         .setName(topic.name())
         .putAllConfig(topic.config().raw())
         .setInternal(topic.internal())
-        .addAllPartition(
-            topic.topicPartitions().stream()
-                .map(TopicPartition::partition)
-                .collect(Collectors.toList()))
+        .addAllPartitionIds(topic.partitionIds())
         .build();
   }
 
@@ -359,7 +356,7 @@ public final class ByteUtils {
         .setBroker(toOuterClass(replica.broker()))
         .setLag(replica.lag())
         .setSize(replica.size())
-        .setInternal(replica.internal())
+        .setIsInternal(replica.isInternal())
         .setIsLeader(replica.isLeader())
         .setIsAdding(replica.isAdding())
         .setIsRemoving(replica.isRemoving())
@@ -374,48 +371,43 @@ public final class ByteUtils {
   // -------------------------Deserialize From ProtoBuf Outer Class----------------------------- //
 
   private static Broker.DataFolder toDataFolder(BrokerOuterClass.Broker.DataFolder dataFolder) {
-    var path = dataFolder.getPath();
-    var partitionSizes =
+    return new Broker.DataFolder(
+        dataFolder.getPath(),
         dataFolder.getPartitionSizesMap().entrySet().stream()
             .collect(
-                Collectors.toMap(entry -> TopicPartition.of(entry.getKey()), Map.Entry::getValue));
-    var orphanPartitionSizes =
+                Collectors.toMap(entry -> TopicPartition.of(entry.getKey()), Map.Entry::getValue)),
         dataFolder.getOrphanPartitionSizesMap().entrySet().stream()
             .collect(
-                Collectors.toMap(entry -> TopicPartition.of(entry.getKey()), Map.Entry::getValue));
-    return new Broker.DataFolder(path, partitionSizes, orphanPartitionSizes);
+                Collectors.toMap(entry -> TopicPartition.of(entry.getKey()), Map.Entry::getValue)));
   }
 
   private static TopicPartition toTopicPartition(
       TopicPartitionOuterClass.TopicPartition topicPartition) {
-    return TopicPartition.of(topicPartition.getTopic(), topicPartition.getPartition());
+    return new TopicPartition(topicPartition.getTopic(), topicPartition.getPartition());
   }
 
   private static Broker toBroker(BrokerOuterClass.Broker broker) {
-    var host = broker.getHost();
-    var port = broker.getPort();
-    var id = broker.getId();
-    var isController = broker.getIsController();
-    var config = new Config(broker.getConfigMap());
-    var dataFolders = broker.getDataFolderList().stream().map(ByteUtils::toDataFolder).toList();
-    var topicPartitions =
+    return new Broker(
+        broker.getId(),
+        broker.getHost(),
+        broker.getPort(),
+        broker.getIsController(),
+        new Config(broker.getConfigMap()),
+        broker.getDataFolderList().stream().map(ByteUtils::toDataFolder).toList(),
         broker.getTopicPartitionsList().stream()
             .map(ByteUtils::toTopicPartition)
-            .collect(Collectors.toSet());
-    var topicPartitionLeaders =
+            .collect(Collectors.toSet()),
         broker.getTopicPartitionLeadersList().stream()
             .map(ByteUtils::toTopicPartition)
-            .collect(Collectors.toSet());
-    return new Broker(
-        id, host, port, isController, config, dataFolders, topicPartitions, topicPartitionLeaders);
+            .collect(Collectors.toSet()));
   }
 
   private static Topic toTopic(TopicOuterClass.Topic topic) {
     return new Topic(
-            topic.getName(),
-            new Config(topic.getConfigMap()),
-            topic.getInternal(),
-            Set.copyOf(topic.getPartitionList()));
+        topic.getName(),
+        new Config(topic.getConfigMap()),
+        topic.getInternal(),
+        Set.copyOf(topic.getPartitionIdsList()));
   }
 
   private static Replica toReplica(ReplicaOuterClass.Replica replica) {
@@ -425,7 +417,7 @@ public final class ByteUtils {
         .broker(toBroker(replica.getBroker()))
         .lag(replica.getLag())
         .size(replica.getSize())
-        .internal(replica.getInternal())
+        .isInternal(replica.getIsInternal())
         .isLeader(replica.getIsLeader())
         .isAdding(replica.getIsAdding())
         .isRemoving(replica.getIsRemoving())
