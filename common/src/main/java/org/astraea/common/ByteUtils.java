@@ -458,23 +458,15 @@ public final class ByteUtils {
   /** Retrieve field from "one of" field. */
   private static Object toObject(PrimitiveOuterClass.Primitive v) {
     var oneOfCase = v.getValueCase();
-    switch (oneOfCase) {
-      case INT:
-        return v.getInt();
-      case LONG:
-        return v.getLong();
-      case FLOAT:
-        return v.getFloat();
-      case DOUBLE:
-        return v.getDouble();
-      case BOOLEAN:
-        return v.getBoolean();
-      case STR:
-        return v.getStr();
-      case VALUE_NOT_SET:
-      default:
-        throw new IllegalArgumentException("The value is not set.");
-    }
+    return switch (oneOfCase) {
+      case INT -> v.getInt();
+      case LONG -> v.getLong();
+      case FLOAT -> v.getFloat();
+      case DOUBLE -> v.getDouble();
+      case BOOLEAN -> v.getBoolean();
+      case STR -> v.getStr();
+      default -> throw new IllegalArgumentException("The value is not set.");
+    };
   }
 
   // ------------------------------------ByteBuffer--------------------------------------------- //

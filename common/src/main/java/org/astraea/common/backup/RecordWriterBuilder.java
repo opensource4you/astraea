@@ -135,13 +135,11 @@ public class RecordWriterBuilder {
   public RecordWriter build() {
     return Utils.packException(
         () -> {
-          switch (version) {
-            case 0:
-              fs.write(ByteUtils.toBytes(version));
-              return V0.apply(fs);
-            default:
-              throw new IllegalArgumentException("unsupported version: " + version);
+          if (version == 0) {
+            fs.write(ByteUtils.toBytes(version));
+            return V0.apply(fs);
           }
+          throw new IllegalArgumentException("unsupported version: " + version);
         });
   }
 }

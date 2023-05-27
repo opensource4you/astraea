@@ -181,20 +181,14 @@ interface Channel {
         };
 
     Function<String, Type> parseType =
-        name -> {
-          switch (name.toUpperCase(Locale.ROOT)) {
-            case "GET":
-              return Type.GET;
-            case "POST":
-              return Type.POST;
-            case "DELETE":
-              return Type.DELETE;
-            case "PUT":
-              return Type.PUT;
-            default:
-              return Type.UNKNOWN;
-          }
-        };
+        name ->
+            switch (name.toUpperCase(Locale.ROOT)) {
+              case "GET" -> Type.GET;
+              case "POST" -> Type.POST;
+              case "DELETE" -> Type.DELETE;
+              case "PUT" -> Type.PUT;
+              default -> Type.UNKNOWN;
+            };
 
     // TODO: there is a temporary needed for reading the network stream twice
     //  remove this hack in future
