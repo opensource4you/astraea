@@ -16,39 +16,15 @@
  */
 package org.astraea.common.metrics.stats;
 
-import java.time.Duration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class AvgTest {
+public class SumTest {
   @Test
-  void testAvg() {
-    var stat = Avg.of();
-    stat.record(2.0);
-    stat.record(7.0);
-    stat.record(6.0);
-
-    Assertions.assertEquals(5.0, stat.measure());
-  }
-
-  @Test
-  void testNan() {
-    var stat = Avg.of();
-    Assertions.assertEquals(Double.NaN, stat.measure());
-  }
-
-  @Test
-  void testExpWeightByTime() throws InterruptedException {
-    var rateByTime = Avg.expWeightByTime(Duration.ofSeconds(1), 0.5);
-    rateByTime.record(10.0);
-    rateByTime.record(10.0);
-    Thread.sleep(1000);
-    rateByTime.record(50.0);
-
-    Assertions.assertEquals(10 * 0.5 * 0.5 + 50 * 0.5, rateByTime.measure());
-
-    rateByTime.record(50.0);
-
-    Assertions.assertEquals(10 * 0.5 * 0.5 + 50 * 0.5, rateByTime.measure());
+  void testLongOf() {
+    var stat = Sum.ofLong();
+    stat.record(1L);
+    stat.record(2L);
+    Assertions.assertEquals(3L, stat.measure());
   }
 }
