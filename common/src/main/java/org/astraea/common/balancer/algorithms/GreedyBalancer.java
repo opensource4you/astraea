@@ -158,23 +158,23 @@ public class GreedyBalancer implements Balancer {
                 .orElse(""));
     final Predicate<Integer> isBalancing =
         id -> balancingMode.get(id) == BalancerUtils.BalancingModes.BALANCING;
-    final Predicate<Integer> isDemoted =
-        id -> balancingMode.get(id) == BalancerUtils.BalancingModes.DEMOTED;
-    final var hasDemoted =
-        balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.DEMOTED);
-    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isDemoted);
+    final Predicate<Integer> isClean =
+        id -> balancingMode.get(id) == BalancerUtils.BalancingModes.CLEAN;
+    final var hasClean =
+        balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.CLEAN);
+    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isClean);
 
     final var currentClusterInfo =
-        BalancerUtils.clearedCluster(config.clusterInfo(), isDemoted, isBalancing);
+        BalancerUtils.clearedCluster(config.clusterInfo(), isClean, isBalancing);
     final var clusterBean = config.clusterBean();
     final var fixedReplicas =
         config
             .clusterInfo()
             .replicaStream()
             // if a topic is not allowed to move, it should be fixed.
-            // if a topic is not allowed to move, but originally it located on a demoting broker, it
+            // if a topic is not allowed to move, but originally it located on a cleaning broker, it
             // is ok to move.
-            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isDemoted.test(tpr.broker().id()))
+            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isClean.test(tpr.broker().id()))
             .collect(Collectors.toUnmodifiableSet());
     final var allocationTweaker =
         ShuffleTweaker.builder()
@@ -186,7 +186,7 @@ public class GreedyBalancer implements Balancer {
     final Function<ClusterInfo, ClusterCost> evaluateCost =
         (cluster) -> {
           final var filteredCluster =
-              hasDemoted ? ClusterInfo.builder(cluster).removeNodes(isDemoted).build() : cluster;
+              hasClean ? ClusterInfo.builder(cluster).removeNodes(isClean).build() : cluster;
           return config.clusterCostFunction().clusterCost(filteredCluster, clusterBean);
         };
     final var initialCost = evaluateCost.apply(currentClusterInfo);
@@ -243,11 +243,11 @@ public class GreedyBalancer implements Balancer {
     }
     return currentSolution.or(
         () -> {
-          // With demotion, the implementation detail start search from a demoted state. It is
+          // With cleaning, the implementation detail start search from a cleared state. It is
           // possible
           // that the start state is already the ideal answer. In this case, it is directly
           // returned.
-          if (hasDemoted
+          if (hasClean
               && initialCost.value() == 0.0
               && !moveCostFunction
                   .moveCost(config.clusterInfo(), currentClusterInfo, clusterBean)
