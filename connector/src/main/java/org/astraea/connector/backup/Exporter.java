@@ -122,6 +122,16 @@ public class Exporter extends SinkConnector {
               "a value that represents the capacity of a blocking queue from which the writer can take records.")
           .defaultValue(BUFFER_SIZE_DEFAULT.toString())
           .build();
+
+  static Definition FROM_OFFSET_REGEX_KEY =
+      Definition.builder()
+          .name(".*offset.from")
+          .type(Definition.Type.STRING)
+          .documentation(
+              "a value that specifies the starting offset value for the "
+                  + "backups of a particular topic or topic partition. it can be used in 2 ways: "
+                  + "'<topic>.offset.from' or '<topic>.<partition>.offset.from'.")
+          .build();
   private Configuration configs;
 
   @Override
@@ -173,7 +183,9 @@ public class Exporter extends SinkConnector {
     long interval;
 
     // a map of <Topic, <Partition, Offset>>
-    private final Map<String, Map<String, Long>> offsetForTP = new HashMap<>();
+    private final Map<String, Map<String, Long>> offsetForTopicPartition = new HashMap<>();
+
+    private final Map<String, Long> offsetForTopic = new HashMap<>();
 
     private final Map<TopicPartition, Long> seekOffset = new HashMap<>();
 
@@ -284,15 +296,20 @@ public class Exporter extends SinkConnector {
               .orElse(BUFFER_SIZE_DEFAULT)
               .bytes();
 
+      // fetches key-value pairs from the configuration's variable matching the regular expression
+      // '.*offset.from', updates the values of 'offsetForTopic' or 'offsetForTopicPartition' based
+      // on the
+      // key's prefix.
       configuration
-          .requireRegex(".*offset.from")
+          .requireRegex(FROM_OFFSET_REGEX_KEY.name())
           .forEach(
               (k, v) -> {
                 var splitKey = k.split("\\.");
                 if (splitKey.length == 3) {
-                  this.offsetForTP.put(splitKey[0], Map.of("all", Long.valueOf(v)));
+                  this.offsetForTopic.put(splitKey[0], Long.valueOf(v));
                 } else {
-                  this.offsetForTP.put(splitKey[0], Map.of(splitKey[1], Long.valueOf(v)));
+                  this.offsetForTopicPartition.put(
+                      splitKey[0], Map.of(splitKey[1], Long.valueOf(v)));
                 }
               });
 
@@ -336,28 +353,28 @@ public class Exporter extends SinkConnector {
     }
 
     protected boolean isValid(Record<byte[], byte[]> r) {
-      var topicMap = this.offsetForTP.get(r.topic());
-      if (topicMap != null) {
-        var targetOffset = topicMap.get(String.valueOf(r.partition()));
+      var topicMap = this.offsetForTopicPartition.get(r.topic());
+      Long targetOffset;
 
-        // If the target offset exists and the record's offset is less than the target offset,
-        // set the seek offset to the target offset and return false
-        if (targetOffset != null && r.offset() < targetOffset) {
-          // the topicPartition is paused to be consuming if this topicPartition was already seeked
-          // before.
-          // this can prevent reset offset infinitely.
-          if (this.seekedTopicPartitions.contains(r.topicPartition()))
-            this.taskContext.pause(Collections.singleton(r.topicPartition()));
-          else this.seekOffset.put(r.topicPartition(), targetOffset);
-          return false;
-        } else {
-          targetOffset = topicMap.get("all");
-          if (targetOffset != null && r.offset() < targetOffset) {
-            this.seekOffset.put(r.topicPartition(), targetOffset);
-            return false;
-          }
-        }
+      if (topicMap != null && topicMap.get(String.valueOf(r.partition())) != null) {
+        targetOffset = topicMap.get(String.valueOf(r.partition()));
+      } else {
+        // we can not get the target offset from the offsetForTopicPartition,
+        // then we will try another map offsetFroTopic.
+        targetOffset = this.offsetForTopic.get(r.topic());
       }
+
+      // If the target offset exists and the record's offset is less than the target offset,
+      // set the seek offset to the target offset and return false, also the topicPartition is
+      // paused to be consuming if this topicPartition was already seeked before. this can prevent
+      // reset offset infinitely.
+      if (targetOffset != null && r.offset() < targetOffset) {
+        if (this.seekedTopicPartitions.contains(r.topicPartition()))
+          this.taskContext.pause(Collections.singleton(r.topicPartition()));
+        else this.seekOffset.put(r.topicPartition(), targetOffset);
+        return false;
+      }
+
       // if the offset of the record is greater or equal to the seek offset for this topicPartition,
       // the seek offset will be removed.
       var seekOffset = this.seekOffset.get(r.topicPartition());
