@@ -201,7 +201,7 @@ public class AdminTest {
             var replicas =
                 admin.clusterInfo(Set.of(t.name())).toCompletableFuture().join().replicas();
             Assertions.assertNotEquals(0, replicas.size());
-            replicas.forEach(r -> Assertions.assertEquals(t.internal(), r.internal()));
+            replicas.forEach(r -> Assertions.assertEquals(t.internal(), r.isInternal()));
             replicas.forEach(r -> Assertions.assertFalse(r.isAdding()));
             replicas.forEach(r -> Assertions.assertFalse(r.isRemoving()));
           });
