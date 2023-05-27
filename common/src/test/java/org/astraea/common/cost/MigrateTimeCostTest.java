@@ -32,17 +32,17 @@ import org.junit.jupiter.api.Test;
 class MigrateTimeCostTest {
 
   private static final BeanObject inBean0 =
-      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 1000.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.REPLICATION_RATE, 1000.0));
   private static final BeanObject outBean0 =
-      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 1500.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.REPLICATION_RATE, 1500.0));
   private static final BeanObject inBean1 =
-      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 2000.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.REPLICATION_RATE, 2000.0));
   private static final BeanObject outBean1 =
-      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 2500.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.REPLICATION_RATE, 2500.0));
   private static final BeanObject inBean2 =
-      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 3000.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.REPLICATION_RATE, 3000.0));
   private static final BeanObject outBean2 =
-      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.STATISTICS_RATE_KEY, 3500.0));
+      new BeanObject("domain", Map.of(), Map.of(MigrateTimeCost.REPLICATION_RATE, 3500.0));
 
   @Test
   void testMigratedCost() {

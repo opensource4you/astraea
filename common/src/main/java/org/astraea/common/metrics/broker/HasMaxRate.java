@@ -20,6 +20,6 @@ import org.astraea.common.metrics.HasBeanObject;
 
 public interface HasMaxRate extends HasBeanObject {
   default double maxRate() {
-    return (double) beanObject().attributes().get("statistics.rate.key");
+    return (double) beanObject().attributes().get("replication_rate");
   }
 }

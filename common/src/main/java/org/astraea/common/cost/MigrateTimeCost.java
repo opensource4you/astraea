@@ -35,7 +35,7 @@ import org.astraea.common.metrics.stats.Max;
 
 /** MoveCost: more max write rate change -> higher migrate cost. */
 public class MigrateTimeCost implements HasMoveCost {
-  private static final String REPLICATION_RATE = "replication_rate";
+  static final String REPLICATION_RATE = "replication_rate";
   static final String MAX_MIGRATE_TIME_KEY = "max.migrated.time.limit";
 
   // metrics windows size
