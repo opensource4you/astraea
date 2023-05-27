@@ -49,7 +49,7 @@ public final class BalancerUtils {
                     s ->
                         switch (s[1]) {
                           case "balancing" -> BalancingModes.BALANCING;
-                          case "clean" -> BalancingModes.CLEAN;
+                          case "clear" -> BalancingModes.CLEAR;
                           case "excluded" -> BalancingModes.EXCLUDED;
                           default -> throw new IllegalArgumentException(
                               "Unsupported balancing mode: " + s[1]);
@@ -64,10 +64,10 @@ public final class BalancerUtils {
   }
 
   /** Performs common validness checks to the cluster. */
-  public static void verifyClearBrokerValidness(ClusterInfo cluster, Predicate<Integer> isClean) {
+  public static void verifyClearBrokerValidness(ClusterInfo cluster, Predicate<Integer> isClear) {
     var ongoingEventReplica =
         cluster.replicas().stream()
-            .filter(r -> isClean.test(r.broker().id()))
+            .filter(r -> isClear.test(r.broker().id()))
             .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
             .map(Replica::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
@@ -159,7 +159,7 @@ public final class BalancerUtils {
 
   public enum BalancingModes implements EnumInfo {
     BALANCING,
-    CLEAN,
+    CLEAR,
     EXCLUDED;
 
     public static BalancingModes ofAlias(String alias) {

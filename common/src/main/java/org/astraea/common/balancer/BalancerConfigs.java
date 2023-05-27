@@ -48,7 +48,7 @@ public final class BalancerConfigs {
    * <ul>
    *   <li><code>balancing</code>: The broker will participate in the load balancing process. The
    *       replica assignment for this broker is eligible for changes.
-   *   <li><code>clean</code>: The broker should become empty after the rebalance. This mode allows
+   *   <li><code>clear</code>: The broker should become empty after the rebalance. This mode allows
    *       the user to clear all the loadings for certain brokers, enabling a graceful removal of
    *       those brokers. Note to the balancer implementation: A broker in this mode assumes it will
    *       be out of service after the balancing is finished. Therefore, when evaluating the cluster
@@ -79,7 +79,7 @@ public final class BalancerConfigs {
    *       are many <code>excluded</code> brokers that reject accepting new replicas. If such a case
    *       is detected, an exception should be raised.
    *   <li>Any broker with ongoing replica-move-in, replica-move-out, or inter-folder movement
-   *       cannot be the clear target. An exception will be raised if any of the cleaning brokers
+   *       cannot be the cleaning target. An exception will be raised if any of the cleaning brokers
    *       have such ongoing events. *
    * </ol>
    */

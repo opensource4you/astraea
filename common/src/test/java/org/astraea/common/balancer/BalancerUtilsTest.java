@@ -42,19 +42,19 @@ class BalancerUtilsTest {
         Exception.class, () -> BalancerUtils.balancingMode(cluster, "1:balancing,bad:bad:bad"));
     Assertions.assertThrows(
         Exception.class,
-        () -> BalancerUtils.balancingMode(cluster, "1:balancing,2:clean,3:excluded,4:oops"));
+        () -> BalancerUtils.balancingMode(cluster, "1:balancing,2:clear,3:excluded,4:oops"));
     Assertions.assertThrows(
         Exception.class,
-        () -> BalancerUtils.balancingMode(cluster, "1:balancing,2:clean,3:excluded,4:"));
+        () -> BalancerUtils.balancingMode(cluster, "1:balancing,2:clear,3:excluded,4:"));
     Assertions.assertThrows(
         Exception.class,
-        () -> BalancerUtils.balancingMode(cluster, "1:balancing,2:clean,3:excluded,1:"));
+        () -> BalancerUtils.balancingMode(cluster, "1:balancing,2:clear,3:excluded,1:"));
     Assertions.assertThrows(
         Exception.class,
-        () -> BalancerUtils.balancingMode(cluster, "1:balancing,2:clean,3:excluded,:"));
+        () -> BalancerUtils.balancingMode(cluster, "1:balancing,2:clear,3:excluded,:"));
     Assertions.assertThrows(
         Exception.class,
-        () -> BalancerUtils.balancingMode(cluster, "1:balancing,2:clean,3:excluded,::"));
+        () -> BalancerUtils.balancingMode(cluster, "1:balancing,2:clear,3:excluded,::"));
     Assertions.assertThrows(Exception.class, () -> BalancerUtils.balancingMode(cluster, "1:"));
     Assertions.assertThrows(
         Exception.class, () -> BalancerUtils.balancingMode(cluster, "1:balancing,1:balancing"));
@@ -68,12 +68,12 @@ class BalancerUtilsTest {
         BalancerUtils.balancingMode(cluster, "").get(1),
         "default");
     Assertions.assertEquals(
-        BalancerUtils.BalancingModes.CLEAN,
-        BalancerUtils.balancingMode(cluster, "1:clean").get(1),
+        BalancerUtils.BalancingModes.CLEAR,
+        BalancerUtils.balancingMode(cluster, "1:clear").get(1),
         "value");
     Assertions.assertEquals(
-        BalancerUtils.BalancingModes.CLEAN,
-        BalancerUtils.balancingMode(cluster, "default:clean").get(5),
+        BalancerUtils.BalancingModes.CLEAR,
+        BalancerUtils.balancingMode(cluster, "default:clear").get(5),
         "user defined default");
     Assertions.assertEquals(
         BalancerUtils.BalancingModes.EXCLUDED,
@@ -175,7 +175,7 @@ class BalancerUtilsTest {
         Assertions.assertDoesNotThrow(
             () -> BalancerUtils.clearedCluster(cluster, id -> id == 1, id -> id == 3));
     Assertions.assertEquals(
-        0, aCluster.replicas().stream().filter(r -> r.broker().id() == 1).count(), "Clean");
+        0, aCluster.replicas().stream().filter(r -> r.broker().id() == 1).count(), "Clear");
     Assertions.assertEquals(
         100,
         aCluster.replicas().stream().filter(r -> r.broker().id() == 2).count(),
@@ -183,7 +183,7 @@ class BalancerUtilsTest {
     Assertions.assertEquals(
         100,
         aCluster.replicas().stream().filter(r -> r.broker().id() == 3).count(),
-        "Accept replicas broker clean broker");
+        "Accept replicas from cleared broker");
     Assertions.assertEquals(
         0, aCluster.replicas().stream().filter(r -> r.broker().id() == 4).count(), "Not allowed");
   }

@@ -88,14 +88,14 @@ public class SingleStepBalancer implements Balancer {
                 .orElse(""));
     final Predicate<Integer> isBalancing =
         id -> balancingMode.get(id) == BalancerUtils.BalancingModes.BALANCING;
-    final Predicate<Integer> isClean =
-        id -> balancingMode.get(id) == BalancerUtils.BalancingModes.CLEAN;
-    final var hasClean =
-        balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.CLEAN);
-    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isClean);
+    final Predicate<Integer> isCleaning =
+        id -> balancingMode.get(id) == BalancerUtils.BalancingModes.CLEAR;
+    final var hasCleaningBroker =
+        balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.CLEAR);
+    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isCleaning);
 
     final var currentClusterInfo =
-        BalancerUtils.clearedCluster(config.clusterInfo(), isClean, isBalancing);
+        BalancerUtils.clearedCluster(config.clusterInfo(), isCleaning, isBalancing);
     final var clusterBean = config.clusterBean();
     final var fixedReplicas =
         config
@@ -104,7 +104,7 @@ public class SingleStepBalancer implements Balancer {
             // if a topic is not allowed to move, it should be fixed.
             // if a topic is not allowed to move, but originally it located on a cleaning broker, it
             // is ok to move.
-            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isClean.test(tpr.broker().id()))
+            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isCleaning.test(tpr.broker().id()))
             .collect(Collectors.toUnmodifiableSet());
     final var allocationTweaker =
         ShuffleTweaker.builder()
@@ -117,7 +117,9 @@ public class SingleStepBalancer implements Balancer {
     final Function<ClusterInfo, ClusterCost> evaluateCost =
         (cluster) -> {
           final var filteredCluster =
-              hasClean ? ClusterInfo.builder(cluster).removeNodes(isClean).build() : cluster;
+              hasCleaningBroker
+                  ? ClusterInfo.builder(cluster).removeNodes(isCleaning).build()
+                  : cluster;
           return config.clusterCostFunction().clusterCost(filteredCluster, clusterBean);
         };
     final var currentCost = evaluateCost.apply(currentClusterInfo);
@@ -148,7 +150,7 @@ public class SingleStepBalancer implements Balancer {
               // possible
               // that the start state is already the ideal answer. In this case, it is directly
               // returned.
-              if (hasClean
+              if (hasCleaningBroker
                   && currentCost.value() == 0.0
                   && !moveCostFunction
                       .moveCost(config.clusterInfo(), currentClusterInfo, clusterBean)
