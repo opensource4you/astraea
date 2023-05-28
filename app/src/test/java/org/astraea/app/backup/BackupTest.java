@@ -69,6 +69,10 @@ public class BackupTest {
           admin.clusterInfo(Set.of(topic1, topic2)).toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
 
+      // As the value of Broker.isController may change during each information retrieval from the
+      // KRaft cluster, we refrain from comparing Replica.broker before and after the restore
+      // operation.
+      Assertions.assertEquals(clusterInfo.topics(), restoredClusterInfo.topics());
       Assertions.assertEquals(
           clusterInfo.topicPartitionReplicas(), restoredClusterInfo.topicPartitionReplicas());
       Assertions.assertEquals(
