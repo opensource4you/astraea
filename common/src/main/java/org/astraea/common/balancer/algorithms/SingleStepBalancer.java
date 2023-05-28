@@ -90,7 +90,7 @@ public class SingleStepBalancer implements Balancer {
         id -> balancingMode.get(id) == BalancerUtils.BalancingModes.BALANCING;
     final Predicate<Integer> isCleaning =
         id -> balancingMode.get(id) == BalancerUtils.BalancingModes.CLEAR;
-    final var hasCleaningBroker =
+    final var clearing =
         balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.CLEAR);
     BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isCleaning);
 
@@ -102,7 +102,7 @@ public class SingleStepBalancer implements Balancer {
             .clusterInfo()
             .replicaStream()
             // if a topic is not allowed to move, it should be fixed.
-            // if a topic is not allowed to move, but originally it located on a cleaning broker, it
+            // if a topic is not allowed to move, but originally it located on a clearing broker, it
             // is ok to move.
             .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isCleaning.test(tpr.broker().id()))
             .collect(Collectors.toUnmodifiableSet());
@@ -117,9 +117,7 @@ public class SingleStepBalancer implements Balancer {
     final Function<ClusterInfo, ClusterCost> evaluateCost =
         (cluster) -> {
           final var filteredCluster =
-              hasCleaningBroker
-                  ? ClusterInfo.builder(cluster).removeNodes(isCleaning).build()
-                  : cluster;
+              clearing ? ClusterInfo.builder(cluster).removeNodes(isCleaning).build() : cluster;
           return config.clusterCostFunction().clusterCost(filteredCluster, clusterBean);
         };
     final var currentCost = evaluateCost.apply(currentClusterInfo);
@@ -146,11 +144,11 @@ public class SingleStepBalancer implements Balancer {
         .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()))
         .or(
             () -> {
-              // With cleaning, the implementation detail start search from a cleared state. It is
+              // With clearing, the implementation detail start search from a cleared state. It is
               // possible
               // that the start state is already the ideal answer. In this case, it is directly
               // returned.
-              if (hasCleaningBroker
+              if (clearing
                   && currentCost.value() == 0.0
                   && !moveCostFunction
                       .moveCost(config.clusterInfo(), currentClusterInfo, clusterBean)

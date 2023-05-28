@@ -64,10 +64,10 @@ public final class BalancerConfigs {
    * <h3>Flag Interaction:</h3>
    *
    * <ol>
-   *   <li>All partitions on the cleaning brokers will be compelled to participate in the balancing
+   *   <li>All partitions on the clearing brokers will be compelled to participate in the balancing
    *       process, regardless of the explicit prohibition specified by the {@link
    *       BalancerConfigs#BALANCER_ALLOWED_TOPICS_REGEX} configuration. This exception solely
-   *       applies to partitions located at a cleaning broker, while disallowed partitions on
+   *       applies to partitions located at a clearing broker, while disallowed partitions on
    *       balancing brokers will remain excluded from the balancing decision.
    * </ol>
    *
@@ -79,7 +79,7 @@ public final class BalancerConfigs {
    *       are many <code>excluded</code> brokers that reject accepting new replicas. If such a case
    *       is detected, an exception should be raised.
    *   <li>Any broker with ongoing replica-move-in, replica-move-out, or inter-folder movement
-   *       cannot be the cleaning target. An exception will be raised if any of the cleaning brokers
+   *       cannot be the clearing target. An exception will be raised if any of the clearing brokers
    *       have such ongoing events. *
    * </ol>
    */

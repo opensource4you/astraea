@@ -78,7 +78,7 @@ public final class BalancerUtils {
   }
 
   /**
-   * Move all the replicas at the cleaning broker to other allowed brokers. <b>BE CAREFUL, The
+   * Move all the replicas at the clearing broker to other allowed brokers. <b>BE CAREFUL, The
    * implementation made no assumption for MoveCost or ClusterCost of the returned ClusterInfo.</b>
    * Be aware of this limitation before using it as the starting point for a solution search. Some
    * balancer implementation might have trouble finding answer when starting at a state where the
