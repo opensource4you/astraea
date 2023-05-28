@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package org.astraea.common.generated.admin;
+
+message TopicPartition {
+  int32 partition = 1;
+  string topic = 2;
+}

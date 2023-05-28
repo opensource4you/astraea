@@ -127,18 +127,16 @@ public class FtpFileSystem implements FileSystem {
           if (path.equals("/"))
             throw new IllegalArgumentException("Can't delete whole root folder");
           switch (type(path)) {
-            case NONEXISTENT:
-              return;
-            case FILE:
-              client.deleteFile(path);
-              return;
-            case FOLDER:
+            case NONEXISTENT -> {}
+            case FILE -> client.deleteFile(path);
+            case FOLDER -> {
               for (var f : client.listFiles(path)) {
                 var sub = FileSystem.path(path, f.getName());
                 if (f.isDirectory()) delete(sub);
                 else client.deleteFile(sub);
               }
               client.removeDirectory(path);
+            }
           }
         });
   }

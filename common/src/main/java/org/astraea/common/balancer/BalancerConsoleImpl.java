@@ -125,7 +125,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
           var clusterInfo =
               this.checkNoOngoingMigration
                   ? BalancerConsoleImpl.this.checkNoOngoingMigration()
-                  : admin.topicNames(false).thenCompose(admin::clusterInfo);
+                  : admin.topicNames(true).thenCompose(admin::clusterInfo);
           return planGenerations.compute(
               taskId,
               (id, previousTask) -> {
@@ -232,7 +232,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
   private CompletionStage<ClusterInfo> checkNoOngoingMigration() {
     return admin
-        .topicNames(false)
+        .topicNames(true)
         .thenCompose(admin::clusterInfo)
         .thenApply(
             cluster -> {
@@ -274,7 +274,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
                             .map(x -> Map.entry(x.broker().id(), x.path()))
                             .collect(Collectors.toUnmodifiableList())));
     return admin
-        .topicNames(false)
+        .topicNames(true)
         .thenCompose(admin::clusterInfo)
         .thenAccept(
             currentCluster -> {

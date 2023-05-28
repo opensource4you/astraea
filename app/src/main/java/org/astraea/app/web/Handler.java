@@ -34,18 +34,13 @@ interface Handler {
   default CompletionStage<? extends Response> process(Channel channel) {
     var start = System.currentTimeMillis();
     try {
-      switch (channel.type()) {
-        case GET:
-          return get(channel);
-        case POST:
-          return post(channel);
-        case DELETE:
-          return delete(channel);
-        case PUT:
-          return put(channel);
-        default:
-          return CompletableFuture.completedFuture(Response.NOT_FOUND);
-      }
+      return switch (channel.type()) {
+        case GET -> get(channel);
+        case POST -> post(channel);
+        case DELETE -> delete(channel);
+        case PUT -> put(channel);
+        default -> CompletableFuture.completedFuture(Response.NOT_FOUND);
+      };
     } catch (Exception e) {
       e.printStackTrace();
       return CompletableFuture.completedFuture(Response.of(e));

@@ -216,7 +216,7 @@ public class ClusterInfoBuilder {
                                         .isAdding(false)
                                         .isRemoving(false)
                                         .lag(0)
-                                        .internal(false)
+                                        .isInternal(false)
                                         .isLeader(index == 0)
                                         .isSync(true)
                                         .isFuture(false)

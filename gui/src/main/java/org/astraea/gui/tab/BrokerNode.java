@@ -180,20 +180,18 @@ public class BrokerNode {
                 .collect(
                     Collectors.toMap(
                         ServerMetrics.BrokerTopic.Meter::metricsName,
-                        m -> {
-                          switch (m.type()) {
-                            case BYTES_IN_PER_SEC:
-                            case BYTES_OUT_PER_SEC:
-                            case BYTES_REJECTED_PER_SEC:
-                            case REASSIGNMENT_BYTES_OUT_PER_SEC:
-                            case REASSIGNMENT_BYTES_IN_PER_SEC:
-                            case REPLICATION_BYTES_IN_PER_SEC:
-                            case REPLICATION_BYTES_OUT_PER_SEC:
-                              return DataSize.Byte.of((long) m.fiveMinuteRate());
-                            default:
-                              return m.fiveMinuteRate();
-                          }
-                        })));
+                        m ->
+                            switch (m.type()) {
+                              case BYTES_IN_PER_SEC,
+                                  BYTES_OUT_PER_SEC,
+                                  BYTES_REJECTED_PER_SEC,
+                                  REASSIGNMENT_BYTES_OUT_PER_SEC,
+                                  REASSIGNMENT_BYTES_IN_PER_SEC,
+                                  REPLICATION_BYTES_IN_PER_SEC,
+                                  REPLICATION_BYTES_OUT_PER_SEC -> DataSize.Byte.of(
+                                  (long) m.fiveMinuteRate());
+                              default -> m.fiveMinuteRate();
+                            })));
 
     private final Function<JndiClient, Map<String, Object>> fetcher;
     private final String display;
