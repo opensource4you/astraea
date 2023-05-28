@@ -173,24 +173,7 @@ public final class ByteUtils {
 
   /** Serialize BeanObject by protocol buffer. The unsupported value will be ignored. */
   public static byte[] toBytes(BeanObject value) {
-    var beanBuilder = BeanObjectOuterClass.BeanObject.newBuilder();
-    beanBuilder.setDomain(value.domainName());
-    beanBuilder.putAllProperties(value.properties());
-    value
-        .attributes()
-        .forEach(
-            (key, val) -> {
-              try {
-                beanBuilder.putAttributes(key, primitive(val));
-              } catch (SerializationException ignore) {
-                // Bean attribute may contain non-primitive value. e.g. TimeUnit, Byte.
-              }
-            });
-    beanBuilder.setCreatedTimestamp(
-        Timestamp.newBuilder()
-            .setSeconds(value.createdTimestamp() / 1000)
-            .setNanos((int) (value.createdTimestamp() % 1000) * 1000000));
-    return beanBuilder.build().toByteArray();
+    return toOuterClass(value).toByteArray();
   }
 
   /** Serialize ClusterInfo by protocol buffer. */
@@ -214,29 +197,7 @@ public final class ByteUtils {
                         e.getValue().stream()
                             .map(HasBeanObject::beanObject)
                             // convert BeanObject to protocol buffer
-                            .map(
-                                beanObject ->
-                                    BeanObjectOuterClass.BeanObject.newBuilder()
-                                        .setDomain(beanObject.domainName())
-                                        .putAllProperties(beanObject.properties())
-                                        .putAllAttributes(
-                                            beanObject.attributes().entrySet().stream()
-                                                .collect(
-                                                    Collectors.toUnmodifiableMap(
-                                                        Map.Entry::getKey,
-                                                        a -> primitive(a.getValue()))))
-                                        // the following code sets the created timestamp field using
-                                        // the recommended
-                                        // style by protobuf documentation.
-                                        .setCreatedTimestamp(
-                                            Timestamp.newBuilder()
-                                                .setSeconds(beanObject.createdTimestamp() / 1000)
-                                                .setNanos(
-                                                    (int)
-                                                        (beanObject.createdTimestamp()
-                                                            % 1000
-                                                            * 1000000)))
-                                        .build())
+                            .map(ByteUtils::toOuterClass)
                             .toList()));
 
     return BeanObjectOuterClass.MapOfBeanObjects.newBuilder()
@@ -417,6 +378,31 @@ public final class ByteUtils {
         .setIsOffline(replica.isOffline())
         .setIsPreferredLeader(replica.isPreferredLeader())
         .setPath(replica.path())
+        .build();
+  }
+
+  private static BeanObjectOuterClass.BeanObject toOuterClass(BeanObject beanObject) {
+    var beanBuilder = BeanObjectOuterClass.BeanObject.newBuilder();
+    beanBuilder.setDomain(beanObject.domainName());
+    beanBuilder.putAllProperties(beanObject.properties());
+    beanObject
+        .attributes()
+        .forEach(
+            (key, val) -> {
+              try {
+                beanBuilder.putAttributes(key, primitive(val));
+              } catch (SerializationException ignore) {
+                // Bean attribute may contain non-primitive value. e.g. TimeUnit, Byte.
+              }
+            });
+    return beanBuilder
+        // the following code sets the created timestamp field using
+        // the recommended
+        // style by protobuf documentation.
+        .setCreatedTimestamp(
+            Timestamp.newBuilder()
+                .setSeconds(beanObject.createdTimestamp() / 1000)
+                .setNanos((int) (beanObject.createdTimestamp() % 1000 * 1000000)))
         .build();
   }
 
