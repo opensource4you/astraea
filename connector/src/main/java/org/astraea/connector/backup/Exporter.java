@@ -186,10 +186,10 @@ public class Exporter extends SinkConnector {
     private final Map<String, Map<String, Long>> offsetForTopicPartition = new HashMap<>();
 
     private final Map<String, Long> offsetForTopic = new HashMap<>();
-
-    private final Map<TopicPartition, Long> seekOffset = new HashMap<>();
-
     private final List<TopicPartition> seekedTopicPartitions = new ArrayList<>();
+
+    // visible for test
+    protected final Map<TopicPartition, Long> seekOffset = new HashMap<>();
 
     RecordWriter createRecordWriter(TopicPartition tp, long offset) {
       var fileName = String.valueOf(offset);
@@ -353,16 +353,7 @@ public class Exporter extends SinkConnector {
     }
 
     protected boolean isValid(Record<byte[], byte[]> r) {
-      var topicMap = this.offsetForTopicPartition.get(r.topic());
-      Long targetOffset;
-
-      if (topicMap != null && topicMap.get(String.valueOf(r.partition())) != null) {
-        targetOffset = topicMap.get(String.valueOf(r.partition()));
-      } else {
-        // we can not get the target offset from the offsetForTopicPartition,
-        // then we will try another map offsetFroTopic.
-        targetOffset = this.offsetForTopic.get(r.topic());
-      }
+      Long targetOffset = targeOffset(r);
 
       // If the target offset exists and the record's offset is less than the target offset,
       // set the seek offset to the target offset and return false, also the topicPartition is
@@ -375,12 +366,45 @@ public class Exporter extends SinkConnector {
         return false;
       }
 
-      // if the offset of the record is greater or equal to the seek offset for this topicPartition,
-      // the seek offset will be removed.
+      checkSeekOffset(r);
+      return true;
+    }
+
+    /**
+     * Retrieves the target offset for the specified topic and partition.
+     *
+     * @param r {@link Record}
+     * @return the target offset for the specified topic and partition, or null if the target offset
+     *     is not found.
+     */
+    // visible for test
+    protected Long targeOffset(Record<byte[], byte[]> r) {
+      var topicMap = this.offsetForTopicPartition.get(r.topic());
+
+      if (topicMap != null && topicMap.get(String.valueOf(r.partition())) != null) {
+        return topicMap.get(String.valueOf(r.partition()));
+      } else {
+        // we can not get the target offset from the offsetForTopicPartition,
+        // then we will try another map offsetFroTopic.
+        return this.offsetForTopic.get(r.topic());
+      }
+    }
+
+    /**
+     * Checks if the record's offset is greater or equal to the seek offset for this topicPartition.
+     * If the record's offset is greater or equal to the seek offset for this topicPartition, the
+     * seek offset will be removed.
+     *
+     * <p>This method is used to prevent reset offset infinitely.
+     *
+     * <p>This method is called by {@link #isValid(Record)}
+     *
+     * @param r {@link Record}
+     */
+    private void checkSeekOffset(Record<byte[], byte[]> r) {
       var seekOffset = this.seekOffset.get(r.topicPartition());
       if (seekOffset != null && seekOffset <= r.offset())
         this.seekOffset.remove(r.topicPartition());
-      return true;
     }
 
     @Override

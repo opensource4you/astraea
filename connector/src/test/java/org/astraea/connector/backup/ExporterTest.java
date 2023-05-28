@@ -903,15 +903,33 @@ public class ExporterTest {
               .topic("test2")
               .key("test".getBytes())
               .value("test".getBytes())
+              .partition(0)
+              .offset(200)
+              .timestamp(System.currentTimeMillis())
+              .build();
+      var record5 =
+          Record.builder()
+              .topic("test2")
+              .key("test".getBytes())
+              .value("test".getBytes())
               .partition(1)
               .offset(1)
               .timestamp(System.currentTimeMillis())
               .build();
 
+      Assertions.assertNull(task.targeOffset(record1));
+      Assertions.assertEquals(100, task.targeOffset(record2));
+      Assertions.assertEquals(200, task.targeOffset(record3));
+      Assertions.assertEquals(200, task.targeOffset(record4));
+      Assertions.assertNull(task.targeOffset(record5));
+
       Assertions.assertTrue(task.isValid(record1));
-      Assertions.assertTrue(task.isValid(record4));
       Assertions.assertFalse(task.isValid(record2));
       Assertions.assertFalse(task.isValid(record3));
+      Assertions.assertEquals(2, task.seekOffset.size());
+      Assertions.assertTrue(task.isValid(record4));
+      Assertions.assertTrue(task.isValid(record5));
+      Assertions.assertEquals(1, task.seekOffset.size());
     }
   }
 }
