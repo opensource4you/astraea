@@ -74,13 +74,13 @@ public final class BalancerConfigs {
    * <h3>Limitation:</h3>
    *
    * <ol>
-   *   <li>Cleaning a broker may be infeasible if there are not enough brokers to fit the required
+   *   <li>Clearing a broker may be infeasible if there are not enough brokers to fit the required
    *       replica factor for a specific partition. This situation is more likely to occur if there
    *       are many <code>excluded</code> brokers that reject accepting new replicas. If such a case
    *       is detected, an exception should be raised.
    *   <li>Any broker with ongoing replica-move-in, replica-move-out, or inter-folder movement
    *       cannot be the clearing target. An exception will be raised if any of the clearing brokers
-   *       have such ongoing events. *
+   *       have such ongoing events.
    * </ol>
    */
   public static final String BALANCER_BROKER_BALANCING_MODE = "balancer.broker.balancing.mode";

@@ -158,14 +158,14 @@ public class GreedyBalancer implements Balancer {
                 .orElse(""));
     final Predicate<Integer> isBalancing =
         id -> balancingMode.get(id) == BalancerUtils.BalancingModes.BALANCING;
-    final Predicate<Integer> isCleaning =
+    final Predicate<Integer> isClearing =
         id -> balancingMode.get(id) == BalancerUtils.BalancingModes.CLEAR;
     final var clearing =
         balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.CLEAR);
-    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isCleaning);
+    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isClearing);
 
     final var currentClusterInfo =
-        BalancerUtils.clearedCluster(config.clusterInfo(), isCleaning, isBalancing);
+        BalancerUtils.clearedCluster(config.clusterInfo(), isClearing, isBalancing);
     final var clusterBean = config.clusterBean();
     final var fixedReplicas =
         config
@@ -174,7 +174,7 @@ public class GreedyBalancer implements Balancer {
             // if a topic is not allowed to move, it should be fixed.
             // if a topic is not allowed to move, but originally it located on a clearing broker, it
             // is ok to move.
-            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isCleaning.test(tpr.broker().id()))
+            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isClearing.test(tpr.broker().id()))
             .collect(Collectors.toUnmodifiableSet());
     final var allocationTweaker =
         ShuffleTweaker.builder()
@@ -186,7 +186,7 @@ public class GreedyBalancer implements Balancer {
     final Function<ClusterInfo, ClusterCost> evaluateCost =
         (cluster) -> {
           final var filteredCluster =
-              clearing ? ClusterInfo.builder(cluster).removeNodes(isCleaning).build() : cluster;
+              clearing ? ClusterInfo.builder(cluster).removeNodes(isClearing).build() : cluster;
           return config.clusterCostFunction().clusterCost(filteredCluster, clusterBean);
         };
     final var initialCost = evaluateCost.apply(currentClusterInfo);

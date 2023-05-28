@@ -208,7 +208,7 @@ public abstract class BalancerConfigTestSuite {
   }
 
   @Test
-  public void testBalancingModeClean() {
+  public void testBalancingModeClear() {
     final var balancer = Utils.construct(balancerClass, Configuration.EMPTY);
     final var cluster = cluster(10, 30, 10, (short) 5);
 
