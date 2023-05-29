@@ -30,6 +30,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.cost.ReplicaLeaderSizeCost;
+import org.astraea.common.metrics.ClusterBean;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.Argument;
 import org.astraea.it.Service;
@@ -112,7 +113,7 @@ class BalancerNodeTest {
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
-                .broker(allNodes.get(0))
+                .brokerId(allNodes.get(0).id())
                 .size(leaderSize)
                 .path("/tmp/aaa")
                 .build(),
@@ -121,7 +122,7 @@ class BalancerNodeTest {
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
-                .broker(allNodes.get(1))
+                .brokerId(allNodes.get(1).id())
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
@@ -132,7 +133,7 @@ class BalancerNodeTest {
                 .isPreferredLeader(false)
                 .topic(topic)
                 .partition(0)
-                .broker(allNodes.get(2))
+                .brokerId(allNodes.get(2).id())
                 .size(leaderSize)
                 .path("/tmp/ddd")
                 .build(),
@@ -141,7 +142,7 @@ class BalancerNodeTest {
                 .isPreferredLeader(true)
                 .topic(topic)
                 .partition(0)
-                .broker(allNodes.get(1))
+                .brokerId(allNodes.get(1).id())
                 .size(leaderSize)
                 .path("/tmp/bbb")
                 .build());
@@ -150,6 +151,7 @@ class BalancerNodeTest {
     var results =
         BalancerNode.assignmentResult(
             new Balancer.Plan(
+                ClusterBean.EMPTY,
                 beforeClusterInfo,
                 () -> 1.0D,
                 ClusterInfo.of("fake", allNodes, Map.of(), afterReplicas),

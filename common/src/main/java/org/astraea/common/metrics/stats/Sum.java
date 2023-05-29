@@ -14,24 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.connector;
+package org.astraea.common.metrics.stats;
 
-/**
- * this is not a kind of json response from kafka. We compose it with worker hostname and port.
- *
- * @param hostname
- * @param port
- * @param version
- * @param commit
- * @param kafkaClusterId
- * @param numberOfConnectors
- * @param numberOfTasks
- */
-public record WorkerStatus(
-    String hostname,
-    int port,
-    String version,
-    String commit,
-    String kafkaClusterId,
-    long numberOfConnectors,
-    long numberOfTasks) {}
+import java.util.concurrent.atomic.LongAdder;
+
+public interface Sum<T> extends Stat<T> {
+  static Sum<Long> ofLong() {
+    return new Sum<>() {
+      private final LongAdder sum = new LongAdder();
+
+      @Override
+      public void record(Long value) {
+        sum.add(value);
+      }
+
+      @Override
+      public Long measure() {
+        return sum.sum();
+      }
+    };
+  }
+}

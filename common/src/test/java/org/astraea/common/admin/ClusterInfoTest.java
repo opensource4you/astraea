@@ -48,12 +48,22 @@ public class ClusterInfoTest {
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(Replica::broker)
+            .map(
+                r ->
+                    new Broker(
+                        r.brokerId(),
+                        "hpost",
+                        22222,
+                        false,
+                        Config.EMPTY,
+                        List.of(),
+                        Set.of(),
+                        Set.of()))
             .collect(Collectors.groupingBy(Broker::id, Collectors.reducing((x, y) -> x)))
             .values()
             .stream()
             .flatMap(Optional::stream)
-            .collect(Collectors.toUnmodifiableList()),
+            .toList(),
         Map.of(),
         replicas);
   }
@@ -96,13 +106,7 @@ public class ClusterInfoTest {
   @Test
   void testReturnCollectionUnmodifiable() {
     var cluster = ClusterInfo.empty();
-    var replica =
-        Replica.builder()
-            .topic("topic")
-            .partition(0)
-            .broker(Broker.of(0, "", -1))
-            .path("f")
-            .buildLeader();
+    var replica = Replica.builder().topic("topic").partition(0).brokerId(0).path("f").buildLeader();
     Assertions.assertThrows(Exception.class, () -> cluster.replicas().add(replica));
     Assertions.assertThrows(Exception.class, () -> cluster.replicas("t").add(replica));
     Assertions.assertThrows(

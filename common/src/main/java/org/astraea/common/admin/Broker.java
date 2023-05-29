@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.requests.DescribeLogDirsResponse;
+import org.apache.kafka.clients.admin.LogDirDescription;
 
 /**
  * @param id
@@ -58,11 +58,11 @@ public record Broker(
     return of(node.id(), node.host(), node.port());
   }
 
-  public static Broker of(
+  static Broker of(
       boolean isController,
       org.apache.kafka.common.Node nodeInfo,
       Map<String, String> configs,
-      Map<String, DescribeLogDirsResponse.LogDirInfo> dirs,
+      Map<String, LogDirDescription> dirs,
       Collection<org.apache.kafka.clients.admin.TopicDescription> topics) {
     var config = new Config(configs);
     var partitionsFromTopicDesc =
@@ -79,10 +79,10 @@ public record Broker(
                 entry -> {
                   var path = entry.getKey();
                   var allPartitionAndSize =
-                      entry.getValue().replicaInfos.entrySet().stream()
+                      entry.getValue().replicaInfos().entrySet().stream()
                           .collect(
                               Collectors.toUnmodifiableMap(
-                                  e -> TopicPartition.from(e.getKey()), e -> e.getValue().size));
+                                  e -> TopicPartition.from(e.getKey()), e -> e.getValue().size()));
                   var partitionSizes =
                       allPartitionAndSize.entrySet().stream()
                           .filter(tpAndSize -> partitionsFromTopicDesc.contains(tpAndSize.getKey()))

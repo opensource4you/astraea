@@ -63,8 +63,8 @@ class ReplicaNode {
               var result = new LinkedHashMap<String, Object>();
               result.put(TOPIC_NAME_KEY, replica.topic());
               result.put(PARTITION_KEY, replica.partition());
-              result.put("internal", replica.internal());
-              result.put("broker", replica.broker().id());
+              result.put("internal", replica.isInternal());
+              result.put("broker", replica.brokerId());
               if (replica.path() != null) result.put(PATH_KEY, replica.path());
               result.put("isLeader", replica.isLeader());
               result.put("isPreferredLeader", replica.isPreferredLeader());
@@ -195,7 +195,7 @@ class ReplicaNode {
                                             .allMatch(
                                                 entry ->
                                                     rs.replicas(entry.getKey()).stream()
-                                                        .map(r -> r.broker().id())
+                                                        .map(r -> r.brokerId())
                                                         .collect(Collectors.toSet())
                                                         .containsAll(entry.getValue())),
                                     Duration.ofSeconds(10),

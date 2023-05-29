@@ -38,7 +38,7 @@ class ClusterInfoBuilderTest {
         Replica.builder()
             .topic("MyTopic")
             .partition(0)
-            .broker(host1000)
+            .brokerId(host1000.id())
             .size(1024)
             .isPreferredLeader(true)
             .isLeader(true)
@@ -160,7 +160,7 @@ class ClusterInfoBuilderTest {
                       path ->
                           cluster
                               .replicaStream()
-                              .filter(r -> r.broker().id() == id)
+                              .filter(r -> r.brokerId() == id)
                               .filter(r -> r.path().equals(path))
                               .count()));
       var summary = folderLogs.values().stream().mapToLong(x -> x).summaryStatistics();
@@ -214,7 +214,7 @@ class ClusterInfoBuilderTest {
                 (short) 2,
                 (replica) ->
                     Replica.builder(replica)
-                        .broker(base.node(replica.isPreferredLeader() ? 1 : 2))
+                        .brokerId(base.node(replica.isPreferredLeader() ? 1 : 2).id())
                         .path(replica.isPreferredLeader() ? "/ssd1" : "/ssd2")
                         .build())
             .build();
@@ -236,22 +236,22 @@ class ClusterInfoBuilderTest {
         original
             .replicaStream()
             .filter(Replica::isPreferredLeader)
-            .allMatch(r -> r.broker().id() == 1 && r.path().equals("/ssd1")));
+            .allMatch(r -> r.brokerId() == 1 && r.path().equals("/ssd1")));
     Assertions.assertTrue(
         original
             .replicaStream()
             .filter(Predicate.not(Replica::isPreferredLeader))
-            .allMatch(r -> r.broker().id() == 2 && r.path().equals("/ssd2")));
+            .allMatch(r -> r.brokerId() == 2 && r.path().equals("/ssd2")));
     Assertions.assertTrue(
         altered
             .replicaStream()
             .filter(Replica::isPreferredLeader)
-            .allMatch(r -> r.broker().id() == 3 && r.path().equals("/ssd3")));
+            .allMatch(r -> r.brokerId() == 3 && r.path().equals("/ssd3")));
     Assertions.assertTrue(
         altered
             .replicaStream()
             .filter(Predicate.not(Replica::isPreferredLeader))
-            .allMatch(r -> r.broker().id() == 4 && r.path().equals("/ssd4")));
+            .allMatch(r -> r.brokerId() == 4 && r.path().equals("/ssd4")));
 
     Assertions.assertThrows(
         IllegalArgumentException.class,
@@ -287,8 +287,8 @@ class ClusterInfoBuilderTest {
                 (short) 4,
                 (replica) ->
                     Replica.builder(replica)
-                        .isLeader(replica.broker().id() == 0)
-                        .isPreferredLeader(replica.broker().id() == 0)
+                        .isLeader(replica.brokerId() == 0)
+                        .isPreferredLeader(replica.brokerId() == 0)
                         .build())
             .build();
     var altered =
@@ -303,19 +303,19 @@ class ClusterInfoBuilderTest {
         original
             .replicaStream()
             .filter((Replica::isPreferredLeader))
-            .allMatch(r -> r.broker().id() == 0));
+            .allMatch(r -> r.brokerId() == 0));
     Assertions.assertTrue(
-        original.replicaStream().filter((Replica::isLeader)).allMatch(r -> r.broker().id() == 0));
+        original.replicaStream().filter((Replica::isLeader)).allMatch(r -> r.brokerId() == 0));
     Assertions.assertTrue(
         altered
             .replicaStream()
             .filter(Replica::isPreferredLeader)
-            .allMatch(r -> r.broker().id() == r.partition()));
+            .allMatch(r -> r.brokerId() == r.partition()));
     Assertions.assertTrue(
         altered
             .replicaStream()
             .filter(Replica::isLeader)
-            .allMatch(r -> r.broker().id() == r.partition()));
+            .allMatch(r -> r.brokerId() == r.partition()));
     Assertions.assertThrows(
         IllegalArgumentException.class,
         () ->

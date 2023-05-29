@@ -125,7 +125,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
           var clusterInfo =
               this.checkNoOngoingMigration
                   ? BalancerConsoleImpl.this.checkNoOngoingMigration()
-                  : admin.topicNames(false).thenCompose(admin::clusterInfo);
+                  : admin.topicNames(true).thenCompose(admin::clusterInfo);
           return planGenerations.compute(
               taskId,
               (id, previousTask) -> {
@@ -232,7 +232,7 @@ public class BalancerConsoleImpl implements BalancerConsole {
 
   private CompletionStage<ClusterInfo> checkNoOngoingMigration() {
     return admin
-        .topicNames(false)
+        .topicNames(true)
         .thenCompose(admin::clusterInfo)
         .thenApply(
             cluster -> {
@@ -270,11 +270,11 @@ public class BalancerConsoleImpl implements BalancerConsole {
                             .sorted(
                                 Comparator.comparing(Replica::isPreferredLeader)
                                     .reversed()
-                                    .thenComparing(x -> x.broker().id()))
-                            .map(x -> Map.entry(x.broker().id(), x.path()))
+                                    .thenComparing(x -> x.brokerId()))
+                            .map(x -> Map.entry(x.brokerId(), x.path()))
                             .collect(Collectors.toUnmodifiableList())));
     return admin
-        .topicNames(false)
+        .topicNames(true)
         .thenCompose(admin::clusterInfo)
         .thenAccept(
             currentCluster -> {
@@ -292,8 +292,8 @@ public class BalancerConsoleImpl implements BalancerConsole {
                                       .sorted(
                                           Comparator.comparing(Replica::isPreferredLeader)
                                               .reversed()
-                                              .thenComparing(x -> x.broker().id()))
-                                      .map(x -> Map.entry(x.broker().id(), x.path()))
+                                              .thenComparing(x -> x.brokerId()))
+                                      .map(x -> Map.entry(x.brokerId(), x.path()))
                                       .collect(Collectors.toUnmodifiableList())));
               var mismatchPartitions =
                   before.entrySet().stream()

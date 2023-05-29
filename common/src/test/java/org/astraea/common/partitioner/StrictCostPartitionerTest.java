@@ -116,7 +116,7 @@ public class StrictCostPartitionerTest {
             .topic("topic")
             .partition(10)
             .path("/tmp/aa")
-            .broker(nodeInfo)
+            .brokerId(nodeInfo.id())
             .buildLeader();
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(Configuration.EMPTY);
@@ -138,19 +138,9 @@ public class StrictCostPartitionerTest {
   @Test
   void testCostFunctionWithoutSensor() {
     var replicaInfo0 =
-        Replica.builder()
-            .topic("topic")
-            .partition(0)
-            .path("/tmp/aa")
-            .broker(Broker.of(10, "host", 11111))
-            .buildLeader();
+        Replica.builder().topic("topic").partition(0).path("/tmp/aa").brokerId(10).buildLeader();
     var replicaInfo1 =
-        Replica.builder()
-            .topic("topic")
-            .partition(0)
-            .path("/tmp/aa")
-            .broker(Broker.of(12, "host2", 11111))
-            .buildLeader();
+        Replica.builder().topic("topic").partition(0).path("/tmp/aa").brokerId(12).buildLeader();
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(
           new Configuration(
@@ -196,14 +186,14 @@ public class StrictCostPartitionerTest {
               .topic("topic")
               .partition(partitionId)
               .path("/tmp/aa")
-              .broker(Broker.of(brokerId, "host", 11111))
+              .brokerId(brokerId)
               .buildLeader();
       var replicaInfo1 =
           Replica.builder()
               .topic("topic")
               .partition(1)
               .path("/tmp/aa")
-              .broker(Broker.of(1111, "host2", 11111))
+              .brokerId(1111)
               .buildLeader();
       Assertions.assertEquals(
           partitionId,

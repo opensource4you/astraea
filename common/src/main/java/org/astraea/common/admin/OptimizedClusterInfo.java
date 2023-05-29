@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -56,52 +55,25 @@ class OptimizedClusterInfo implements ClusterInfo {
                     .distinct()
                     .map(
                         topic ->
-                            new Topic() {
-                              @Override
-                              public String name() {
-                                return topic;
-                              }
-
-                              @Override
-                              public Config config() {
-                                return Optional.ofNullable(topics.get(name()))
+                            new Topic(
+                                topic,
+                                Optional.ofNullable(topics.get(topic))
                                     .map(Topic::config)
-                                    .orElse(Config.EMPTY);
-                              }
-
-                              @Override
-                              public boolean internal() {
-                                return Optional.ofNullable(topics.get(name()))
+                                    .orElse(Config.EMPTY),
+                                Optional.ofNullable(topics.get(topic))
                                     .map(Topic::internal)
-                                    .orElse(false);
-                              }
-
-                              @Override
-                              public Set<TopicPartition> topicPartitions() {
-                                return OptimizedClusterInfo.this.replicas(topic).stream()
-                                    .map(Replica::topicPartition)
-                                    .collect(Collectors.toUnmodifiableSet());
-                              }
-
-                              @Override
-                              public boolean equals(Object obj) {
-                                if (this == obj) return true;
-                                if (obj == null || getClass() != obj.getClass()) return false;
-                                var objTopic = (Topic) obj;
-                                return Objects.equals(name(), objTopic.name())
-                                    && config().raw().equals(objTopic.config().raw())
-                                    && internal() == objTopic.internal()
-                                    && topicPartitions().equals(objTopic.topicPartitions());
-                              }
-                            })
-                    .collect(Collectors.toUnmodifiableMap(t -> t.name(), t -> t)));
+                                    .orElse(false),
+                                OptimizedClusterInfo.this.replicas(topic).stream()
+                                    .map(r -> r.topicPartition().partition())
+                                    .collect(Collectors.toUnmodifiableSet())))
+                    .collect(Collectors.toUnmodifiableMap(Topic::name, t -> t)));
     this.byBrokerTopic =
         Lazy.of(
             () ->
                 all.stream()
                     .collect(
                         Collectors.groupingBy(
-                            r -> BrokerTopic.of(r.broker().id(), r.topic()),
+                            r -> BrokerTopic.of(r.brokerId(), r.topic()),
                             Collectors.toUnmodifiableList())));
     this.byBrokerTopicForLeader =
         Lazy.of(
@@ -111,7 +83,7 @@ class OptimizedClusterInfo implements ClusterInfo {
                     .filter(Replica::isLeader)
                     .collect(
                         Collectors.groupingBy(
-                            r -> BrokerTopic.of(r.broker().id(), r.topic()),
+                            r -> BrokerTopic.of(r.brokerId(), r.topic()),
                             Collectors.toUnmodifiableList())));
 
     this.byBroker =
@@ -119,8 +91,7 @@ class OptimizedClusterInfo implements ClusterInfo {
             () ->
                 all.stream()
                     .collect(
-                        Collectors.groupingBy(
-                            r -> r.broker().id(), Collectors.toUnmodifiableList())));
+                        Collectors.groupingBy(r -> r.brokerId(), Collectors.toUnmodifiableList())));
 
     this.byTopic =
         Lazy.of(

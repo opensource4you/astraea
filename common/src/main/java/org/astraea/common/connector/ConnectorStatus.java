@@ -20,59 +20,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** this is not a kind of json response from kafka. */
-public class ConnectorStatus {
-
-  private final String name;
-
-  private final String state;
-
-  private final String workerId;
-
-  // The type is always null before kafka 2.0.2
-  // see https://issues.apache.org/jira/browse/KAFKA-7253
-  private final Optional<String> type;
-
-  private final Map<String, String> configs;
-
-  private final List<TaskStatus> tasks;
-
-  ConnectorStatus(
-      String name,
-      String state,
-      String workerId,
-      Optional<String> type,
-      Map<String, String> configs,
-      List<TaskStatus> tasks) {
-    this.name = name;
-    this.state = state;
-    this.workerId = workerId;
-    this.type = type;
-    this.configs = Map.copyOf(configs);
-    this.tasks = List.copyOf(tasks);
-  }
-
-  public String name() {
-    return name;
-  }
-
-  public String state() {
-    return state;
-  }
-
-  public String workerId() {
-    return workerId;
-  }
-
-  public Optional<String> type() {
-    return type;
-  }
-
-  public Map<String, String> configs() {
-    return configs;
-  }
-
-  public List<TaskStatus> tasks() {
-    return tasks;
-  }
-}
+/**
+ * this is not a kind of json response from kafka.
+ *
+ * @param name
+ * @param state
+ * @param workerId
+ * @param type The type is always null before kafka 2.0.2 see <a
+ *     href="https://issues.apache.org/jira/browse/KAFKA-7253">KAFKA-7253</a>
+ * @param configs
+ * @param tasks
+ */
+public record ConnectorStatus(
+    String name,
+    String state,
+    String workerId,
+    Optional<String> type,
+    Map<String, String> configs,
+    List<TaskStatus> tasks) {}

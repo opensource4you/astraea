@@ -321,18 +321,12 @@ public class BalancerHandlerTest {
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
-              case TO_SYNC_BYTES:
-              case TO_FETCH_BYTES:
-                Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
-                        <= DataSize.of(sizeLimit).bytes());
-                break;
-              case REPLICA_LEADERS_TO_ADDED:
-              case REPLICA_LEADERS_TO_REMOVE:
-                Assertions.assertTrue(
-                    migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
-                        <= Long.parseLong(leaderLimit));
-                break;
+              case TO_SYNC_BYTES, TO_FETCH_BYTES -> Assertions.assertTrue(
+                  migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
+                      <= DataSize.of(sizeLimit).bytes());
+              case REPLICA_LEADERS_TO_ADDED, REPLICA_LEADERS_TO_REMOVE -> Assertions.assertTrue(
+                  migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
+                      <= Long.parseLong(leaderLimit));
             }
           });
     }
@@ -976,7 +970,7 @@ public class BalancerHandlerTest {
                 (short) 10,
                 r ->
                     Replica.builder(r)
-                        .broker(base.node(srcIter.next()))
+                        .brokerId(base.node(srcIter.next()).id())
                         .isPreferredLeader(srcPrefIter.next())
                         .path(srcDirIter.next())
                         .build())
@@ -992,7 +986,7 @@ public class BalancerHandlerTest {
                 (short) 10,
                 r ->
                     Replica.builder(r)
-                        .broker(base.node(dstIter.next()))
+                        .brokerId(base.node(dstIter.next()).id())
                         .isPreferredLeader(dstPrefIter.next())
                         .path(dstDirIter.next())
                         .build())
