@@ -49,7 +49,7 @@ public final class BalancerUtils {
                     s ->
                         switch (s[1]) {
                           case "balancing" -> BalancingModes.BALANCING;
-                          case "demoted" -> BalancingModes.DEMOTED;
+                          case "clear" -> BalancingModes.CLEAR;
                           case "excluded" -> BalancingModes.EXCLUDED;
                           default -> throw new IllegalArgumentException(
                               "Unsupported balancing mode: " + s[1]);
@@ -64,10 +64,10 @@ public final class BalancerUtils {
   }
 
   /** Performs common validness checks to the cluster. */
-  public static void verifyClearBrokerValidness(ClusterInfo cluster, Predicate<Integer> isDemoted) {
+  public static void verifyClearBrokerValidness(ClusterInfo cluster, Predicate<Integer> isClear) {
     var ongoingEventReplica =
         cluster.replicas().stream()
-            .filter(r -> isDemoted.test(r.brokerId()))
+            .filter(r -> isClear.test(r.brokerId()))
             .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
             .map(Replica::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
@@ -78,7 +78,7 @@ public final class BalancerUtils {
   }
 
   /**
-   * Move all the replicas at the demoting broker to other allowed brokers. <b>BE CAREFUL, The
+   * Move all the replicas at the clearing broker to other allowed brokers. <b>BE CAREFUL, The
    * implementation made no assumption for MoveCost or ClusterCost of the returned ClusterInfo.</b>
    * Be aware of this limitation before using it as the starting point for a solution search. Some
    * balancer implementation might have trouble finding answer when starting at a state where the
@@ -159,7 +159,7 @@ public final class BalancerUtils {
 
   public enum BalancingModes implements EnumInfo {
     BALANCING,
-    DEMOTED,
+    CLEAR,
     EXCLUDED;
 
     public static BalancingModes ofAlias(String alias) {

@@ -208,7 +208,7 @@ public abstract class BalancerConfigTestSuite {
   }
 
   @Test
-  public void testBalancingModeDemoted() {
+  public void testBalancingModeClear() {
     final var balancer = Utils.construct(balancerClass, Configuration.EMPTY);
     final var cluster = cluster(10, 30, 10, (short) 5);
 
@@ -223,7 +223,7 @@ public abstract class BalancerConfigTestSuite {
                       .clusterCost(decreasingCost())
                       .timeout(Duration.ofSeconds(2))
                       .configs(customConfig.raw())
-                      .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "default:demoted")
+                      .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "default:clear")
                       .build()),
           testName);
     }
@@ -237,9 +237,7 @@ public abstract class BalancerConfigTestSuite {
                   .clusterCost(decreasingCost())
                   .timeout(Duration.ofSeconds(2))
                   .configs(customConfig.raw())
-                  .config(
-                      BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
-                      "0:demoted,1:demoted,2:demoted")
+                  .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "0:clear,1:clear,2:clear")
                   .build());
       Assertions.assertTrue(plan.isPresent(), testName);
       var finalCluster = plan.get().proposal();
@@ -270,7 +268,7 @@ public abstract class BalancerConfigTestSuite {
                             .configs(customConfig.raw())
                             .config(
                                 BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
-                                "0:demoted,1:demoted,2:demoted")
+                                "0:clear,1:clear,2:clear")
                             .build())
                     .orElseThrow()
                     .proposal();
@@ -292,14 +290,13 @@ public abstract class BalancerConfigTestSuite {
                       .timeout(Duration.ofSeconds(2))
                       .configs(customConfig.raw())
                       .config(
-                          BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
-                          "0:demoted,1:demoted,2:demoted")
+                          BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "0:clear,1:clear,2:clear")
                       .build()));
     }
 
     {
       var testName =
-          "[test if allowed topics is used, disallowed partitions on demoted broker will be force to move]";
+          "[test if allowed topics is used, disallowed partitions on cleared broker will be force to move]";
       var base =
           ClusterInfo.builder()
               .addNode(Set.of(1, 2, 3))
@@ -330,7 +327,7 @@ public abstract class BalancerConfigTestSuite {
                           // allow anything other than this topic
                           .config(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX, "(?!topic).*")
                           // clear broker 3
-                          .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "3:demoted")
+                          .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "3:clear")
                           // partition at broker 3 will be forced to move
                           .build()),
               testName);
@@ -370,7 +367,7 @@ public abstract class BalancerConfigTestSuite {
                       // clear broker 0
                       .config(
                           BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
-                          "0:demoted,"
+                          "0:clear,"
                               +
                               // allow broker 1,2,3,4,5,6
                               "1:balancing,2:balancing,3:balancing,4:balancing,5:balancing,6:balancing,default:excluded")
@@ -406,7 +403,7 @@ public abstract class BalancerConfigTestSuite {
                       // clear broker 0, allow broker 1
                       .config(
                           BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
-                          "0:demoted,1:balancing,default:excluded")
+                          "0:clear,1:balancing,default:excluded")
                       // this will raise an error if a partition has replicas at both 0 and 1. In
                       // this case, there is no allowed broker to adopt replica from 0, since the
                       // only allowed broker already has one replica on it. we cannot assign two
@@ -442,7 +439,7 @@ public abstract class BalancerConfigTestSuite {
                         // clear broker 0 allow broker 1,2,3,4,5,6
                         .config(
                             BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
-                            "0:demoted,"
+                            "0:clear,"
                                 + "1:balancing,2:balancing,3:balancing,4:balancing,5:balancing,6:balancing")
                         .build()),
             testName);
@@ -459,7 +456,7 @@ public abstract class BalancerConfigTestSuite {
                         // clear broker 1 allow broker 0,2,3,4,5,6,7
                         .config(
                             BalancerConfigs.BALANCER_BROKER_BALANCING_MODE,
-                            "1:demoted,"
+                            "1:clear,"
                                 + "0:balancing,2:balancing,3:balancing,4:balancing,5:balancing,6:balancing,"
                                 + "7:balancing,default:excluded")
                         // adding/removing/future at 0 not 1, unrelated so no error
@@ -471,14 +468,14 @@ public abstract class BalancerConfigTestSuite {
     {
       // Some balancer implementations have such logic flaw:
       // 1. The initial state[A] cannot be solution.
-      // 2. There are brokers that need to be demoted.
+      // 2. There are brokers that need to be cleared.
       // 3. The load on those brokers been redistributed to other brokers. Creating the start
       //    state[B] for the solution search.
       // 4. The start state[B] solution is actually the best solution.
       // 5. Balancer think the start state[B] is the initial state[A]. And cannot be a solution(as
       // mentioned in 1).
       // 6. In fact, the start state[B] doesn't equal to the initial state[A]. Since there is a
-      //    cleaning work performed at step 3.
+      //    clearing work performed at step 3.
       // 7. Balancer cannot find any solution that is better than the start state(4) and therefore
       //    returns no solution.
       var testName =
@@ -497,7 +494,7 @@ public abstract class BalancerConfigTestSuite {
                   .clusterInfo(testCluster)
                   .clusterBean(ClusterBean.EMPTY)
                   .clusterCost(new ReplicaLeaderCost())
-                  .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "1:demoted")
+                  .config(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE, "1:clear")
                   .timeout(Duration.ofSeconds(2))
                   .build()),
           testName);
