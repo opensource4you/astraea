@@ -85,16 +85,13 @@ public interface Query {
         for (var index = 0; index != queries.size(); ++index) {
           if (match == null) match = queries.get(index).required(item);
           else {
-            switch (ops.get(index - 1)) {
-              case "&&":
-                match = match && queries.get(index).required(item);
-                break;
-              case "||":
-                match = match || queries.get(index).required(item);
-                break;
-              default:
-                throw new IllegalArgumentException("unsupported op: " + ops.get(index - 1));
-            }
+            match =
+                switch (ops.get(index - 1)) {
+                  case "&&" -> match && queries.get(index).required(item);
+                  case "||" -> match || queries.get(index).required(item);
+                  default -> throw new IllegalArgumentException(
+                      "unsupported op: " + ops.get(index - 1));
+                };
           }
         }
         return match == null || match;

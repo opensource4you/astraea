@@ -42,16 +42,28 @@ public class ReplicaLeaderCostTest {
     var sourceCluster =
         ClusterInfo.builder(baseCluster)
             .addTopic(
-                "topic1", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(1)).build())
+                "topic1",
+                3,
+                (short) 1,
+                r -> Replica.builder(r).brokerId(baseCluster.node(1).id()).build())
             .addTopic(
-                "topic2", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(2)).build())
+                "topic2",
+                3,
+                (short) 1,
+                r -> Replica.builder(r).brokerId(baseCluster.node(2).id()).build())
             .build();
     var overFlowTargetCluster =
         ClusterInfo.builder(baseCluster)
             .addTopic(
-                "topic1", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(2)).build())
+                "topic1",
+                3,
+                (short) 1,
+                r -> Replica.builder(r).brokerId(baseCluster.node(2).id()).build())
             .addTopic(
-                "topic2", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(1)).build())
+                "topic2",
+                3,
+                (short) 1,
+                r -> Replica.builder(r).brokerId(baseCluster.node(1).id()).build())
             .build();
 
     var overFlowMoveCost =
@@ -76,7 +88,7 @@ public class ReplicaLeaderCostTest {
                 .topic("topic")
                 .partition(0)
                 .isLeader(true)
-                .broker(Broker.of(10, "broker0", 1111))
+                .brokerId(10)
                 .path("/tmp/aa")
                 .buildLeader(),
             Replica.builder()
@@ -84,14 +96,14 @@ public class ReplicaLeaderCostTest {
                 .partition(1)
                 .isLeader(true)
                 .partition(0)
-                .broker(Broker.of(10, "broker0", 1111))
+                .brokerId(10)
                 .path("/tmp/aa")
                 .buildLeader(),
             Replica.builder()
                 .topic("topic")
                 .partition(0)
                 .isLeader(true)
-                .broker(Broker.of(11, "broker1", 1111))
+                .brokerId(11)
                 .path("/tmp/aa")
                 .buildLeader());
     var clusterInfo =

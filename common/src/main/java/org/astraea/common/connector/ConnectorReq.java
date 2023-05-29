@@ -18,20 +18,8 @@ package org.astraea.common.connector;
 
 import java.util.Map;
 
-public class ConnectorReq {
-  private final String name;
-  private final Map<String, String> config;
-
-  public ConnectorReq(String name, Map<String, String> config) {
-    this.name = name;
-    this.config = config;
-  }
-
-  public String name() {
-    return name;
-  }
-
-  public Map<String, String> config() {
-    return config;
-  }
-}
+/**
+ * @param name
+ * @param config
+ */
+public record ConnectorReq(String name, Map<String, String> config) {}

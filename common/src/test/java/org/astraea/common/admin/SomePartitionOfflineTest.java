@@ -63,7 +63,7 @@ public class SomePartitionOfflineTest {
               .toCompletableFuture()
               .join()
               .replicaStream()
-              .filter(replica -> replica.broker().id() == 0)
+              .filter(replica -> replica.brokerId() == 0)
               .collect(
                   Collectors.groupingBy(
                       replica -> TopicPartition.of(replica.topic(), replica.partition())));
@@ -78,7 +78,7 @@ public class SomePartitionOfflineTest {
               .toCompletableFuture()
               .join()
               .replicaStream()
-              .filter(replica -> replica.broker().id() == 0)
+              .filter(replica -> replica.brokerId() == 0)
               .collect(
                   Collectors.groupingBy(
                       replica -> TopicPartition.of(replica.topic(), replica.partition())));

@@ -89,7 +89,7 @@ public class ClusterInfoBuilder {
                             + " but another broker with this id already existed");
                   });
           return Stream.concat(nodes.stream(), brokerIds.stream().map(ClusterInfoBuilder::fakeNode))
-              .collect(Collectors.toUnmodifiableList());
+              .toList();
         });
   }
 
@@ -132,7 +132,7 @@ public class ClusterInfoBuilder {
                               .toList());
                     else return node;
                   })
-              .collect(Collectors.toUnmodifiableList());
+              .toList();
         });
   }
 
@@ -174,7 +174,7 @@ public class ClusterInfoBuilder {
               nodes.stream()
                   .collect(
                       Collectors.toUnmodifiableMap(
-                          node -> node,
+                          Broker::id,
                           node ->
                               node.dataFolders().stream()
                                   .collect(
@@ -182,7 +182,7 @@ public class ClusterInfoBuilder {
                                           Broker.DataFolder::path, x -> new AtomicInteger()))));
           replicas.forEach(
               replica ->
-                  folderLogCounter.get(replica.broker()).get(replica.path()).incrementAndGet());
+                  folderLogCounter.get(replica.brokerId()).get(replica.path()).incrementAndGet());
 
           folderLogCounter.forEach(
               (node, folders) -> {
@@ -200,7 +200,7 @@ public class ClusterInfoBuilder {
                                   index -> {
                                     final Broker broker = nodeSelector.next();
                                     final String path =
-                                        folderLogCounter.get(broker).entrySet().stream()
+                                        folderLogCounter.get(broker.id()).entrySet().stream()
                                             .min(Comparator.comparing(x -> x.getValue().get()))
                                             .map(
                                                 entry -> {
@@ -212,11 +212,11 @@ public class ClusterInfoBuilder {
                                     return Replica.builder()
                                         .topic(tp.topic())
                                         .partition(tp.partition())
-                                        .broker(broker)
+                                        .brokerId(broker.id())
                                         .isAdding(false)
                                         .isRemoving(false)
                                         .lag(0)
-                                        .internal(false)
+                                        .isInternal(false)
                                         .isLeader(index == 0)
                                         .isSync(true)
                                         .isFuture(false)
@@ -227,8 +227,7 @@ public class ClusterInfoBuilder {
                                   }))
                   .map(mapper);
 
-          return Stream.concat(replicas.stream(), newTopic)
-              .collect(Collectors.toUnmodifiableList());
+          return Stream.concat(replicas.stream(), newTopic).toList();
         });
   }
 
@@ -239,9 +238,7 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder mapLog(Function<Replica, Replica> mapper) {
-    return applyReplicas(
-        (nodes, replicas) ->
-            replicas.stream().map(mapper).collect(Collectors.toUnmodifiableList()));
+    return applyReplicas((nodes, replicas) -> replicas.stream().map(mapper).toList());
   }
 
   /**
@@ -269,12 +266,12 @@ public class ClusterInfoBuilder {
                       r -> {
                         if (r.topicPartitionReplica().equals(replica)) {
                           matched.set(true);
-                          return Replica.builder(r).broker(newNode).path(toDir).build();
+                          return Replica.builder(r).brokerId(newNode.id()).path(toDir).build();
                         } else {
                           return r;
                         }
                       })
-                  .collect(Collectors.toUnmodifiableList());
+                  .toList();
           if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
           return collect;
         });
@@ -307,7 +304,7 @@ public class ClusterInfoBuilder {
                           return r;
                         }
                       })
-                  .collect(Collectors.toUnmodifiableList());
+                  .toList();
           if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
 
           return collect;

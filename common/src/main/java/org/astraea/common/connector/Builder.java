@@ -19,7 +19,7 @@ package org.astraea.common.connector;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,8 +45,8 @@ public class Builder {
   private List<URL> urls = List.of();
   private HttpExecutor builderHttpExecutor;
 
-  public Builder urls(Set<URL> urls) {
-    this.urls = new ArrayList<>(Objects.requireNonNull(urls));
+  public Builder urls(Collection<URL> urls) {
+    this.urls = List.copyOf(urls);
     return this;
   }
 

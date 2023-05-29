@@ -50,7 +50,7 @@ public class Backup {
                                                       .sorted(
                                                           Comparator.comparing(
                                                               replica -> !replica.isLeader()))
-                                                      .map(replica -> replica.broker().id())
+                                                      .map(replica -> replica.brokerId())
                                                       .toList())))))
                       .configs(topic.config().raw())
                       .run()

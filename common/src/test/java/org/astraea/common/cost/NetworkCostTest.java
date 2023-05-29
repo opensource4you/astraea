@@ -184,7 +184,7 @@ class NetworkCostTest {
                 (short) 2,
                 (r) ->
                     Replica.builder(r)
-                        .broker(base.node(iter1.next()))
+                        .brokerId(base.node(iter1.next()).id())
                         .isPreferredLeader(iter2.next())
                         .isLeader(iter3.next())
                         .size(1)
@@ -195,7 +195,7 @@ class NetworkCostTest {
                 (short) 2,
                 (r) ->
                     Replica.builder(r)
-                        .broker(base.node(iter4.next()))
+                        .brokerId(base.node(iter4.next()).id())
                         .isPreferredLeader(iter5.next())
                         .isLeader(iter6.next())
                         .size(1)

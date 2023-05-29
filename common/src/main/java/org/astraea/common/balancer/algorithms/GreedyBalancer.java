@@ -28,6 +28,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
@@ -113,6 +114,12 @@ public class GreedyBalancer implements Balancer {
 
   @Override
   public Optional<Plan> offer(AlgorithmConfig config) {
+    BalancerUtils.balancerConfigCheck(
+        config.balancerConfig(),
+        Set.of(
+            BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX,
+            BalancerConfigs.BALANCER_BROKER_BALANCING_MODE));
+
     final var minStep =
         config
             .balancerConfig()
@@ -151,26 +158,35 @@ public class GreedyBalancer implements Balancer {
                 .orElse(""));
     final Predicate<Integer> isBalancing =
         id -> balancingMode.get(id) == BalancerUtils.BalancingModes.BALANCING;
-    final Predicate<Integer> isDemoted =
-        id -> balancingMode.get(id) == BalancerUtils.BalancingModes.DEMOTED;
-    final var hasDemoted =
-        balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.DEMOTED);
-    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isDemoted, allowedTopics);
+    final Predicate<Integer> isClearing =
+        id -> balancingMode.get(id) == BalancerUtils.BalancingModes.CLEAR;
+    final var clearing =
+        balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.CLEAR);
+    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isClearing);
 
     final var currentClusterInfo =
-        BalancerUtils.clearedCluster(config.clusterInfo(), isDemoted, isBalancing);
+        BalancerUtils.clearedCluster(config.clusterInfo(), isClearing, isBalancing);
     final var clusterBean = config.clusterBean();
+    final var fixedReplicas =
+        config
+            .clusterInfo()
+            .replicaStream()
+            // if a topic is not allowed to move, it should be fixed.
+            // if a topic is not allowed to move, but originally it located on a clearing broker, it
+            // is ok to move.
+            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isClearing.test(tpr.brokerId()))
+            .collect(Collectors.toUnmodifiableSet());
     final var allocationTweaker =
         ShuffleTweaker.builder()
             .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(minStep, maxStep))
-            .allowedTopics(allowedTopics)
+            .allowedReplicas(r -> !fixedReplicas.contains(r))
             .allowedBrokers(isBalancing)
             .build();
     final var moveCostFunction = config.moveCostFunction();
     final Function<ClusterInfo, ClusterCost> evaluateCost =
         (cluster) -> {
           final var filteredCluster =
-              hasDemoted ? ClusterInfo.builder(cluster).removeNodes(isDemoted).build() : cluster;
+              clearing ? ClusterInfo.builder(cluster).removeNodes(isClearing).build() : cluster;
           return config.clusterCostFunction().clusterCost(filteredCluster, clusterBean);
         };
     final var initialCost = evaluateCost.apply(currentClusterInfo);
@@ -228,11 +244,11 @@ public class GreedyBalancer implements Balancer {
     }
     return currentSolution.or(
         () -> {
-          // With demotion, the implementation detail start search from a demoted state. It is
+          // With clearing, the implementation detail start search from a cleared state. It is
           // possible
           // that the start state is already the ideal answer. In this case, it is directly
           // returned.
-          if (hasDemoted
+          if (clearing
               && initialCost.value() == 0.0
               && !moveCostFunction
                   .moveCost(config.clusterInfo(), currentClusterInfo, clusterBean)

@@ -97,24 +97,15 @@ public final class Utils {
     if (matcher.find()) {
       long value = Long.parseLong(matcher.group("value"));
       String unit = matcher.group("unit");
-      switch (unit) {
-        case "days":
-        case "day":
-          return Duration.ofDays(value);
-        case "h":
-          return Duration.ofHours(value);
-        case "m":
-          return Duration.ofMinutes(value);
-        case "ms":
-          return Duration.ofMillis(value);
-        case "us":
-          return Duration.ofNanos(value * 1000);
-        case "ns":
-          return Duration.ofNanos(value);
-        case "s":
-        default:
-          return Duration.ofSeconds(value);
-      }
+      return switch (unit) {
+        case "days", "day" -> Duration.ofDays(value);
+        case "h" -> Duration.ofHours(value);
+        case "m" -> Duration.ofMinutes(value);
+        case "ms" -> Duration.ofMillis(value);
+        case "us" -> Duration.ofNanos(value * 1000);
+        case "ns" -> Duration.ofNanos(value);
+        default -> Duration.ofSeconds(value);
+      };
     } else {
       throw new IllegalArgumentException("value \"" + input + "\" doesn't match any time format");
     }
@@ -148,8 +139,8 @@ public final class Utils {
   }
 
   public static void close(Object obj) {
-    if (obj instanceof AutoCloseable) {
-      packException(() -> ((AutoCloseable) obj).close());
+    if (obj instanceof AutoCloseable autoCloseableObj) {
+      packException(autoCloseableObj::close);
     }
   }
 

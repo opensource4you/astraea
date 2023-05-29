@@ -18,7 +18,6 @@ package org.astraea.common;
 
 import java.util.List;
 import java.util.Spliterators;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.kafka.common.header.Headers;
 
@@ -29,7 +28,7 @@ public record Header(String key, byte[] value) {
     if (!iter.hasNext()) return List.of();
     return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iter, 0), false)
         .map(h -> new Header(h.key(), h.value()))
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   public static Header of(String key, byte[] value) {

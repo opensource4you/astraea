@@ -124,21 +124,20 @@ class BalancerNode {
               previousAssignments.stream()
                   .filter(Replica::isLeader)
                   .findFirst()
-                  .ifPresent(
-                      r -> result.put(PREVIOUS_LEADER_KEY, r.broker().id() + ":" + r.path()));
+                  .ifPresent(r -> result.put(PREVIOUS_LEADER_KEY, r.brokerId() + ":" + r.path()));
               newAssignments.stream()
                   .filter(Replica::isLeader)
                   .findFirst()
-                  .ifPresent(r -> result.put(NEW_LEADER_KEY, r.broker().id() + ":" + r.path()));
+                  .ifPresent(r -> result.put(NEW_LEADER_KEY, r.brokerId() + ":" + r.path()));
               var previousFollowers =
                   previousAssignments.stream()
                       .filter(r -> !r.isLeader())
-                      .map(r -> r.broker().id() + ":" + r.path())
+                      .map(r -> r.brokerId() + ":" + r.path())
                       .collect(Collectors.joining(","));
               var newFollowers =
                   newAssignments.stream()
                       .filter(r -> !r.isLeader())
-                      .map(r -> r.broker().id() + ":" + r.path())
+                      .map(r -> r.brokerId() + ":" + r.path())
                       .collect(Collectors.joining(","));
               if (!previousFollowers.isBlank())
                 result.put(PREVIOUS_FOLLOWER_KEY, previousFollowers);

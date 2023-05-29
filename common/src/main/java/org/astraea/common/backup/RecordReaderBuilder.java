@@ -104,11 +104,8 @@ public class RecordReaderBuilder {
 
   public RecordReader build() {
     var version = ByteUtils.readShort(fs);
-    switch (version) {
-      case 0:
-        return V0.apply(fs);
-      default:
-        throw new IllegalArgumentException("unsupported version: " + version);
-    }
+    if (version == 0) return V0.apply(fs);
+
+    throw new IllegalArgumentException("unsupported version: " + version);
   }
 }

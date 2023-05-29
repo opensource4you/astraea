@@ -67,7 +67,7 @@ public class ReplicaLeaderSizeCost
         clusterInfo.replicas().stream()
             .collect(
                 Collectors.groupingBy(
-                    r -> r.broker().id(),
+                    r -> r.brokerId(),
                     Collectors.mapping(
                         r ->
                             clusterInfo

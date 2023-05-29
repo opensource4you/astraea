@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package org.astraea.common.generated.admin;
+
+message Topic {
+  string name = 1;
+  map<string, string> config = 2;
+  bool internal = 3;
+  repeated int32 partitionIds = 4;
+}

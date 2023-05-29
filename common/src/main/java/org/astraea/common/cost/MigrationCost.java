@@ -185,7 +185,7 @@ public class MigrationCost {
                 })
             .collect(
                 Collectors.groupingBy(
-                    r -> r.broker().id(),
+                    r -> r.brokerId(),
                     Collectors.mapping(
                         Function.identity(), Collectors.summingLong(replicaFunction::apply))));
     return Stream.concat(dest.brokers().stream(), source.brokers().stream())
