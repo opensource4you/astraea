@@ -7,7 +7,7 @@ import "org/astraea/common/generated/admin/Broker.proto";
 message Replica {
   string topic = 1;
   int32  partition = 2;
-  Broker broker = 3;
+  int32 brokerId = 3;
   bool isLeader = 7;
   bool isSync = 10;
   bool isOffline = 12;

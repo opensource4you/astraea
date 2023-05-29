@@ -104,7 +104,7 @@ public class SingleStepBalancer implements Balancer {
             // if a topic is not allowed to move, it should be fixed.
             // if a topic is not allowed to move, but originally it located on a clearing broker, it
             // is ok to move.
-            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isClearing.test(tpr.broker().id()))
+            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isClearing.test(tpr.brokerId()))
             .collect(Collectors.toUnmodifiableSet());
     final var allocationTweaker =
         ShuffleTweaker.builder()

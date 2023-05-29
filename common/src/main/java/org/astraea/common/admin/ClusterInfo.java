@@ -87,22 +87,22 @@ public interface ClusterInfo {
             .sorted(
                 Comparator.comparing(Replica::isPreferredLeader)
                     .reversed()
-                    .thenComparing(r -> r.broker().id()))
-            .collect(Collectors.toUnmodifiableList());
+                    .thenComparing(Replica::brokerId))
+            .toList();
     final var targetIds =
         targetReplicas.stream()
             .sorted(
                 Comparator.comparing(Replica::isPreferredLeader)
                     .reversed()
-                    .thenComparing(r -> r.broker().id()))
-            .collect(Collectors.toUnmodifiableList());
+                    .thenComparing(Replica::brokerId))
+            .toList();
     return IntStream.range(0, sourceIds.size())
         .allMatch(
             index -> {
               final var source = sourceIds.get(index);
               final var target = targetIds.get(index);
               return source.isPreferredLeader() == target.isPreferredLeader()
-                  && source.broker().id() == target.broker().id()
+                  && source.brokerId() == target.brokerId()
                   && Objects.equals(source.path(), target.path());
             });
   }
@@ -121,7 +121,7 @@ public interface ClusterInfo {
                   .forEach(
                       log ->
                           stringBuilder.append(
-                              String.format("(%s, %s) ", log.broker().id(), log.path())));
+                              String.format("(%s, %s) ", log.brokerId(), log.path())));
 
               stringBuilder.append(System.lineSeparator());
             });
@@ -332,7 +332,7 @@ public interface ClusterInfo {
   // implements following methods by smart index to speed up the queries
 
   default Stream<Replica> replicaStream(int broker) {
-    return replicaStream().filter(r -> r.broker().id() == broker);
+    return replicaStream().filter(r -> r.brokerId() == broker);
   }
 
   default Stream<Replica> replicaStream(String topic) {
@@ -340,7 +340,7 @@ public interface ClusterInfo {
   }
 
   default Stream<Replica> replicaStream(BrokerTopic brokerTopic) {
-    return replicaStream(brokerTopic.topic()).filter(r -> r.broker().id() == brokerTopic.broker());
+    return replicaStream(brokerTopic.topic()).filter(r -> r.brokerId() == brokerTopic.broker());
   }
 
   default Stream<Replica> replicaStream(TopicPartition partition) {
@@ -348,8 +348,7 @@ public interface ClusterInfo {
   }
 
   default Stream<Replica> replicaStream(TopicPartitionReplica replica) {
-    return replicaStream(replica.topicPartition())
-        .filter(r -> r.broker().id() == replica.brokerId());
+    return replicaStream(replica.topicPartition()).filter(r -> r.brokerId() == replica.brokerId());
   }
 
   // ---------------------[abstract methods]---------------------//

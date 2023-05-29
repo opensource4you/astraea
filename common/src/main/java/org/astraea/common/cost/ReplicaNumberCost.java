@@ -59,7 +59,7 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
     var replicaPerBroker =
         clusterInfo
             .replicaStream()
-            .collect(Collectors.groupingBy(r -> r.broker().id(), Collectors.counting()));
+            .collect(Collectors.groupingBy(r -> r.brokerId(), Collectors.counting()));
     var summary = replicaPerBroker.values().stream().mapToLong(x -> x).summaryStatistics();
 
     var anyBrokerEmpty =

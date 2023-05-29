@@ -270,8 +270,8 @@ public class BalancerConsoleImpl implements BalancerConsole {
                             .sorted(
                                 Comparator.comparing(Replica::isPreferredLeader)
                                     .reversed()
-                                    .thenComparing(x -> x.broker().id()))
-                            .map(x -> Map.entry(x.broker().id(), x.path()))
+                                    .thenComparing(x -> x.brokerId()))
+                            .map(x -> Map.entry(x.brokerId(), x.path()))
                             .collect(Collectors.toUnmodifiableList())));
     return admin
         .topicNames(true)
@@ -292,8 +292,8 @@ public class BalancerConsoleImpl implements BalancerConsole {
                                       .sorted(
                                           Comparator.comparing(Replica::isPreferredLeader)
                                               .reversed()
-                                              .thenComparing(x -> x.broker().id()))
-                                      .map(x -> Map.entry(x.broker().id(), x.path()))
+                                              .thenComparing(x -> x.brokerId()))
+                                      .map(x -> Map.entry(x.brokerId(), x.path()))
                                       .collect(Collectors.toUnmodifiableList())));
               var mismatchPartitions =
                   before.entrySet().stream()

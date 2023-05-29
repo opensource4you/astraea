@@ -70,32 +70,14 @@ class ReplicaLeaderSizeCostTest {
   private ClusterInfo clusterInfo() {
     var replicas =
         List.of(
-            Replica.builder()
-                .topic("t")
-                .partition(10)
-                .isLeader(true)
-                .broker(Broker.of(0, "", -1))
-                .size(777)
-                .build(),
-            Replica.builder()
-                .topic("t")
-                .partition(11)
-                .isLeader(true)
-                .broker(Broker.of(1, "", -1))
-                .size(700)
-                .build(),
-            Replica.builder()
-                .topic("t")
-                .partition(12)
-                .isLeader(true)
-                .broker(Broker.of(2, "", -1))
-                .size(500)
-                .build(),
+            Replica.builder().topic("t").partition(10).isLeader(true).brokerId(0).size(777).build(),
+            Replica.builder().topic("t").partition(11).isLeader(true).brokerId(1).size(700).build(),
+            Replica.builder().topic("t").partition(12).isLeader(true).brokerId(2).size(500).build(),
             Replica.builder()
                 .topic("t")
                 .partition(12)
                 .isLeader(false)
-                .broker(Broker.of(0, "", -1))
+                .brokerId(0)
                 .size(499)
                 .build());
     return ClusterInfo.of(
