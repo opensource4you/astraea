@@ -38,7 +38,6 @@ import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
@@ -181,20 +180,18 @@ public class BrokerNode {
                 .collect(
                     Collectors.toMap(
                         ServerMetrics.BrokerTopic.Meter::metricsName,
-                        m -> {
-                          switch (m.type()) {
-                            case BYTES_IN_PER_SEC:
-                            case BYTES_OUT_PER_SEC:
-                            case BYTES_REJECTED_PER_SEC:
-                            case REASSIGNMENT_BYTES_OUT_PER_SEC:
-                            case REASSIGNMENT_BYTES_IN_PER_SEC:
-                            case REPLICATION_BYTES_IN_PER_SEC:
-                            case REPLICATION_BYTES_OUT_PER_SEC:
-                              return DataSize.Byte.of((long) m.fiveMinuteRate());
-                            default:
-                              return m.fiveMinuteRate();
-                          }
-                        })));
+                        m ->
+                            switch (m.type()) {
+                              case BYTES_IN_PER_SEC,
+                                  BYTES_OUT_PER_SEC,
+                                  BYTES_REJECTED_PER_SEC,
+                                  REASSIGNMENT_BYTES_OUT_PER_SEC,
+                                  REASSIGNMENT_BYTES_IN_PER_SEC,
+                                  REPLICATION_BYTES_IN_PER_SEC,
+                                  REPLICATION_BYTES_OUT_PER_SEC -> DataSize.Byte.of(
+                                  (long) m.fiveMinuteRate());
+                              default -> m.fiveMinuteRate();
+                            })));
 
     private final Function<JndiClient, Map<String, Object>> fetcher;
     private final String display;
@@ -224,7 +221,7 @@ public class BrokerNode {
                 (argument, logger) ->
                     context
                         .admin()
-                        .nodeInfos()
+                        .brokers()
                         .thenApply(
                             nodes ->
                                 context.addBrokerClients(nodes).entrySet().stream()
@@ -378,12 +375,11 @@ public class BrokerNode {
                             var unset =
                                 brokers.stream()
                                     .collect(
-                                        Collectors.toMap(
-                                            NodeInfo::id, b -> input.emptyValueKeys()));
+                                        Collectors.toMap(Broker::id, b -> input.emptyValueKeys()));
                             var set =
                                 brokers.stream()
                                     .collect(
-                                        Collectors.toMap(NodeInfo::id, b -> input.nonEmptyTexts()));
+                                        Collectors.toMap(Broker::id, b -> input.nonEmptyTexts()));
                             if (unset.isEmpty() && set.isEmpty()) {
                               logger.log("nothing to alter");
                               return CompletableFuture.completedStage(null);

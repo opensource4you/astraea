@@ -24,24 +24,30 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.IntegerMapField;
 import org.astraea.app.argument.NonNegativeIntegerField;
+import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricSensor;
 import org.astraea.common.metrics.collector.MetricStore;
 
 public class WebService implements AutoCloseable {
+  public static final String METRIC_STORE_KEY = "metric.store";
+  public static final String METRIC_STORE_LOCAL = "local";
+  public static final String METRIC_STORE_TOPIC = "topic";
+  public static final String BOOTSTRAP_SERVERS_KEY = "bootstrap.servers";
 
   private final HttpServer server;
   private final Admin admin;
@@ -51,32 +57,48 @@ public class WebService implements AutoCloseable {
       Admin admin,
       int port,
       Function<Integer, Integer> brokerIdToJmxPort,
-      Duration beanExpiration) {
+      Duration beanExpiration,
+      Configuration config) {
     this.admin = admin;
-    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+    Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier =
         () ->
-            admin
-                .brokers()
-                .thenApply(
-                    brokers ->
-                        brokers.stream()
-                            .collect(
-                                Collectors.toUnmodifiableMap(
-                                    NodeInfo::id,
-                                    b ->
-                                        JndiClient.of(b.host(), brokerIdToJmxPort.apply(b.id())))));
+            sensors.metricSensors().stream()
+                .distinct()
+                .collect(
+                    Collectors.toUnmodifiableMap(Function.identity(), ignored -> (id, ee) -> {}));
+
+    List<MetricStore.Receiver> receivers =
+        switch (config.string(METRIC_STORE_KEY).orElse(METRIC_STORE_LOCAL)) {
+          case METRIC_STORE_LOCAL -> {
+            Function<List<Broker>, Map<Integer, MBeanClient>> asBeanClientMap =
+                brokers ->
+                    brokers.stream()
+                        .collect(
+                            Collectors.toUnmodifiableMap(
+                                Broker::id,
+                                b -> JndiClient.of(b.host(), brokerIdToJmxPort.apply(b.id()))));
+            yield List.of(
+                MetricStore.Receiver.local(() -> admin.brokers().thenApply(asBeanClientMap)));
+          }
+          case METRIC_STORE_TOPIC -> List.of(
+              MetricStore.Receiver.topic(config.requireString(BOOTSTRAP_SERVERS_KEY)),
+              MetricStore.Receiver.local(
+                  () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
+          default -> throw new IllegalArgumentException(
+              "unknown metric store type: "
+                  + config.string(METRIC_STORE_KEY)
+                  + ". use "
+                  + METRIC_STORE_LOCAL
+                  + " or "
+                  + METRIC_STORE_TOPIC);
+        };
     var metricStore =
         MetricStore.builder()
             .beanExpiration(beanExpiration)
-            .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
-            .sensorsSupplier(
-                () ->
-                    sensors.metricSensors().stream()
-                        .distinct()
-                        .collect(
-                            Collectors.toUnmodifiableMap(
-                                Function.identity(), ignored -> (id, ee) -> {})))
+            .receivers(receivers)
+            .sensorsSupplier(sensorsSupplier)
             .build();
+
     server = Utils.packException(() -> HttpServer.create(new InetSocketAddress(port), 0));
     server.createContext("/topics", to(new TopicHandler(admin)));
     server.createContext("/groups", to(new GroupHandler(admin)));
@@ -109,7 +131,11 @@ public class WebService implements AutoCloseable {
       throw new IllegalArgumentException("you must define either --jmx.port or --jmx.ports");
     try (var service =
         new WebService(
-            Admin.of(arg.configs()), arg.port, arg::jmxPortMapping, arg.beanExpiration)) {
+            Admin.of(arg.configs()),
+            arg.port,
+            arg::jmxPortMapping,
+            arg.beanExpiration,
+            new Configuration(arg.configs()))) {
       if (arg.ttl == null) {
         System.out.println("enter ctrl + c to terminate web service");
         TimeUnit.MILLISECONDS.sleep(Long.MAX_VALUE);

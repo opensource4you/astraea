@@ -80,7 +80,7 @@ public class AdminWithOfflineBrokerTest {
       var allPs = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().join();
       NUMBER_OF_ONLINE_PARTITIONS =
           PARTITIONS
-              - (int) allPs.stream().filter(p -> p.leader().get().id() == CLOSED_BROKER_ID).count();
+              - (int) allPs.stream().filter(p -> p.leaderId().get() == CLOSED_BROKER_ID).count();
       Assertions.assertEquals(PARTITIONS, allPs.size());
       Utils.sleep(Duration.ofSeconds(2));
     }
@@ -108,18 +108,6 @@ public class AdminWithOfflineBrokerTest {
 
   @Timeout(10)
   @Test
-  void testNodeInfos() {
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      var nodeInfos = admin.nodeInfos().toCompletableFuture().join();
-      Assertions.assertEquals(2, nodeInfos.size());
-      var offlineNodeInfos =
-          nodeInfos.stream().filter(NodeInfo::offline).collect(Collectors.toList());
-      Assertions.assertEquals(0, offlineNodeInfos.size());
-    }
-  }
-
-  @Timeout(10)
-  @Test
   void testBrokers() {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var brokers = admin.brokers().toCompletableFuture().join();
@@ -128,7 +116,7 @@ public class AdminWithOfflineBrokerTest {
           b ->
               b.dataFolders()
                   .forEach(d -> Assertions.assertEquals(0, d.orphanPartitionSizes().size())));
-      var offlineBrokers = brokers.stream().filter(NodeInfo::offline).collect(Collectors.toList());
+      var offlineBrokers = brokers.stream().filter(Broker::offline).collect(Collectors.toList());
       Assertions.assertEquals(0, offlineBrokers.size());
     }
   }
@@ -140,7 +128,7 @@ public class AdminWithOfflineBrokerTest {
       var partitions = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().join();
       Assertions.assertEquals(PARTITIONS, partitions.size());
       var offlinePartitions =
-          partitions.stream().filter(p -> p.leader().isEmpty()).collect(Collectors.toList());
+          partitions.stream().filter(p -> p.leaderId().isEmpty()).collect(Collectors.toList());
       offlinePartitions.forEach(
           p -> {
             Assertions.assertEquals(1, p.replicas().size());
@@ -165,7 +153,7 @@ public class AdminWithOfflineBrokerTest {
       var offlineReplicas =
           replicas.stream().filter(Replica::isOffline).collect(Collectors.toList());
       Assertions.assertNotEquals(PARTITIONS, offlineReplicas.size());
-      offlineReplicas.forEach(r -> Assertions.assertTrue(r.nodeInfo().offline()));
+      offlineReplicas.forEach(r -> Assertions.assertTrue(r.broker().offline()));
       offlineReplicas.forEach(r -> Assertions.assertNull(r.path()));
       offlineReplicas.forEach(r -> Assertions.assertEquals(-1, r.size()));
       offlineReplicas.forEach(r -> Assertions.assertEquals(-1, r.lag()));

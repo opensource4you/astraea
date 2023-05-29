@@ -14,25 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.admin;
+package org.astraea.common.metrics.stats;
 
-import org.apache.kafka.common.Node;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class NodeInfoTest {
-
-  static Node node() {
-    return new Node(10, "host", 100);
-  }
-
+public class SumTest {
   @Test
-  void testAllGetters() {
-    var kafkaNode = node();
-    var node = NodeInfo.of(kafkaNode);
-
-    Assertions.assertEquals(kafkaNode.host(), node.host());
-    Assertions.assertEquals(kafkaNode.id(), node.id());
-    Assertions.assertEquals(kafkaNode.port(), node.port());
+  void testLongOf() {
+    var stat = Sum.ofLong();
+    stat.record(1L);
+    stat.record(2L);
+    Assertions.assertEquals(3L, stat.measure());
   }
 }

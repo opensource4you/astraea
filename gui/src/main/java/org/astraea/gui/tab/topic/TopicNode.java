@@ -38,7 +38,6 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ConsumerGroup;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicConfigs;
@@ -413,7 +412,7 @@ public class TopicNode {
                     "number of producer id", topicProducers.getOrDefault(topic, Set.of()).size());
               ps.stream()
                   .flatMap(p -> p.replicas().stream())
-                  .collect(Collectors.groupingBy(NodeInfo::id))
+                  .collect(Collectors.groupingBy(Broker::id))
                   .entrySet()
                   .stream()
                   .sorted(Map.Entry.comparingByKey())

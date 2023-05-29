@@ -75,7 +75,7 @@ class BalancerHandler implements Handler, AutoCloseable {
     var balancerPostRequest = channel.request(TypeRef.of(BalancerPostRequest.class));
     var request =
         admin
-            .topicNames(false)
+            .topicNames(true)
             .thenCompose(admin::clusterInfo)
             .thenApply(
                 currentClusterInfo ->
@@ -147,28 +147,22 @@ class BalancerHandler implements Handler, AutoCloseable {
     var exception =
         (Function<BalancerConsole.TaskPhase, String>)
             (phase) -> {
-              switch (phase) {
-                case Searching:
-                case Searched:
-                case Executing:
-                case Executed:
-                  // No error message during the search & execution
-                  return null;
-                case SearchFailed:
-                  return planGenerations
-                      .get(taskId)
-                      .handle((plan, err) -> err != null ? err.toString() : null)
-                      .toCompletableFuture()
-                      .getNow(null);
-                case ExecutionFailed:
-                  return planExecutions
-                      .get(taskId)
-                      .handle((ignore, err) -> err != null ? err.toString() : null)
-                      .toCompletableFuture()
-                      .getNow(null);
-                default:
-                  throw new IllegalStateException("Unknown state: " + phase);
-              }
+              return switch (phase) {
+                case Searching, Searched, Executing, Executed ->
+                // No error message during the search & execution
+                null;
+                case SearchFailed -> planGenerations
+                    .get(taskId)
+                    .handle((plan, err) -> err != null ? err.toString() : null)
+                    .toCompletableFuture()
+                    .getNow(null);
+                case ExecutionFailed -> planExecutions
+                    .get(taskId)
+                    .handle((ignore, err) -> err != null ? err.toString() : null)
+                    .toCompletableFuture()
+                    .getNow(null);
+                default -> throw new IllegalStateException("Unknown state: " + phase);
+              };
             };
     var changes =
         (Function<Balancer.Plan, List<Change>>)
@@ -255,7 +249,7 @@ class BalancerHandler implements Handler, AutoCloseable {
     final Optional<Long> size;
 
     Placement(Replica replica, Optional<Long> size) {
-      this.brokerId = replica.nodeInfo().id();
+      this.brokerId = replica.broker().id();
       this.directory = replica.path();
       this.size = size;
     }

@@ -21,13 +21,18 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
+import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.balancer.AlgorithmConfig;
 import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.BalancerConfigs;
+import org.astraea.common.balancer.BalancerUtils;
 import org.astraea.common.balancer.tweakers.ShuffleTweaker;
+import org.astraea.common.cost.ClusterCost;
 
 /** This algorithm proposes rebalance plan by tweaking the log allocation once. */
 public class SingleStepBalancer implements Balancer {
@@ -41,6 +46,12 @@ public class SingleStepBalancer implements Balancer {
 
   @Override
   public Optional<Plan> offer(AlgorithmConfig config) {
+    BalancerUtils.balancerConfigCheck(
+        config.balancerConfig(),
+        Set.of(
+            BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX,
+            BalancerConfigs.BALANCER_BROKER_BALANCING_MODE));
+
     final var minStep =
         config
             .balancerConfig()
@@ -68,27 +79,48 @@ public class SingleStepBalancer implements Balancer {
             .regexString(BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX)
             .map(Pattern::asMatchPredicate)
             .orElse((ignore) -> true);
-    final var allowedBrokers =
-        config
-            .balancerConfig()
-            .regexString(BalancerConfigs.BALANCER_ALLOWED_BROKERS_REGEX)
-            .map(Pattern::asMatchPredicate)
-            .<Predicate<Integer>>map(
-                predicate -> (brokerId) -> predicate.test(Integer.toString(brokerId)))
-            .orElse((ignore) -> true);
+    final var balancingMode =
+        BalancerUtils.balancingMode(
+            config.clusterInfo(),
+            config
+                .balancerConfig()
+                .string(BalancerConfigs.BALANCER_BROKER_BALANCING_MODE)
+                .orElse(""));
+    final Predicate<Integer> isBalancing =
+        id -> balancingMode.get(id) == BalancerUtils.BalancingModes.BALANCING;
+    final Predicate<Integer> isDemoted =
+        id -> balancingMode.get(id) == BalancerUtils.BalancingModes.DEMOTED;
+    final var hasDemoted =
+        balancingMode.values().stream().anyMatch(i -> i == BalancerUtils.BalancingModes.DEMOTED);
+    BalancerUtils.verifyClearBrokerValidness(config.clusterInfo(), isDemoted);
 
-    final var currentClusterInfo = config.clusterInfo();
+    final var currentClusterInfo =
+        BalancerUtils.clearedCluster(config.clusterInfo(), isDemoted, isBalancing);
     final var clusterBean = config.clusterBean();
+    final var fixedReplicas =
+        config
+            .clusterInfo()
+            .replicaStream()
+            // if a topic is not allowed to move, it should be fixed.
+            // if a topic is not allowed to move, but originally it located on a demoting broker, it
+            // is ok to move.
+            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isDemoted.test(tpr.broker().id()))
+            .collect(Collectors.toUnmodifiableSet());
     final var allocationTweaker =
         ShuffleTweaker.builder()
             .numberOfShuffle(() -> ThreadLocalRandom.current().nextInt(minStep, maxStep))
-            .allowedTopics(allowedTopics)
-            .allowedBrokers(allowedBrokers)
+            .allowedReplicas(r -> !fixedReplicas.contains(r))
+            .allowedBrokers(isBalancing)
             .build();
-    final var clusterCostFunction = config.clusterCostFunction();
     final var moveCostFunction = config.moveCostFunction();
-    final var currentCost =
-        config.clusterCostFunction().clusterCost(currentClusterInfo, clusterBean);
+
+    final Function<ClusterInfo, ClusterCost> evaluateCost =
+        (cluster) -> {
+          final var filteredCluster =
+              hasDemoted ? ClusterInfo.builder(cluster).removeNodes(isDemoted).build() : cluster;
+          return config.clusterCostFunction().clusterCost(filteredCluster, clusterBean);
+        };
+    final var currentCost = evaluateCost.apply(currentClusterInfo);
 
     var start = System.currentTimeMillis();
     return allocationTweaker
@@ -107,8 +139,28 @@ public class SingleStepBalancer implements Balancer {
                     config.clusterInfo(),
                     currentCost,
                     newAllocation,
-                    clusterCostFunction.clusterCost(newAllocation, clusterBean)))
+                    evaluateCost.apply(newAllocation)))
         .filter(plan -> plan.proposalClusterCost().value() < currentCost.value())
-        .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()));
+        .min(Comparator.comparing(plan -> plan.proposalClusterCost().value()))
+        .or(
+            () -> {
+              // With demotion, the implementation detail start search from a demoted state. It is
+              // possible
+              // that the start state is already the ideal answer. In this case, it is directly
+              // returned.
+              if (hasDemoted
+                  && currentCost.value() == 0.0
+                  && !moveCostFunction
+                      .moveCost(config.clusterInfo(), currentClusterInfo, clusterBean)
+                      .overflow()) {
+                return Optional.of(
+                    new Plan(
+                        config.clusterInfo(),
+                        config.clusterCostFunction().clusterCost(config.clusterInfo(), clusterBean),
+                        currentClusterInfo,
+                        currentCost));
+              }
+              return Optional.empty();
+            });
   }
 }

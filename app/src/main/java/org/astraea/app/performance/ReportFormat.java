@@ -80,7 +80,7 @@ public enum ReportFormat implements EnumInfo {
                     + reportFormat);
     var writer = new BufferedWriter(Utils.packException(() -> new FileWriter(filePath.toFile())));
     switch (reportFormat) {
-      case CSV:
+      case CSV -> {
         initCSVFormat(writer, latencyAndIO());
         return () -> {
           try {
@@ -92,7 +92,8 @@ public enum ReportFormat implements EnumInfo {
             Utils.close(writer);
           }
         };
-      case JSON:
+      }
+      case JSON -> {
         Utils.packException(() -> writer.write("{"));
         return () -> {
           try {
@@ -104,8 +105,8 @@ public enum ReportFormat implements EnumInfo {
             Utils.close(writer);
           }
         };
-      default:
-        throw new IllegalArgumentException("Invalid format.");
+      }
+      default -> throw new IllegalArgumentException("Invalid format.");
     }
   }
 

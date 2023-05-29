@@ -22,8 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 
 public class RoundRobinKeeper {
   private final AtomicInteger next = new AtomicInteger(0);
@@ -46,7 +46,7 @@ public class RoundRobinKeeper {
         == now) {
       var roundRobin = RoundRobin.smooth(costToScore.get());
       var ids =
-          clusterInfo.nodes().stream().map(NodeInfo::id).collect(Collectors.toUnmodifiableSet());
+          clusterInfo.brokers().stream().map(Broker::id).collect(Collectors.toUnmodifiableSet());
       // TODO: make ROUND_ROBIN_LENGTH configurable ???
       for (var index = 0; index < this.roundRobin.length; ++index)
         this.roundRobin[index] = roundRobin.next(ids).orElse(-1);

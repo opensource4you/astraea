@@ -31,8 +31,8 @@ import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.balancer.algorithms.GreedyBalancer;
@@ -73,10 +73,10 @@ class BalancerTest {
                         .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
                         .toCompletableFuture()
                         .join();
-                return clusterInfo.nodes().stream()
+                return clusterInfo.brokers().stream()
                     .collect(
                         Collectors.toMap(
-                            NodeInfo::id,
+                            Broker::id,
                             n ->
                                 clusterInfo
                                     .replicaStream(n.id())

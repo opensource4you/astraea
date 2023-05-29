@@ -41,16 +41,12 @@ public class MonkeyThread implements AbstractThread {
     System.out.println("create chaos monkey");
     return param.monkeys.entrySet().stream()
         .map(
-            entry -> {
-              switch ((entry.getKey())) {
-                case "kill":
-                  return killMonkey(consumerThreads, entry.getValue());
-                case "add":
-                  return addMonkey(consumerThreads, entry.getValue(), param);
-                default:
-                  return unsubscribeMonkey(consumerThreads, entry.getValue());
-              }
-            })
+            entry ->
+                switch ((entry.getKey())) {
+                  case "kill" -> killMonkey(consumerThreads, entry.getValue());
+                  case "add" -> addMonkey(consumerThreads, entry.getValue(), param);
+                  default -> unsubscribeMonkey(consumerThreads, entry.getValue());
+                })
         .toList();
   }
 
