@@ -382,13 +382,11 @@ public class Exporter extends SinkConnector {
     protected Optional<Long> targeOffset(Record<byte[], byte[]> r) {
       var topicMap = this.offsetForTopicPartition.get(r.topic());
 
-      if (topicMap != null && topicMap.get(String.valueOf(r.partition())) != null) {
+      // If we are unable to obtain the target offset from the 'offsetForTopicPartition' map,
+      // we will attempt to retrieve it from another map called 'offsetForTopic'.
+      if (topicMap != null && topicMap.get(String.valueOf(r.partition())) != null)
         return Optional.ofNullable(topicMap.get(String.valueOf(r.partition())));
-      } else {
-        // we can not get the target offset from the offsetForTopicPartition,
-        // then we will try another map offsetFroTopic.
-        return Optional.ofNullable(this.offsetForTopic.get(r.topic()));
-      }
+      return Optional.ofNullable(this.offsetForTopic.get(r.topic()));
     }
 
     /**
