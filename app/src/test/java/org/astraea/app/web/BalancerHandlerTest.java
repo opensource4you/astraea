@@ -970,7 +970,7 @@ public class BalancerHandlerTest {
                 (short) 10,
                 r ->
                     Replica.builder(r)
-                        .broker(base.node(srcIter.next()))
+                        .brokerId(base.node(srcIter.next()).id())
                         .isPreferredLeader(srcPrefIter.next())
                         .path(srcDirIter.next())
                         .build())
@@ -986,7 +986,7 @@ public class BalancerHandlerTest {
                 (short) 10,
                 r ->
                     Replica.builder(r)
-                        .broker(base.node(dstIter.next()))
+                        .brokerId(base.node(dstIter.next()).id())
                         .isPreferredLeader(dstPrefIter.next())
                         .path(dstDirIter.next())
                         .build())

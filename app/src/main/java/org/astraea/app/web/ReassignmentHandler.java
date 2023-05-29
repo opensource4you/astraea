@@ -211,7 +211,7 @@ public class ReassignmentHandler implements Handler {
     AddingReplica(Replica addingReplica, long leaderSize) {
       this.topicName = addingReplica.topic();
       this.partition = addingReplica.partition();
-      this.broker = addingReplica.broker().id();
+      this.broker = addingReplica.brokerId();
       this.dataFolder = addingReplica.path();
       this.size = addingReplica.size();
       this.leaderSize = leaderSize;

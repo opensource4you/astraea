@@ -174,7 +174,7 @@ public class GreedyBalancer implements Balancer {
             // if a topic is not allowed to move, it should be fixed.
             // if a topic is not allowed to move, but originally it located on a demoting broker, it
             // is ok to move.
-            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isDemoted.test(tpr.broker().id()))
+            .filter(tpr -> !allowedTopics.test(tpr.topic()) && !isDemoted.test(tpr.brokerId()))
             .collect(Collectors.toUnmodifiableSet());
     final var allocationTweaker =
         ShuffleTweaker.builder()

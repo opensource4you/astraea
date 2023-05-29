@@ -153,7 +153,6 @@ public class AdminWithOfflineBrokerTest {
       var offlineReplicas =
           replicas.stream().filter(Replica::isOffline).collect(Collectors.toList());
       Assertions.assertNotEquals(PARTITIONS, offlineReplicas.size());
-      offlineReplicas.forEach(r -> Assertions.assertTrue(r.broker().offline()));
       offlineReplicas.forEach(r -> Assertions.assertNull(r.path()));
       offlineReplicas.forEach(r -> Assertions.assertEquals(-1, r.size()));
       offlineReplicas.forEach(r -> Assertions.assertEquals(-1, r.lag()));

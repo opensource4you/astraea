@@ -685,9 +685,10 @@ class AdminImpl implements Admin {
                                                   .isInternal(internal)
                                                   .isAdding(isAdding)
                                                   .isRemoving(isRemoving)
-                                                  .broker(
-                                                      brokers.getOrDefault(
-                                                          node.id(), Broker.of(node)))
+                                                  .brokerId(
+                                                      brokers
+                                                          .getOrDefault(node.id(), Broker.of(node))
+                                                          .id())
                                                   .lag(pathAndReplica.getValue().offsetLag())
                                                   .size(pathAndReplica.getValue().size())
                                                   .isLeader(
@@ -716,7 +717,7 @@ class AdminImpl implements Admin {
                 .sorted(
                     Comparator.comparing(Replica::topic)
                         .thenComparing(Replica::partition)
-                        .thenComparing(r -> r.broker().id()))
+                        .thenComparing(r -> r.brokerId()))
                 .toList());
   }
 

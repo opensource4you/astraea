@@ -80,7 +80,7 @@ public class ShuffleTweaker {
         baseAllocation.topicPartitions().stream()
             .filter(tp -> eligiblePartition(baseAllocation.replicas(tp)))
             .flatMap(baseAllocation::replicaStream)
-            .filter(r -> this.allowedBrokers.test(r.broker().id()))
+            .filter(r -> this.allowedBrokers.test(r.brokerId()))
             .filter(this.allowedReplicas)
             .toList();
 
@@ -105,7 +105,7 @@ public class ShuffleTweaker {
                           // leader pair follower, follower pair leader
                           .filter(r -> r.isFollower() != sourceReplica.isFollower())
                           // this leader/follower is located at allowed broker
-                          .filter(r -> this.allowedBrokers.test(r.broker().id()))
+                          .filter(r -> this.allowedBrokers.test(r.brokerId()))
                           // this leader/follower is allowed to tweak
                           .filter(this.allowedReplicas)
                           .map(r -> Map.entry(r, ThreadLocalRandom.current().nextInt()))
@@ -148,8 +148,7 @@ public class ShuffleTweaker {
                   var targetBroker =
                       baseAllocation.brokers().stream()
                           // the candidate should not be part of the replica list
-                          .filter(
-                              b -> replicaList.stream().noneMatch(r -> r.broker().id() == b.id()))
+                          .filter(b -> replicaList.stream().noneMatch(r -> r.brokerId() == b.id()))
                           // should be an allowed broker
                           .filter(b -> this.allowedBrokers.test(b.id()))
                           .map(b -> Map.entry(b, ThreadLocalRandom.current().nextInt()))
@@ -159,7 +158,7 @@ public class ShuffleTweaker {
                   if (targetBroker.isPresent()) {
                     var targetReplica =
                         Replica.builder(sourceReplica)
-                            .broker(targetBroker.get())
+                            .brokerId(targetBroker.get().id())
                             .path(
                                 randomElement(
                                     baseAllocation.brokerFolders().get(targetBroker.get().id())))

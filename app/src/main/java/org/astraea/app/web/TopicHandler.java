@@ -316,7 +316,7 @@ class TopicHandler implements Handler {
 
     Replica(org.astraea.common.admin.Replica replica) {
       this(
-          replica.broker().id(),
+          replica.brokerId(),
           replica.lag(),
           replica.size(),
           replica.isLeader(),

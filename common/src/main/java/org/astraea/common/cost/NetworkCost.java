@@ -210,7 +210,7 @@ public abstract class NetworkCost implements HasClusterCost {
         .replicaStream()
         .filter(Replica::isOnline)
         .filter(Replica::isLeader)
-        .map(r -> Map.entry(BrokerTopic.of(r.broker().id(), r.topic()), r))
+        .map(r -> Map.entry(BrokerTopic.of(r.brokerId(), r.topic()), r))
         .collect(
             Collectors.groupingBy(
                 Map.Entry::getKey,

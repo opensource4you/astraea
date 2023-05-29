@@ -67,7 +67,7 @@ public final class BalancerUtils {
   public static void verifyClearBrokerValidness(ClusterInfo cluster, Predicate<Integer> isDemoted) {
     var ongoingEventReplica =
         cluster.replicas().stream()
-            .filter(r -> isDemoted.test(r.broker().id()))
+            .filter(r -> isDemoted.test(r.brokerId()))
             .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
             .map(Replica::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
@@ -106,17 +106,17 @@ public final class BalancerUtils {
                     tp -> tp,
                     tp ->
                         initial.replicas(tp).stream()
-                            .map(Replica::broker)
+                            .map(Replica::brokerId)
                             .collect(Collectors.toSet())));
     return ClusterInfo.builder(initial)
         .mapLog(
             replica -> {
-              if (!clearBrokers.test(replica.broker().id())) return replica;
+              if (!clearBrokers.test(replica.brokerId())) return replica;
               var currentReplicaList = trackingReplicaList.get(replica.topicPartition());
               var broker =
                   IntStream.range(0, allowed.size())
                       .mapToObj(i -> nextBroker.next())
-                      .filter(b -> !currentReplicaList.contains(b))
+                      .filter(b -> !currentReplicaList.contains(b.id()))
                       .findFirst()
                       .orElseThrow(
                           () ->
@@ -124,7 +124,7 @@ public final class BalancerUtils {
                                   "Unable to clear replica "
                                       + replica.topicPartitionReplica()
                                       + " for broker "
-                                      + replica.broker().id()
+                                      + replica.brokerId()
                                       + ", the allowed destination brokers are "
                                       + allowed.stream()
                                           .map(Broker::id)
@@ -135,10 +135,10 @@ public final class BalancerUtils {
 
               // update the tracking list. have to do this to avoid putting two replicas from the
               // same tp to one broker.
-              currentReplicaList.remove(replica.broker());
-              currentReplicaList.add(broker);
+              currentReplicaList.remove(replica.brokerId());
+              currentReplicaList.add(broker.id());
 
-              return Replica.builder(replica).broker(broker).path(folder).build();
+              return Replica.builder(replica).brokerId(broker.id()).path(folder).build();
             })
         .build();
   }

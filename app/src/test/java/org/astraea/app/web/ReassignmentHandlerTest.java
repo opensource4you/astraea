@@ -60,8 +60,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .broker()
-              .id();
+              .brokerId();
       var nextBroker =
           SERVICE.dataFolders().keySet().stream().filter(i -> i != currentBroker).findAny().get();
 
@@ -88,8 +87,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .broker()
-              .id());
+              .brokerId());
     }
   }
 
@@ -111,7 +109,7 @@ public class ReassignmentHandlerTest {
               .findFirst()
               .get();
 
-      var currentBroker = currentReplica.broker().id();
+      var currentBroker = currentReplica.brokerId();
       var currentPath = currentReplica.path();
       var nextPath =
           SERVICE.dataFolders().get(currentBroker).stream()
@@ -170,8 +168,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .broker()
-              .id();
+              .brokerId();
 
       var body =
           String.format("{\"excludeNodes\": [{\"%s\": \"%s\"}]}", EXCLUDE_KEY, currentBroker);
@@ -194,8 +191,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .broker()
-              .id());
+              .brokerId());
       Assertions.assertEquals(
           0,
           admin.topicPartitionReplicas(Set.of(currentBroker)).toCompletableFuture().join().size());
@@ -221,8 +217,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .broker()
-              .id();
+              .brokerId();
 
       var body =
           String.format(
@@ -247,8 +242,7 @@ public class ReassignmentHandlerTest {
               .filter(replica -> replica.partition() == 0)
               .findFirst()
               .get()
-              .broker()
-              .id());
+              .brokerId());
       Assertions.assertNotEquals(
           0,
           admin.topicPartitionReplicas(Set.of(currentBroker)).toCompletableFuture().join().size());

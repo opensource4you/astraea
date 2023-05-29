@@ -66,19 +66,19 @@ public class StrictCostPartitionerPerfTest {
                 Replica.builder()
                     .topic("topic")
                     .partition(0)
-                    .broker(node0)
+                    .brokerId(node0.id())
                     .path("/tmp/aa")
                     .buildLeader(),
                 Replica.builder()
                     .topic("topic")
                     .partition(1)
-                    .broker(node1)
+                    .brokerId(node1.id())
                     .path("/tmp/aa")
                     .buildLeader(),
                 Replica.builder()
                     .topic("topic")
                     .partition(2)
-                    .broker(node2)
+                    .brokerId(node2.id())
                     .path("/tmp/aa")
                     .buildLeader()));
     var admin = Mockito.mock(Admin.class);
