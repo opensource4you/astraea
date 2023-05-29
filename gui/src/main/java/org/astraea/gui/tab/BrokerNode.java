@@ -35,10 +35,12 @@ import java.util.stream.Stream;
 import javafx.geometry.Side;
 import javafx.scene.Node;
 import org.astraea.common.DataSize;
+import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
-import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.TopicPartitionPath;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
 import org.astraea.common.metrics.broker.HasGauge;
@@ -257,7 +259,8 @@ public class BrokerNode {
     return PaneBuilder.of().firstPart(firstPart).build();
   }
 
-  private static List<Map<String, Object>> basicResult(List<Broker> brokers) {
+  private static List<Map<String, Object>> basicResult(
+      List<Broker> brokers, ClusterInfo clusterInfo) {
     return brokers.stream()
         .map(
             broker ->
@@ -271,37 +274,32 @@ public class BrokerNode {
                     "controller",
                     broker.isController(),
                     "topics",
-                    broker.dataFolders().stream()
-                        .flatMap(
-                            d -> d.partitionSizes().keySet().stream().map(TopicPartition::topic))
+                    broker.topicPartitionPaths().stream()
+                        .map(TopicPartitionPath::topic)
                         .distinct()
                         .count(),
                     "partitions",
-                    broker.dataFolders().stream()
-                        .flatMap(d -> d.partitionSizes().keySet().stream())
+                    broker.topicPartitionPaths().stream()
+                        .map(TopicPartitionPath::topicPartition)
                         .distinct()
                         .count(),
                     "leaders",
-                    broker.topicPartitionLeaders().size(),
+                    broker.topicPartitionPaths().stream()
+                        .map(TopicPartitionPath::topicPartition)
+                        .filter(
+                            tp ->
+                                clusterInfo
+                                    .replicaStream()
+                                    .anyMatch(
+                                        r ->
+                                            r.topicPartition().equals(tp)
+                                                && r.isLeader()
+                                                && r.brokerId() == broker.id()))
+                        .count(),
                     "size",
                     DataSize.Byte.of(
-                        broker.dataFolders().stream()
-                            .mapToLong(
-                                d -> d.partitionSizes().values().stream().mapToLong(v -> v).sum())
-                            .sum()),
-                    "orphan partitions",
-                    broker.dataFolders().stream()
-                        .flatMap(d -> d.orphanPartitionSizes().keySet().stream())
-                        .distinct()
-                        .count(),
-                    "orphan size",
-                    DataSize.Byte.of(
-                        broker.dataFolders().stream()
-                            .mapToLong(
-                                d ->
-                                    d.orphanPartitionSizes().values().stream()
-                                        .mapToLong(v -> v)
-                                        .sum())
+                        broker.topicPartitionPaths().stream()
+                            .mapToLong(TopicPartitionPath::size)
                             .sum())))
         .collect(Collectors.toList());
   }
@@ -311,7 +309,14 @@ public class BrokerNode {
         FirstPart.builder()
             .clickName("REFRESH")
             .tableRefresher(
-                (argument, logger) -> context.admin().brokers().thenApply(BrokerNode::basicResult))
+                (argument, logger) ->
+                    FutureUtils.combine(
+                        context.admin().brokers(),
+                        context
+                            .admin()
+                            .topicNames(true)
+                            .thenCompose(names -> context.admin().clusterInfo(names)),
+                        BrokerNode::basicResult))
             .build();
     return PaneBuilder.of().firstPart(firstPart).build();
   }
@@ -438,36 +443,29 @@ public class BrokerNode {
                                     .flatMap(
                                         broker ->
                                             broker.dataFolders().stream()
-                                                .sorted(
-                                                    Comparator.comparing(Broker.DataFolder::path))
+                                                .sorted()
                                                 .map(
-                                                    d -> {
+                                                    path -> {
                                                       Map<String, Object> result =
                                                           new LinkedHashMap<>();
                                                       result.put("broker id", broker.id());
-                                                      result.put("path", d.path());
+                                                      result.put("path", path);
                                                       result.put(
-                                                          "partitions", d.partitionSizes().size());
+                                                          "partitions",
+                                                          broker.topicPartitionPaths().stream()
+                                                              .filter(tp -> tp.path().equals(path))
+                                                              .count());
                                                       result.put(
                                                           "size",
                                                           DataSize.Byte.of(
-                                                              d.partitionSizes().values().stream()
-                                                                  .mapToLong(s -> s)
-                                                                  .sum()));
-                                                      result.put(
-                                                          "orphan partitions",
-                                                          d.orphanPartitionSizes().size());
-                                                      result.put(
-                                                          "orphan size",
-                                                          DataSize.Byte.of(
-                                                              d
-                                                                  .orphanPartitionSizes()
-                                                                  .values()
-                                                                  .stream()
-                                                                  .mapToLong(s -> s)
+                                                              broker.topicPartitionPaths().stream()
+                                                                  .filter(
+                                                                      tp -> tp.path().equals(path))
+                                                                  .mapToLong(
+                                                                      TopicPartitionPath::size)
                                                                   .sum()));
                                                       result.putAll(
-                                                          metrics.apply(broker.id(), d.path()));
+                                                          metrics.apply(broker.id(), path));
                                                       return result;
                                                     }))
                                     .collect(Collectors.toList())))

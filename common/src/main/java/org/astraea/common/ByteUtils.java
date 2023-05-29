@@ -33,6 +33,7 @@ import org.astraea.common.admin.Config;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.Topic;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionPath;
 import org.astraea.common.generated.BeanObjectOuterClass;
 import org.astraea.common.generated.PrimitiveOuterClass;
 import org.astraea.common.generated.admin.BrokerOuterClass;
@@ -305,15 +306,13 @@ public final class ByteUtils {
 
   // ---------------------------Serialize To ProtoBuf Outer Class------------------------------- //
 
-  private static BrokerOuterClass.Broker.DataFolder toOuterClass(Broker.DataFolder dataFolder) {
-    return BrokerOuterClass.Broker.DataFolder.newBuilder()
-        .setPath(dataFolder.path())
-        .putAllPartitionSizes(
-            dataFolder.partitionSizes().entrySet().stream()
-                .collect(Collectors.toMap(entry -> entry.getKey().toString(), Map.Entry::getValue)))
-        .putAllOrphanPartitionSizes(
-            dataFolder.orphanPartitionSizes().entrySet().stream()
-                .collect(Collectors.toMap(entry -> entry.getKey().toString(), Map.Entry::getValue)))
+  private static BrokerOuterClass.Broker.TopicPartitionPath toOuterClass(
+      TopicPartitionPath topicPartitionPath) {
+    return BrokerOuterClass.Broker.TopicPartitionPath.newBuilder()
+        .setTopic(topicPartitionPath.topic())
+        .setPartition(topicPartitionPath.partition())
+        .setSize(topicPartitionPath.size())
+        .setPath(topicPartitionPath.path())
         .build();
   }
 
@@ -332,11 +331,9 @@ public final class ByteUtils {
         .setPort(broker.port())
         .setIsController(broker.isController())
         .putAllConfig(broker.config().raw())
-        .addAllDataFolder(broker.dataFolders().stream().map(ByteUtils::toOuterClass).toList())
-        .addAllTopicPartitions(
-            broker.topicPartitions().stream().map(ByteUtils::toOuterClass).toList())
-        .addAllTopicPartitionLeaders(
-            broker.topicPartitionLeaders().stream().map(ByteUtils::toOuterClass).toList())
+        .addAllDataFolders(broker.dataFolders())
+        .addAllTopicPartitionPaths(
+            broker.topicPartitionPaths().stream().map(ByteUtils::toOuterClass).toList())
         .build();
   }
 
@@ -370,15 +367,13 @@ public final class ByteUtils {
 
   // -------------------------Deserialize From ProtoBuf Outer Class----------------------------- //
 
-  private static Broker.DataFolder toDataFolder(BrokerOuterClass.Broker.DataFolder dataFolder) {
-    return new Broker.DataFolder(
-        dataFolder.getPath(),
-        dataFolder.getPartitionSizesMap().entrySet().stream()
-            .collect(
-                Collectors.toMap(entry -> TopicPartition.of(entry.getKey()), Map.Entry::getValue)),
-        dataFolder.getOrphanPartitionSizesMap().entrySet().stream()
-            .collect(
-                Collectors.toMap(entry -> TopicPartition.of(entry.getKey()), Map.Entry::getValue)));
+  private static TopicPartitionPath toTopicPartitionPath(
+      BrokerOuterClass.Broker.TopicPartitionPath partitionPath) {
+    return new TopicPartitionPath(
+        partitionPath.getTopic(),
+        partitionPath.getPartition(),
+        partitionPath.getSize(),
+        partitionPath.getPath());
   }
 
   private static TopicPartition toTopicPartition(
@@ -393,13 +388,8 @@ public final class ByteUtils {
         broker.getPort(),
         broker.getIsController(),
         new Config(broker.getConfigMap()),
-        broker.getDataFolderList().stream().map(ByteUtils::toDataFolder).toList(),
-        broker.getTopicPartitionsList().stream()
-            .map(ByteUtils::toTopicPartition)
-            .collect(Collectors.toSet()),
-        broker.getTopicPartitionLeadersList().stream()
-            .map(ByteUtils::toTopicPartition)
-            .collect(Collectors.toSet()));
+        Set.copyOf(broker.getDataFoldersList()),
+        broker.getTopicPartitionPathsList().stream().map(ByteUtils::toTopicPartitionPath).toList());
   }
 
   private static Topic toTopic(TopicOuterClass.Topic topic) {
