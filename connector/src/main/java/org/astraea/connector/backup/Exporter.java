@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -353,16 +354,16 @@ public class Exporter extends SinkConnector {
     }
 
     protected boolean isValid(Record<byte[], byte[]> r) {
-      Long targetOffset = targeOffset(r);
+      var targetOffset = targeOffset(r);
 
       // If the target offset exists and the record's offset is less than the target offset,
       // set the seek offset to the target offset and return false, also the topicPartition is
       // paused to be consuming if this topicPartition was already seeked before. this can prevent
       // reset offset infinitely.
-      if (targetOffset != null && r.offset() < targetOffset) {
+      if (targetOffset.isPresent() && r.offset() < targetOffset.get()) {
         if (this.seekedTopicPartitions.contains(r.topicPartition()))
           this.taskContext.pause(Collections.singleton(r.topicPartition()));
-        else this.seekOffset.put(r.topicPartition(), targetOffset);
+        else this.seekOffset.put(r.topicPartition(), targetOffset.get());
         return false;
       }
 
@@ -378,15 +379,15 @@ public class Exporter extends SinkConnector {
      *     is not found.
      */
     // visible for test
-    protected Long targeOffset(Record<byte[], byte[]> r) {
+    protected Optional<Long> targeOffset(Record<byte[], byte[]> r) {
       var topicMap = this.offsetForTopicPartition.get(r.topic());
 
       if (topicMap != null && topicMap.get(String.valueOf(r.partition())) != null) {
-        return topicMap.get(String.valueOf(r.partition()));
+        return Optional.ofNullable(topicMap.get(String.valueOf(r.partition())));
       } else {
         // we can not get the target offset from the offsetForTopicPartition,
         // then we will try another map offsetFroTopic.
-        return this.offsetForTopic.get(r.topic());
+        return Optional.ofNullable(this.offsetForTopic.get(r.topic()));
       }
     }
 
