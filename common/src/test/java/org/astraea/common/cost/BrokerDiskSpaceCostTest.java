@@ -21,13 +21,13 @@ import static org.astraea.common.cost.BrokerDiskSpaceCost.brokerPathDiskUsageSiz
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.Node;
-import org.apache.kafka.common.requests.DescribeLogDirsResponse;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Config;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
@@ -222,15 +222,13 @@ class BrokerDiskSpaceCostTest {
     var dataPath =
         Map.of(
             0,
-            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
+            List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
             1,
-            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
+            List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
             2,
-            Map.of(
-                "/path0",
-                new DescribeLogDirsResponse.LogDirInfo(null, Map.of()),
-                "/path1",
-                new DescribeLogDirsResponse.LogDirInfo(null, Map.of())));
+            List.of(
+                new Broker.DataFolder("/path0", Map.of(), Map.of()),
+                new Broker.DataFolder("/path1", Map.of(), Map.of())));
     return ClusterInfo.of(
         "fake",
         replicas.stream()
@@ -238,12 +236,15 @@ class BrokerDiskSpaceCostTest {
             .distinct()
             .map(
                 broker ->
-                    Broker.of(
+                    new Broker(
+                        broker.id(),
+                        "",
+                        broker.port(),
                         false,
-                        new Node(broker.id(), "", broker.port()),
-                        Map.of(),
+                        Config.EMPTY,
                         dataPath.get(broker.id()),
-                        List.of()))
+                        Set.of(),
+                        Set.of()))
             .collect(Collectors.toList()),
         Map.of(),
         replicas);
@@ -264,18 +265,15 @@ class BrokerDiskSpaceCostTest {
       p2  1000
    */
   private static ClusterInfo beforeClusterInfo() {
+
     var dataPath =
         Map.of(
-            0,
-            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
-            1,
-            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
+            0, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
+            1, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
             2,
-            Map.of(
-                "/path0",
-                new DescribeLogDirsResponse.LogDirInfo(null, Map.of()),
-                "/path1",
-                new DescribeLogDirsResponse.LogDirInfo(null, Map.of())));
+                List.of(
+                    new Broker.DataFolder("/path0", Map.of(), Map.of()),
+                    new Broker.DataFolder("/path1", Map.of(), Map.of())));
     var replicas =
         List.of(
             Replica.builder()
@@ -333,30 +331,30 @@ class BrokerDiskSpaceCostTest {
             .distinct()
             .map(
                 broker ->
-                    Broker.of(
+                    new Broker(
+                        broker.id(),
+                        "",
+                        broker.port(),
                         false,
-                        new Node(broker.id(), "", broker.port()),
-                        Map.of(),
+                        Config.EMPTY,
                         dataPath.get(broker.id()),
-                        List.of()))
+                        Set.of(),
+                        Set.of()))
             .collect(Collectors.toList()),
         Map.of(),
         replicas);
   }
 
   private static ClusterInfo afterClusterInfo() {
+
     var dataPath =
         Map.of(
-            0,
-            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
-            1,
-            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
+            0, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
+            1, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
             2,
-            Map.of(
-                "/path0",
-                new DescribeLogDirsResponse.LogDirInfo(null, Map.of()),
-                "/path1",
-                new DescribeLogDirsResponse.LogDirInfo(null, Map.of())));
+                List.of(
+                    new Broker.DataFolder("/path0", Map.of(), Map.of()),
+                    new Broker.DataFolder("/path1", Map.of(), Map.of())));
     var replicas =
         List.of(
             Replica.builder()
@@ -414,12 +412,15 @@ class BrokerDiskSpaceCostTest {
             .distinct()
             .map(
                 broker ->
-                    Broker.of(
+                    new Broker(
+                        broker.id(),
+                        "",
+                        broker.port(),
                         false,
-                        new Node(broker.id(), "", broker.port()),
-                        Map.of(),
+                        Config.EMPTY,
                         dataPath.get(broker.id()),
-                        List.of()))
+                        Set.of(),
+                        Set.of()))
             .collect(Collectors.toList()),
         Map.of(),
         replicas);

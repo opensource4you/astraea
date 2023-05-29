@@ -18,6 +18,7 @@ package org.astraea.common.connector;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -37,7 +38,7 @@ class ConnectorClientBuilderTest {
 
     ConnectorClient.builder().url(new URL("https://github.com/skiptests/astraea/")).build();
     ConnectorClient.builder()
-        .urls(Set.of(new URL("https://github.com/skiptests/astraea/")))
+        .urls(List.of(new URL("https://github.com/skiptests/astraea/")))
         .build();
   }
 

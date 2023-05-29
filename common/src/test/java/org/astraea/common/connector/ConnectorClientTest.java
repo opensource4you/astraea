@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
@@ -107,7 +108,7 @@ class ConnectorClientTest {
   @Test
   void testCreateConnector() {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().urls(Set.copyOf(SERVICE.workerUrls())).build();
+    var connectorClient = ConnectorClient.builder().urls(List.copyOf(SERVICE.workerUrls())).build();
     var exampleConnector = new HashMap<>(getExampleConnector());
     exampleConnector.put("tasks.max", "3");
 
@@ -213,7 +214,7 @@ class ConnectorClientTest {
   @Test
   void testUrls() {
     var connectorName = Utils.randomString(10);
-    var connectorClient = ConnectorClient.builder().urls(Set.copyOf(SERVICE.workerUrls())).build();
+    var connectorClient = ConnectorClient.builder().urls(List.copyOf(SERVICE.workerUrls())).build();
     connectorClient
         .createConnector(connectorName, getExampleConnector())
         .toCompletableFuture()
@@ -239,15 +240,13 @@ class ConnectorClientTest {
   @Test
   void testUrlsRoundRobin() {
     var servers =
-        IntStream.range(0, 3)
-            .mapToObj(x -> new Server(200, "[\"connector" + x + "\"]"))
-            .collect(Collectors.toList());
+        IntStream.range(0, 3).mapToObj(x -> new Server(200, "[\"connector" + x + "\"]")).toList();
     try {
       var urls =
           servers.stream()
               .map(x -> "http://" + Utils.hostname() + ":" + x.port())
               .map(x -> Utils.packException(() -> new URL(x)))
-              .collect(Collectors.toSet());
+              .toList();
 
       var connectorClient = ConnectorClient.builder().urls(urls).build();
 
