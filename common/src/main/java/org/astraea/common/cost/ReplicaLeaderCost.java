@@ -17,6 +17,7 @@
 package org.astraea.common.cost;
 
 import static org.astraea.common.cost.MigrationCost.replicaLeaderToAdd;
+import static org.astraea.common.cost.MigrationCost.replicaLeaderToRemove;
 
 import java.util.List;
 import java.util.Map;
@@ -90,6 +91,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var replicaLeaderIn = replicaLeaderToAdd(before, after);
+    var replicaLeaderOut = replicaLeaderToRemove(before, after);
     var maxMigratedLeader =
         config.string(MAX_MIGRATE_LEADER_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var brokerOverflow =
@@ -97,6 +99,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
             .anyMatch(
                 leaderLimit ->
                     replicaLeaderIn.getOrDefault(leaderLimit.getKey(), 0L)
+                            + replicaLeaderOut.getOrDefault(leaderLimit.getKey(), 0L)
                         > leaderLimit.getValue());
     if (brokerOverflow) return () -> true;
     var overflow =
