@@ -83,18 +83,14 @@ public class ReplicaLeaderCostTest {
     // test broker overflow
     var brokerTargetCluster =
         ClusterInfo.builder(baseCluster)
-            .addTopic(
-                "topic1", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(1)).build())
-            .addTopic(
-                "topic2", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(2)).build())
+            .addTopic("topic1", 3, (short) 1, r -> Replica.builder(r).brokerId(1).build())
+            .addTopic("topic2", 3, (short) 1, r -> Replica.builder(r).brokerId(2).build())
             .build();
 
     var brokerOverFlowTargetCluster =
         ClusterInfo.builder(baseCluster)
-            .addTopic(
-                "topic1", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(1)).build())
-            .addTopic(
-                "topic2", 3, (short) 1, r -> Replica.builder(r).broker(baseCluster.node(1)).build())
+            .addTopic("topic1", 3, (short) 1, r -> Replica.builder(r).brokerId(1).build())
+            .addTopic("topic2", 3, (short) 1, r -> Replica.builder(r).brokerId(1).build())
             .build();
     var overFlowMoveCost2 =
         new ReplicaLeaderCost(
