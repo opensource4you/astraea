@@ -400,7 +400,12 @@ class BalancerConsoleTest {
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
             return Optional.of(
-                new Plan(config.clusterInfo(), () -> 0, config.clusterInfo(), () -> 0));
+                new Plan(
+                    config.clusterBean(),
+                    config.clusterInfo(),
+                    () -> 0,
+                    config.clusterInfo(),
+                    () -> 0));
           }
         };
 

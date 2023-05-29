@@ -136,6 +136,7 @@ public class SingleStepBalancer implements Balancer {
         .map(
             newAllocation ->
                 new Plan(
+                    config.clusterBean(),
                     config.clusterInfo(),
                     currentCost,
                     newAllocation,
@@ -155,6 +156,7 @@ public class SingleStepBalancer implements Balancer {
                       .overflow()) {
                 return Optional.of(
                     new Plan(
+                        config.clusterBean(),
                         config.clusterInfo(),
                         config.clusterCostFunction().clusterCost(config.clusterInfo(), clusterBean),
                         currentClusterInfo,
