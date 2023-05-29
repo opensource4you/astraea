@@ -86,12 +86,12 @@ public class ReplicaLeaderCostTest {
             .build();
     var overFlowMoveCost2 =
         new ReplicaLeaderCost(
-                new Configuration(Map.of(ReplicaLeaderCost.BROKER_COST_LIMIT_KEY, "1:5")))
+                new Configuration(Map.of(ReplicaLeaderCost.BROKER_COST_LIMIT_KEY, "2:2")))
             .moveCost(sourceCluster, brokerOverFlowTargetCluster, ClusterBean.EMPTY);
 
     var noOverFlowMoveCost2 =
         new ReplicaLeaderCost(
-                new Configuration(Map.of(ReplicaLeaderCost.BROKER_COST_LIMIT_KEY, "1:3")))
+                new Configuration(Map.of(ReplicaLeaderCost.BROKER_COST_LIMIT_KEY, "2:3")))
             .moveCost(sourceCluster, brokerTargetCluster, ClusterBean.EMPTY);
     Assertions.assertTrue(overFlowMoveCost2.overflow());
     Assertions.assertFalse(noOverFlowMoveCost2.overflow());

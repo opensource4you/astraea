@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
-import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.broker.ServerMetrics;
@@ -33,7 +32,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   private final Dispersion dispersion = Dispersion.normalizedStandardDeviation();
   private final Configuration config;
   public static final String MAX_MIGRATE_LEADER_KEY = "max.migrated.leader.number";
-  static final String BROKER_COST_LIMIT_KEY = "max.broker.total.leader.number";
+  static final String BROKER_COST_LIMIT_KEY = "max.broker.migrated.leader.number";
   private final Map<Integer, Integer> brokerMoveCostLimit;
 
   public ReplicaLeaderCost() {
@@ -91,16 +90,14 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   @Override
   public MoveCost moveCost(ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var replicaLeaderIn = replicaLeaderToAdd(before, after);
-    var brokerLeaderNum =
-        after.brokers().stream()
-            .collect(Collectors.toMap(Broker::id, b -> after.replicaLeaders(b.id()).size()));
     var maxMigratedLeader =
         config.string(MAX_MIGRATE_LEADER_KEY).map(Long::parseLong).orElse(Long.MAX_VALUE);
     var brokerOverflow =
         this.brokerMoveCostLimit.entrySet().stream()
             .anyMatch(
                 leaderLimit ->
-                    brokerLeaderNum.getOrDefault(leaderLimit.getKey(), 0) > leaderLimit.getValue());
+                    replicaLeaderIn.getOrDefault(leaderLimit.getKey(), 0L)
+                        > leaderLimit.getValue());
     if (brokerOverflow) return () -> true;
     var overflow =
         maxMigratedLeader
