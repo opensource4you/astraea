@@ -300,6 +300,36 @@ public final class ByteUtils {
     }
   }
 
+  /** Deserialize to a map with Integer keys and list of BeanObject values using protocol buffer */
+  public static Map<Integer, List<BeanObject>> readBeanObjects(byte[] bytes) {
+    try {
+      var outerClusterBean = BeanObjectOuterClass.MapOfBeanObjects.parseFrom(bytes);
+      return outerClusterBean.getAllBeansMap().entrySet().stream()
+          .collect(
+              Collectors.toUnmodifiableMap(
+                  k -> k.getKey(),
+                  v ->
+                      v.getValue().getBeanObjectsList().stream()
+                          .map(
+                              i ->
+                                  new BeanObject(
+                                      i.getDomain(),
+                                      i.getPropertiesMap(),
+                                      i.getAttributesMap().entrySet().stream()
+                                          .collect(
+                                              Collectors.toUnmodifiableMap(
+                                                  Map.Entry::getKey,
+                                                  e ->
+                                                      Objects.requireNonNull(
+                                                          toObject(e.getValue())))),
+                                      i.getCreatedTimestamp().getSeconds() * 1000
+                                          + i.getCreatedTimestamp().getNanos() / 1000000))
+                          .toList()));
+    } catch (InvalidProtocolBufferException ex) {
+      throw new SerializationException(ex);
+    }
+  }
+
   /** Deserialize to ClusterInfo with protocol buffer */
   public static ClusterInfo readClusterInfo(byte[] bytes) {
     try {
@@ -465,35 +495,6 @@ public final class ByteUtils {
         .isPreferredLeader(replica.getIsPreferredLeader())
         .path(replica.getPath())
         .build();
-  }
-
-  public static Map<Integer, List<BeanObject>> readBeanObjects(byte[] bytes) {
-    try {
-      var outerClusterBean = BeanObjectOuterClass.MapOfBeanObjects.parseFrom(bytes);
-      return outerClusterBean.getAllBeansMap().entrySet().stream()
-          .collect(
-              Collectors.toUnmodifiableMap(
-                  k -> k.getKey(),
-                  v ->
-                      v.getValue().getBeanObjectsList().stream()
-                          .map(
-                              i ->
-                                  new BeanObject(
-                                      i.getDomain(),
-                                      i.getPropertiesMap(),
-                                      i.getAttributesMap().entrySet().stream()
-                                          .collect(
-                                              Collectors.toUnmodifiableMap(
-                                                  Map.Entry::getKey,
-                                                  e ->
-                                                      Objects.requireNonNull(
-                                                          toObject(e.getValue())))),
-                                      i.getCreatedTimestamp().getSeconds() * 1000
-                                          + i.getCreatedTimestamp().getNanos() / 1000000))
-                          .toList()));
-    } catch (InvalidProtocolBufferException ex) {
-      throw new SerializationException(ex);
-    }
   }
 
   // --------------------------------ProtoBuf Primitive----------------------------------------- //
