@@ -11,3 +11,12 @@ message BeanObject {
   map<string, Primitive> attributes = 3;
   google.protobuf.Timestamp createdTimestamp = 4;
 }
+
+
+message MapOfBeanObjects {
+  message BeanObjects {
+    repeated BeanObject beanObjects = 1;
+  }
+
+  map<int32, BeanObjects> allBeans = 1;
+}

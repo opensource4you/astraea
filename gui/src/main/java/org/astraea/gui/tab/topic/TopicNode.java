@@ -41,6 +41,7 @@ import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicConfigs;
+import org.astraea.common.admin.TopicPartitionPath;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
@@ -363,12 +364,12 @@ public class TopicNode {
       List<ProducerState> producerStates) {
     var topicSize =
         brokers.stream()
-            .flatMap(
-                n -> n.dataFolders().stream().flatMap(d -> d.partitionSizes().entrySet().stream()))
+            .flatMap(n -> n.topicPartitionPaths().stream())
             .collect(
                 Collectors.groupingBy(
-                    e -> e.getKey().topic(),
-                    Collectors.mapping(Map.Entry::getValue, Collectors.reducing(0L, Long::sum))));
+                    TopicPartitionPath::topic,
+                    Collectors.mapping(
+                        TopicPartitionPath::size, Collectors.reducing(0L, Long::sum))));
 
     var topicPartitions = partitions.stream().collect(Collectors.groupingBy(Partition::topic));
     var topicGroups =

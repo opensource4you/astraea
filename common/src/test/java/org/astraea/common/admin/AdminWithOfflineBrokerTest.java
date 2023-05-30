@@ -112,11 +112,7 @@ public class AdminWithOfflineBrokerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var brokers = admin.brokers().toCompletableFuture().join();
       Assertions.assertEquals(2, brokers.size());
-      brokers.forEach(
-          b ->
-              b.dataFolders()
-                  .forEach(d -> Assertions.assertEquals(0, d.orphanPartitionSizes().size())));
-      var offlineBrokers = brokers.stream().filter(Broker::offline).collect(Collectors.toList());
+      var offlineBrokers = brokers.stream().filter(Broker::offline).toList();
       Assertions.assertEquals(0, offlineBrokers.size());
     }
   }
@@ -127,8 +123,7 @@ public class AdminWithOfflineBrokerTest {
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       var partitions = admin.partitions(Set.of(TOPIC_NAME)).toCompletableFuture().join();
       Assertions.assertEquals(PARTITIONS, partitions.size());
-      var offlinePartitions =
-          partitions.stream().filter(p -> p.leaderId().isEmpty()).collect(Collectors.toList());
+      var offlinePartitions = partitions.stream().filter(p -> p.leaderId().isEmpty()).toList();
       offlinePartitions.forEach(
           p -> {
             Assertions.assertEquals(1, p.replicas().size());

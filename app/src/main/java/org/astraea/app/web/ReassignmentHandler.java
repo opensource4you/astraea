@@ -35,6 +35,7 @@ import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionPath;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.json.TypeRef;
 
@@ -92,7 +93,7 @@ public class ReassignmentHandler implements Handler {
                               var availableBrokers =
                                   brokers.stream().filter(b -> b.id() != exclude).toList();
                               var partitions =
-                                  excludedBroker.get().topicPartitions().stream()
+                                  excludedBroker.get().topicPartitionPaths().stream()
                                       .filter(
                                           tp ->
                                               excludeNode.topic.isEmpty()
@@ -104,12 +105,14 @@ public class ReassignmentHandler implements Handler {
                                   partitions.stream()
                                       .collect(
                                           Collectors.toMap(
-                                              tp -> tp,
+                                              TopicPartitionPath::topicPartition,
                                               tp -> {
                                                 var ids =
                                                     availableBrokers.stream()
                                                         .filter(
-                                                            b -> b.topicPartitions().contains(tp))
+                                                            b ->
+                                                                b.topicPartitionPaths()
+                                                                    .contains(tp))
                                                         .map(Broker::id)
                                                         .toList();
                                                 if (!ids.isEmpty()) return ids;

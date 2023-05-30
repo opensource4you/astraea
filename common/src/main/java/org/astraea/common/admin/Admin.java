@@ -178,15 +178,7 @@ public interface Admin extends AutoCloseable {
   default CompletionStage<Map<Integer, Set<String>>> brokerFolders() {
     return brokers()
         .thenApply(
-            brokers ->
-                brokers.stream()
-                    .collect(
-                        Collectors.toMap(
-                            Broker::id,
-                            n ->
-                                n.dataFolders().stream()
-                                    .map(Broker.DataFolder::path)
-                                    .collect(Collectors.toSet()))));
+            brokers -> brokers.stream().collect(Collectors.toMap(Broker::id, Broker::dataFolders)));
   }
 
   CompletionStage<Set<String>> consumerGroupIds();

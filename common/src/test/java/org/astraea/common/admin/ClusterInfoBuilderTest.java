@@ -332,7 +332,7 @@ class ClusterInfoBuilderTest {
         "300, host3, 3000",
       })
   void testFakeBrokerInteraction(int id, String host, int port) {
-    var node0 = ClusterInfoBuilder.fakeBroker(id, host, port, List.of());
+    var node0 = ClusterInfoBuilder.fakeBroker(id, host, port, Set.of());
     var node1 = Broker.of(id, host, port);
     var node2 = Broker.of(id + 1, host, port);
 
