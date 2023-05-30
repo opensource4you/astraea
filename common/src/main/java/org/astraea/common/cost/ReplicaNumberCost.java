@@ -18,7 +18,6 @@ package org.astraea.common.cost;
 
 import static org.astraea.common.cost.MigrationCost.replicaNumChanged;
 
-import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.Broker;
@@ -32,7 +31,7 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
   private final Configuration config;
 
   public ReplicaNumberCost() {
-    this.config = new Configuration(Map.of());
+    this.config = Configuration.EMPTY;
   }
 
   public ReplicaNumberCost(Configuration config) {

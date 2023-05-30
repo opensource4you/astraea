@@ -126,7 +126,7 @@ public class ConnectorTest {
     @Override
     protected List<Configuration> takeConfiguration(int maxTasks) {
       return IntStream.range(0, maxTasks)
-          .mapToObj(i -> new Configuration(Map.of()))
+          .mapToObj(i -> Configuration.EMPTY)
           .collect(Collectors.toList());
     }
 
@@ -166,7 +166,7 @@ public class ConnectorTest {
     @Override
     protected List<Configuration> takeConfiguration(int maxTasks) {
       return IntStream.range(0, maxTasks)
-          .mapToObj(i -> new Configuration(Map.of()))
+          .mapToObj(i -> Configuration.EMPTY)
           .collect(Collectors.toList());
     }
 
