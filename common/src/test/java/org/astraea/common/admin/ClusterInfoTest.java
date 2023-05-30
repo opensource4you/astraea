@@ -51,14 +51,7 @@ public class ClusterInfoTest {
             .map(
                 r ->
                     new Broker(
-                        r.brokerId(),
-                        "hpost",
-                        22222,
-                        false,
-                        Config.EMPTY,
-                        List.of(),
-                        Set.of(),
-                        Set.of()))
+                        r.brokerId(), "hpost", 22222, false, Config.EMPTY, Set.of(), List.of()))
             .collect(Collectors.groupingBy(Broker::id, Collectors.reducing((x, y) -> x)))
             .values()
             .stream()

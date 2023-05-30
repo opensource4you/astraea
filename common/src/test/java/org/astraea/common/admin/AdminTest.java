@@ -1275,38 +1275,7 @@ public class AdminTest {
       Assertions.assertEquals(3, brokers.size());
       brokers.forEach(broker -> Assertions.assertNotEquals(0, broker.config().raw().size()));
       Assertions.assertEquals(1, brokers.stream().filter(Broker::isController).count());
-      brokers.forEach(broker -> Assertions.assertNotEquals(0, broker.topicPartitions().size()));
-      brokers.forEach(
-          broker -> Assertions.assertNotEquals(0, broker.topicPartitionLeaders().size()));
-    }
-  }
-
-  @Test
-  void testBrokerFolders() {
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      Assertions.assertEquals(
-          SERVICE.dataFolders().keySet().size(),
-          admin.brokers().toCompletableFuture().join().size());
-      // list all
-      SERVICE
-          .dataFolders()
-          .forEach(
-              (id, ds) ->
-                  Assertions.assertEquals(
-                      admin.brokerFolders().toCompletableFuture().join().get(id).size(),
-                      ds.size()));
-
-      admin
-          .brokers()
-          .toCompletableFuture()
-          .join()
-          .forEach(
-              broker ->
-                  Assertions.assertEquals(
-                      broker.topicPartitions().size(),
-                      broker.dataFolders().stream()
-                          .mapToInt(e -> e.partitionSizes().size())
-                          .sum()));
+      brokers.forEach(broker -> Assertions.assertNotEquals(0, broker.topicPartitionPaths().size()));
     }
   }
 
@@ -1523,14 +1492,9 @@ public class AdminTest {
           .join()
           .forEach(
               broker ->
-                  broker
-                      .dataFolders()
-                      .forEach(
-                          d ->
-                              d.partitionSizes().entrySet().stream()
-                                  .filter(e -> e.getKey().topic().equals(topic))
-                                  .map(Map.Entry::getValue)
-                                  .forEach(v -> Assertions.assertEquals(0, v))));
+                  broker.topicPartitionPaths().stream()
+                      .filter(tp -> tp.topic().equals(topic))
+                      .forEach(d -> Assertions.assertEquals(0, d.size())));
     }
   }
 

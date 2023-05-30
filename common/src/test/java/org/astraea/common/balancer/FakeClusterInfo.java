@@ -84,11 +84,8 @@ public class FakeClusterInfo {
                         node.port(),
                         false,
                         new Config(Map.of()),
-                        dataDirectories.stream()
-                            .map(path -> new Broker.DataFolder(path, Map.of(), Map.of()))
-                            .toList(),
-                        Set.of(),
-                        Set.of()))
+                        dataDirectories,
+                        List.of()))
             .toList();
     final var dataDirectoryList = List.copyOf(dataDirectories);
     final var topics = topicNameGenerator.apply(topicCount);
