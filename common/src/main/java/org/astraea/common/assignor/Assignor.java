@@ -49,9 +49,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   private Configuration config;
   public static final String COST_PREFIX = "assignor.cost";
   public static final String JMX_PORT = "jmx.port";
-  public static final String METRIC_STORE_KEY = "metric.store";
-  public static final String METRIC_STORE_LOCAL = "local";
-  public static final String METRIC_STORE_TOPIC = "topic";
   Function<Integer, Integer> jmxPortGetter =
       (id) -> {
         throw new NoSuchElementException("must define either broker.x.jmx.port or jmx.port");
@@ -106,13 +103,15 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                         ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG + " must be defined"));
 
     List<MetricStore.Receiver> receivers =
-        switch (config.string(METRIC_STORE_KEY).orElse(METRIC_STORE_LOCAL)) {
-          case METRIC_STORE_TOPIC -> List.of(
+        switch (config
+            .string(ConsumerConfigs.METRIC_STORE_KEY)
+            .orElse(ConsumerConfigs.METRIC_STORE_LOCAL)) {
+          case ConsumerConfigs.METRIC_STORE_TOPIC -> List.of(
               MetricStore.Receiver.topic(
                   config.requireString(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG)),
               MetricStore.Receiver.local(
                   () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
-          case METRIC_STORE_LOCAL -> {
+          case ConsumerConfigs.METRIC_STORE_LOCAL -> {
             Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
                 () ->
                     admin
@@ -133,11 +132,11 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
           }
           default -> throw new IllegalArgumentException(
               "unknown metric store type: "
-                  + config.string(METRIC_STORE_KEY)
+                  + config.string(ConsumerConfigs.METRIC_STORE_KEY)
                   + ". Use "
-                  + METRIC_STORE_TOPIC
+                  + ConsumerConfigs.METRIC_STORE_TOPIC
                   + " or "
-                  + METRIC_STORE_LOCAL);
+                  + ConsumerConfigs.METRIC_STORE_LOCAL);
         };
     metricStore =
         MetricStore.builder()
