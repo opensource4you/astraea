@@ -171,13 +171,7 @@ public class MigrationCost {
                     dest.replicas(p).stream()
                         .filter(predicate)
                         .filter(
-                            r ->
-                                source.replicas(p).stream()
-                                    .noneMatch(
-                                        sourceReplica ->
-                                            sourceReplica
-                                                .topicPartitionReplica()
-                                                .equals(r.topicPartitionReplica()))))
+                            r -> source.replicas(p).stream().noneMatch(x -> checkoutSameTPR(r, x))))
             .map(
                 r -> {
                   if (migrateOut) return dest.replicaLeader(r.topicPartition()).orElse(r);
@@ -185,7 +179,7 @@ public class MigrationCost {
                 })
             .collect(
                 Collectors.groupingBy(
-                    r -> r.brokerId(),
+                    Replica::brokerId,
                     Collectors.mapping(
                         Function.identity(), Collectors.summingLong(replicaFunction::apply))));
     return Stream.concat(dest.brokers().stream(), source.brokers().stream())
@@ -193,6 +187,10 @@ public class MigrationCost {
         .distinct()
         .parallel()
         .collect(Collectors.toMap(Function.identity(), n -> cost.getOrDefault(n, 0L)));
+  }
+
+  private static boolean checkoutSameTPR(Replica r1, Replica r2) {
+    return r1.topicPartitionReplica().equals(r2.topicPartitionReplica());
   }
 
   private static Map<Integer, Long> changedReplicaNumber(ClusterInfo before, ClusterInfo after) {

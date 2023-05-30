@@ -19,7 +19,6 @@ package org.astraea.common.cost;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.Node;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
@@ -62,16 +61,9 @@ class MigrateTimeCostTest {
 
   private List<Broker> brokers() {
     return before().stream()
-        .map(Replica::broker)
+        .map(Replica::brokerId)
         .distinct()
-        .map(
-            nodeInfo ->
-                Broker.of(
-                    false,
-                    new Node(nodeInfo.id(), "", nodeInfo.port()),
-                    Map.of(),
-                    Map.of(),
-                    List.of()))
+        .map(nodeId -> Broker.of(nodeId, "", -1))
         .collect(Collectors.toList());
   }
 
@@ -101,28 +93,28 @@ class MigrateTimeCostTest {
             .partition(10)
             .isLeader(true)
             .size(10000000)
-            .broker(Broker.of(1, "", -1))
+            .brokerId(1)
             .build(),
         Replica.builder()
             .topic("t")
             .partition(11)
             .isLeader(true)
             .size(20000000)
-            .broker(Broker.of(2, "", -1))
+            .brokerId(2)
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(true)
             .size(30000000)
-            .broker(Broker.of(0, "", -1))
+            .brokerId(0)
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(false)
             .size(30000000)
-            .broker(Broker.of(1, "", -1))
+            .brokerId(1)
             .build());
   }
 
@@ -133,28 +125,28 @@ class MigrateTimeCostTest {
             .partition(10)
             .isLeader(true)
             .size(10000000)
-            .broker(Broker.of(0, "", -1))
+            .brokerId(0)
             .build(),
         Replica.builder()
             .topic("t")
             .partition(11)
             .isLeader(true)
             .size(20000000)
-            .broker(Broker.of(1, "", -1))
+            .brokerId(1)
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(true)
             .size(30000000)
-            .broker(Broker.of(2, "", -1))
+            .brokerId(2)
             .build(),
         Replica.builder()
             .topic("t")
             .partition(12)
             .isLeader(false)
             .size(30000000)
-            .broker(Broker.of(0, "", -1))
+            .brokerId(0)
             .build());
   }
 
