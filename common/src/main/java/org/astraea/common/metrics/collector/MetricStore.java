@@ -150,7 +150,7 @@ public interface MetricStore extends AutoCloseable {
                     (client, bean) ->
                         client.beans(BeanQuery.all()).stream()
                             .map(bs -> (HasBeanObject) () -> bs)
-                            .collect(Collectors.toUnmodifiableList()),
+                            .toList(),
                 (id, ignored) -> {});
 
     private Collection<Receiver> receivers;
@@ -289,7 +289,10 @@ public interface MetricStore extends AutoCloseable {
           .property(TYPE_PROPERTY, TYPE_VALUE)
           .property(ID_PROPERTY, uid)
           .property(NAME_PROPERTY, BEAN_COUNT_NAME)
-          .attribute(COUNT_PROPERTY, Long.class, () -> beans.values().stream().mapToLong(Collection::size).sum())
+          .attribute(
+              COUNT_PROPERTY,
+              Long.class,
+              () -> beans.values().stream().mapToLong(Collection::size).sum())
           .description("The number of beans stored in this metricStore.")
           .register();
       MBeanRegister.local()

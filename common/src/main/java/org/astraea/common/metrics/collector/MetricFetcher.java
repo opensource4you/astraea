@@ -33,7 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.FutureUtils;
@@ -41,6 +40,8 @@ import org.astraea.common.Utils;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.MBeanRegister;
+import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.broker.ClusterMetrics;
 import org.astraea.common.metrics.broker.ControllerMetrics;
 import org.astraea.common.metrics.broker.LogMetrics;
@@ -51,6 +52,7 @@ import org.astraea.common.metrics.client.consumer.ConsumerMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
 import org.astraea.common.metrics.platform.HostMetrics;
+import org.astraea.common.metrics.stats.Sum;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.Serializer;
@@ -70,7 +72,7 @@ public interface MetricFetcher extends AutoCloseable {
               ConnectorMetrics.QUERIES.stream(),
               HostMetrics.QUERIES.stream())
           .flatMap(s -> s)
-          .collect(Collectors.toUnmodifiableList());
+          .toList();
 
   static Builder builder() {
     return new Builder();
@@ -109,11 +111,11 @@ public interface MetricFetcher extends AutoCloseable {
           var records =
               beans.stream()
                   .map(bean -> Record.builder().topic(METRIC_TOPIC).key(id).value(bean).build())
-                  .collect(Collectors.toUnmodifiableList());
+                  .toList();
           return FutureUtils.sequence(
                   producer.send(records).stream()
                       .map(CompletionStage::toCompletableFuture)
-                      .collect(Collectors.toUnmodifiableList()))
+                      .toList())
               .thenAccept(ignored -> {});
         }
 
@@ -178,6 +180,13 @@ public interface MetricFetcher extends AutoCloseable {
   }
 
   class MetricFetcherImpl implements MetricFetcher {
+    public static final String DOMAIN_NAME = "org.astraea";
+    public static final String TYPE_PROPERTY = "type";
+    public static final String TYPE_VALUE = "metricFetcher";
+    public static final String NAME_PROPERTY = "name";
+    public static final String BEAN_FETCHED_NAME = "BeanFetched";
+    public static final String ID_PROPERTY = "id";
+    public static final String SUM_PROPERTY = "sum";
     private volatile Map<Integer, MBeanClient> clients = new HashMap<>();
 
     private final Map<Integer, Collection<BeanObject>> latest = new ConcurrentHashMap<>();
@@ -195,6 +204,8 @@ public interface MetricFetcher extends AutoCloseable {
     private final Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier;
 
     private final Duration fetchBeanDelay;
+    private final Sensor<Long> beanFetchedSensor =
+        Sensor.builder().addStat(SUM_PROPERTY, Sum.ofLong()).build();
 
     private MetricFetcherImpl(
         int threads,
@@ -235,6 +246,16 @@ public interface MetricFetcher extends AutoCloseable {
           };
 
       IntStream.range(0, threads).forEach(ignored -> executor.execute(job));
+
+      // MBean register
+      MBeanRegister.local()
+          .domainName(DOMAIN_NAME)
+          .property(TYPE_PROPERTY, TYPE_VALUE)
+          .property(ID_PROPERTY, Utils.randomString())
+          .property(NAME_PROPERTY, BEAN_FETCHED_NAME)
+          .attribute(SUM_PROPERTY, Long.class, () -> beanFetchedSensor.measure(SUM_PROPERTY))
+          .description("The number of fetched beans")
+          .register();
     }
 
     private void updateMetadata() {
@@ -269,7 +290,8 @@ public interface MetricFetcher extends AutoCloseable {
         beans =
             QUERIES.stream()
                 .flatMap(q -> clients.get(identity.id).beans(q, e -> {}).stream())
-                .collect(Collectors.toUnmodifiableList());
+                .toList();
+        beanFetchedSensor.record((long) beans.size());
       } finally {
         lock.readLock().unlock();
       }
