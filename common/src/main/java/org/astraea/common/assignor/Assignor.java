@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -41,12 +42,16 @@ import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricStore;
 import org.astraea.common.partitioner.PartitionerUtils;
+import org.astraea.common.producer.ProducerConfigs;
 
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
 public abstract class Assignor implements ConsumerPartitionAssignor, Configurable {
   private Configuration config;
   public static final String COST_PREFIX = "assignor.cost";
   public static final String JMX_PORT = "jmx.port";
+  public static final String METRIC_STORE_KEY = "metric.store";
+  public static final String METRIC_STORE_LOCAL = "local";
+  public static final String METRIC_STORE_TOPIC = "topic";
   Function<Integer, Integer> jmxPortGetter =
       (id) -> {
         throw new NoSuchElementException("must define either broker.x.jmx.port or jmx.port");
@@ -99,24 +104,44 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                 () ->
                     new IllegalArgumentException(
                         ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG + " must be defined"));
-    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
-        () ->
-            admin
-                .brokers()
-                .thenApply(
-                    brokers -> {
-                      var map = new HashMap<Integer, JndiClient>();
-                      brokers.forEach(
-                          b ->
-                              map.put(
-                                  b.id(), JndiClient.of(b.host(), jmxPortGetter.apply(b.id()))));
-                      // add local client to fetch consumer metrics
-                      map.put(-1, JndiClient.local());
-                      return Collections.unmodifiableMap(map);
-                    });
+
+    List<MetricStore.Receiver> receivers =
+        switch (config.string(METRIC_STORE_KEY).orElse(METRIC_STORE_LOCAL)) {
+          case METRIC_STORE_TOPIC -> List.of(
+              MetricStore.Receiver.topic(
+                  config.requireString(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG)),
+              MetricStore.Receiver.local(
+                  () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
+          case METRIC_STORE_LOCAL -> {
+            Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+                () ->
+                    admin
+                        .brokers()
+                        .thenApply(
+                            brokers -> {
+                              var map = new HashMap<Integer, JndiClient>();
+                              brokers.forEach(
+                                  b ->
+                                      map.put(
+                                          b.id(),
+                                          JndiClient.of(b.host(), jmxPortGetter.apply(b.id()))));
+                              // add local client to fetch consumer metrics
+                              map.put(-1, JndiClient.local());
+                              return Collections.unmodifiableMap(map);
+                            });
+            yield List.of(MetricStore.Receiver.local(clientSupplier));
+          }
+          default -> throw new IllegalArgumentException(
+              "unknown metric store type: "
+                  + config.string(METRIC_STORE_KEY)
+                  + ". Use "
+                  + METRIC_STORE_TOPIC
+                  + " or "
+                  + METRIC_STORE_LOCAL);
+        };
     metricStore =
         MetricStore.builder()
-            .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
+            .receivers(receivers)
             .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
             .build();
   }
