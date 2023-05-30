@@ -22,6 +22,8 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -42,6 +44,7 @@ import org.astraea.common.generated.admin.ReplicaOuterClass;
 import org.astraea.common.generated.admin.TopicOuterClass;
 import org.astraea.common.generated.admin.TopicPartitionOuterClass;
 import org.astraea.common.metrics.BeanObject;
+import org.astraea.common.metrics.HasBeanObject;
 
 public final class ByteUtils {
 
@@ -171,24 +174,7 @@ public final class ByteUtils {
 
   /** Serialize BeanObject by protocol buffer. The unsupported value will be ignored. */
   public static byte[] toBytes(BeanObject value) {
-    var beanBuilder = BeanObjectOuterClass.BeanObject.newBuilder();
-    beanBuilder.setDomain(value.domainName());
-    beanBuilder.putAllProperties(value.properties());
-    value
-        .attributes()
-        .forEach(
-            (key, val) -> {
-              try {
-                beanBuilder.putAttributes(key, primitive(val));
-              } catch (SerializationException ignore) {
-                // Bean attribute may contain non-primitive value. e.g. TimeUnit, Byte.
-              }
-            });
-    beanBuilder.setCreatedTimestamp(
-        Timestamp.newBuilder()
-            .setSeconds(value.createdTimestamp() / 1000)
-            .setNanos((int) (value.createdTimestamp() % 1000) * 1000000));
-    return beanBuilder.build().toByteArray();
+    return toOuterClass(value).toByteArray();
   }
 
   /** Serialize ClusterInfo by protocol buffer. */
@@ -198,6 +184,33 @@ public final class ByteUtils {
         .addAllBroker(value.brokers().stream().map(ByteUtils::toOuterClass).toList())
         .addAllTopic(value.topics().values().stream().map(ByteUtils::toOuterClass).toList())
         .addAllReplica(value.replicas().stream().map(ByteUtils::toOuterClass).toList())
+        .build()
+        .toByteArray();
+  }
+
+  public static byte[] toBytes(Map<Integer, Collection<HasBeanObject>> values) {
+    var mapOfBeanObjects =
+        values.entrySet().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Map.Entry::getKey,
+                    e ->
+                        e.getValue().stream()
+                            .map(HasBeanObject::beanObject)
+                            // convert BeanObject to protocol buffer
+                            .map(ByteUtils::toOuterClass)
+                            .toList()));
+
+    return BeanObjectOuterClass.MapOfBeanObjects.newBuilder()
+        .putAllAllBeans(
+            mapOfBeanObjects.entrySet().stream()
+                .collect(
+                    Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey,
+                        Objects ->
+                            BeanObjectOuterClass.MapOfBeanObjects.BeanObjects.newBuilder()
+                                .addAllBeanObjects(Objects.getValue())
+                                .build())))
         .build()
         .toByteArray();
   }
@@ -288,6 +301,36 @@ public final class ByteUtils {
     }
   }
 
+  /** Deserialize to a map with Integer keys and list of BeanObject values using protocol buffer */
+  public static Map<Integer, List<BeanObject>> readBeanObjects(byte[] bytes) {
+    try {
+      var outerClusterBean = BeanObjectOuterClass.MapOfBeanObjects.parseFrom(bytes);
+      return outerClusterBean.getAllBeansMap().entrySet().stream()
+          .collect(
+              Collectors.toUnmodifiableMap(
+                  k -> k.getKey(),
+                  v ->
+                      v.getValue().getBeanObjectsList().stream()
+                          .map(
+                              i ->
+                                  new BeanObject(
+                                      i.getDomain(),
+                                      i.getPropertiesMap(),
+                                      i.getAttributesMap().entrySet().stream()
+                                          .collect(
+                                              Collectors.toUnmodifiableMap(
+                                                  Map.Entry::getKey,
+                                                  e ->
+                                                      Objects.requireNonNull(
+                                                          toObject(e.getValue())))),
+                                      i.getCreatedTimestamp().getSeconds() * 1000
+                                          + i.getCreatedTimestamp().getNanos() / 1000000))
+                          .toList()));
+    } catch (InvalidProtocolBufferException ex) {
+      throw new SerializationException(ex);
+    }
+  }
+
   /** Deserialize to ClusterInfo with protocol buffer */
   public static ClusterInfo readClusterInfo(byte[] bytes) {
     try {
@@ -362,6 +405,31 @@ public final class ByteUtils {
         .setIsOffline(replica.isOffline())
         .setIsPreferredLeader(replica.isPreferredLeader())
         .setPath(replica.path())
+        .build();
+  }
+
+  private static BeanObjectOuterClass.BeanObject toOuterClass(BeanObject beanObject) {
+    var beanBuilder = BeanObjectOuterClass.BeanObject.newBuilder();
+    beanBuilder.setDomain(beanObject.domainName());
+    beanBuilder.putAllProperties(beanObject.properties());
+    beanObject
+        .attributes()
+        .forEach(
+            (key, val) -> {
+              try {
+                beanBuilder.putAttributes(key, primitive(val));
+              } catch (SerializationException ignore) {
+                // Bean attribute may contain non-primitive value. e.g. TimeUnit, Byte.
+              }
+            });
+    return beanBuilder
+        // the following code sets the created timestamp field using
+        // the recommended
+        // style by protobuf documentation.
+        .setCreatedTimestamp(
+            Timestamp.newBuilder()
+                .setSeconds(beanObject.createdTimestamp() / 1000)
+                .setNanos((int) (beanObject.createdTimestamp() % 1000 * 1000000)))
         .build();
   }
 
