@@ -132,7 +132,6 @@ public class StrictCostPartitioner extends Partitioner {
     var configuredFunctions =
         Utils.costFunctions(
             config.filteredPrefixConfigs(COST_PREFIX).raw(), HasBrokerCost.class, config);
-    System.out.println(configuredFunctions);
     if (!configuredFunctions.isEmpty()) this.costFunction = HasBrokerCost.of(configuredFunctions);
     var customJmxPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJmxPort = config.integer(JMX_PORT);
