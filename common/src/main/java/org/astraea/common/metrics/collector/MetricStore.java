@@ -82,6 +82,22 @@ public interface MetricStore extends AutoCloseable {
       return LocalSenderReceiver.of();
     }
 
+    static Receiver fixed(Map<Integer, Collection<BeanObject>> beans) {
+      return new Receiver() {
+        private final AtomicBoolean done = new AtomicBoolean(false);
+
+        @Override
+        public Map<Integer, Collection<BeanObject>> receive(Duration timeout) {
+          return done.compareAndSet(false, true) ? beans : Map.of();
+        }
+
+        @Override
+        public void close() {
+          done.set(true);
+        }
+      };
+    }
+
     /**
      * Using an embedded fetcher build the receiver. The fetcher will keep fetching beans
      * background, and it pushes all beans to store internally.
