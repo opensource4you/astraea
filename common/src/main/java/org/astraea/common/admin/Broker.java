@@ -16,11 +16,9 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.LogDirDescription;
 
 /**
@@ -30,8 +28,6 @@ import org.apache.kafka.clients.admin.LogDirDescription;
  * @param isController
  * @param config config used by this node
  * @param dataFolders the disk folder used to stored data by this node
- * @param topicPartitions
- * @param topicPartitionLeaders partition leaders hosted by this broker
  */
 public record Broker(
     int id,
@@ -39,9 +35,8 @@ public record Broker(
     int port,
     boolean isController,
     Config config,
-    List<DataFolder> dataFolders,
-    Set<TopicPartition> topicPartitions,
-    Set<TopicPartition> topicPartitionLeaders) {
+    Set<String> dataFolders,
+    List<TopicPartitionPath> topicPartitionPaths) {
 
   /**
    * @return true if the broker is offline. An offline node can't offer host or port information.
@@ -51,7 +46,7 @@ public record Broker(
   }
 
   public static Broker of(int id, String host, int port) {
-    return new Broker(id, host, port, false, Config.EMPTY, List.of(), Set.of(), Set.of());
+    return new Broker(id, host, port, false, Config.EMPTY, Set.of(), List.of());
   }
 
   public static Broker of(org.apache.kafka.common.Node node) {
@@ -62,66 +57,30 @@ public record Broker(
       boolean isController,
       org.apache.kafka.common.Node nodeInfo,
       Map<String, String> configs,
-      Map<String, LogDirDescription> dirs,
-      Collection<org.apache.kafka.clients.admin.TopicDescription> topics) {
+      Map<String, LogDirDescription> dirs) {
     var config = new Config(configs);
-    var partitionsFromTopicDesc =
-        topics.stream()
-            .flatMap(
-                t ->
-                    t.partitions().stream()
-                        .filter(p -> p.replicas().stream().anyMatch(n -> n.id() == nodeInfo.id()))
-                        .map(p -> TopicPartition.of(t.name(), p.partition())))
-            .collect(Collectors.toUnmodifiableSet());
-    var folders =
-        dirs.entrySet().stream()
-            .map(
-                entry -> {
-                  var path = entry.getKey();
-                  var allPartitionAndSize =
-                      entry.getValue().replicaInfos().entrySet().stream()
-                          .collect(
-                              Collectors.toUnmodifiableMap(
-                                  e -> TopicPartition.from(e.getKey()), e -> e.getValue().size()));
-                  var partitionSizes =
-                      allPartitionAndSize.entrySet().stream()
-                          .filter(tpAndSize -> partitionsFromTopicDesc.contains(tpAndSize.getKey()))
-                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-                  var orphanPartitionSizes =
-                      allPartitionAndSize.entrySet().stream()
-                          .filter(
-                              tpAndSize -> !partitionsFromTopicDesc.contains(tpAndSize.getKey()))
-                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    var paths = Set.copyOf(dirs.keySet());
 
-                  return new DataFolder(path, partitionSizes, orphanPartitionSizes);
-                })
-            .toList();
-    var topicPartitionLeaders =
-        topics.stream()
+    var topicPartitionPaths =
+        dirs.entrySet().stream()
             .flatMap(
-                topic ->
-                    topic.partitions().stream()
-                        .filter(p -> p.leader() != null && p.leader().id() == nodeInfo.id())
-                        .map(p -> TopicPartition.of(topic.name(), p.partition())))
-            .collect(Collectors.toUnmodifiableSet());
+                entry ->
+                    entry.getValue().replicaInfos().entrySet().stream()
+                        .map(
+                            tpEntry ->
+                                new TopicPartitionPath(
+                                    tpEntry.getKey().topic(),
+                                    tpEntry.getKey().partition(),
+                                    tpEntry.getValue().size(),
+                                    entry.getKey())))
+            .toList();
     return new Broker(
         nodeInfo.id(),
         nodeInfo.host(),
         nodeInfo.port(),
         isController,
         config,
-        folders,
-        partitionsFromTopicDesc,
-        topicPartitionLeaders);
+        paths,
+        topicPartitionPaths);
   }
-
-  /**
-   * @param path the path on the local disk
-   * @param partitionSizes topic partition hosed by this node and size of files
-   * @param orphanPartitionSizes topic partition located by this node but not traced by cluster
-   */
-  public record DataFolder(
-      String path,
-      Map<TopicPartition, Long> partitionSizes,
-      Map<TopicPartition, Long> orphanPartitionSizes) {}
 }

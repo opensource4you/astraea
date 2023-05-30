@@ -73,16 +73,7 @@ class CostUtilsTest {
    */
   private static ClusterInfo beforeClusterInfo() {
 
-    var dataPath =
-        Map.of(
-            0,
-            List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            1,
-            List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            2,
-            List.of(
-                new Broker.DataFolder("/path0", Map.of(), Map.of()),
-                new Broker.DataFolder("/path1", Map.of(), Map.of())));
+    var dataPath = Map.of(0, Set.of("/path0"), 1, Set.of("/path0"), 2, Set.of("/path0", "/path1"));
     var replicas =
         List.of(
             Replica.builder()
@@ -147,8 +138,7 @@ class CostUtilsTest {
                         false,
                         Config.EMPTY,
                         dataPath.get(brokerId),
-                        Set.of(),
-                        Set.of()))
+                        List.of()))
             .collect(Collectors.toList()),
         Map.of(),
         replicas);
@@ -156,16 +146,7 @@ class CostUtilsTest {
 
   private static ClusterInfo afterClusterInfo() {
 
-    var dataPath =
-        Map.of(
-            0,
-            List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            1,
-            List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            2,
-            List.of(
-                new Broker.DataFolder("/path0", Map.of(), Map.of()),
-                new Broker.DataFolder("/path1", Map.of(), Map.of())));
+    var dataPath = Map.of(0, Set.of("/path0"), 1, Set.of("/path0"), 2, Set.of("/path0", "/path1"));
     var replicas =
         List.of(
             Replica.builder()
@@ -230,8 +211,7 @@ class CostUtilsTest {
                         false,
                         Config.EMPTY,
                         dataPath.get(brokerId),
-                        Set.of(),
-                        Set.of()))
+                        List.of()))
             .collect(Collectors.toList()),
         Map.of(),
         replicas);

@@ -126,10 +126,8 @@ public class ClusterInfoBuilder {
                           node.host(),
                           node.port(),
                           Stream.concat(
-                                  node.dataFolders().stream(),
-                                  folders.get(node.id()).stream()
-                                      .map(ClusterInfoBuilder::fakeDataFolder))
-                              .toList());
+                                  node.dataFolders().stream(), folders.get(node.id()).stream())
+                              .collect(Collectors.toUnmodifiableSet()));
                     else return node;
                   })
               .toList();
@@ -177,9 +175,7 @@ public class ClusterInfoBuilder {
                           Broker::id,
                           node ->
                               node.dataFolders().stream()
-                                  .collect(
-                                      Collectors.toMap(
-                                          Broker.DataFolder::path, x -> new AtomicInteger()))));
+                                  .collect(Collectors.toMap(t -> t, x -> new AtomicInteger()))));
           replicas.forEach(
               replica ->
                   folderLogCounter.get(replica.brokerId()).get(replica.path()).incrementAndGet());
@@ -330,16 +326,10 @@ public class ClusterInfoBuilder {
   private static Broker fakeNode(int brokerId) {
     var host = "fake-node-" + brokerId;
     var port = new Random(brokerId).nextInt(65535) + 1;
-    var folders = List.<Broker.DataFolder>of();
-
-    return fakeBroker(brokerId, host, port, folders);
+    return fakeBroker(brokerId, host, port, Set.of());
   }
 
-  static Broker fakeBroker(int Id, String host, int port, List<Broker.DataFolder> dataFolders) {
-    return new Broker(Id, host, port, false, Config.EMPTY, dataFolders, Set.of(), Set.of());
-  }
-
-  private static Broker.DataFolder fakeDataFolder(String path) {
-    return new Broker.DataFolder(path, Map.of(), Map.of());
+  static Broker fakeBroker(int Id, String host, int port, Set<String> dataFolders) {
+    return new Broker(Id, host, port, false, Config.EMPTY, dataFolders, List.of());
   }
 }

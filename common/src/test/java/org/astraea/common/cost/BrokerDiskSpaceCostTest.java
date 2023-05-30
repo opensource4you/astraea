@@ -219,16 +219,7 @@ class BrokerDiskSpaceCostTest {
   }
 
   public static ClusterInfo of(List<Replica> replicas) {
-    var dataPath =
-        Map.of(
-            0,
-            List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            1,
-            List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            2,
-            List.of(
-                new Broker.DataFolder("/path0", Map.of(), Map.of()),
-                new Broker.DataFolder("/path1", Map.of(), Map.of())));
+    var dataPath = Map.of(0, Set.of("/path0"), 1, Set.of("/path0"), 2, Set.of("/path0", "/path1"));
     return ClusterInfo.of(
         "fake",
         replicas.stream()
@@ -237,14 +228,7 @@ class BrokerDiskSpaceCostTest {
             .map(
                 brokerId ->
                     new Broker(
-                        brokerId,
-                        "",
-                        2222,
-                        false,
-                        Config.EMPTY,
-                        dataPath.get(brokerId),
-                        Set.of(),
-                        Set.of()))
+                        brokerId, "", 2222, false, Config.EMPTY, dataPath.get(brokerId), List.of()))
             .collect(Collectors.toList()),
         Map.of(),
         replicas);
@@ -266,14 +250,7 @@ class BrokerDiskSpaceCostTest {
    */
   private static ClusterInfo beforeClusterInfo() {
 
-    var dataPath =
-        Map.of(
-            0, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            1, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            2,
-                List.of(
-                    new Broker.DataFolder("/path0", Map.of(), Map.of()),
-                    new Broker.DataFolder("/path1", Map.of(), Map.of())));
+    var dataPath = Map.of(0, Set.of("/path0"), 1, Set.of("/path0"), 2, Set.of("/path0", "/path1"));
     var replicas =
         List.of(
             Replica.builder()
@@ -332,29 +309,14 @@ class BrokerDiskSpaceCostTest {
             .map(
                 brokerId ->
                     new Broker(
-                        brokerId,
-                        "",
-                        2222,
-                        false,
-                        Config.EMPTY,
-                        dataPath.get(brokerId),
-                        Set.of(),
-                        Set.of()))
+                        brokerId, "", 2222, false, Config.EMPTY, dataPath.get(brokerId), List.of()))
             .collect(Collectors.toList()),
         Map.of(),
         replicas);
   }
 
   private static ClusterInfo afterClusterInfo() {
-
-    var dataPath =
-        Map.of(
-            0, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            1, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            2,
-                List.of(
-                    new Broker.DataFolder("/path0", Map.of(), Map.of()),
-                    new Broker.DataFolder("/path1", Map.of(), Map.of())));
+    var dataPath = Map.of(0, Set.of("/path0"), 1, Set.of("/path0"), 2, Set.of("/path0", "/path1"));
     var replicas =
         List.of(
             Replica.builder()
@@ -413,14 +375,7 @@ class BrokerDiskSpaceCostTest {
             .map(
                 brokerId ->
                     new Broker(
-                        brokerId,
-                        "",
-                        2222,
-                        false,
-                        Config.EMPTY,
-                        dataPath.get(brokerId),
-                        Set.of(),
-                        Set.of()))
+                        brokerId, "", 2222, false, Config.EMPTY, dataPath.get(brokerId), List.of()))
             .collect(Collectors.toList()),
         Map.of(),
         replicas);

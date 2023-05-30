@@ -319,13 +319,7 @@ public interface ClusterInfo {
    */
   default Map<Integer, Set<String>> brokerFolders() {
     return brokers().stream()
-        .collect(
-            Collectors.toUnmodifiableMap(
-                Broker::id,
-                node ->
-                    node.dataFolders().stream()
-                        .map(Broker.DataFolder::path)
-                        .collect(Collectors.toUnmodifiableSet())));
+        .collect(Collectors.toUnmodifiableMap(Broker::id, Broker::dataFolders));
   }
 
   // ---------------------[streams methods]---------------------//

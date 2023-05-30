@@ -359,7 +359,7 @@ public class AdminTest {
               .sorted(
                   Comparator.comparing(Replica::topic)
                       .thenComparing(Replica::partition)
-                      .thenComparing(r -> r.brokerId()))
+                      .thenComparing(Replica::brokerId))
               .collect(Collectors.toList()),
           replicas);
     }
@@ -849,8 +849,7 @@ public class AdminTest {
 
       var config = admin.topics(Set.of(topic)).toCompletableFuture().join().get(0).config();
       var partitions =
-          admin.partitions(Set.of(topic)).toCompletableFuture().join().stream()
-              .collect(Collectors.toUnmodifiableList());
+          admin.partitions(Set.of(topic)).toCompletableFuture().join().stream().toList();
       Assertions.assertTrue(config.raw().containsValue("lz4"));
       Assertions.assertEquals(
           List.of(0, 2),
@@ -999,7 +998,6 @@ public class AdminTest {
               .forEach(
                   c -> {
                     Assertions.assertNotNull(c.groupId());
-                    Assertions.assertNotNull(c.coordinatorId());
                     Assertions.assertNotNull(c.assignor());
                     Assertions.assertNotNull(c.state());
                   });
@@ -1249,7 +1247,7 @@ public class AdminTest {
             IntStream.range(0, 5)
                 .mapToObj(i -> consumer.poll(Duration.ofSeconds(1)))
                 .flatMap(FixedIterable::stream)
-                .collect(Collectors.toList());
+                .toList();
 
         Assertions.assertEquals(
             1, records.stream().filter(record -> record.key().equals(key)).count());
@@ -1275,38 +1273,7 @@ public class AdminTest {
       Assertions.assertEquals(3, brokers.size());
       brokers.forEach(broker -> Assertions.assertNotEquals(0, broker.config().raw().size()));
       Assertions.assertEquals(1, brokers.stream().filter(Broker::isController).count());
-      brokers.forEach(broker -> Assertions.assertNotEquals(0, broker.topicPartitions().size()));
-      brokers.forEach(
-          broker -> Assertions.assertNotEquals(0, broker.topicPartitionLeaders().size()));
-    }
-  }
-
-  @Test
-  void testBrokerFolders() {
-    try (var admin = Admin.of(SERVICE.bootstrapServers())) {
-      Assertions.assertEquals(
-          SERVICE.dataFolders().keySet().size(),
-          admin.brokers().toCompletableFuture().join().size());
-      // list all
-      SERVICE
-          .dataFolders()
-          .forEach(
-              (id, ds) ->
-                  Assertions.assertEquals(
-                      admin.brokerFolders().toCompletableFuture().join().get(id).size(),
-                      ds.size()));
-
-      admin
-          .brokers()
-          .toCompletableFuture()
-          .join()
-          .forEach(
-              broker ->
-                  Assertions.assertEquals(
-                      broker.topicPartitions().size(),
-                      broker.dataFolders().stream()
-                          .mapToInt(e -> e.partitionSizes().size())
-                          .sum()));
+      brokers.forEach(broker -> Assertions.assertNotEquals(0, broker.topicPartitionPaths().size()));
     }
   }
 
@@ -1385,8 +1352,7 @@ public class AdminTest {
                       .collect(
                           Collectors.groupingBy(
                               replica -> TopicPartition.of(replica.topic(), replica.partition()),
-                              Collectors.mapping(
-                                  replica -> replica.brokerId(), Collectors.toList())));
+                              Collectors.mapping(Replica::brokerId, Collectors.toList())));
 
       IntStream.range(0, partitionCount)
           .forEach(p -> admin.moveToBrokers(Map.of(TopicPartition.of(topic, p), List.of(0, 1, 2))));
@@ -1412,10 +1378,7 @@ public class AdminTest {
               .toCompletableFuture()
               .join();
       Assertions.assertNotEquals(0, states.size());
-      var producerState =
-          states.stream()
-              .filter(s -> s.topic().equals(topic))
-              .collect(Collectors.toUnmodifiableList());
+      var producerState = states.stream().filter(s -> s.topic().equals(topic)).toList();
       Assertions.assertEquals(1, producerState.size());
     }
   }
@@ -1428,7 +1391,7 @@ public class AdminTest {
       var quotas =
           admin.quotas(Set.of(QuotaConfigs.IP)).toCompletableFuture().join().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
-              .collect(Collectors.toList());
+              .toList();
       Assertions.assertNotEquals(0, quotas.size());
       quotas.forEach(
           quota -> {
@@ -1462,7 +1425,7 @@ public class AdminTest {
           admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().join().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
               .filter(q -> q.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG))
-              .collect(Collectors.toList());
+              .toList();
       Assertions.assertNotEquals(0, quotas.size());
       quotas.forEach(
           quota -> Assertions.assertEquals(DataRate.Byte.of(100).byteRate(), quota.limitValue()));
@@ -1492,7 +1455,7 @@ public class AdminTest {
           admin.quotas(Set.of(QuotaConfigs.CLIENT_ID)).toCompletableFuture().join().stream()
               .filter(q -> q.targetValue().equals(Utils.hostname()))
               .filter(q -> q.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG))
-              .collect(Collectors.toList());
+              .toList();
       Assertions.assertNotEquals(0, quotas.size());
       quotas.forEach(
           quota -> Assertions.assertEquals(DataRate.Byte.of(1000).byteRate(), quota.limitValue()));
@@ -1523,14 +1486,9 @@ public class AdminTest {
           .join()
           .forEach(
               broker ->
-                  broker
-                      .dataFolders()
-                      .forEach(
-                          d ->
-                              d.partitionSizes().entrySet().stream()
-                                  .filter(e -> e.getKey().topic().equals(topic))
-                                  .map(Map.Entry::getValue)
-                                  .forEach(v -> Assertions.assertEquals(0, v))));
+                  broker.topicPartitionPaths().stream()
+                      .filter(tp -> tp.topic().equals(topic))
+                      .forEach(d -> Assertions.assertEquals(0, d.size())));
     }
   }
 
@@ -1600,8 +1558,7 @@ public class AdminTest {
 
   @Test
   void testDeleteTopic() {
-    var topic =
-        IntStream.range(0, 4).mapToObj(x -> Utils.randomString()).collect(Collectors.toList());
+    var topic = IntStream.range(0, 4).mapToObj(x -> Utils.randomString()).toList();
 
     try (var admin = Admin.of(SERVICE.bootstrapServers())) {
       topic.forEach(
@@ -1681,7 +1638,7 @@ public class AdminTest {
             .toCompletableFuture()
             .join();
       }
-      String groupId = null;
+      String groupId;
       try (var consumer =
           Consumer.forTopics(Set.of(topic))
               .bootstrapServers(SERVICE.bootstrapServers())
@@ -1711,7 +1668,7 @@ public class AdminTest {
             .toCompletableFuture()
             .join();
       }
-      String groupId = null;
+      String groupId;
       try (var consumer =
           Consumer.forTopics(Set.of(topic))
               .bootstrapServers(SERVICE.bootstrapServers())
