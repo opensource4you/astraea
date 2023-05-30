@@ -33,6 +33,11 @@ public interface Balancer {
    */
   Optional<Plan> offer(AlgorithmConfig config);
 
+  /**
+   * @param initialClusterCost The {@link ClusterCost} score of the original {@link ClusterInfo}
+   *     when this plan is start generating.
+   * @param proposalClusterCost The {@link ClusterCost} score of the proposed new allocation.
+   */
   record Plan(
       ClusterBean clusterBean,
       ClusterInfo initialClusterInfo,

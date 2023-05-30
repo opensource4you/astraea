@@ -66,19 +66,17 @@ public class MigrateTimeCost implements HasMoveCost {
       var outRate = maxOutRateSensor.measure(REPLICATION_RATE);
       return List.of(
           new MaxReplicationInRateBean(
-              () ->
-                  new BeanObject(
-                      newInMetrics.beanObject().domainName(),
-                      newInMetrics.beanObject().properties(),
-                      Map.of(REPLICATION_RATE, Math.max(oldInRate.orElse(0), inRate)),
-                      current.toMillis())),
+              new BeanObject(
+                  newInMetrics.beanObject().domainName(),
+                  newInMetrics.beanObject().properties(),
+                  Map.of(REPLICATION_RATE, Math.max(oldInRate.orElse(0.0), inRate)),
+                  current.toMillis())),
           new MaxReplicationOutRateBean(
-              () ->
-                  new BeanObject(
-                      newOutMetrics.beanObject().domainName(),
-                      newOutMetrics.beanObject().properties(),
-                      Map.of(REPLICATION_RATE, Math.max(oldOutRate.orElse(0), outRate)),
-                      current.toMillis())));
+              new BeanObject(
+                  newOutMetrics.beanObject().domainName(),
+                  newOutMetrics.beanObject().properties(),
+                  Map.of(REPLICATION_RATE, Math.max(oldOutRate.orElse(0.0), outRate)),
+                  current.toMillis())));
     };
   }
 
@@ -92,17 +90,17 @@ public class MigrateTimeCost implements HasMoveCost {
     return () -> planMigrateSecond > this.maxMigrateTime.getSeconds();
   }
 
-  public record MaxReplicationInRateBean(HasMaxRate hasMaxRate) implements HasMaxRate {
+  public record MaxReplicationInRateBean(BeanObject beanObject) implements HasMaxRate {
     @Override
     public BeanObject beanObject() {
-      return hasMaxRate.beanObject();
+      return beanObject;
     }
   }
 
-  public record MaxReplicationOutRateBean(HasMaxRate hasMaxRate) implements HasMaxRate {
+  public record MaxReplicationOutRateBean(BeanObject beanObject) implements HasMaxRate {
     @Override
     public BeanObject beanObject() {
-      return hasMaxRate.beanObject();
+      return beanObject;
     }
   }
 }

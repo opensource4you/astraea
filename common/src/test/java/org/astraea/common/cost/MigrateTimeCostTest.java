@@ -155,15 +155,15 @@ class MigrateTimeCostTest {
         Map.of(
             0,
             List.of(
-                new MigrateTimeCost.MaxReplicationInRateBean(() -> inBean0),
-                new MigrateTimeCost.MaxReplicationOutRateBean(() -> outBean0)),
+                new MigrateTimeCost.MaxReplicationInRateBean(inBean0),
+                new MigrateTimeCost.MaxReplicationOutRateBean(outBean0)),
             1,
             List.of(
-                new MigrateTimeCost.MaxReplicationInRateBean(() -> inBean1),
-                new MigrateTimeCost.MaxReplicationOutRateBean(() -> outBean1)),
+                new MigrateTimeCost.MaxReplicationInRateBean(inBean1),
+                new MigrateTimeCost.MaxReplicationOutRateBean(outBean1)),
             2,
             List.of(
-                new MigrateTimeCost.MaxReplicationInRateBean(() -> inBean2),
-                new MigrateTimeCost.MaxReplicationOutRateBean(() -> outBean2))));
+                new MigrateTimeCost.MaxReplicationInRateBean(inBean2),
+                new MigrateTimeCost.MaxReplicationOutRateBean(outBean2))));
   }
 }

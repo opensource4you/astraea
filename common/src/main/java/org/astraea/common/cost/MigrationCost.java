@@ -16,9 +16,10 @@
  */
 package org.astraea.common.cost;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalDouble;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -118,14 +119,15 @@ public class MigrationCost {
                 Collectors.toMap(
                     Map.Entry::getKey,
                     brokerSize ->
-                        brokerSize.getValue() / brokerInRate.get(brokerSize.getKey()).orElse(0)));
+                        brokerSize.getValue() / brokerInRate.get(brokerSize.getKey()).orElse(0.0)));
     var brokerMigrateOutSecond =
         MigrationCost.recordSizeToFetch(before, after).entrySet().stream()
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey,
                     brokerSize ->
-                        brokerSize.getValue() / brokerOutRate.get(brokerSize.getKey()).orElse(0)));
+                        brokerSize.getValue()
+                            / brokerOutRate.get(brokerSize.getKey()).orElse(0.0)));
     return Stream.concat(before.brokers().stream(), after.brokers().stream())
         .map(Broker::id)
         .distinct()
@@ -139,12 +141,13 @@ public class MigrationCost {
                             brokerMigrateOutSecond.get(nodeId))));
   }
 
-  static OptionalDouble brokerMaxRate(
+  static Optional<Double> brokerMaxRate(
       int identity, ClusterBean clusterBean, Class<? extends HasBeanObject> statisticMetrics) {
     return clusterBean
         .brokerMetrics(identity, statisticMetrics)
-        .mapToDouble(b -> ((HasMaxRate) b).maxRate())
-        .max();
+        .filter(b -> b instanceof HasMaxRate)
+        .map(b -> ((HasMaxRate) b).maxRate())
+        .max(Comparator.naturalOrder());
   }
 
   /**
