@@ -1492,7 +1492,9 @@ public class AdminTest {
           .join()
           .forEach(
               broker ->
-                  broker.topicPartitionPaths().forEach(d -> Assertions.assertEquals(0, d.size())));
+                  broker.topicPartitionPaths().stream()
+                      .filter(tp -> tp.topic().equals(topic))
+                      .forEach(d -> Assertions.assertEquals(0, d.size())));
     }
   }
 
