@@ -34,7 +34,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   public static final String MAX_MIGRATE_LEADER_KEY = "max.migrated.leader.number";
 
   public ReplicaLeaderCost() {
-    this.config = new Configuration(Map.of());
+    this.config = Configuration.EMPTY;
   }
 
   public ReplicaLeaderCost(Configuration config) {

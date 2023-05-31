@@ -49,7 +49,7 @@ public class StrictCostPartitionerTest {
   @Test
   void testJmxPort() {
     try (var partitioner = new StrictCostPartitioner()) {
-      partitioner.configure(new Configuration(Map.of()));
+      partitioner.configure(Configuration.EMPTY);
       Assertions.assertThrows(
           NoSuchElementException.class, () -> partitioner.jmxPortGetter.apply(0));
       partitioner.configure(new Configuration(Map.of(StrictCostPartitioner.JMX_PORT, "12345")));
@@ -208,7 +208,7 @@ public class StrictCostPartitionerTest {
   @Test
   void testDefaultFunction() {
     try (var partitioner = new StrictCostPartitioner()) {
-      partitioner.configure(new Configuration(Map.of()));
+      partitioner.configure(Configuration.EMPTY);
       Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.costFunction);
       Utils.waitFor(() -> partitioner.metricStore.sensors().size() == 1);
     }

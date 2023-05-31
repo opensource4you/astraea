@@ -18,7 +18,6 @@ package org.astraea.common.cost;
 
 import static org.astraea.common.cost.CostUtils.changedRecordSizeOverflow;
 
-import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
@@ -33,7 +32,7 @@ public class RecordSizeCost
   public static final String MAX_MIGRATE_SIZE_KEY = "max.migrated.size";
 
   public RecordSizeCost() {
-    this.config = new Configuration(Map.of());
+    this.config = Configuration.EMPTY;
   }
 
   public RecordSizeCost(Configuration config) {
