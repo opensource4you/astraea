@@ -47,6 +47,9 @@ import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.MBeanRegister;
+import org.astraea.common.metrics.Sensor;
+import org.astraea.common.metrics.stats.Sum;
 
 public interface MetricStore extends AutoCloseable {
 
@@ -163,7 +166,7 @@ public interface MetricStore extends AutoCloseable {
                     (client, bean) ->
                         client.beans(BeanQuery.all()).stream()
                             .map(bs -> (HasBeanObject) () -> bs)
-                            .collect(Collectors.toUnmodifiableList()),
+                            .toList(),
                 (id, ignored) -> {});
 
     private Collection<Receiver> receivers;
@@ -194,6 +197,15 @@ public interface MetricStore extends AutoCloseable {
   }
 
   class MetricStoreImpl implements MetricStore {
+    public static final String DOMAIN_NAME = "org.astraea";
+    public static final String TYPE_PROPERTY = "type";
+    public static final String TYPE_VALUE = "metricStore";
+    public static final String NAME_PROPERTY = "name";
+    public static final String BEAN_COUNT_NAME = "BeanCount";
+    public static final String BEAN_RECEIVE_NAME = "BeanReceived";
+    public static final String ID_PROPERTY = "id";
+    public static final String COUNT_PROPERTY = "count";
+    public static final String SUM_PROPERTY = "sum";
 
     private final Map<Integer, Collection<HasBeanObject>> beans = new ConcurrentHashMap<>();
 
@@ -212,6 +224,10 @@ public interface MetricStore extends AutoCloseable {
     private volatile Map<MetricSensor, BiConsumer<Integer, Exception>> lastSensors = Map.of();
     private final Map<CountDownLatch, Predicate<ClusterBean>> waitingList =
         new ConcurrentHashMap<>();
+    // For mbean register. To distinguish mbeans of different metricStore.
+    private final String uid = Utils.randomString();
+    private final Sensor<Long> beanReceivedSensor =
+        Sensor.builder().addStat(SUM_PROPERTY, Sum.ofLong()).build();
 
     private MetricStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier,
@@ -248,6 +264,8 @@ public interface MetricStore extends AutoCloseable {
                     .map(r -> r.receive(Duration.ofSeconds(3)))
                     .forEach(
                         allBeans -> {
+                          beanReceivedSensor.record(
+                              allBeans.values().stream().mapToLong(Collection::size).sum());
                           identities.addAll(allBeans.keySet());
                           lastSensors = sensorsSupplier.get();
                           allBeans.forEach(
@@ -280,6 +298,27 @@ public interface MetricStore extends AutoCloseable {
           };
       executor.execute(cleanerJob);
       executor.execute(receiverJob);
+
+      // ------------ MBean register ------------
+      MBeanRegister.local()
+          .domainName(DOMAIN_NAME)
+          .property(TYPE_PROPERTY, TYPE_VALUE)
+          .property(ID_PROPERTY, uid)
+          .property(NAME_PROPERTY, BEAN_COUNT_NAME)
+          .attribute(
+              COUNT_PROPERTY,
+              Long.class,
+              () -> beans.values().stream().mapToLong(Collection::size).sum())
+          .description("The number of beans stored in this metricStore.")
+          .register();
+      MBeanRegister.local()
+          .domainName(DOMAIN_NAME)
+          .property(TYPE_PROPERTY, TYPE_VALUE)
+          .property(ID_PROPERTY, uid)
+          .property(NAME_PROPERTY, BEAN_RECEIVE_NAME)
+          .attribute(SUM_PROPERTY, Long.class, () -> beanReceivedSensor.measure(SUM_PROPERTY))
+          .description("The total number of beans received.")
+          .register();
     }
 
     @Override
