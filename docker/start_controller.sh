@@ -233,7 +233,7 @@ docker run -d --init \
   -p $CONTROLLER_PORT:9093 \
   -p $CONTROLLER_JMX_PORT:$CONTROLLER_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
-  "$IMAGE_NAME" sh -c "./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/controller.properties && ./bin/kafka-server-start.sh /tmp/controller.properties"
+  "$IMAGE_NAME" sh -c "./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/controller.properties --ignore-formatted && ./bin/kafka-server-start.sh /tmp/controller.properties"
 
 echo "================================================="
 [[ -n "$META_FOLDER" ]] && echo "mount $META_FOLDER to container: $CONTAINER_NAME"
