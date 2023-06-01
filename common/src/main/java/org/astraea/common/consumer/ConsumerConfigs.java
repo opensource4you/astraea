@@ -65,6 +65,7 @@ public final class ConsumerConfigs {
   public static final String EXCLUDE_INTERNAL_TOPICS_CONFIG = "exclude.internal.topics";
   public static final String ISOLATION_LEVEL_CONFIG = "isolation.level";
   public static final String ALLOW_AUTO_CREATE_TOPICS_CONFIG = "allow.auto.create.topics";
+  public static final String METRIC_STORE_KEY = "metric.store";
 
   public static final Set<String> ALL_CONFIGS =
       new TreeSet<>(
@@ -76,6 +77,8 @@ public final class ConsumerConfigs {
   public static final String AUTO_OFFSET_RESET_NONE = "none";
   public static final String ISOLATION_LEVEL_UNCOMMITTED = "read_uncommitted";
   public static final String ISOLATION_LEVEL_COMMITTED = "read_committed";
+  public static final String METRIC_STORE_LOCAL = "local";
+  public static final String METRIC_STORE_TOPIC = "topic";
 
   private ConsumerConfigs() {}
 }
