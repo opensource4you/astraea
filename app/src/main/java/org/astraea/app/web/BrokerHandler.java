@@ -25,8 +25,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.NodeInfo;
-import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.Broker;
+import org.astraea.common.admin.TopicPartitionPath;
 
 class BrokerHandler implements Handler {
 
@@ -44,8 +44,12 @@ class BrokerHandler implements Handler {
           .orElseGet(
               () ->
                   admin
-                      .nodeInfos()
-                      .thenApply(ns -> ns.stream().map(NodeInfo::id).collect(Collectors.toSet())));
+                      .brokers()
+                      .thenApply(
+                          ns ->
+                              ns.stream()
+                                  .map(org.astraea.common.admin.Broker::id)
+                                  .collect(Collectors.toSet())));
     } catch (NumberFormatException e) {
       return CompletableFuture.failedFuture(
           new NoSuchElementException("the broker id must be number"));
@@ -91,8 +95,8 @@ class BrokerHandler implements Handler {
     Broker(org.astraea.common.admin.Broker broker) {
       this.id = broker.id();
       this.topics =
-          broker.topicPartitions().stream()
-              .collect(Collectors.groupingBy(TopicPartition::topic))
+          broker.topicPartitionPaths().stream()
+              .collect(Collectors.groupingBy(TopicPartitionPath::topic))
               .entrySet()
               .stream()
               .map(e -> new Topic(e.getKey(), e.getValue().size()))

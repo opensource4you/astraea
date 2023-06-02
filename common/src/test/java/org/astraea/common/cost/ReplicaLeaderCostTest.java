@@ -21,8 +21,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
@@ -45,12 +45,12 @@ public class ReplicaLeaderCostTest {
                 "topic1",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(1)).build())
+                r -> Replica.builder(r).brokerId(baseCluster.node(1).id()).build())
             .addTopic(
                 "topic2",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(2)).build())
+                r -> Replica.builder(r).brokerId(baseCluster.node(2).id()).build())
             .build();
     var overFlowTargetCluster =
         ClusterInfo.builder(baseCluster)
@@ -58,12 +58,12 @@ public class ReplicaLeaderCostTest {
                 "topic1",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(2)).build())
+                r -> Replica.builder(r).brokerId(baseCluster.node(2).id()).build())
             .addTopic(
                 "topic2",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(1)).build())
+                r -> Replica.builder(r).brokerId(baseCluster.node(1).id()).build())
             .build();
 
     var overFlowMoveCost =
@@ -88,30 +88,31 @@ public class ReplicaLeaderCostTest {
                 .topic("topic")
                 .partition(0)
                 .isLeader(true)
-                .nodeInfo(NodeInfo.of(10, "broker0", 1111))
+                .brokerId(10)
                 .path("/tmp/aa")
                 .buildLeader(),
             Replica.builder()
                 .topic("topic")
                 .partition(1)
                 .isLeader(true)
-                .nodeInfo(NodeInfo.of(10, "broker0", 1111))
+                .partition(0)
+                .brokerId(10)
                 .path("/tmp/aa")
                 .buildLeader(),
             Replica.builder()
                 .topic("topic")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(11, "broker1", 1111))
                 .isLeader(true)
+                .brokerId(11)
                 .path("/tmp/aa")
                 .buildLeader());
     var clusterInfo =
         ClusterInfo.of(
             "fake",
             List.of(
-                NodeInfo.of(10, "host1", 8080),
-                NodeInfo.of(11, "host1", 8080),
-                NodeInfo.of(12, "host1", 8080)),
+                Broker.of(10, "host1", 8080),
+                Broker.of(11, "host1", 8080),
+                Broker.of(12, "host1", 8080)),
             Map.of(),
             replicas);
     var brokerCost = ReplicaLeaderCost.leaderCount(clusterInfo);

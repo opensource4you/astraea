@@ -79,7 +79,7 @@ public class PartitionerTest {
           Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, SERVICE.bootstrapServers()));
       Assertions.assertNotNull(partitioner.admin);
       Utils.sleep(Duration.ofSeconds(3));
-      Assertions.assertNotEquals(0, partitioner.clusterInfo.nodes().size());
+      Assertions.assertNotEquals(0, partitioner.clusterInfo.brokers().size());
     }
   }
 

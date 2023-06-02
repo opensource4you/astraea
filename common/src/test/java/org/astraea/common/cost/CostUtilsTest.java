@@ -22,12 +22,11 @@ import static org.astraea.common.cost.MigrationCost.recordSizeToSync;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.kafka.common.Node;
-import org.apache.kafka.common.requests.DescribeLogDirsResponse;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Config;
 import org.astraea.common.admin.Replica;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -73,24 +72,14 @@ class CostUtilsTest {
       p2  1000
    */
   private static ClusterInfo beforeClusterInfo() {
-    var dataPath =
-        Map.of(
-            0,
-            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
-            1,
-            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
-            2,
-            Map.of(
-                "/path0",
-                new DescribeLogDirsResponse.LogDirInfo(null, Map.of()),
-                "/path1",
-                new DescribeLogDirsResponse.LogDirInfo(null, Map.of())));
+
+    var dataPath = Map.of(0, Set.of("/path0"), 1, Set.of("/path0"), 2, Set.of("/path0", "/path1"));
     var replicas =
         List.of(
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(100)
                 .isLeader(true)
                 .path("/path0")
@@ -98,7 +87,7 @@ class CostUtilsTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .brokerId(1)
                 .size(99)
                 .isLeader(false)
                 .path("/path0")
@@ -106,7 +95,7 @@ class CostUtilsTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(500)
                 .isLeader(true)
                 .path("/path0")
@@ -114,7 +103,7 @@ class CostUtilsTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .brokerId(1)
                 .size(499)
                 .isLeader(false)
                 .path("/path0")
@@ -122,7 +111,7 @@ class CostUtilsTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .brokerId(2)
                 .size(1000)
                 .isLeader(true)
                 .path("/path0")
@@ -130,7 +119,7 @@ class CostUtilsTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(1000)
                 .isLeader(false)
                 .path("/path0")
@@ -138,15 +127,17 @@ class CostUtilsTest {
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(Replica::nodeInfo)
+            .map(Replica::brokerId)
             .distinct()
             .map(
-                nodeInfo ->
-                    Broker.of(
+                brokerId ->
+                    new Broker(
+                        brokerId,
+                        "",
+                        22222,
                         false,
-                        new Node(nodeInfo.id(), "", nodeInfo.port()),
-                        Map.of(),
-                        dataPath.get(nodeInfo.id()),
+                        Config.EMPTY,
+                        dataPath.get(brokerId),
                         List.of()))
             .collect(Collectors.toList()),
         Map.of(),
@@ -154,24 +145,14 @@ class CostUtilsTest {
   }
 
   private static ClusterInfo afterClusterInfo() {
-    var dataPath =
-        Map.of(
-            0,
-            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
-            1,
-            Map.of("/path0", new DescribeLogDirsResponse.LogDirInfo(null, Map.of())),
-            2,
-            Map.of(
-                "/path0",
-                new DescribeLogDirsResponse.LogDirInfo(null, Map.of()),
-                "/path1",
-                new DescribeLogDirsResponse.LogDirInfo(null, Map.of())));
+
+    var dataPath = Map.of(0, Set.of("/path0"), 1, Set.of("/path0"), 2, Set.of("/path0", "/path1"));
     var replicas =
         List.of(
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .brokerId(2)
                 .size(100)
                 .isLeader(true)
                 .path("/path1")
@@ -179,7 +160,7 @@ class CostUtilsTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .brokerId(1)
                 .size(99)
                 .isLeader(false)
                 .path("/path0")
@@ -187,7 +168,7 @@ class CostUtilsTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(500)
                 .isLeader(true)
                 .path("/path0")
@@ -195,7 +176,7 @@ class CostUtilsTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .nodeInfo(NodeInfo.of(2, "broker0", 1111))
+                .brokerId(2)
                 .size(500)
                 .isLeader(false)
                 .path("/path1")
@@ -203,7 +184,7 @@ class CostUtilsTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(1, "broker0", 1111))
+                .brokerId(1)
                 .size(1000)
                 .isLeader(true)
                 .path("/path1")
@@ -211,7 +192,7 @@ class CostUtilsTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .nodeInfo(NodeInfo.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(1000)
                 .isLeader(false)
                 .path("/path0")
@@ -219,15 +200,17 @@ class CostUtilsTest {
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(Replica::nodeInfo)
+            .map(Replica::brokerId)
             .distinct()
             .map(
-                nodeInfo ->
-                    Broker.of(
+                brokerId ->
+                    new Broker(
+                        brokerId,
+                        "",
+                        22222,
                         false,
-                        new Node(nodeInfo.id(), "", nodeInfo.port()),
-                        Map.of(),
-                        dataPath.get(nodeInfo.id()),
+                        Config.EMPTY,
+                        dataPath.get(brokerId),
                         List.of()))
             .collect(Collectors.toList()),
         Map.of(),

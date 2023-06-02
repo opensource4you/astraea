@@ -28,9 +28,9 @@ import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.utils.ClusterInfoSensor;
@@ -114,7 +114,7 @@ public abstract class NetworkCost implements HasClusterCost {
         clusterInfo.brokers().stream()
             .collect(
                 Collectors.toMap(
-                    NodeInfo::id,
+                    Broker::id,
                     broker ->
                         clusterInfo
                             .replicaStream(broker.id())
@@ -128,7 +128,7 @@ public abstract class NetworkCost implements HasClusterCost {
         clusterInfo.brokers().stream()
             .collect(
                 Collectors.toMap(
-                    NodeInfo::id,
+                    Broker::id,
                     broker ->
                         clusterInfo
                             .replicaStream(broker.id())
@@ -154,7 +154,7 @@ public abstract class NetworkCost implements HasClusterCost {
                                 })
                             .sum()));
     // add the brokers having no replicas into map
-    clusterInfo.nodes().stream()
+    clusterInfo.brokers().stream()
         .filter(node -> !brokerIngressRate.containsKey(node.id()))
         .forEach(
             node -> {
@@ -210,7 +210,7 @@ public abstract class NetworkCost implements HasClusterCost {
         .replicaStream()
         .filter(Replica::isOnline)
         .filter(Replica::isLeader)
-        .map(r -> Map.entry(BrokerTopic.of(r.nodeInfo().id(), r.topic()), r))
+        .map(r -> Map.entry(BrokerTopic.of(r.brokerId(), r.topic()), r))
         .collect(
             Collectors.groupingBy(
                 Map.Entry::getKey,
@@ -235,19 +235,15 @@ public abstract class NetworkCost implements HasClusterCost {
                           .filter(bean -> bean.type().equals(metric))
                           .max(Comparator.comparingLong(HasBeanObject::createdTimestamp))
                           .map(
-                              hasRate -> {
-                                switch (estimationMethod) {
-                                  case BROKER_TOPIC_ONE_MINUTE_RATE:
-                                    return hasRate.oneMinuteRate();
-                                  case BROKER_TOPIC_FIVE_MINUTE_RATE:
-                                    return hasRate.fiveMinuteRate();
-                                  case BROKER_TOPIC_FIFTEEN_MINUTE_RATE:
-                                    return hasRate.fifteenMinuteRate();
-                                  default:
-                                    throw new IllegalStateException(
+                              hasRate ->
+                                  switch (estimationMethod) {
+                                    case BROKER_TOPIC_ONE_MINUTE_RATE -> hasRate.oneMinuteRate();
+                                    case BROKER_TOPIC_FIVE_MINUTE_RATE -> hasRate.fiveMinuteRate();
+                                    case BROKER_TOPIC_FIFTEEN_MINUTE_RATE -> hasRate
+                                        .fifteenMinuteRate();
+                                    default -> throw new IllegalStateException(
                                         "Unknown estimation method: " + estimationMethod);
-                                }
-                              })
+                                  })
                           // no load metric for this partition, treat as zero load
                           .orElse(0.0);
               if (Double.isNaN(totalShare) || totalShare < 0)

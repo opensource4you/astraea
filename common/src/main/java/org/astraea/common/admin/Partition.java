@@ -24,7 +24,7 @@ import java.util.Optional;
  * @param latestOffset existent latest offset
  * @param maxTimestamp max timestamp of existent records. If the kafka servers don't support to
  *     fetch max timestamp, this method will return empty
- * @param leader null if the node gets offline. otherwise, it returns node info.
+ * @param leaderId null if the node gets offline. otherwise, it returns node id.
  * @param internal true if this topic is internal (system) topic
  */
 public record Partition(
@@ -33,9 +33,9 @@ public record Partition(
     long earliestOffset,
     long latestOffset,
     Optional<Long> maxTimestamp,
-    Optional<NodeInfo> leader,
-    List<NodeInfo> replicas,
-    List<NodeInfo> isr,
+    Optional<Integer> leaderId,
+    List<Broker> replicas,
+    List<Broker> isr,
     boolean internal) {
 
   public TopicPartition topicPartition() {

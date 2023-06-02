@@ -25,8 +25,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.Argument;
@@ -124,8 +124,7 @@ public class ReplicaNodeTest {
               .join()
               .replicas()
               .get(0)
-              .nodeInfo()
-              .id());
+              .brokerId());
       Assertions.assertEquals(
           path,
           admin
@@ -143,14 +142,14 @@ public class ReplicaNodeTest {
     var topic = Utils.randomString();
     var partition = 0;
     var leaderSize = 100;
-    var nodes = List.of(NodeInfo.of(0, "aa", 0), NodeInfo.of(1, "aa", 0), NodeInfo.of(2, "aa", 0));
+    var nodes = List.of(Broker.of(0, "aa", 0), Broker.of(1, "aa", 0), Broker.of(2, "aa", 0));
     var replicas =
         List.of(
             Replica.builder()
                 .isLeader(true)
                 .topic(topic)
                 .partition(partition)
-                .nodeInfo(nodes.get(0))
+                .brokerId(nodes.get(0).id())
                 .size(leaderSize)
                 .path("/tmp/aaa")
                 .build(),
@@ -158,14 +157,14 @@ public class ReplicaNodeTest {
                 .isLeader(false)
                 .topic(topic)
                 .partition(partition)
-                .nodeInfo(nodes.get(1))
+                .brokerId(nodes.get(1).id())
                 .size(20)
                 .build(),
             Replica.builder()
                 .isLeader(false)
                 .topic(topic)
                 .partition(partition)
-                .nodeInfo(nodes.get(2))
+                .brokerId(nodes.get(2).id())
                 .size(30)
                 .build());
     var results = ReplicaNode.allResult(ClusterInfo.of("fake", nodes, Map.of(), replicas));

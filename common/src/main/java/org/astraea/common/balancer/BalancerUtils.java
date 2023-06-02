@@ -19,15 +19,17 @@ package org.astraea.common.balancer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.astraea.common.Configuration;
 import org.astraea.common.EnumInfo;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 
 public final class BalancerUtils {
@@ -47,7 +49,7 @@ public final class BalancerUtils {
                     s ->
                         switch (s[1]) {
                           case "balancing" -> BalancingModes.BALANCING;
-                          case "demoted" -> BalancingModes.DEMOTED;
+                          case "clear" -> BalancingModes.CLEAR;
                           case "excluded" -> BalancingModes.EXCLUDED;
                           default -> throw new IllegalArgumentException(
                               "Unsupported balancing mode: " + s[1]);
@@ -57,32 +59,15 @@ public final class BalancerUtils {
         (id) -> map.getOrDefault(id, map.getOrDefault("default", BalancingModes.BALANCING));
 
     return cluster.brokers().stream()
-        .map(NodeInfo::id)
+        .map(Broker::id)
         .collect(Collectors.toUnmodifiableMap(Function.identity(), mode));
   }
 
-  /**
-   * Verify there is no logic conflict between {@link BalancerConfigs#BALANCER_ALLOWED_TOPICS_REGEX}
-   * and {@link BalancerConfigs#BALANCER_BROKER_BALANCING_MODE}. It also performs other common
-   * validness checks to the cluster.
-   */
-  public static void verifyClearBrokerValidness(
-      ClusterInfo cluster, Predicate<Integer> isDemoted, Predicate<String> allowedTopics) {
-    var disallowedTopicsToClear =
-        cluster.topicPartitionReplicas().stream()
-            .filter(tpr -> isDemoted.test(tpr.brokerId()))
-            .filter(tpr -> !allowedTopics.test(tpr.topic()))
-            .collect(Collectors.toUnmodifiableSet());
-    if (!disallowedTopicsToClear.isEmpty())
-      throw new IllegalArgumentException(
-          "Attempts to clear some brokers, but some of them contain topics that forbidden from being changed due to \""
-              + BalancerConfigs.BALANCER_ALLOWED_TOPICS_REGEX
-              + "\": "
-              + disallowedTopicsToClear);
-
+  /** Performs common validness checks to the cluster. */
+  public static void verifyClearBrokerValidness(ClusterInfo cluster, Predicate<Integer> isClear) {
     var ongoingEventReplica =
         cluster.replicas().stream()
-            .filter(r -> isDemoted.test(r.nodeInfo().id()))
+            .filter(r -> isClear.test(r.brokerId()))
             .filter(r -> r.isAdding() || r.isRemoving() || r.isFuture())
             .map(Replica::topicPartitionReplica)
             .collect(Collectors.toUnmodifiableSet());
@@ -93,7 +78,7 @@ public final class BalancerUtils {
   }
 
   /**
-   * Move all the replicas at the demoting broker to other allowed brokers. <b>BE CAREFUL, The
+   * Move all the replicas at the clearing broker to other allowed brokers. <b>BE CAREFUL, The
    * implementation made no assumption for MoveCost or ClusterCost of the returned ClusterInfo.</b>
    * Be aware of this limitation before using it as the starting point for a solution search. Some
    * balancer implementation might have trouble finding answer when starting at a state where the
@@ -102,7 +87,7 @@ public final class BalancerUtils {
   public static ClusterInfo clearedCluster(
       ClusterInfo initial, Predicate<Integer> clearBrokers, Predicate<Integer> allowedBrokers) {
     final var allowed =
-        initial.nodes().stream()
+        initial.brokers().stream()
             .filter(node -> allowedBrokers.test(node.id()))
             .filter(node -> Predicate.not(clearBrokers).test(node.id()))
             .collect(Collectors.toUnmodifiableSet());
@@ -121,17 +106,17 @@ public final class BalancerUtils {
                     tp -> tp,
                     tp ->
                         initial.replicas(tp).stream()
-                            .map(Replica::nodeInfo)
+                            .map(Replica::brokerId)
                             .collect(Collectors.toSet())));
     return ClusterInfo.builder(initial)
         .mapLog(
             replica -> {
-              if (!clearBrokers.test(replica.nodeInfo().id())) return replica;
+              if (!clearBrokers.test(replica.brokerId())) return replica;
               var currentReplicaList = trackingReplicaList.get(replica.topicPartition());
               var broker =
                   IntStream.range(0, allowed.size())
                       .mapToObj(i -> nextBroker.next())
-                      .filter(b -> !currentReplicaList.contains(b))
+                      .filter(b -> !currentReplicaList.contains(b.id()))
                       .findFirst()
                       .orElseThrow(
                           () ->
@@ -139,10 +124,10 @@ public final class BalancerUtils {
                                   "Unable to clear replica "
                                       + replica.topicPartitionReplica()
                                       + " for broker "
-                                      + replica.nodeInfo().id()
+                                      + replica.brokerId()
                                       + ", the allowed destination brokers are "
                                       + allowed.stream()
-                                          .map(NodeInfo::id)
+                                          .map(Broker::id)
                                           .collect(Collectors.toUnmodifiableSet())
                                       + " but all of them already hosting a replica for this partition. "
                                       + "There is no broker can adopt this replica."));
@@ -150,17 +135,31 @@ public final class BalancerUtils {
 
               // update the tracking list. have to do this to avoid putting two replicas from the
               // same tp to one broker.
-              currentReplicaList.remove(replica.nodeInfo());
-              currentReplicaList.add(broker);
+              currentReplicaList.remove(replica.brokerId());
+              currentReplicaList.add(broker.id());
 
-              return Replica.builder(replica).nodeInfo(broker).path(folder).build();
+              return Replica.builder(replica).brokerId(broker.id()).path(folder).build();
             })
         .build();
   }
 
+  public static void balancerConfigCheck(Configuration configs, Set<String> supportedConfig) {
+    var unsupportedBalancerConfigs =
+        configs.raw().keySet().stream()
+            .filter(key -> key.startsWith("balancer."))
+            .filter(Predicate.not(supportedConfig::contains))
+            .collect(Collectors.toSet());
+    if (!unsupportedBalancerConfigs.isEmpty())
+      throw new IllegalArgumentException(
+          "Unsupported balancer configs: "
+              + unsupportedBalancerConfigs
+              + ", this implementation support "
+              + supportedConfig);
+  }
+
   public enum BalancingModes implements EnumInfo {
     BALANCING,
-    DEMOTED,
+    CLEAR,
     EXCLUDED;
 
     public static BalancingModes ofAlias(String alias) {

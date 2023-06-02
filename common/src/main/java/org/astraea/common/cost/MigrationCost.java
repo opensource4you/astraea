@@ -22,9 +22,10 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.metrics.ClusterBean;
 
 public class MigrationCost {
 
@@ -37,7 +38,8 @@ public class MigrationCost {
   public static final String REPLICA_LEADERS_TO_REMOVE = "leader number to remove";
   public static final String CHANGED_REPLICAS = "changed replicas";
 
-  public static List<MigrationCost> migrationCosts(ClusterInfo before, ClusterInfo after) {
+  public static List<MigrationCost> migrationCosts(
+      ClusterInfo before, ClusterInfo after, ClusterBean clusterBean) {
     var migrateInBytes = recordSizeToSync(before, after);
     var migrateOutBytes = recordSizeToFetch(before, after);
     var migrateReplicaNum = replicaNumChanged(before, after);
@@ -107,19 +109,19 @@ public class MigrationCost {
                 })
             .collect(
                 Collectors.groupingBy(
-                    r -> r.nodeInfo().id(),
+                    r -> r.brokerId(),
                     Collectors.mapping(
                         Function.identity(), Collectors.summingLong(replicaFunction::apply))));
-    return Stream.concat(dest.nodes().stream(), source.nodes().stream())
-        .map(NodeInfo::id)
+    return Stream.concat(dest.brokers().stream(), source.brokers().stream())
+        .map(Broker::id)
         .distinct()
         .parallel()
         .collect(Collectors.toMap(Function.identity(), n -> cost.getOrDefault(n, 0L)));
   }
 
   private static Map<Integer, Long> changedReplicaNumber(ClusterInfo before, ClusterInfo after) {
-    return Stream.concat(before.nodes().stream(), after.nodes().stream())
-        .map(NodeInfo::id)
+    return Stream.concat(before.brokers().stream(), after.brokers().stream())
+        .map(Broker::id)
         .distinct()
         .parallel()
         .collect(

@@ -34,7 +34,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   public static final String MAX_MIGRATE_LEADER_KEY = "max.migrated.leader.number";
 
   public ReplicaLeaderCost() {
-    this.config = new Configuration(Map.of());
+    this.config = Configuration.EMPTY;
   }
 
   public ReplicaLeaderCost(Configuration config) {
@@ -62,7 +62,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   }
 
   static Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo) {
-    return clusterInfo.nodes().stream()
+    return clusterInfo.brokers().stream()
         .map(nodeInfo -> Map.entry(nodeInfo.id(), clusterInfo.replicaLeaders(nodeInfo.id()).size()))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package org.astraea.common.generated.admin;
+
+import "org/astraea/common/generated/admin/Broker.proto";
+
+message Replica {
+  string topic = 1;
+  int32  partition = 2;
+  int32 brokerId = 3;
+  bool isLeader = 7;
+  bool isSync = 10;
+  bool isOffline = 12;
+  bool isAdding = 8;
+  bool isRemoving = 9;
+  bool isFuture = 11;
+  bool isPreferredLeader = 13;
+  int64 lag = 4;
+  int64 size = 5;
+  string path = 14;
+  bool isInternal = 6;
+}

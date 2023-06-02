@@ -48,12 +48,15 @@ public class ClusterInfoTest {
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(Replica::nodeInfo)
-            .collect(Collectors.groupingBy(NodeInfo::id, Collectors.reducing((x, y) -> x)))
+            .map(
+                r ->
+                    new Broker(
+                        r.brokerId(), "hpost", 22222, false, Config.EMPTY, Set.of(), List.of()))
+            .collect(Collectors.groupingBy(Broker::id, Collectors.reducing((x, y) -> x)))
             .values()
             .stream()
             .flatMap(Optional::stream)
-            .collect(Collectors.toUnmodifiableList()),
+            .toList(),
         Map.of(),
         replicas);
   }
@@ -61,7 +64,7 @@ public class ClusterInfoTest {
   @Test
   void testEmptyCluster() {
     var emptyCluster = ClusterInfo.empty();
-    Assertions.assertEquals(0, emptyCluster.nodes().size());
+    Assertions.assertEquals(0, emptyCluster.brokers().size());
     Assertions.assertEquals(0, emptyCluster.replicaStream().count());
   }
 
@@ -96,13 +99,7 @@ public class ClusterInfoTest {
   @Test
   void testReturnCollectionUnmodifiable() {
     var cluster = ClusterInfo.empty();
-    var replica =
-        Replica.builder()
-            .topic("topic")
-            .partition(0)
-            .nodeInfo(NodeInfo.of(0, "", -1))
-            .path("f")
-            .buildLeader();
+    var replica = Replica.builder().topic("topic").partition(0).brokerId(0).path("f").buildLeader();
     Assertions.assertThrows(Exception.class, () -> cluster.replicas().add(replica));
     Assertions.assertThrows(Exception.class, () -> cluster.replicas("t").add(replica));
     Assertions.assertThrows(
