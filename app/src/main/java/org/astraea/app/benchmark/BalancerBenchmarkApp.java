@@ -38,6 +38,7 @@ import org.astraea.app.argument.Argument;
 import org.astraea.app.argument.PathField;
 import org.astraea.app.argument.PositiveIntegerField;
 import org.astraea.app.benchmark.balancer.BalancerBenchmark;
+import org.astraea.common.ByteUtils;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.VersionUtils;
@@ -50,11 +51,13 @@ import org.astraea.common.json.TypeRef;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
+import org.astraea.common.metrics.collector.MetricSensor;
+import org.astraea.common.metrics.collector.MetricStore;
 
 public class BalancerBenchmarkApp {
 
   public void execute(String[] args) {
-    var name = args.length > 0 ? args[0] : "help";
+    var name = args.length > 0 ? args[0] : "";
     var arguments = Arrays.stream(args).skip(1).toArray(String[]::new);
     var benchmarks =
         Map.<String, Runnable>of(
@@ -66,7 +69,8 @@ public class BalancerBenchmarkApp {
     Runnable help =
         () -> {
           System.out.printf("Usage: %s [args ...]%n", benchmarks.keySet());
-          if (!name.equalsIgnoreCase("help"))
+          if (name.isEmpty()) throw new IllegalArgumentException("No argument specified");
+          else if (!name.equalsIgnoreCase("help"))
             throw new IllegalArgumentException("Unknown benchmark name: " + name);
         };
 
@@ -76,12 +80,19 @@ public class BalancerBenchmarkApp {
 
   void runExperiment(ExperimentArgument argument) {
     var cluster = argument.fetchClusterInfo();
-    var beans = argument.fetchClusterBean();
+    var beans = argument.fetchBeanObjects();
     var problem = argument.fetchBalancerProblem();
+    var configs = problem.parse();
     var balancer =
         Utils.construct(
             (Class<Balancer>) Utils.packException(() -> Class.forName(problem.balancer)),
             new Configuration(problem.balancerConfig));
+    var clusterBean =
+        toClusterBean(
+            List.of(
+                configs.clusterCostFunction().metricSensor(),
+                configs.moveCostFunction().metricSensor()),
+            beans);
 
     System.out.println("Running Experiment...");
     System.out.println();
@@ -90,26 +101,33 @@ public class BalancerBenchmarkApp {
         BalancerBenchmark.experiment()
             .setBalancer(balancer)
             .setClusterInfo(cluster)
-            .setClusterBean(beans)
-            .setAlgorithmConfig(problem.parse())
+            .setClusterBean(clusterBean)
+            .setAlgorithmConfig(configs)
             .setExperimentTrials(argument.trials)
             .setExecutionTimeout(problem.timeout)
             .start()
             .toCompletableFuture()
             .join();
 
-    System.out.println(optimizationSummary(argument, cluster, beans, problem));
+    System.out.println(optimizationSummary(argument, cluster, clusterBean, problem));
     System.out.println(experimentSummary(result));
   }
 
   void runCostProfiling(CostProfilingArgument argument) {
     var cluster = argument.fetchClusterInfo();
-    var beans = argument.fetchClusterBean();
+    var beans = argument.fetchBeanObjects();
     var problem = argument.fetchBalancerProblem();
+    var configs = problem.parse();
     var balancer =
         Utils.construct(
             (Class<Balancer>) Utils.packException(() -> Class.forName(problem.balancer)),
             new Configuration(problem.balancerConfig));
+    var clusterBean =
+        toClusterBean(
+            List.of(
+                configs.clusterCostFunction().metricSensor(),
+                configs.moveCostFunction().metricSensor()),
+            beans);
 
     System.out.println("Running CostProfiling...");
     System.out.println();
@@ -118,14 +136,14 @@ public class BalancerBenchmarkApp {
         BalancerBenchmark.costProfiling()
             .setBalancer(balancer)
             .setClusterInfo(cluster)
-            .setClusterBean(beans)
+            .setClusterBean(clusterBean)
             .setAlgorithmConfig(problem.parse())
             .setExecutionTimeout(problem.timeout)
             .start()
             .toCompletableFuture()
             .join();
 
-    System.out.println(optimizationSummary(argument, cluster, beans, problem));
+    System.out.println(optimizationSummary(argument, cluster, clusterBean, problem));
     System.out.println(costProfilingSummary(argument, result));
   }
 
@@ -429,6 +447,28 @@ public class BalancerBenchmarkApp {
     }
   }
 
+  static ClusterBean toClusterBean(
+      Collection<MetricSensor> sensors, Map<Integer, List<BeanObject>> beans) {
+    try (var store =
+        MetricStore.builder()
+            .receivers(
+                List.of(
+                    MetricStore.Receiver.fixed(
+                        beans.entrySet().stream()
+                            .collect(
+                                Collectors.toUnmodifiableMap(
+                                    Map.Entry::getKey, Map.Entry::getValue)))))
+            .sensorsSupplier(
+                () ->
+                    sensors.stream()
+                        .collect(Collectors.toUnmodifiableMap(x -> x, x -> (id, err) -> {})))
+            .build()) {
+      for (int i = 0; i < 3 && store.clusterBean().all().isEmpty(); i++)
+        Utils.sleep(Duration.ofSeconds(1));
+      return store.clusterBean();
+    }
+  }
+
   public static void main(String[] args) {
     new BalancerBenchmarkApp().execute(args);
   }
@@ -457,16 +497,16 @@ public class BalancerBenchmarkApp {
     Path optimizationConfig;
 
     ClusterInfo fetchClusterInfo() {
-      try (var reader = Files.newInputStream(serializedClusterInfo)) {
-        throw new UnsupportedOperationException();
+      try (var stream = Files.newInputStream(serializedClusterInfo)) {
+        return ByteUtils.readClusterInfo(stream.readAllBytes());
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       }
     }
 
-    ClusterBean fetchClusterBean() {
-      try (var reader = Files.newInputStream(serializedClusterBean)) {
-        throw new UnsupportedOperationException();
+    Map<Integer, List<BeanObject>> fetchBeanObjects() {
+      try (var stream = Files.newInputStream(serializedClusterBean)) {
+        return ByteUtils.readBeanObjects(stream.readAllBytes());
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       }

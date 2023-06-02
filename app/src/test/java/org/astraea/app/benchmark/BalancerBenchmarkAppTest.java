@@ -21,6 +21,7 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
@@ -32,7 +33,7 @@ import org.astraea.common.balancer.Balancer;
 import org.astraea.common.balancer.BalancerProblemFormat;
 import org.astraea.common.cost.ClusterCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
-import org.astraea.common.metrics.ClusterBean;
+import org.astraea.common.metrics.BeanObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,8 +75,8 @@ class BalancerBenchmarkAppTest {
           }
 
           @Override
-          ClusterBean fetchClusterBean() {
-            return ClusterBean.EMPTY;
+          Map<Integer, List<BeanObject>> fetchBeanObjects() {
+            return Map.of();
           }
 
           @Override
@@ -113,8 +114,8 @@ class BalancerBenchmarkAppTest {
           }
 
           @Override
-          ClusterBean fetchClusterBean() {
-            return ClusterBean.EMPTY;
+          Map<Integer, List<BeanObject>> fetchBeanObjects() {
+            return Map.of();
           }
 
           @Override
@@ -145,6 +146,15 @@ class BalancerBenchmarkAppTest {
     Assertions.assertTrue(Files.exists(Path.of(matcher.group(1))));
   }
 
+  @Test
+  void testArgument() {
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> BalancerBenchmarkApp.main(new String[] {}));
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> BalancerBenchmarkApp.main(new String[] {"Bad"}));
+    Assertions.assertDoesNotThrow(() -> BalancerBenchmarkApp.main(new String[] {"help"}));
+  }
+
   private static BalancerProblemFormat.CostWeight costWeight(String cost, double weight) {
     var cw = new BalancerProblemFormat.CostWeight();
     cw.cost = cost;
@@ -159,6 +169,7 @@ class BalancerBenchmarkAppTest {
     public Optional<Plan> offer(AlgorithmConfig config) {
       return Optional.of(
           new Plan(
+              config.clusterBean(),
               config.clusterInfo(),
               config.clusterCostFunction().clusterCost(config.clusterInfo(), config.clusterBean()),
               config.clusterInfo(),
