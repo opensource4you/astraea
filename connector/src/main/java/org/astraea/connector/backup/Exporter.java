@@ -39,6 +39,7 @@ import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
 import org.astraea.connector.SinkContext;
 import org.astraea.connector.SinkTask;
+import org.astraea.connector.SinkTaskContext;
 import org.astraea.fs.FileSystem;
 
 public class Exporter extends SinkConnector {
@@ -259,7 +260,7 @@ public class Exporter extends SinkConnector {
     }
 
     @Override
-    protected void init(Configuration configuration) {
+    protected void init(Configuration configuration, SinkTaskContext context) {
       this.topicName = configuration.requireString(TOPICS_KEY);
       this.path = configuration.requireString(PATH_KEY.name());
       this.size = configuration.string(SIZE_KEY.name()).map(DataSize::of).orElse(SIZE_DEFAULT);

@@ -23,6 +23,22 @@ import org.astraea.common.admin.TopicPartition;
 
 public interface SinkTaskContext {
 
+  SinkTaskContext EMPTY =
+      new SinkTaskContext() {
+
+        @Override
+        public void offset(Map<TopicPartition, Long> offsets) {}
+
+        @Override
+        public void offset(TopicPartition topicPartition, long offset) {}
+
+        @Override
+        public void pause(Collection<TopicPartition> partitions) {}
+
+        @Override
+        public void requestCommit() {}
+      };
+
   /**
    * Reset the consumer offsets for the specified partitions.
    *

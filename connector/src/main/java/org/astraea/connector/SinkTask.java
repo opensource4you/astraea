@@ -32,7 +32,7 @@ import org.astraea.common.consumer.Record;
 
 public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
 
-  protected void init(Configuration configuration) {
+  protected void init(Configuration configuration, SinkTaskContext context) {
     // empty
   }
 
@@ -50,7 +50,7 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
 
   @Override
   public final void start(Map<String, String> props) {
-    init(new Configuration(props));
+    init(new Configuration(props), SinkTaskContext.of(context));
   }
 
   @Override

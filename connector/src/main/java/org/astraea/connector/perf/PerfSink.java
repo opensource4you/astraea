@@ -26,6 +26,7 @@ import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
 import org.astraea.connector.SinkContext;
 import org.astraea.connector.SinkTask;
+import org.astraea.connector.SinkTaskContext;
 
 public class PerfSink extends SinkConnector {
 
@@ -68,7 +69,7 @@ public class PerfSink extends SinkConnector {
     private volatile long lastPut = System.currentTimeMillis();
 
     @Override
-    protected void init(Configuration configuration) {
+    protected void init(Configuration configuration, SinkTaskContext context) {
       frequency =
           configuration.string(FREQUENCY_DEF.name()).map(Utils::toDuration).orElse(frequency);
     }
