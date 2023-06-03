@@ -19,10 +19,9 @@ package org.astraea.connector;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.astraea.common.admin.TopicPartition;
 
-public interface TaskContext {
+public interface SinkTaskContext {
 
   /**
    * Reset the consumer offsets for the specified partitions.
@@ -52,8 +51,8 @@ public interface TaskContext {
    */
   void requestCommit();
 
-  static TaskContext of(SinkTaskContext context) {
-    return new TaskContext() {
+  static SinkTaskContext of(org.apache.kafka.connect.sink.SinkTaskContext context) {
+    return new SinkTaskContext() {
       @Override
       public void offset(Map<TopicPartition, Long> offsets) {
         context.offset(

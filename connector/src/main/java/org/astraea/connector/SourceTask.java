@@ -19,6 +19,7 @@ package org.astraea.connector;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.kafka.connect.data.Schema;
 import org.astraea.common.Configuration;
@@ -28,7 +29,7 @@ import org.astraea.common.producer.Record;
 
 public abstract class SourceTask extends org.apache.kafka.connect.source.SourceTask {
 
-  protected abstract void init(Configuration configuration, MetadataStorage storage);
+  protected abstract void init(Configuration configuration, SourceTaskContext storage);
 
   /**
    * use {@link Record#builder()} or {@link SourceRecord#builder()} to construct the returned
@@ -52,7 +53,7 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
 
   @Override
   public final void start(Map<String, String> props) {
-    init(new Configuration(props), MetadataStorage.of(context.offsetStorageReader()));
+    init(new Configuration(props), SourceTaskContext.of(Objects.requireNonNull(context)));
   }
 
   @Override

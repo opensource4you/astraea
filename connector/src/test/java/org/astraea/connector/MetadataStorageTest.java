@@ -103,9 +103,9 @@ public class MetadataStorageTest {
     private Configuration configuration;
 
     @Override
-    protected void init(Configuration configuration, MetadataStorage storage) {
+    protected void init(Configuration configuration, SourceContext context) {
       this.configuration = configuration;
-      FETCHED_METADATA = storage.metadata(KEY);
+      FETCHED_METADATA = context.metadata(KEY);
     }
 
     @Override
@@ -132,7 +132,7 @@ public class MetadataStorageTest {
     private Set<String> topics = Set.of();
 
     @Override
-    protected void init(Configuration configuration, MetadataStorage storage) {
+    protected void init(Configuration configuration, SourceTaskContext storage) {
       topics = Set.copyOf(configuration.list(ConnectorConfigs.TOPICS_KEY, ","));
       FETCHED_METADATA = storage.metadata(KEY);
     }

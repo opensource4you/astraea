@@ -31,10 +31,11 @@ import org.astraea.common.Utils;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.RecordGenerator;
 import org.astraea.connector.Definition;
-import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
+import org.astraea.connector.SourceContext;
 import org.astraea.connector.SourceRecord;
 import org.astraea.connector.SourceTask;
+import org.astraea.connector.SourceTaskContext;
 
 public class PerfSource extends SourceConnector {
 
@@ -146,7 +147,7 @@ public class PerfSource extends SourceConnector {
   private Configuration config;
 
   @Override
-  protected void init(Configuration configuration, MetadataStorage storage) {
+  protected void init(Configuration configuration, SourceContext context) {
     this.config = configuration;
   }
 
@@ -198,7 +199,7 @@ public class PerfSource extends SourceConnector {
     RecordGenerator recordGenerator = null;
 
     @Override
-    protected void init(Configuration configuration, MetadataStorage storage) {
+    protected void init(Configuration configuration, SourceTaskContext storage) {
       var throughput =
           configuration.string(THROUGHPUT_DEF.name()).map(DataSize::of).orElse(THROUGHPUT_DEFAULT);
       var KeySize =

@@ -24,6 +24,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
+import org.astraea.connector.SinkContext;
 import org.astraea.connector.SinkTask;
 
 public class PerfSink extends SinkConnector {
@@ -41,7 +42,7 @@ public class PerfSink extends SinkConnector {
   private Configuration config;
 
   @Override
-  protected void init(Configuration configuration) {
+  protected void init(Configuration configuration, SinkContext context) {
     this.config = configuration;
   }
 

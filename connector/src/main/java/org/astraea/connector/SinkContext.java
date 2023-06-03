@@ -16,22 +16,14 @@
  */
 package org.astraea.connector;
 
-import java.util.Map;
-import java.util.stream.Collectors;
-import org.apache.kafka.connect.storage.OffsetStorageReader;
+public interface SinkContext {
 
-public interface MetadataStorage {
+  SinkContext EMPTY = e -> {};
 
-  MetadataStorage EMPTY = ignored -> Map.of();
-
-  static MetadataStorage of(OffsetStorageReader reader) {
-    return index -> {
-      var v = reader.offset(index);
-      if (v == null) return Map.of();
-      return v.entrySet().stream()
-          .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().toString()));
-    };
+  static SinkContext of(org.apache.kafka.connect.sink.SinkConnectorContext context) {
+    return context::raiseError;
   }
 
-  Map<String, String> metadata(Map<String, String> index);
+  /** {@link org.apache.kafka.connect.sink.SinkConnectorContext#raiseError(Exception)} */
+  void raiseError(Exception e);
 }
