@@ -308,7 +308,7 @@ public final class ByteUtils {
       return outerClusterBean.getAllBeansMap().entrySet().stream()
           .collect(
               Collectors.toUnmodifiableMap(
-                  k -> k.getKey(),
+                  Map.Entry::getKey,
                   v ->
                       v.getValue().getBeanObjectsList().stream()
                           .map(

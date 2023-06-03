@@ -567,21 +567,19 @@ public abstract class BalancerConfigTestSuite {
           .filter(r -> !allowedBroker.test(r.brokerId()))
           // they should exist as-is in the target allocation
           .forEach(
-              fixedReplica -> {
-                target
-                    .replicaStream()
-                    .filter(targetReplica -> targetReplica.equals(fixedReplica))
-                    .findFirst()
-                    .ifPresentOrElse(
-                        (r) -> {},
-                        () -> {
-                          Assertions.fail(
-                              name
-                                  + ": Expect replica "
-                                  + fixedReplica
-                                  + " not moved, but it appears to disappear from the target allocation");
-                        });
-              });
+              fixedReplica ->
+                  target
+                      .replicaStream()
+                      .filter(targetReplica -> targetReplica.equals(fixedReplica))
+                      .findFirst()
+                      .ifPresentOrElse(
+                          (r) -> {},
+                          () ->
+                              Assertions.fail(
+                                  name
+                                      + ": Expect replica "
+                                      + fixedReplica
+                                      + " not moved, but it appears to disappear from the target allocation")));
     }
 
     static void assertBrokerEmpty(ClusterInfo target, Predicate<Integer> clearBroker, String name) {

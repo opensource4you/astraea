@@ -557,7 +557,6 @@ public class ConsumerTest {
                           ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                           ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
                       .iterator(List.of(limit));
-          ;
           return StreamSupport.stream(
               Spliterators.spliteratorUnknownSize(iter, Spliterator.ORDERED), false);
         };
