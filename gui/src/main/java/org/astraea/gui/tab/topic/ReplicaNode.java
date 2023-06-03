@@ -30,6 +30,7 @@ import javafx.scene.Node;
 import org.astraea.common.DataSize;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.function.Bi3Function;
@@ -195,7 +196,7 @@ class ReplicaNode {
                                             .allMatch(
                                                 entry ->
                                                     rs.replicas(entry.getKey()).stream()
-                                                        .map(r -> r.brokerId())
+                                                        .map(Replica::brokerId)
                                                         .collect(Collectors.toSet())
                                                         .containsAll(entry.getValue())),
                                     Duration.ofSeconds(10),

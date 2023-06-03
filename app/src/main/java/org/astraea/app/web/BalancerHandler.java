@@ -146,24 +146,23 @@ class BalancerHandler implements Handler, AutoCloseable {
     var contextCluster = taskMetadata.get(taskId).clusterInfo;
     var exception =
         (Function<BalancerConsole.TaskPhase, String>)
-            (phase) -> {
-              return switch (phase) {
-                case Searching, Searched, Executing, Executed ->
-                // No error message during the search & execution
-                null;
-                case SearchFailed -> planGenerations
-                    .get(taskId)
-                    .handle((plan, err) -> err != null ? err.toString() : null)
-                    .toCompletableFuture()
-                    .getNow(null);
-                case ExecutionFailed -> planExecutions
-                    .get(taskId)
-                    .handle((ignore, err) -> err != null ? err.toString() : null)
-                    .toCompletableFuture()
-                    .getNow(null);
-                default -> throw new IllegalStateException("Unknown state: " + phase);
-              };
-            };
+            (phase) ->
+                switch (phase) {
+                  case Searching, Searched, Executing, Executed ->
+                  // No error message during the search & execution
+                  null;
+                  case SearchFailed -> planGenerations
+                      .get(taskId)
+                      .handle((plan, err) -> err != null ? err.toString() : null)
+                      .toCompletableFuture()
+                      .getNow(null);
+                  case ExecutionFailed -> planExecutions
+                      .get(taskId)
+                      .handle((ignore, err) -> err != null ? err.toString() : null)
+                      .toCompletableFuture()
+                      .getNow(null);
+                  default -> throw new IllegalStateException("Unknown state: " + phase);
+                };
     var changes =
         (Function<Balancer.Plan, List<Change>>)
             (solution) ->

@@ -19,5 +19,5 @@ package org.astraea.fs;
 public enum Type {
   NONEXISTENT,
   FILE,
-  FOLDER;
+  FOLDER
 }

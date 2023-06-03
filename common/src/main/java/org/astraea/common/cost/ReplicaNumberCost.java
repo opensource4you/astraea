@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
 
 /** more replicas migrate -> higher cost */
@@ -58,7 +59,7 @@ public class ReplicaNumberCost implements HasClusterCost, HasMoveCost {
     var replicaPerBroker =
         clusterInfo
             .replicaStream()
-            .collect(Collectors.groupingBy(r -> r.brokerId(), Collectors.counting()));
+            .collect(Collectors.groupingBy(Replica::brokerId, Collectors.counting()));
     var summary = replicaPerBroker.values().stream().mapToLong(x -> x).summaryStatistics();
 
     var anyBrokerEmpty =

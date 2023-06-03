@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Test;
 public class RecordSizeCostTest {
 
   private final RecordSizeCost function = new RecordSizeCost();
-  ;
 
   private final ClusterInfo clusterInfo =
       ClusterInfo.of(

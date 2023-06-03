@@ -79,7 +79,7 @@ public class MoveCostTest {
                         .equals(ServerMetrics.BrokerTopic.BYTES_IN_PER_SEC.metricName())));
   }
 
-  class FakeCf implements HasMoveCost {
+  static class FakeCf implements HasMoveCost {
     @Override
     public MetricSensor metricSensor() {
       return MetricSensor.of(

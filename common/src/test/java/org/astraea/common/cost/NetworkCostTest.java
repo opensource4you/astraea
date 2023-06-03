@@ -364,40 +364,39 @@ class NetworkCostTest {
     var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);
 
     Function<ShuffleTweaker, Double> experiment =
-        (tweaker) -> {
-          return IntStream.range(0, 10)
-              .mapToDouble(
-                  (ignore) -> {
-                    var end = System.currentTimeMillis() + Duration.ofMillis(1000).toMillis();
-                    var timeUp = (Supplier<Boolean>) () -> (System.currentTimeMillis() > end);
-                    var counting = 0;
-                    var next = clusterInfo;
-                    while (!timeUp.get()) {
-                      next =
-                          tweaker
-                              .generate(next)
-                              .parallel()
-                              .limit(30)
-                              .takeWhile(i -> !timeUp.get())
-                              .map(
-                                  cluster ->
-                                      Map.entry(
-                                          cluster,
-                                          costFunction.clusterCost(cluster, clusterBean).value()))
-                              .filter(e -> originalCost.value() > e.getValue())
-                              .min(Map.Entry.comparingByValue())
-                              .map(Map.Entry::getKey)
-                              .orElse(next);
-                      counting++;
-                    }
-                    var a = originalCost.value();
-                    var b = costFunction.clusterCost(next, clusterBean).value();
-                    System.out.println(counting);
-                    return a - b;
-                  })
-              .average()
-              .orElseThrow();
-        };
+        (tweaker) ->
+            IntStream.range(0, 10)
+                .mapToDouble(
+                    (ignore) -> {
+                      var end = System.currentTimeMillis() + Duration.ofMillis(1000).toMillis();
+                      var timeUp = (Supplier<Boolean>) () -> (System.currentTimeMillis() > end);
+                      var counting = 0;
+                      var next = clusterInfo;
+                      while (!timeUp.get()) {
+                        next =
+                            tweaker
+                                .generate(next)
+                                .parallel()
+                                .limit(30)
+                                .takeWhile(i -> !timeUp.get())
+                                .map(
+                                    cluster ->
+                                        Map.entry(
+                                            cluster,
+                                            costFunction.clusterCost(cluster, clusterBean).value()))
+                                .filter(e -> originalCost.value() > e.getValue())
+                                .min(Map.Entry.comparingByValue())
+                                .map(Map.Entry::getKey)
+                                .orElse(next);
+                        counting++;
+                      }
+                      var a = originalCost.value();
+                      var b = costFunction.clusterCost(next, clusterBean).value();
+                      System.out.println(counting);
+                      return a - b;
+                    })
+                .average()
+                .orElseThrow();
 
     long s0 = System.currentTimeMillis();
     double small = experiment.apply(smallShuffle);
@@ -580,21 +579,12 @@ class NetworkCostTest {
       var random = new Random(seed);
       this.dataRateSupplier =
           () -> {
-            switch (1 + random.nextInt(8)) {
-              case 1:
-              case 2:
-              case 3:
-              case 4:
-              case 5:
-                return DataRate.MB.of((long) (random.nextInt(50)));
-              case 6:
-              case 7:
-                return DataRate.MB.of(3 * (long) (random.nextInt(50)));
-              case 8:
-                return DataRate.MB.of(5 * (long) (random.nextInt(50)));
-              default:
-                throw new RuntimeException();
-            }
+            return switch (1 + random.nextInt(8)) {
+              case 1, 2, 3, 4, 5 -> DataRate.MB.of((long) (random.nextInt(50)));
+              case 6, 7 -> DataRate.MB.of(3 * (long) (random.nextInt(50)));
+              case 8 -> DataRate.MB.of(5 * (long) (random.nextInt(50)));
+              default -> throw new RuntimeException();
+            };
           };
       this.clusterInfo =
           ClusterInfo.builder()

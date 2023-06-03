@@ -91,7 +91,7 @@ class OptimizedClusterInfo implements ClusterInfo {
             () ->
                 all.stream()
                     .collect(
-                        Collectors.groupingBy(r -> r.brokerId(), Collectors.toUnmodifiableList())));
+                        Collectors.groupingBy(Replica::brokerId, Collectors.toUnmodifiableList())));
 
     this.byTopic =
         Lazy.of(

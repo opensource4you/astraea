@@ -715,7 +715,7 @@ class AdminImpl implements Admin {
                 .sorted(
                     Comparator.comparing(Replica::topic)
                         .thenComparing(Replica::partition)
-                        .thenComparing(r -> r.brokerId()))
+                        .thenComparing(Replica::brokerId))
                 .toList());
   }
 

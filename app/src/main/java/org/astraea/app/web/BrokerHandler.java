@@ -25,7 +25,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.TopicPartitionPath;
 
 class BrokerHandler implements Handler {

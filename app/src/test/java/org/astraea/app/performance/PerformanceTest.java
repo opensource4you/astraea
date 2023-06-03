@@ -259,7 +259,7 @@ public class PerformanceTest {
               .get()
               .partition();
       // no specify broker
-      Assertions.assertTrue(-1 == partition);
+      Assertions.assertEquals(-1, partition);
 
       // Test no partition in specified broker
       var topicName3 = Utils.randomString(10);
