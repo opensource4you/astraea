@@ -116,7 +116,7 @@ public class SourceDataTest {
     private Configuration configuration = Configuration.EMPTY;
 
     @Override
-    protected void init(Configuration configuration, MetadataStorage storage) {
+    protected void init(Configuration configuration, SourceContext context) {
       this.configuration = configuration;
     }
 
@@ -142,7 +142,7 @@ public class SourceDataTest {
     private boolean isDone = false;
 
     @Override
-    protected void init(Configuration configuration, MetadataStorage storage) {
+    protected void init(Configuration configuration, SourceTaskContext context) {
       topics = Set.copyOf(configuration.list(ConnectorConfigs.TOPICS_KEY, ","));
     }
 

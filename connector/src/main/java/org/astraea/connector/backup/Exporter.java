@@ -37,6 +37,7 @@ import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.consumer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
+import org.astraea.connector.SinkContext;
 import org.astraea.connector.SinkTask;
 import org.astraea.fs.FileSystem;
 
@@ -123,7 +124,7 @@ public class Exporter extends SinkConnector {
   private Configuration configs;
 
   @Override
-  protected void init(Configuration configuration) {
+  protected void init(Configuration configuration, SinkContext context) {
     this.configs = configuration;
   }
 
