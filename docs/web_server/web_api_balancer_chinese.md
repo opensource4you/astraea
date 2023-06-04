@@ -12,14 +12,14 @@ POST /balancer
 
 參數
 
-| 名稱             | 說明                                                          | 預設值                                                                                                                                                                                 |
-|----------------|-------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| clusterCosts   | (必填) 指定要優化的目標以及對應權重                                         | 無                                                                                                                                                                                   |
-| timeout        | (選填) 指定產生時間                                                 | 3s                                                                                                                                                                                  |
-| balancer       | (選填) 欲使用的負載優化計劃搜尋演算法                                        | org.astraea.common.balancer.algorithms.GreedyBalancer                                                                                                                               |
-| balancerConfig | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String  | 無                                                                                                                                                                                   |
-| moveCosts      | (必填) 指定要計算的各項搬移成本                                           | "org.astraea.common.cost.ReplicaLeaderCost", "org.astraea.common.cost.RecordSizeCost", "org.astraea.common.cost.ReplicaNumberCost", "org.astraea.common.cost.ReplicaLeaderSizeCost" |
-| costConfig     | (選填) 針對各個搬移成本做限制，讓，此為一個 JSON Object 內含一系列的 key/value String | 無                                                                                                                                                                                   |
+| 名稱             | 說明                                                         | 預設值                                                                                                                                                                                 |
+|----------------|------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| clusterCosts   | (必填) 指定要優化的目標以及對應權重                                        | 無                                                                                                                                                                                   |
+| timeout        | (選填) 指定產生時間                                                | 3s                                                                                                                                                                                  |
+| balancer       | (選填) 欲使用的負載優化計劃搜尋演算法                                       | org.astraea.common.balancer.algorithms.GreedyBalancer                                                                                                                               |
+| balancerConfig | (選填) 搜尋演算法的實作細節參數，此為一個 JSON Object 內含一系列的 key/value String | 無                                                                                                                                                                                   |
+| moveCosts      | (必填) 指定要計算的各項搬移成本                                          | "org.astraea.common.cost.ReplicaLeaderCost", "org.astraea.common.cost.RecordSizeCost", "org.astraea.common.cost.ReplicaNumberCost", "org.astraea.common.cost.ReplicaLeaderSizeCost" |
+| costConfig     | (選填) 針對各個搬移成本做限制，此為一個 JSON Object 內含一系列的 key/value String  | 無                                                                                                                                                                                   |
 
 官方記錄的 balancerConfig:
 
