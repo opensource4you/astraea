@@ -22,7 +22,6 @@ import java.io.Reader;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 
 /** Construct CsvReaderBuilder so that we can use build pattern of opencsv. */
@@ -98,7 +97,7 @@ public class CsvReaderBuilder {
         throw new NoSuchElementException("There is no next line.");
       }
       try {
-        return Arrays.stream(nextLine).collect(Collectors.toUnmodifiableList());
+        return Arrays.stream(nextLine).toList();
       } finally {
         nextLine = null;
       }
