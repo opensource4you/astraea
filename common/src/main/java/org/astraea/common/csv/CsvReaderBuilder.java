@@ -34,11 +34,6 @@ public class CsvReaderBuilder {
     this.csvReaderBuilder = new CSVReaderBuilder(source);
   }
 
-  public CsvReaderBuilder withKeepCarriageReturn(boolean keep) {
-    this.csvReaderBuilder.withKeepCarriageReturn(keep);
-    return this;
-  }
-
   public CsvReaderBuilder blankLine(boolean allow) {
     this.blankLine = allow;
     return this;

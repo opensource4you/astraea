@@ -31,11 +31,6 @@ public class CsvWriterBuilder {
     this.csvWriterBuilder = new CSVWriterBuilder(sink);
   }
 
-  public CsvWriterBuilder withLineEnd(String string) {
-    this.csvWriterBuilder.withLineEnd(string);
-    return this;
-  }
-
   public CsvWriterBuilder blankLine(boolean blankLine) {
     this.blankLine = blankLine;
     return this;
