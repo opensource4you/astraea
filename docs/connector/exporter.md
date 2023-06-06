@@ -27,6 +27,7 @@
 
 ##### 注意
 
+###### converter
 如果`worker`預設之`converter`並非為`byte array converter`
 時，需要在將以下參數使設定為`org.apache.kafka.connect.converters.ByteArrayConverter`使本工具順利執行。
 
@@ -48,6 +49,18 @@ Caused by: org.apache.kafka.common.errors.SerializationException: com.fasterxml.
 Caused by: com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'test': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')
 ...
 ```
+
+###### offset from
+此參數之設定需要小心，如果設定之 offset 超出 latest offset， exporter 會參照參數 `auto.reset.offset` 來重置 offset。
+此參數預設值為 `earliest`，即重置到最久之 record，如果需要變更此參數，請在創建 connector 時附上參數： 
+`"consumer.override.auto.reset.offset": "latest"`
+如果將此參數變更為 `latest`，會導致所有備份之 partition 預設從最新資料開始備份。
+
+> **Warning**
+> 如果使用預設 auto.reset.offset = earliest，需注意各 topic partition 之設定，如果設定超出範圍會導致無限重複消費資訊（但不會備份），
+> 需自行停止。
+
+
 
 #### 使用範例
 
