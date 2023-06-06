@@ -108,7 +108,7 @@ public class ClusterInfoSensor implements MetricSensor {
                                         Replica.builder()
                                             .topic(tp.topic())
                                             .partition(tp.partition())
-                                            .broker(nodes.get(broker))
+                                            .brokerId(nodes.get(broker).id())
                                             .path("")
                                             .size(size.value());
                                     var isLeader = m.value() != 0;

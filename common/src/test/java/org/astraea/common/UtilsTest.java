@@ -206,7 +206,7 @@ public class UtilsTest {
   @ParameterizedTest
   @ValueSource(classes = {TestCostFunction.class, TestConfigCostFunction.class})
   void testConstruct(Class<? extends CostFunction> aClass) {
-    var config = new Configuration(Map.of());
+    var config = Configuration.EMPTY;
 
     var costFunction = Utils.construct(aClass, config);
     Assertions.assertInstanceOf(CostFunction.class, costFunction);
@@ -226,7 +226,7 @@ public class UtilsTest {
   void testConstructException() {
     // arrange
     var aClass = TestBadCostFunction.class;
-    var config = new Configuration(Map.of());
+    var config = Configuration.EMPTY;
 
     // act, assert
     Assertions.assertThrows(RuntimeException.class, () -> Utils.construct(aClass, config));

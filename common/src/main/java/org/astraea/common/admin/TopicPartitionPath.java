@@ -14,24 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.connector;
+package org.astraea.common.admin;
 
-import java.util.Map;
-import java.util.stream.Collectors;
-import org.apache.kafka.connect.storage.OffsetStorageReader;
+public record TopicPartitionPath(String topic, int partition, long size, String path) {
 
-public interface MetadataStorage {
-
-  MetadataStorage EMPTY = ignored -> Map.of();
-
-  static MetadataStorage of(OffsetStorageReader reader) {
-    return index -> {
-      var v = reader.offset(index);
-      if (v == null) return Map.of();
-      return v.entrySet().stream()
-          .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().toString()));
-    };
+  public TopicPartition topicPartition() {
+    return new TopicPartition(topic, partition);
   }
-
-  Map<String, String> metadata(Map<String, String> index);
 }

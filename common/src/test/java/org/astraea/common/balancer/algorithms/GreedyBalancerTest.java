@@ -58,7 +58,7 @@ class GreedyBalancerTest extends BalancerConfigTestSuite {
 
   @Test
   void testJmx() {
-    var cost = new DecreasingCost(new Configuration(Map.of()));
+    var cost = new DecreasingCost(Configuration.EMPTY);
     var id = "TestJmx-" + UUID.randomUUID();
     var clusterInfo = FakeClusterInfo.of(5, 5, 5, 2);
     var balancer =

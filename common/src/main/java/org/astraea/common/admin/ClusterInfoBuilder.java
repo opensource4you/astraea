@@ -89,7 +89,7 @@ public class ClusterInfoBuilder {
                             + " but another broker with this id already existed");
                   });
           return Stream.concat(nodes.stream(), brokerIds.stream().map(ClusterInfoBuilder::fakeNode))
-              .collect(Collectors.toUnmodifiableList());
+              .toList();
         });
   }
 
@@ -126,13 +126,11 @@ public class ClusterInfoBuilder {
                           node.host(),
                           node.port(),
                           Stream.concat(
-                                  node.dataFolders().stream(),
-                                  folders.get(node.id()).stream()
-                                      .map(ClusterInfoBuilder::fakeDataFolder))
-                              .toList());
+                                  node.dataFolders().stream(), folders.get(node.id()).stream())
+                              .collect(Collectors.toUnmodifiableSet()));
                     else return node;
                   })
-              .collect(Collectors.toUnmodifiableList());
+              .toList();
         });
   }
 
@@ -174,15 +172,13 @@ public class ClusterInfoBuilder {
               nodes.stream()
                   .collect(
                       Collectors.toUnmodifiableMap(
-                          node -> node,
+                          Broker::id,
                           node ->
                               node.dataFolders().stream()
-                                  .collect(
-                                      Collectors.toMap(
-                                          Broker.DataFolder::path, x -> new AtomicInteger()))));
+                                  .collect(Collectors.toMap(t -> t, x -> new AtomicInteger()))));
           replicas.forEach(
               replica ->
-                  folderLogCounter.get(replica.broker()).get(replica.path()).incrementAndGet());
+                  folderLogCounter.get(replica.brokerId()).get(replica.path()).incrementAndGet());
 
           folderLogCounter.forEach(
               (node, folders) -> {
@@ -200,7 +196,7 @@ public class ClusterInfoBuilder {
                                   index -> {
                                     final Broker broker = nodeSelector.next();
                                     final String path =
-                                        folderLogCounter.get(broker).entrySet().stream()
+                                        folderLogCounter.get(broker.id()).entrySet().stream()
                                             .min(Comparator.comparing(x -> x.getValue().get()))
                                             .map(
                                                 entry -> {
@@ -212,7 +208,7 @@ public class ClusterInfoBuilder {
                                     return Replica.builder()
                                         .topic(tp.topic())
                                         .partition(tp.partition())
-                                        .broker(broker)
+                                        .brokerId(broker.id())
                                         .isAdding(false)
                                         .isRemoving(false)
                                         .lag(0)
@@ -227,8 +223,7 @@ public class ClusterInfoBuilder {
                                   }))
                   .map(mapper);
 
-          return Stream.concat(replicas.stream(), newTopic)
-              .collect(Collectors.toUnmodifiableList());
+          return Stream.concat(replicas.stream(), newTopic).toList();
         });
   }
 
@@ -239,9 +234,7 @@ public class ClusterInfoBuilder {
    * @return this.
    */
   public ClusterInfoBuilder mapLog(Function<Replica, Replica> mapper) {
-    return applyReplicas(
-        (nodes, replicas) ->
-            replicas.stream().map(mapper).collect(Collectors.toUnmodifiableList()));
+    return applyReplicas((nodes, replicas) -> replicas.stream().map(mapper).toList());
   }
 
   /**
@@ -269,12 +262,12 @@ public class ClusterInfoBuilder {
                       r -> {
                         if (r.topicPartitionReplica().equals(replica)) {
                           matched.set(true);
-                          return Replica.builder(r).broker(newNode).path(toDir).build();
+                          return Replica.builder(r).brokerId(newNode.id()).path(toDir).build();
                         } else {
                           return r;
                         }
                       })
-                  .collect(Collectors.toUnmodifiableList());
+                  .toList();
           if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
           return collect;
         });
@@ -307,7 +300,7 @@ public class ClusterInfoBuilder {
                           return r;
                         }
                       })
-                  .collect(Collectors.toUnmodifiableList());
+                  .toList();
           if (!matched.get()) throw new IllegalArgumentException("No such replica: " + replica);
 
           return collect;
@@ -333,16 +326,10 @@ public class ClusterInfoBuilder {
   private static Broker fakeNode(int brokerId) {
     var host = "fake-node-" + brokerId;
     var port = new Random(brokerId).nextInt(65535) + 1;
-    var folders = List.<Broker.DataFolder>of();
-
-    return fakeBroker(brokerId, host, port, folders);
+    return fakeBroker(brokerId, host, port, Set.of());
   }
 
-  static Broker fakeBroker(int Id, String host, int port, List<Broker.DataFolder> dataFolders) {
-    return new Broker(Id, host, port, false, Config.EMPTY, dataFolders, Set.of(), Set.of());
-  }
-
-  private static Broker.DataFolder fakeDataFolder(String path) {
-    return new Broker.DataFolder(path, Map.of(), Map.of());
+  static Broker fakeBroker(int Id, String host, int port, Set<String> dataFolders) {
+    return new Broker(Id, host, port, false, Config.EMPTY, dataFolders, List.of());
   }
 }

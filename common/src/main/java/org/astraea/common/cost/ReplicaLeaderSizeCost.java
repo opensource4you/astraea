@@ -18,7 +18,6 @@ package org.astraea.common.cost;
 
 import static org.astraea.common.cost.CostUtils.changedRecordSizeOverflow;
 
-import java.util.Map;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
@@ -39,7 +38,7 @@ public class ReplicaLeaderSizeCost
   public static final String MOVED_LEADER_SIZE = "moved leader size (bytes)";
 
   public ReplicaLeaderSizeCost() {
-    this.config = new Configuration(Map.of());
+    this.config = Configuration.EMPTY;
   }
 
   public ReplicaLeaderSizeCost(Configuration config) {
@@ -67,7 +66,7 @@ public class ReplicaLeaderSizeCost
         clusterInfo.replicas().stream()
             .collect(
                 Collectors.groupingBy(
-                    r -> r.broker().id(),
+                    Replica::brokerId,
                     Collectors.mapping(
                         r ->
                             clusterInfo

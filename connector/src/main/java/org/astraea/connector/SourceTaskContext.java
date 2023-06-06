@@ -14,10 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.fs;
+package org.astraea.connector;
 
-public enum Type {
-  NONEXISTENT,
-  FILE,
-  FOLDER
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public interface SourceTaskContext {
+
+  SourceTaskContext EMPTY = ignored -> Map.of();
+
+  static SourceTaskContext of(org.apache.kafka.connect.source.SourceTaskContext context) {
+    return index -> {
+      var v = context.offsetStorageReader().offset(index);
+      if (v == null) return Map.of();
+      return v.entrySet().stream()
+          .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().toString()));
+    };
+  }
+
+  Map<String, String> metadata(Map<String, String> index);
 }

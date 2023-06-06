@@ -32,10 +32,11 @@ import org.astraea.common.Utils;
 import org.astraea.common.backup.RecordReader;
 import org.astraea.common.backup.RecordWriter;
 import org.astraea.connector.Definition;
-import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
+import org.astraea.connector.SourceContext;
 import org.astraea.connector.SourceRecord;
 import org.astraea.connector.SourceTask;
+import org.astraea.connector.SourceTaskContext;
 import org.astraea.fs.FileSystem;
 import org.astraea.fs.Type;
 
@@ -98,7 +99,7 @@ public class Importer extends SourceConnector {
   private Configuration config;
 
   @Override
-  protected void init(Configuration configuration, MetadataStorage storage) {
+  protected void init(Configuration configuration, SourceContext context) {
     this.config = configuration;
   }
 
@@ -143,7 +144,7 @@ public class Importer extends SourceConnector {
     private String cleanSource;
     private Optional<String> archiveDir;
 
-    protected void init(Configuration configuration, MetadataStorage storage) {
+    protected void init(Configuration configuration, SourceTaskContext storage) {
       this.Client = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.fileSet = configuration.requireInteger(FILE_SET_KEY);
       this.addedPaths = new HashSet<>();

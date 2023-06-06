@@ -123,15 +123,13 @@ public interface Query {
                               // swallow
                             }
                           }
-                          if (e.getValue() instanceof DataSize) {
-                            var size = ((DataSize) e.getValue());
+                          if (e.getValue() instanceof DataSize size) {
                             return keyPattern.matcher(e.getKey()).matches()
                                 && size.smallerThan(DataSize.of(valueString));
                           }
-                          if (e.getValue() instanceof LocalDateTime) {
-                            var time = ((LocalDateTime) e.getValue());
+                          if (e.getValue() instanceof LocalDateTime time) {
                             return keyPattern.matcher(e.getKey()).matches()
-                                && time.compareTo(LocalDateTime.parse(valueString)) < 0;
+                                && time.isBefore(LocalDateTime.parse(valueString));
                           }
                           return false;
                         });
@@ -160,15 +158,13 @@ public interface Query {
                               // swallow
                             }
                           }
-                          if (e.getValue() instanceof DataSize) {
-                            var size = ((DataSize) e.getValue());
+                          if (e.getValue() instanceof DataSize size) {
                             return keyPattern.matcher(e.getKey()).matches()
                                 && size.equals(DataSize.of(valueString));
                           }
-                          if (e.getValue() instanceof LocalDateTime) {
-                            var time = ((LocalDateTime) e.getValue());
+                          if (e.getValue() instanceof LocalDateTime time) {
                             return keyPattern.matcher(e.getKey()).matches()
-                                && time.compareTo(LocalDateTime.parse(valueString)) == 0;
+                                && time.isEqual(LocalDateTime.parse(valueString));
                           }
                           return false;
                         });
@@ -197,15 +193,13 @@ public interface Query {
                               // swallow
                             }
                           }
-                          if (e.getValue() instanceof DataSize) {
-                            var size = ((DataSize) e.getValue());
+                          if (e.getValue() instanceof DataSize size) {
                             return keyPattern.matcher(e.getKey()).matches()
                                 && size.greaterThan(DataSize.of(valueString));
                           }
-                          if (e.getValue() instanceof LocalDateTime) {
-                            var time = ((LocalDateTime) e.getValue());
+                          if (e.getValue() instanceof LocalDateTime time) {
                             return keyPattern.matcher(e.getKey()).matches()
-                                && time.compareTo(LocalDateTime.parse(valueString)) > 0;
+                                && time.isAfter(LocalDateTime.parse(valueString));
                           }
                           return false;
                         });

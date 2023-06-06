@@ -25,7 +25,7 @@ import org.astraea.common.VersionUtils;
 public abstract class SinkConnector extends org.apache.kafka.connect.sink.SinkConnector {
   public static final String TOPICS_KEY = TOPICS_CONFIG;
 
-  protected void init(Configuration configuration) {
+  protected void init(Configuration configuration, SinkContext context) {
     // empty
   }
 
@@ -42,7 +42,7 @@ public abstract class SinkConnector extends org.apache.kafka.connect.sink.SinkCo
   // -------------------------[final]-------------------------//
   @Override
   public final void start(Map<String, String> props) {
-    init(new Configuration(props));
+    init(new Configuration(props), SinkContext.of(context()));
   }
 
   @Override

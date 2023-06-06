@@ -84,11 +84,8 @@ public class FakeClusterInfo {
                         node.port(),
                         false,
                         new Config(Map.of()),
-                        dataDirectories.stream()
-                            .map(path -> new Broker.DataFolder(path, Map.of(), Map.of()))
-                            .toList(),
-                        Set.of(),
-                        Set.of()))
+                        dataDirectories,
+                        List.of()))
             .toList();
     final var dataDirectoryList = List.copyOf(dataDirectories);
     final var topics = topicNameGenerator.apply(topicCount);
@@ -106,7 +103,7 @@ public class FakeClusterInfo {
                                 Replica.builder()
                                     .topic(tp.topic())
                                     .partition(tp.partition())
-                                    .broker(nodes.get(r))
+                                    .brokerId(nodes.get(r).id())
                                     .lag(0)
                                     .size(-1)
                                     .isLeader(r == 0)
@@ -118,7 +115,7 @@ public class FakeClusterInfo {
                                         dataDirectoryList.get(
                                             tp.partition() % dataDirectories.size()))
                                     .build()))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
     return ClusterInfo.of("fake", List.copyOf(nodes), Map.of(), replicas);
   }

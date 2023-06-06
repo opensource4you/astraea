@@ -73,7 +73,7 @@ class OptimizedClusterInfo implements ClusterInfo {
                 all.stream()
                     .collect(
                         Collectors.groupingBy(
-                            r -> BrokerTopic.of(r.broker().id(), r.topic()),
+                            r -> BrokerTopic.of(r.brokerId(), r.topic()),
                             Collectors.toUnmodifiableList())));
     this.byBrokerTopicForLeader =
         Lazy.of(
@@ -83,7 +83,7 @@ class OptimizedClusterInfo implements ClusterInfo {
                     .filter(Replica::isLeader)
                     .collect(
                         Collectors.groupingBy(
-                            r -> BrokerTopic.of(r.broker().id(), r.topic()),
+                            r -> BrokerTopic.of(r.brokerId(), r.topic()),
                             Collectors.toUnmodifiableList())));
 
     this.byBroker =
@@ -91,8 +91,7 @@ class OptimizedClusterInfo implements ClusterInfo {
             () ->
                 all.stream()
                     .collect(
-                        Collectors.groupingBy(
-                            r -> r.broker().id(), Collectors.toUnmodifiableList())));
+                        Collectors.groupingBy(Replica::brokerId, Collectors.toUnmodifiableList())));
 
     this.byTopic =
         Lazy.of(

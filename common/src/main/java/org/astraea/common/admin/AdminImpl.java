@@ -455,7 +455,6 @@ class AdminImpl implements Admin {
     return FutureUtils.combine(
         to(cluster.clusterId()),
         to(cluster.controller()),
-        topicNames(true).thenCompose(names -> to(kafkaAdmin.describeTopics(names).allTopicNames())),
         nodeFuture.thenCompose(
             nodes ->
                 to(
@@ -472,7 +471,7 @@ class AdminImpl implements Admin {
                                     ConfigResource.Type.BROKER, String.valueOf(n.id())))
                         .collect(Collectors.toList()))),
         nodeFuture,
-        (id, controller, topics, logDirs, configs, nodes) ->
+        (id, controller, logDirs, configs, nodes) ->
             Map.entry(
                 id,
                 nodes.stream()
@@ -482,8 +481,7 @@ class AdminImpl implements Admin {
                                 node.id() == controller.id(),
                                 node,
                                 configs.get(String.valueOf(node.id())),
-                                logDirs.get(node.id()),
-                                topics.values()))
+                                logDirs.get(node.id())))
                     .sorted(Comparator.comparing(Broker::id))
                     .collect(Collectors.toList())));
   }
@@ -685,9 +683,10 @@ class AdminImpl implements Admin {
                                                   .isInternal(internal)
                                                   .isAdding(isAdding)
                                                   .isRemoving(isRemoving)
-                                                  .broker(
-                                                      brokers.getOrDefault(
-                                                          node.id(), Broker.of(node)))
+                                                  .brokerId(
+                                                      brokers
+                                                          .getOrDefault(node.id(), Broker.of(node))
+                                                          .id())
                                                   .lag(pathAndReplica.getValue().offsetLag())
                                                   .size(pathAndReplica.getValue().size())
                                                   .isLeader(
@@ -716,7 +715,7 @@ class AdminImpl implements Admin {
                 .sorted(
                     Comparator.comparing(Replica::topic)
                         .thenComparing(Replica::partition)
-                        .thenComparing(r -> r.broker().id()))
+                        .thenComparing(Replica::brokerId))
                 .toList());
   }
 

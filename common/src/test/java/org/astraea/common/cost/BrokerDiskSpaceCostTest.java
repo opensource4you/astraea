@@ -53,42 +53,42 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .broker(Broker.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .broker(Broker.of(1, "broker0", 1111))
+                .brokerId(1)
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .broker(Broker.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .broker(Broker.of(1, "broker0", 1111))
+                .brokerId(1)
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .broker(Broker.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .broker(Broker.of(2, "broker0", 1111))
+                .brokerId(2)
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build());
@@ -97,42 +97,42 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .broker(Broker.of(2, "broker0", 1111))
+                .brokerId(2)
                 .size(dataSize.bytes())
                 .path("/path1")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .broker(Broker.of(1, "broker0", 1111))
+                .brokerId(1)
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .broker(Broker.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .broker(Broker.of(2, "broker0", 1111))
+                .brokerId(2)
                 .size(dataSize.bytes())
                 .path("/path1")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .broker(Broker.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build(),
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .broker(Broker.of(2, "broker0", 1111))
+                .brokerId(2)
                 .size(dataSize.bytes())
                 .path("/path0")
                 .build());
@@ -219,32 +219,16 @@ class BrokerDiskSpaceCostTest {
   }
 
   public static ClusterInfo of(List<Replica> replicas) {
-    var dataPath =
-        Map.of(
-            0,
-            List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            1,
-            List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            2,
-            List.of(
-                new Broker.DataFolder("/path0", Map.of(), Map.of()),
-                new Broker.DataFolder("/path1", Map.of(), Map.of())));
+    var dataPath = Map.of(0, Set.of("/path0"), 1, Set.of("/path0"), 2, Set.of("/path0", "/path1"));
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(Replica::broker)
+            .map(Replica::brokerId)
             .distinct()
             .map(
-                broker ->
+                brokerId ->
                     new Broker(
-                        broker.id(),
-                        "",
-                        broker.port(),
-                        false,
-                        Config.EMPTY,
-                        dataPath.get(broker.id()),
-                        Set.of(),
-                        Set.of()))
+                        brokerId, "", 2222, false, Config.EMPTY, dataPath.get(brokerId), List.of()))
             .collect(Collectors.toList()),
         Map.of(),
         replicas);
@@ -266,20 +250,13 @@ class BrokerDiskSpaceCostTest {
    */
   private static ClusterInfo beforeClusterInfo() {
 
-    var dataPath =
-        Map.of(
-            0, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            1, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            2,
-                List.of(
-                    new Broker.DataFolder("/path0", Map.of(), Map.of()),
-                    new Broker.DataFolder("/path1", Map.of(), Map.of())));
+    var dataPath = Map.of(0, Set.of("/path0"), 1, Set.of("/path0"), 2, Set.of("/path0", "/path1"));
     var replicas =
         List.of(
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .broker(Broker.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(100)
                 .isLeader(true)
                 .path("/path0")
@@ -287,7 +264,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .broker(Broker.of(1, "broker0", 1111))
+                .brokerId(1)
                 .size(99)
                 .isLeader(false)
                 .path("/path0")
@@ -295,7 +272,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .broker(Broker.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(500)
                 .isLeader(true)
                 .path("/path0")
@@ -303,7 +280,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .broker(Broker.of(1, "broker0", 1111))
+                .brokerId(1)
                 .size(499)
                 .isLeader(false)
                 .path("/path0")
@@ -311,7 +288,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .broker(Broker.of(2, "broker0", 1111))
+                .brokerId(2)
                 .size(1000)
                 .isLeader(true)
                 .path("/path0")
@@ -319,7 +296,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .broker(Broker.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(1000)
                 .isLeader(false)
                 .path("/path0")
@@ -327,40 +304,25 @@ class BrokerDiskSpaceCostTest {
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(Replica::broker)
+            .map(Replica::brokerId)
             .distinct()
             .map(
-                broker ->
+                brokerId ->
                     new Broker(
-                        broker.id(),
-                        "",
-                        broker.port(),
-                        false,
-                        Config.EMPTY,
-                        dataPath.get(broker.id()),
-                        Set.of(),
-                        Set.of()))
+                        brokerId, "", 2222, false, Config.EMPTY, dataPath.get(brokerId), List.of()))
             .collect(Collectors.toList()),
         Map.of(),
         replicas);
   }
 
   private static ClusterInfo afterClusterInfo() {
-
-    var dataPath =
-        Map.of(
-            0, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            1, List.of(new Broker.DataFolder("/path0", Map.of(), Map.of())),
-            2,
-                List.of(
-                    new Broker.DataFolder("/path0", Map.of(), Map.of()),
-                    new Broker.DataFolder("/path1", Map.of(), Map.of())));
+    var dataPath = Map.of(0, Set.of("/path0"), 1, Set.of("/path0"), 2, Set.of("/path0", "/path1"));
     var replicas =
         List.of(
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .broker(Broker.of(2, "broker0", 1111))
+                .brokerId(2)
                 .size(100)
                 .isLeader(true)
                 .path("/path1")
@@ -368,7 +330,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(0)
-                .broker(Broker.of(1, "broker0", 1111))
+                .brokerId(1)
                 .size(99)
                 .isLeader(false)
                 .path("/path0")
@@ -376,7 +338,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .broker(Broker.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(500)
                 .isLeader(true)
                 .path("/path0")
@@ -384,7 +346,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(1)
-                .broker(Broker.of(2, "broker0", 1111))
+                .brokerId(2)
                 .size(500)
                 .isLeader(false)
                 .path("/path1")
@@ -392,7 +354,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .broker(Broker.of(1, "broker0", 1111))
+                .brokerId(1)
                 .size(1000)
                 .isLeader(true)
                 .path("/path1")
@@ -400,7 +362,7 @@ class BrokerDiskSpaceCostTest {
             Replica.builder()
                 .topic("topic1")
                 .partition(2)
-                .broker(Broker.of(0, "broker0", 1111))
+                .brokerId(0)
                 .size(1000)
                 .isLeader(false)
                 .path("/path0")
@@ -408,19 +370,12 @@ class BrokerDiskSpaceCostTest {
     return ClusterInfo.of(
         "fake",
         replicas.stream()
-            .map(Replica::broker)
+            .map(Replica::brokerId)
             .distinct()
             .map(
-                broker ->
+                brokerId ->
                     new Broker(
-                        broker.id(),
-                        "",
-                        broker.port(),
-                        false,
-                        Config.EMPTY,
-                        dataPath.get(broker.id()),
-                        Set.of(),
-                        Set.of()))
+                        brokerId, "", 2222, false, Config.EMPTY, dataPath.get(brokerId), List.of()))
             .collect(Collectors.toList()),
         Map.of(),
         replicas);

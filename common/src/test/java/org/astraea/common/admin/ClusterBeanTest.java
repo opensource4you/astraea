@@ -116,50 +116,48 @@ class ClusterBeanTest {
     var random = new Random(seed);
     return Stream.generate(
         () -> {
-          switch (random.nextInt(5)) {
-            case 0: // topic metrics
-            case 1: // broker topic metrics
-              {
-                var domainName = ServerMetrics.DOMAIN_NAME;
-                var properties =
-                    Map.of(
-                        "type", "BrokerTopicMetrics",
-                        "topic", fakeTopics.get(random.nextInt(10)),
-                        "name", "BytesInPerSec");
-                return new ServerMetrics.Topic.Meter(
-                    new BeanObject(domainName, properties, Map.of()));
-              }
-            case 2: // topic/partition metrics
-            case 3: // topic/partition/replica metrics
-              {
-                var domainName = LogMetrics.DOMAIN_NAME;
-                var properties =
-                    Map.of(
-                        "type",
-                        "Log",
-                        "topic",
-                        fakeTopics.get(random.nextInt(10)),
-                        "partition",
-                        String.valueOf(random.nextInt(3)),
-                        "name",
-                        "Size");
-                return new LogMetrics.Log.Gauge(new BeanObject(domainName, properties, Map.of()));
-              }
-            case 4: // noise
-              {
-                var domainName = "RandomMetrics";
-                var properties = new HashMap<String, String>();
-                properties.put("name", "whatever-" + (random.nextInt(100)));
-                properties.put("type", "something");
-                if (random.nextInt(2) == 0)
-                  properties.put("topic", fakeTopics.get(random.nextInt(3)));
-                if (random.nextInt(2) == 0)
-                  properties.put("partition", String.valueOf(random.nextInt(3)));
-                var beanObject = new BeanObject(domainName, properties, Map.of());
-                return () -> beanObject;
-              }
-            default:
-              throw new RuntimeException();
+          switch (random.nextInt(5)) { // topic metrics
+            case 0, 1 -> // broker topic metrics
+            {
+              var domainName = ServerMetrics.DOMAIN_NAME;
+              var properties =
+                  Map.of(
+                      "type", "BrokerTopicMetrics",
+                      "topic", fakeTopics.get(random.nextInt(10)),
+                      "name", "BytesInPerSec");
+              return new ServerMetrics.Topic.Meter(
+                  new BeanObject(domainName, properties, Map.of()));
+            }
+              // topic/partition metrics
+            case 2, 3 -> // topic/partition/replica metrics
+            {
+              var domainName = LogMetrics.DOMAIN_NAME;
+              var properties =
+                  Map.of(
+                      "type",
+                      "Log",
+                      "topic",
+                      fakeTopics.get(random.nextInt(10)),
+                      "partition",
+                      String.valueOf(random.nextInt(3)),
+                      "name",
+                      "Size");
+              return new LogMetrics.Log.Gauge(new BeanObject(domainName, properties, Map.of()));
+            }
+            case 4 -> // noise
+            {
+              var domainName = "RandomMetrics";
+              var properties = new HashMap<String, String>();
+              properties.put("name", "whatever-" + (random.nextInt(100)));
+              properties.put("type", "something");
+              if (random.nextInt(2) == 0)
+                properties.put("topic", fakeTopics.get(random.nextInt(3)));
+              if (random.nextInt(2) == 0)
+                properties.put("partition", String.valueOf(random.nextInt(3)));
+              var beanObject = new BeanObject(domainName, properties, Map.of());
+              return () -> beanObject;
+            }
+            default -> throw new RuntimeException();
           }
         });
   }

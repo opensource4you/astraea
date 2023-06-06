@@ -77,11 +77,9 @@ public abstract class TypeRef<T> {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof TypeRef)) {
+    if (!(o instanceof TypeRef<?> typeRef)) {
       return false;
     }
-
-    TypeRef<?> typeRef = (TypeRef<?>) o;
 
     return getType() != null ? getType().equals(typeRef.getType()) : typeRef.getType() == null;
   }

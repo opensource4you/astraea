@@ -41,7 +41,7 @@ import java.util.Objects;
 public record Replica(
     String topic,
     int partition,
-    Broker broker,
+    int brokerId,
     boolean isLeader,
     boolean isSync,
     boolean isOffline,
@@ -68,7 +68,7 @@ public record Replica(
    * @return TopicPartitionReplica
    */
   public TopicPartitionReplica topicPartitionReplica() {
-    return TopicPartitionReplica.of(topic(), partition(), broker().id());
+    return TopicPartitionReplica.of(topic(), partition(), brokerId());
   }
 
   /**
@@ -105,7 +105,7 @@ public record Replica(
 
     private String topic;
     private int partition;
-    private Broker broker;
+    private int brokerId;
     private long lag;
     private long size;
 
@@ -125,7 +125,7 @@ public record Replica(
     public Builder replica(Replica replica) {
       this.topic = replica.topic();
       this.partition = replica.partition();
-      this.broker = replica.broker();
+      this.brokerId = replica.brokerId();
       this.lag = replica.lag();
       this.size = replica.size();
       this.isAdding = replica.isAdding;
@@ -150,8 +150,8 @@ public record Replica(
       return this;
     }
 
-    public Builder broker(Broker broker) {
-      this.broker = broker;
+    public Builder brokerId(int brokerId) {
+      this.brokerId = brokerId;
       return this;
     }
 
@@ -219,7 +219,7 @@ public record Replica(
       return new Replica(
           Objects.requireNonNull(topic),
           partition,
-          Objects.requireNonNull(broker),
+          brokerId,
           true,
           true,
           false,
@@ -242,7 +242,7 @@ public record Replica(
       return new Replica(
           Objects.requireNonNull(topic),
           partition,
-          Objects.requireNonNull(broker),
+          brokerId,
           false,
           true,
           false,
@@ -260,7 +260,7 @@ public record Replica(
       return new Replica(
           Objects.requireNonNull(topic),
           partition,
-          Objects.requireNonNull(broker),
+          brokerId,
           isLeader,
           isSync,
           isOffline,

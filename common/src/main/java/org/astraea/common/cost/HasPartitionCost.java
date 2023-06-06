@@ -61,16 +61,14 @@ public interface HasPartitionCost extends CostFunction {
 
           @Override
           public Map<TopicPartition, Set<TopicPartition>> incompatibility() {
-            var incompatibleSet =
-                partitionCost.values().stream()
-                    .map(PartitionCost::incompatibility)
-                    .flatMap(m -> m.entrySet().stream())
-                    .collect(
-                        Collectors.groupingBy(
-                            Map.Entry::getKey,
-                            Collectors.flatMapping(
-                                e -> e.getValue().stream(), Collectors.toUnmodifiableSet())));
-            return incompatibleSet;
+            return partitionCost.values().stream()
+                .map(PartitionCost::incompatibility)
+                .flatMap(m -> m.entrySet().stream())
+                .collect(
+                    Collectors.groupingBy(
+                        Map.Entry::getKey,
+                        Collectors.flatMapping(
+                            e -> e.getValue().stream(), Collectors.toUnmodifiableSet())));
           }
         };
       }

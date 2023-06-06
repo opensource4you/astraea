@@ -44,7 +44,6 @@ import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.consumer.Deserializer;
 import org.astraea.common.consumer.SeekStrategy;
 import org.astraea.common.consumer.SubscribedConsumer;
-import org.astraea.common.json.JsonConverter;
 import org.astraea.common.json.TypeRef;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.ProducerConfigs;
@@ -396,11 +395,6 @@ public class RecordHandler implements Handler {
     private GetResponse(Consumer<byte[], byte[]> consumer, Collection<Record> records) {
       this.consumer = consumer;
       this.records = records;
-    }
-
-    @Override
-    public String json() {
-      return JsonConverter.defaultConverter().toJson(this);
     }
 
     @Override

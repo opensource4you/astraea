@@ -146,24 +146,23 @@ class BalancerHandler implements Handler, AutoCloseable {
     var contextCluster = taskMetadata.get(taskId).clusterInfo;
     var exception =
         (Function<BalancerConsole.TaskPhase, String>)
-            (phase) -> {
-              return switch (phase) {
-                case Searching, Searched, Executing, Executed ->
-                // No error message during the search & execution
-                null;
-                case SearchFailed -> planGenerations
-                    .get(taskId)
-                    .handle((plan, err) -> err != null ? err.toString() : null)
-                    .toCompletableFuture()
-                    .getNow(null);
-                case ExecutionFailed -> planExecutions
-                    .get(taskId)
-                    .handle((ignore, err) -> err != null ? err.toString() : null)
-                    .toCompletableFuture()
-                    .getNow(null);
-                default -> throw new IllegalStateException("Unknown state: " + phase);
-              };
-            };
+            (phase) ->
+                switch (phase) {
+                  case Searching, Searched, Executing, Executed ->
+                  // No error message during the search & execution
+                  null;
+                  case SearchFailed -> planGenerations
+                      .get(taskId)
+                      .handle((plan, err) -> err != null ? err.toString() : null)
+                      .toCompletableFuture()
+                      .getNow(null);
+                  case ExecutionFailed -> planExecutions
+                      .get(taskId)
+                      .handle((ignore, err) -> err != null ? err.toString() : null)
+                      .toCompletableFuture()
+                      .getNow(null);
+                  default -> throw new IllegalStateException("Unknown state: " + phase);
+                };
     var changes =
         (Function<Balancer.Plan, List<Change>>)
             (solution) ->
@@ -186,7 +185,8 @@ class BalancerHandler implements Handler, AutoCloseable {
                         solution ->
                             new PlanReport(
                                 changes.apply(solution),
-                                MigrationCost.migrationCosts(contextCluster, solution.proposal())))
+                                MigrationCost.migrationCosts(
+                                    contextCluster, solution.proposal(), solution.clusterBean())))
                     .orElse(null);
     var phase = balancerConsole.taskPhase(taskId).orElseThrow();
     return new PlanExecutionProgress(
@@ -249,7 +249,7 @@ class BalancerHandler implements Handler, AutoCloseable {
     final Optional<Long> size;
 
     Placement(Replica replica, Optional<Long> size) {
-      this.brokerId = replica.broker().id();
+      this.brokerId = replica.brokerId();
       this.directory = replica.path();
       this.size = size;
     }

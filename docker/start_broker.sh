@@ -314,7 +314,7 @@ if [[ "$quorum" == "kraft" ]]; then
   setPropertyIfEmpty "node.id" "$NODE_ID"
   setPropertyIfEmpty "process.roles" "broker"
   setPropertyIfEmpty "controller.listener.names" "CONTROLLER"
-  command="./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/broker.properties && ./bin/kafka-server-start.sh /tmp/broker.properties"
+  command="./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/broker.properties --ignore-formatted && ./bin/kafka-server-start.sh /tmp/broker.properties"
 fi
 
 docker run -d --init \

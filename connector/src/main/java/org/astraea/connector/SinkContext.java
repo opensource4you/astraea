@@ -14,10 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.fs;
+package org.astraea.connector;
 
-public enum Type {
-  NONEXISTENT,
-  FILE,
-  FOLDER
+public interface SinkContext {
+
+  SinkContext EMPTY = e -> {};
+
+  static SinkContext of(org.apache.kafka.connect.sink.SinkConnectorContext context) {
+    return context::raiseError;
+  }
+
+  /** {@link org.apache.kafka.connect.sink.SinkConnectorContext#raiseError(Exception)} */
+  void raiseError(Exception e);
 }
