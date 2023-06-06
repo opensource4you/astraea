@@ -357,13 +357,9 @@ public class Exporter extends SinkConnector {
       var targetOffset = targeOffset(r);
 
       // If the target offset exists and the record's offset is less than the target offset,
-      // set the seek offset to the target offset and return false, also the topicPartition is
-      // paused to be consuming if this topicPartition was already seeked before. this can prevent
-      // reset offset infinitely.
+      // set the seek offset to the target offset and return false.
       if (targetOffset.isPresent() && r.offset() < targetOffset.get()) {
-        if (this.seekedTopicPartitions.contains(r.topicPartition()))
-          this.taskContext.pause(Collections.singleton(r.topicPartition()));
-        else this.seekOffset.put(r.topicPartition(), targetOffset.get());
+        this.seekOffset.put(r.topicPartition(), targetOffset.get());
         return false;
       }
 
