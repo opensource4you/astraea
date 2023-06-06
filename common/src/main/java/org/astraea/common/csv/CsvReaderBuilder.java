@@ -16,21 +16,23 @@
  */
 package org.astraea.common.csv;
 
-import com.opencsv.CSVReader;
-import com.opencsv.CSVReaderBuilder;
+import static java.util.Objects.requireNonNull;
+
+import java.io.BufferedReader;
 import java.io.Reader;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.stream.IntStream;
 import org.astraea.common.Utils;
 
-/** Construct CsvReaderBuilder so that we can use build pattern of opencsv. */
 public class CsvReaderBuilder {
-  private final CSVReaderBuilder csvReaderBuilder;
+  private final Reader reader;
   private Boolean blankLine = false;
 
   CsvReaderBuilder(Reader source) {
-    this.csvReaderBuilder = new CSVReaderBuilder(source);
+    this.reader = source;
   }
 
   public CsvReaderBuilder blankLine(boolean allow) {
@@ -39,25 +41,31 @@ public class CsvReaderBuilder {
   }
 
   public CsvReader build() {
-    return new CsvReaderImpl(csvReaderBuilder, blankLine);
+    return new CsvReaderImpl(reader, blankLine);
   }
 
   private static class CsvReaderImpl implements CsvReader {
-    private final CSVReader csvReader;
+    private static final String SEPARATOR = ",";
+    private final BufferedReader reader;
     private final boolean blankLine;
     private long currentLine = 0;
     private int genericLength = -1;
     private String[] nextLine;
 
-    private CsvReaderImpl(CSVReaderBuilder builder, Boolean blankLine) {
+    private CsvReaderImpl(Reader reader, boolean blankLine) {
+      this.reader = new BufferedReader(requireNonNull(reader, "reader is null"));
       this.blankLine = blankLine;
-      this.csvReader = builder.build();
     }
 
     @Override
     public boolean hasNext() {
       if (nextLine == null) {
-        nextLine = Utils.packException(csvReader::readNext);
+        nextLine =
+            Utils.packException(
+                () ->
+                    Optional.ofNullable(reader.readLine())
+                        .map(line -> line.split(SEPARATOR))
+                        .orElse(null));
         if (nextLine != null) currentLine++;
       }
       return nextLine != null;
@@ -107,14 +115,14 @@ public class CsvReaderBuilder {
     public void skip(int num) {
       if (num > 0) {
         currentLine = currentLine + num;
-        Utils.packException(() -> csvReader.skip(num));
+        IntStream.range(0, num).forEach((ignored) -> Utils.packException(reader::readLine));
         nextLine = null;
       }
     }
 
     @Override
     public void close() {
-      Utils.close(csvReader);
+      Utils.close(reader);
     }
   }
 }
