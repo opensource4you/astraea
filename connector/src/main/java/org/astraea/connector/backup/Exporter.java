@@ -47,93 +47,93 @@ import org.astraea.fs.FileSystem;
 public class Exporter extends SinkConnector {
 
   static Definition SCHEMA_KEY =
-          Definition.builder()
-                  .name("fs.schema")
-                  .type(Definition.Type.STRING)
-                  .documentation("decide which file system to use, such as FTP, HDFS.")
-                  .required()
-                  .build();
+      Definition.builder()
+          .name("fs.schema")
+          .type(Definition.Type.STRING)
+          .documentation("decide which file system to use, such as FTP, HDFS.")
+          .required()
+          .build();
   static Definition HOSTNAME_KEY =
-          Definition.builder()
-                  .name("fs.<schema>.hostname")
-                  .type(Definition.Type.STRING)
-                  .documentation("the host name of the <schema> server used.")
-                  .build();
+      Definition.builder()
+          .name("fs.<schema>.hostname")
+          .type(Definition.Type.STRING)
+          .documentation("the host name of the <schema> server used.")
+          .build();
   static Definition PORT_KEY =
-          Definition.builder()
-                  .name("fs.<schema>.port")
-                  .type(Definition.Type.STRING)
-                  .documentation("the port of the <schema> server used.")
-                  .build();
+      Definition.builder()
+          .name("fs.<schema>.port")
+          .type(Definition.Type.STRING)
+          .documentation("the port of the <schema> server used.")
+          .build();
   static Definition USER_KEY =
-          Definition.builder()
-                  .name("fs.<schema>.user")
-                  .type(Definition.Type.STRING)
-                  .documentation("the user name required to login to the <schema> server.")
-                  .build();
+      Definition.builder()
+          .name("fs.<schema>.user")
+          .type(Definition.Type.STRING)
+          .documentation("the user name required to login to the <schema> server.")
+          .build();
   static Definition PASSWORD_KEY =
-          Definition.builder()
-                  .name("fs.<schema>.password")
-                  .type(Definition.Type.PASSWORD)
-                  .documentation("the password required to login to the <schema> server.")
-                  .build();
+      Definition.builder()
+          .name("fs.<schema>.password")
+          .type(Definition.Type.PASSWORD)
+          .documentation("the password required to login to the <schema> server.")
+          .build();
   static Definition PATH_KEY =
-          Definition.builder()
-                  .name("path")
-                  .type(Definition.Type.STRING)
-                  .documentation("the path required for file storage.")
-                  .required()
-                  .build();
+      Definition.builder()
+          .name("path")
+          .type(Definition.Type.STRING)
+          .documentation("the path required for file storage.")
+          .required()
+          .build();
 
   static DataSize SIZE_DEFAULT = DataSize.MB.of(100);
   static Definition SIZE_KEY =
-          Definition.builder()
-                  .name("size")
-                  .type(Definition.Type.STRING)
-                  .validator((name, obj) -> DataSize.of(obj.toString()))
-                  .defaultValue(SIZE_DEFAULT.toString())
-                  .documentation("is the maximum number of the size will be included in each file.")
-                  .build();
+      Definition.builder()
+          .name("size")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DataSize.of(obj.toString()))
+          .defaultValue(SIZE_DEFAULT.toString())
+          .documentation("is the maximum number of the size will be included in each file.")
+          .build();
 
   static Duration TIME_DEFAULT = Duration.ofSeconds(3);
 
   static Definition TIME_KEY =
-          Definition.builder()
-                  .name("roll.duration")
-                  .type(Definition.Type.STRING)
-                  .validator((name, obj) -> Utils.toDuration(obj.toString()))
-                  .defaultValue(TIME_DEFAULT.toSeconds() + "s")
-                  .documentation("the maximum time before a new archive file is rolling out.")
-                  .build();
+      Definition.builder()
+          .name("roll.duration")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> Utils.toDuration(obj.toString()))
+          .defaultValue(TIME_DEFAULT.toSeconds() + "s")
+          .documentation("the maximum time before a new archive file is rolling out.")
+          .build();
 
   static Definition OVERRIDE_KEY =
-          Definition.builder()
-                  .name("fs.<schema>.override.<property_name>")
-                  .type(Definition.Type.STRING)
-                  .documentation("a value that needs to be overridden in the file system.")
-                  .build();
+      Definition.builder()
+          .name("fs.<schema>.override.<property_name>")
+          .type(Definition.Type.STRING)
+          .documentation("a value that needs to be overridden in the file system.")
+          .build();
 
   static DataSize BUFFER_SIZE_DEFAULT = DataSize.MB.of(300);
 
   static Definition BUFFER_SIZE_KEY =
-          Definition.builder()
-                  .name("writer.buffer.size")
-                  .type(Definition.Type.STRING)
-                  .validator((name, obj) -> DataSize.of(obj.toString()))
-                  .documentation(
-                          "a value that represents the capacity of a blocking queue from which the writer can take records.")
-                  .defaultValue(BUFFER_SIZE_DEFAULT.toString())
-                  .build();
+      Definition.builder()
+          .name("writer.buffer.size")
+          .type(Definition.Type.STRING)
+          .validator((name, obj) -> DataSize.of(obj.toString()))
+          .documentation(
+              "a value that represents the capacity of a blocking queue from which the writer can take records.")
+          .defaultValue(BUFFER_SIZE_DEFAULT.toString())
+          .build();
 
   static Definition FROM_OFFSET_REGEX_KEY =
-          Definition.builder()
-                  .name(".*offset.from")
-                  .type(Definition.Type.STRING)
-                  .documentation(
-                          "a value that specifies the starting offset value for the "
-                                  + "backups of a particular topic or topic partition. it can be used in 2 ways: "
-                                  + "'<topic>.offset.from' or '<topic>.<partition>.offset.from'.")
-                  .build();
+      Definition.builder()
+          .name(".*offset.from")
+          .type(Definition.Type.STRING)
+          .documentation(
+              "a value that specifies the starting offset value for the "
+                  + "backups of a particular topic or topic partition. it can be used in 2 ways: "
+                  + "'<topic>.offset.from' or '<topic>.<partition>.offset.from'.")
+          .build();
   private Configuration configs;
 
   @Override
@@ -154,15 +154,15 @@ public class Exporter extends SinkConnector {
   @Override
   protected List<Definition> definitions() {
     return List.of(
-            SCHEMA_KEY,
-            HOSTNAME_KEY,
-            PORT_KEY,
-            USER_KEY,
-            PASSWORD_KEY,
-            PATH_KEY,
-            SIZE_KEY,
-            OVERRIDE_KEY,
-            BUFFER_SIZE_KEY);
+        SCHEMA_KEY,
+        HOSTNAME_KEY,
+        PORT_KEY,
+        USER_KEY,
+        PASSWORD_KEY,
+        PATH_KEY,
+        SIZE_KEY,
+        OVERRIDE_KEY,
+        BUFFER_SIZE_KEY);
   }
 
   public static class Task extends SinkTask {
@@ -188,7 +188,6 @@ public class Exporter extends SinkConnector {
     private final Map<String, Map<String, Long>> offsetForTopicPartition = new HashMap<>();
 
     private final Map<String, Long> offsetForTopic = new HashMap<>();
-    private final List<TopicPartition> seekedTopicPartitions = new ArrayList<>();
 
     // visible for test
     protected final Map<TopicPartition, Long> seekOffset = new HashMap<>();
@@ -198,9 +197,9 @@ public class Exporter extends SinkConnector {
     RecordWriter createRecordWriter(TopicPartition tp, long offset) {
       var fileName = String.valueOf(offset);
       return RecordWriter.builder(
-                      fs.write(
-                              String.join("/", path, tp.topic(), String.valueOf(tp.partition()), fileName)))
-              .build();
+              fs.write(
+                  String.join("/", path, tp.topic(), String.valueOf(tp.partition()), fileName)))
+          .build();
     }
 
     /**
@@ -236,15 +235,15 @@ public class Exporter extends SinkConnector {
       removeOldWriters(writers);
 
       records.forEach(
-              record -> {
-                var writer =
-                        writers.computeIfAbsent(
-                                record.topicPartition(), tp -> createRecordWriter(tp, record.offset()));
-                writer.append(record);
-                if (writer.size().greaterThan(size)) {
-                  writers.remove(record.topicPartition()).close();
-                }
-              });
+          record -> {
+            var writer =
+                writers.computeIfAbsent(
+                    record.topicPartition(), tp -> createRecordWriter(tp, record.offset()));
+            writer.append(record);
+            if (writer.size().greaterThan(size)) {
+              writers.remove(record.topicPartition()).close();
+            }
+          });
     }
 
     Runnable createWriter() {
@@ -271,9 +270,9 @@ public class Exporter extends SinkConnector {
       recordsQueue.drainTo(list);
       if (list.size() > 0) {
         var drainedSize =
-                list.stream()
-                        .mapToInt(record -> record.serializedKeySize() + record.serializedValueSize())
-                        .sum();
+            list.stream()
+                .mapToInt(record -> record.serializedKeySize() + record.serializedValueSize())
+                .sum();
         bufferSize.add(-drainedSize);
         synchronized (putLock) {
           putLock.notify();
@@ -287,18 +286,18 @@ public class Exporter extends SinkConnector {
       this.path = configuration.requireString(PATH_KEY.name());
       this.size = configuration.string(SIZE_KEY.name()).map(DataSize::of).orElse(SIZE_DEFAULT);
       this.interval =
-              configuration
-                      .string(TIME_KEY.name())
-                      .map(Utils::toDuration)
-                      .orElse(TIME_DEFAULT)
-                      .toMillis();
+          configuration
+              .string(TIME_KEY.name())
+              .map(Utils::toDuration)
+              .orElse(TIME_DEFAULT)
+              .toMillis();
       this.bufferSize.reset();
       this.bufferSizeLimit =
-              configuration
-                      .string(BUFFER_SIZE_KEY.name())
-                      .map(DataSize::of)
-                      .orElse(BUFFER_SIZE_DEFAULT)
-                      .bytes();
+          configuration
+              .string(BUFFER_SIZE_KEY.name())
+              .map(DataSize::of)
+              .orElse(BUFFER_SIZE_DEFAULT)
+              .bytes();
       this.taskContext = context;
 
       // fetches key-value pairs from the configuration's variable matching the regular expression
@@ -306,17 +305,17 @@ public class Exporter extends SinkConnector {
       // on the
       // key's prefix.
       configuration
-              .requireRegex(FROM_OFFSET_REGEX_KEY.name())
-              .forEach(
-                      (k, v) -> {
-                        var splitKey = k.split("\\.");
-                        if (splitKey.length == 3) {
-                          this.offsetForTopic.put(splitKey[0], Long.valueOf(v));
-                        } else {
-                          this.offsetForTopicPartition.put(
-                                  splitKey[0], Map.of(splitKey[1], Long.valueOf(v)));
-                        }
-                      });
+          .requireRegex(FROM_OFFSET_REGEX_KEY.name())
+          .forEach(
+              (k, v) -> {
+                var splitKey = k.split("\\.");
+                if (splitKey.length == 3) {
+                  this.offsetForTopic.put(splitKey[0], Long.valueOf(v));
+                } else {
+                  this.offsetForTopicPartition.put(
+                      splitKey[0], Map.of(splitKey[1], Long.valueOf(v)));
+                }
+              });
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture = CompletableFuture.runAsync(createWriter());
@@ -325,36 +324,35 @@ public class Exporter extends SinkConnector {
     @Override
     protected void put(List<Record<byte[], byte[]>> records) {
       records.forEach(
-              r ->
-                      Utils.packException(
-                              () -> {
-                                if (!isValid(r)) return;
+          r ->
+              Utils.packException(
+                  () -> {
+                    if (!isValid(r)) return;
 
-                                int recordLength =
-                                        Stream.of(r.key(), r.value())
-                                                .filter(Objects::nonNull)
-                                                .map(i -> i.length)
-                                                .reduce(0, Integer::sum);
+                    int recordLength =
+                        Stream.of(r.key(), r.value())
+                            .filter(Objects::nonNull)
+                            .map(i -> i.length)
+                            .reduce(0, Integer::sum);
 
-                                synchronized (putLock) {
-                                  while (this.bufferSize.sum() + recordLength >= this.bufferSizeLimit) {
-                                    putLock.wait();
-                                  }
-                                }
-                                recordsQueue.put(r);
+                    synchronized (putLock) {
+                      while (this.bufferSize.sum() + recordLength >= this.bufferSizeLimit) {
+                        putLock.wait();
+                      }
+                    }
+                    recordsQueue.put(r);
 
-                                this.bufferSize.add(recordLength);
-                              }));
+                    this.bufferSize.add(recordLength);
+                  }));
       this.seekOffset
-              .entrySet()
-              .iterator()
-              .forEachRemaining(
-                      entry -> {
-                        this.taskContext.requestCommit();
-                        this.taskContext.offset(entry.getKey(), entry.getValue());
-                        this.seekedTopicPartitions.add(entry.getKey());
-                        this.seekOffset.remove(entry.getKey());
-                      });
+          .entrySet()
+          .iterator()
+          .forEachRemaining(
+              entry -> {
+                this.taskContext.requestCommit();
+                this.taskContext.offset(entry.getKey(), entry.getValue());
+                this.seekOffset.remove(entry.getKey());
+              });
     }
 
     protected boolean isValid(Record<byte[], byte[]> r) {
