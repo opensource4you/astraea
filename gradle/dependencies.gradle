@@ -28,7 +28,7 @@ def versions = [
         jackson               : project.properties['jackson.version'] ?: "2.14.2",
         jcommander            : project.properties['jcommander.version'] ?: "1.82",
         junit                 : project.properties['junit.version'] ?: "5.9.2",
-        kafka                 : project.properties['kafka.version'] ?: "3.4.0",
+        kafka                 : project.properties['kafka.version'] ?: "3.4.1",
         mockito               : project.properties['mockito.version'] ?: "5.2.0",
         "opencsv"             : project.properties['opencsv.version'] ?: "5.7.1",
         scala                 : project.properties['scala.version'] ?: "2.13.10",
