@@ -20,7 +20,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -122,6 +124,16 @@ public class Exporter extends SinkConnector {
               "a value that represents the capacity of a blocking queue from which the writer can take records.")
           .defaultValue(BUFFER_SIZE_DEFAULT.toString())
           .build();
+
+  static Definition FROM_OFFSET_REGEX_KEY =
+      Definition.builder()
+          .name(".*offset.from")
+          .type(Definition.Type.STRING)
+          .documentation(
+              "a value that specifies the starting offset value for the "
+                  + "backups of a particular topic or topic partition. it can be used in 2 ways: "
+                  + "'<topic>.offset.from' or '<topic>.<partition>.offset.from'.")
+          .build();
   private Configuration configs;
 
   @Override
@@ -168,15 +180,25 @@ public class Exporter extends SinkConnector {
     private long bufferSizeLimit;
 
     FileSystem fs;
-    String topicName;
     String path;
     DataSize size;
     long interval;
 
+    // a map of <Topic, <Partition, Offset>>
+    private final Map<String, Map<String, Long>> offsetForTopicPartition = new HashMap<>();
+
+    private final Map<String, Long> offsetForTopic = new HashMap<>();
+
+    // visible for test
+    protected final Map<TopicPartition, Long> seekOffset = new HashMap<>();
+
+    private SinkTaskContext taskContext;
+
     RecordWriter createRecordWriter(TopicPartition tp, long offset) {
       var fileName = String.valueOf(offset);
       return RecordWriter.builder(
-              fs.write(String.join("/", path, topicName, String.valueOf(tp.partition()), fileName)))
+              fs.write(
+                  String.join("/", path, tp.topic(), String.valueOf(tp.partition()), fileName)))
           .build();
     }
 
@@ -261,7 +283,6 @@ public class Exporter extends SinkConnector {
 
     @Override
     protected void init(Configuration configuration, SinkTaskContext context) {
-      this.topicName = configuration.requireString(TOPICS_KEY);
       this.path = configuration.requireString(PATH_KEY.name());
       this.size = configuration.string(SIZE_KEY.name()).map(DataSize::of).orElse(SIZE_DEFAULT);
       this.interval =
@@ -277,6 +298,25 @@ public class Exporter extends SinkConnector {
               .map(DataSize::of)
               .orElse(BUFFER_SIZE_DEFAULT)
               .bytes();
+      this.taskContext = context;
+
+      // fetches key-value pairs from the configuration's variable matching the regular expression
+      // '.*offset.from', updates the values of 'offsetForTopic' or 'offsetForTopicPartition' based
+      // on the
+      // key's prefix.
+      configuration
+          .requireRegex(FROM_OFFSET_REGEX_KEY.name())
+          .forEach(
+              (k, v) -> {
+                var splitKey = k.split("\\.");
+                if (splitKey.length == 3) {
+                  this.offsetForTopic.put(splitKey[0], Long.valueOf(v));
+                } else {
+                  this.offsetForTopicPartition.put(
+                      splitKey[0], Map.of(splitKey[1], Long.valueOf(v)));
+                }
+              });
+
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture = CompletableFuture.runAsync(createWriter());
     }
@@ -287,6 +327,8 @@ public class Exporter extends SinkConnector {
           r ->
               Utils.packException(
                   () -> {
+                    if (!isValid(r)) return;
+
                     int recordLength =
                         Stream.of(r.key(), r.value())
                             .filter(Objects::nonNull)
@@ -302,6 +344,64 @@ public class Exporter extends SinkConnector {
 
                     this.bufferSize.add(recordLength);
                   }));
+      this.seekOffset
+          .entrySet()
+          .iterator()
+          .forEachRemaining(
+              entry -> {
+                this.taskContext.requestCommit();
+                this.taskContext.offset(entry.getKey(), entry.getValue());
+                this.seekOffset.remove(entry.getKey());
+              });
+    }
+
+    protected boolean isValid(Record<byte[], byte[]> r) {
+      var targetOffset = targeOffset(r);
+
+      // If the target offset exists and the record's offset is less than the target offset,
+      // set the seek offset to the target offset and return false.
+      if (targetOffset.isPresent() && r.offset() < targetOffset.get()) {
+        this.seekOffset.put(r.topicPartition(), targetOffset.get());
+        return false;
+      }
+
+      checkSeekOffset(r);
+      return true;
+    }
+
+    /**
+     * Retrieves the target offset for the specified topic and partition.
+     *
+     * @param r {@link Record}
+     * @return the target offset for the specified topic and partition, or null if the target offset
+     *     is not found.
+     */
+    // visible for test
+    protected Optional<Long> targeOffset(Record<byte[], byte[]> r) {
+      var topicMap = this.offsetForTopicPartition.get(r.topic());
+
+      // If we are unable to obtain the target offset from the 'offsetForTopicPartition' map,
+      // we will attempt to retrieve it from another map called 'offsetForTopic'.
+      if (topicMap != null && topicMap.get(String.valueOf(r.partition())) != null)
+        return Optional.ofNullable(topicMap.get(String.valueOf(r.partition())));
+      return Optional.ofNullable(this.offsetForTopic.get(r.topic()));
+    }
+
+    /**
+     * Checks if the record's offset is greater or equal to the seek offset for this topicPartition.
+     * If the record's offset is greater or equal to the seek offset for this topicPartition, the
+     * seek offset will be removed.
+     *
+     * <p>This method is used to prevent reset offset infinitely.
+     *
+     * <p>This method is called by {@link #isValid(Record)}
+     *
+     * @param r {@link Record}
+     */
+    private void checkSeekOffset(Record<byte[], byte[]> r) {
+      var seekOffset = this.seekOffset.get(r.topicPartition());
+      if (seekOffset != null && seekOffset <= r.offset())
+        this.seekOffset.remove(r.topicPartition());
     }
 
     @Override

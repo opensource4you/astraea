@@ -842,4 +842,94 @@ public class ExporterTest {
       Assertions.assertEquals(0, task.recordsQueue.size());
     }
   }
+
+  @Test
+  void testIsValid() {
+    try (var server = HdfsServer.local()) {
+      var topicName = Utils.randomString(10);
+      var path = "/test";
+      var configs =
+          Map.of(
+              "fs.schema",
+              "hdfs",
+              "topics",
+              topicName,
+              "fs.hdfs.hostname",
+              String.valueOf(server.hostname()),
+              "fs.hdfs.port",
+              String.valueOf(server.port()),
+              "fs.hdfs.user",
+              String.valueOf(server.user()),
+              "path",
+              path,
+              "test1.offset.from",
+              "100",
+              "test2.0.offset.from",
+              "200");
+
+      var task = new Exporter.Task();
+
+      task.start(configs);
+
+      var record1 =
+          Record.builder()
+              .topic("test0")
+              .key("test".getBytes())
+              .value("test".getBytes())
+              .partition(0)
+              .offset(1)
+              .timestamp(System.currentTimeMillis())
+              .build();
+      var record2 =
+          Record.builder()
+              .topic("test1")
+              .key("test".getBytes())
+              .value("test".getBytes())
+              .partition(0)
+              .offset(1)
+              .timestamp(System.currentTimeMillis())
+              .build();
+      var record3 =
+          Record.builder()
+              .topic("test2")
+              .key("test".getBytes())
+              .value("test".getBytes())
+              .partition(0)
+              .offset(1)
+              .timestamp(System.currentTimeMillis())
+              .build();
+      var record4 =
+          Record.builder()
+              .topic("test2")
+              .key("test".getBytes())
+              .value("test".getBytes())
+              .partition(0)
+              .offset(200)
+              .timestamp(System.currentTimeMillis())
+              .build();
+      var record5 =
+          Record.builder()
+              .topic("test2")
+              .key("test".getBytes())
+              .value("test".getBytes())
+              .partition(1)
+              .offset(1)
+              .timestamp(System.currentTimeMillis())
+              .build();
+
+      Assertions.assertFalse(task.targeOffset(record1).isPresent());
+      Assertions.assertEquals(100, task.targeOffset(record2).orElse(null));
+      Assertions.assertEquals(200, task.targeOffset(record3).orElse(null));
+      Assertions.assertEquals(200, task.targeOffset(record4).orElse(null));
+      Assertions.assertFalse(task.targeOffset(record5).isPresent());
+
+      Assertions.assertTrue(task.isValid(record1));
+      Assertions.assertFalse(task.isValid(record2));
+      Assertions.assertFalse(task.isValid(record3));
+      Assertions.assertEquals(2, task.seekOffset.size());
+      Assertions.assertTrue(task.isValid(record4));
+      Assertions.assertTrue(task.isValid(record5));
+      Assertions.assertEquals(1, task.seekOffset.size());
+    }
+  }
 }

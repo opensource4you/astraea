@@ -108,4 +108,15 @@ public record Configuration(Map<String, String> raw) {
   public List<String> list(String key, String separator) {
     return string(key).map(s -> Arrays.asList(s.split(separator))).orElseGet(List::of);
   }
+
+  /**
+   * @param regex the regex pattern to apply to the keys of the raw map
+   * @return an Optional containing a Map of key-value entries that match the specified regex
+   *     pattern.
+   */
+  public Map<String, String> requireRegex(String regex) {
+    return raw.entrySet().stream()
+        .filter(entry -> Pattern.compile(regex).matcher(entry.getKey()).matches())
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
 }
