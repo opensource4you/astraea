@@ -16,24 +16,18 @@
  */
 package org.astraea.common.csv;
 
-import com.opencsv.CSVWriterBuilder;
-import com.opencsv.ICSVWriter;
+import static java.util.Objects.requireNonNull;
+
 import java.io.Writer;
 import java.util.List;
 import org.astraea.common.Utils;
 
-/** Construct CSVWriterBuilder so that we can use its build pattern. */
 public class CsvWriterBuilder {
-  private final CSVWriterBuilder csvWriterBuilder;
+  private final Writer writer;
   private boolean blankLine;
 
   CsvWriterBuilder(Writer sink) {
-    this.csvWriterBuilder = new CSVWriterBuilder(sink);
-  }
-
-  public CsvWriterBuilder withLineEnd(String string) {
-    this.csvWriterBuilder.withLineEnd(string);
-    return this;
+    this.writer = sink;
   }
 
   public CsvWriterBuilder blankLine(boolean blankLine) {
@@ -42,17 +36,18 @@ public class CsvWriterBuilder {
   }
 
   public CsvWriter build() {
-    return new CsvWriterImpl(csvWriterBuilder, blankLine);
+    return new CsvWriterImpl(writer, blankLine);
   }
 
   private static class CsvWriterImpl implements CsvWriter {
-    private final ICSVWriter csvWriter;
+    private static final String SEPARATOR = ",";
+    private final Writer writer;
     private final boolean blankLine;
     private int genericLength = -1;
 
-    private CsvWriterImpl(CSVWriterBuilder csvWriterBuilder, boolean blankLine) {
+    private CsvWriterImpl(Writer writer, boolean blankLine) {
+      this.writer = requireNonNull(writer);
       this.blankLine = blankLine;
-      this.csvWriter = csvWriterBuilder.build();
     }
 
     @Override
@@ -74,17 +69,18 @@ public class CsvWriterBuilder {
 
     @Override
     public void rawAppend(List<String> nextLine) {
-      csvWriter.writeNext(nextLine.toArray(new String[0]));
+      Utils.packException(() -> writer.write(String.join(SEPARATOR, nextLine)));
+      Utils.packException(() -> writer.write('\n'));
     }
 
     @Override
     public void flush() {
-      Utils.packException(csvWriter::flush);
+      Utils.packException(writer::flush);
     }
 
     @Override
     public void close() {
-      Utils.close(csvWriter);
+      Utils.close(writer);
     }
   }
 }
