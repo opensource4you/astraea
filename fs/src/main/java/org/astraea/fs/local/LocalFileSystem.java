@@ -72,6 +72,10 @@ public class LocalFileSystem implements FileSystem {
   private synchronized List<String> listFolders(String path, boolean requireFile) {
     var folder = resolvePath(path);
     if (!Files.isDirectory(folder)) throw new IllegalArgumentException(path + " is not a folder");
+    // We use this method within a try-with-resources statement to ensure that the stream's open
+    // directory is closed promptly after the stream's operations have completed.
+    // See
+    // https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/nio/file/Files.html#list(java.nio.file.Path)
     try (var directories = Utils.packException(() -> Files.list(folder))) {
       return directories
           .filter(f -> requireFile ? Files.isRegularFile(f) : Files.isDirectory(f))
