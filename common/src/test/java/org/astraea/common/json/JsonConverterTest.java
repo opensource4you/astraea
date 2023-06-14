@@ -26,9 +26,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.astraea.common.DataSize;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class JsonConverterTest {
 
@@ -496,6 +500,36 @@ class JsonConverterTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> JsonConverter.defaultConverter().fromJson("{}", TypeRef.of(TestDuration.class)));
+  }
+
+  @ParameterizedTest()
+  @MethodSource("provideDurationString")
+  void testDurationSerDe(String original, String expected) {
+    assertEquals(
+        expected,
+        JsonConverter.defaultConverter()
+            .toJson(
+                JsonConverter.defaultConverter()
+                    .fromJson(original, TypeRef.of(TestDuration.class))));
+  }
+
+  private static Stream<Arguments> provideDurationString() {
+    return Stream.of(
+        Arguments.of("{\"value\":\"2day\"}", "{\"value\":\"2day\"}"),
+        Arguments.of("{\"value\":\"24h\"}", "{\"value\":\"1day\"}"),
+        Arguments.of("{\"value\":\"25h\"}", "{\"value\":\"25h\"}"),
+        Arguments.of("{\"value\":\"60m\"}", "{\"value\":\"1h\"}"),
+        Arguments.of("{\"value\":\"61m\"}", "{\"value\":\"61m\"}"),
+        Arguments.of("{\"value\":\"60s\"}", "{\"value\":\"1m\"}"),
+        Arguments.of("{\"value\":\"61s\"}", "{\"value\":\"61s\"}"),
+        Arguments.of("{\"value\":\"1000ms\"}", "{\"value\":\"1s\"}"),
+        Arguments.of("{\"value\":\"1001ms\"}", "{\"value\":\"1001ms\"}"),
+        Arguments.of("{\"value\":\"1000us\"}", "{\"value\":\"1ms\"}"),
+        Arguments.of("{\"value\":\"1001us\"}", "{\"value\":\"1001us\"}"),
+        Arguments.of("{\"value\":\"1000ns\"}", "{\"value\":\"1us\"}"),
+        Arguments.of("{\"value\":\"1001ns\"}", "{\"value\":\"1001ns\"}"),
+        Arguments.of("{\"value\":\"86400s\"}", "{\"value\":\"1day\"}"),
+        Arguments.of("{\"value\":\"123000000ns\"}", "{\"value\":\"123ms\"}"));
   }
 
   private static class TestDuration {
