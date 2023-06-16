@@ -51,9 +51,7 @@ public interface BrokerCluster extends AutoCloseable {
 
     return CompletableFuture.supplyAsync(
         () -> {
-          var broker =
-              new KafkaRaftServer(
-                  new KafkaConfig(configs), SystemTime.SYSTEM, scala.Option.empty());
+          var broker = new KafkaRaftServer(new KafkaConfig(configs), SystemTime.SYSTEM);
           broker.startup();
           return Map.entry(nodeId, broker);
         });
