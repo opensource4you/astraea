@@ -20,7 +20,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 # ===============================[global variables]===============================
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
-declare -r VERSION=${REVISION:-${VERSION:-3.4.1}}
+declare -r VERSION=${REVISION:-${VERSION:-3.5.0}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/worker.dockerfile
 declare -r WORKER_PORT=${WORKER_PORT:-"$(getRandomPort)"}
 declare -r CONTAINER_NAME="worker-$WORKER_PORT"
@@ -50,7 +50,7 @@ function showHelp() {
   echo "    ACCOUNT=skiptests                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"              set worker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    VERSION=3.4.1                            set version of kafka distribution"
+  echo "    VERSION=3.5.0                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    WORKER_PLUGIN_PATH=/tmp/worker-plugins   set plugin path to kafka worker"

@@ -29,6 +29,7 @@ import org.apache.kafka.connect.runtime.Connect;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.runtime.WorkerConfig;
 import org.apache.kafka.connect.runtime.distributed.DistributedConfig;
+import org.apache.kafka.connect.runtime.rest.RestServerConfig;
 
 public interface WorkerCluster extends AutoCloseable {
 
@@ -71,12 +72,12 @@ public interface WorkerCluster extends AutoCloseable {
                       ConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG,
                       "org.apache.kafka.connect.json.JsonConverter");
                   configs.put(
-                      WorkerConfig.LISTENERS_CONFIG,
+                      RestServerConfig.LISTENERS_CONFIG,
                       // the worker hostname is a part of information used by restful apis.
                       // the 0.0.0.0 make all connector say that they are executed by 0.0.0.0
                       // and it does make sense in production. With a view to testing the
                       // related codes in other modules, we have to define the "really" hostname
-                      // in starting worker cluster.
+                      // in starting worker cluster.j90
                       "http://" + Utils.hostname() + ":" + realPort);
                   configs.put(WorkerConfig.OFFSET_COMMIT_INTERVAL_MS_CONFIG, String.valueOf(500));
                   // enable us to override the connector configs
@@ -86,7 +87,7 @@ public interface WorkerCluster extends AutoCloseable {
                   configs.putAll(override);
                   return new ConnectDistributed().startConnect(configs);
                 })
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
     return new WorkerCluster() {
       @Override
