@@ -73,9 +73,7 @@ public final class ProducerMetrics {
    * @return key is broker id, and value is associated to broker metrics recorded by all producers
    */
   public static Collection<HasNodeMetrics> node(MBeanClient mBeanClient) {
-    return mBeanClient.beans(NODE_QUERY).stream()
-        .map(b -> (HasNodeMetrics) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+    return mBeanClient.beans(NODE_QUERY).stream().map(b -> (HasNodeMetrics) () -> b).toList();
   }
 
   /**
@@ -87,13 +85,13 @@ public final class ProducerMetrics {
   public static Collection<HasProducerTopicMetrics> topic(MBeanClient mBeanClient) {
     return mBeanClient.beans(TOPIC_QUERY).stream()
         .map(b -> (HasProducerTopicMetrics) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   public static Collection<HasProducerMetrics> producer(MBeanClient mBeanClient) {
     return mBeanClient.beans(PRODUCER_QUERY).stream()
         .map(b -> (HasProducerMetrics) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   private ProducerMetrics() {}

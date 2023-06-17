@@ -36,11 +36,9 @@ public class WeightProviderTest {
     var confusion =
         Map.of(
             "0",
-            IntStream.range(0, 100)
-                .mapToObj(i -> Math.random() * i)
-                .collect(Collectors.toUnmodifiableList()),
+            IntStream.range(0, 100).mapToObj(i -> Math.random() * i).toList(),
             "1",
-            IntStream.range(0, 100).mapToObj(i -> 1.0).collect(Collectors.toUnmodifiableList()));
+            IntStream.range(0, 100).mapToObj(i -> 1.0).toList());
 
     var entropy = weightProvider.weight(confusion);
     // "0" range of 0 to 100 numbers * Math.random().
@@ -76,17 +74,12 @@ public class WeightProviderTest {
             .collect(
                 Collectors.toMap(
                     String::valueOf,
-                    ignored ->
-                        IntStream.range(0, 100)
-                            .mapToObj(i -> 1.0 + i % 10 * 0.1)
-                            .collect(Collectors.toUnmodifiableList())));
+                    ignored -> IntStream.range(0, 100).mapToObj(i -> 1.0 + i % 10 * 0.1).toList()));
     // Since entropy represents the degree of uncertainty, uniform distribution does not represent
     // certainty in the concept of information entropy. On the contrary, because the uniform
     // distribution means that it is possible at every point, the degree of uncertainty is greater
     // and the weight given by the entropy method is also greater.
-    uniformDistribution.put(
-        "1",
-        IntStream.range(0, 100).mapToObj(i -> 0.0 + i).collect(Collectors.toUnmodifiableList()));
+    uniformDistribution.put("1", IntStream.range(0, 100).mapToObj(i -> 0.0 + i).toList());
 
     var uniformEntropy = weightProvider.weight(uniformDistribution);
     Assertions.assertTrue(uniformEntropy.get("0") < uniformEntropy.get("1"));
@@ -105,21 +98,19 @@ public class WeightProviderTest {
                 Collectors.toMap(
                     String::valueOf,
                     ignored ->
-                        IntStream.range(0, numberOfObjects)
-                            .mapToObj(i -> Math.random())
-                            .collect(Collectors.toUnmodifiableList())));
+                        IntStream.range(0, numberOfObjects).mapToObj(i -> Math.random()).toList()));
     // The smaller entropy means larger weight, so we sort the entropies/weights by different order
     // to check the metrics name later
     var entropies =
         weightProvider.entropies(raw).entrySet().stream()
             .sorted(Map.Entry.comparingByValue())
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     entropies.forEach(e -> Assertions.assertTrue(0 <= e.getValue() && e.getValue() <= 1));
 
     var weights =
         weightProvider.weight(raw).entrySet().stream()
             .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     Assertions.assertEquals(entropies.size(), weights.size());
     IntStream.range(0, entropies.size())
         .forEach(i -> Assertions.assertEquals(entropies.get(i).getKey(), weights.get(i).getKey()));

@@ -184,7 +184,7 @@ public class Builder<Key, Value> {
 
     @Override
     public Collection<CompletionStage<Metadata>> send(Collection<Record<Key, Value>> records) {
-      return records.stream().map(this::send).collect(Collectors.toUnmodifiableList());
+      return records.stream().map(this::send).toList();
     }
 
     @Override
@@ -212,10 +212,7 @@ public class Builder<Key, Value> {
     public Collection<CompletionStage<Metadata>> send(Collection<Record<Key, Value>> records) {
       try {
         kafkaProducer.beginTransaction();
-        var futures =
-            records.stream()
-                .map(r -> doSend(kafkaProducer, r))
-                .collect(Collectors.toUnmodifiableList());
+        var futures = records.stream().map(r -> doSend(kafkaProducer, r)).toList();
         kafkaProducer.commitTransaction();
         return futures;
       } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {

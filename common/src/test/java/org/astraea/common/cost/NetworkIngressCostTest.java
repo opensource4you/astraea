@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
@@ -48,10 +47,7 @@ public class NetworkIngressCostTest {
                     "1Byte",
                     NetworkIngressCost.NETWORK_COST_ESTIMATION_METHOD,
                     "BROKER_TOPIC_FIFTEEN_MINUTE_RATE")));
-    var topics =
-        IntStream.range(0, 10)
-            .mapToObj(i -> Utils.randomString(6))
-            .collect(Collectors.toUnmodifiableList());
+    var topics = IntStream.range(0, 10).mapToObj(i -> Utils.randomString(6)).toList();
     var clusterInfo =
         ClusterInfo.builder()
             .addNode(Set.of(1))
@@ -74,7 +70,7 @@ public class NetworkIngressCostTest {
                                 ServerMetrics.Topic.BYTES_IN_PER_SEC,
                                 topic,
                                 index.getAndIncrement()))
-                    .collect(Collectors.toUnmodifiableList())));
+                    .toList()));
     var partitionCost = networkCost.partitionCost(clusterInfo, clusterBean);
     var incompatible = partitionCost.incompatibility();
 
@@ -92,10 +88,7 @@ public class NetworkIngressCostTest {
                     "1Byte",
                     NetworkIngressCost.NETWORK_COST_ESTIMATION_METHOD,
                     "BROKER_TOPIC_FIFTEEN_MINUTE_RATE")));
-    var topics =
-        IntStream.range(0, 10)
-            .mapToObj(i -> Utils.randomString(6))
-            .collect(Collectors.toUnmodifiableList());
+    var topics = IntStream.range(0, 10).mapToObj(i -> Utils.randomString(6)).toList();
     var clusterInfo =
         ClusterInfo.builder()
             .addNode(Set.of(1))
@@ -112,7 +105,7 @@ public class NetworkIngressCostTest {
                 1,
                 topics.stream()
                     .map(topic -> bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, topic, 1.0))
-                    .collect(Collectors.toUnmodifiableList())));
+                    .toList()));
     var partitionCost = networkCost.partitionCost(clusterInfo, clusterBean);
     var incompatible = partitionCost.incompatibility();
 

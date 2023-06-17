@@ -108,9 +108,7 @@ class ClusterBeanTest {
   }
 
   static List<String> fakeTopics =
-      IntStream.range(0, 10)
-          .mapToObj(i -> Utils.randomString())
-          .collect(Collectors.toUnmodifiableList());
+      IntStream.range(0, 10).mapToObj(i -> Utils.randomString()).toList();
 
   Stream<? extends HasBeanObject> random(int seed) {
     var random = new Random(seed);
@@ -165,9 +163,9 @@ class ClusterBeanTest {
   ClusterBean cb =
       ClusterBean.of(
           Map.of(
-              1, random(0x0ae10).limit(3000).collect(Collectors.toUnmodifiableList()),
-              2, random(0x0f0c1).limit(3000).collect(Collectors.toUnmodifiableList()),
-              3, random(0x4040f).limit(3000).collect(Collectors.toUnmodifiableList())));
+              1, random(0x0ae10).limit(3000).toList(),
+              2, random(0x0f0c1).limit(3000).toList(),
+              3, random(0x4040f).limit(3000).toList()));
   Set<? extends HasBeanObject> allMetrics =
       cb.all().values().stream()
           .flatMap(Collection::stream)

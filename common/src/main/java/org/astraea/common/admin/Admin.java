@@ -80,7 +80,7 @@ public interface Admin extends AutoCloseable {
                 FutureUtils.sequence(
                         checkers.stream()
                             .map(checker -> checker.test(this, topicNames).toCompletableFuture())
-                            .collect(Collectors.toUnmodifiableList()))
+                            .toList())
                     .thenApply(
                         all ->
                             all.stream()

@@ -140,8 +140,7 @@ public interface FtpServer extends AutoCloseable {
       listenerFactory.setPort(controlPort);
       var connectionConfig = new DataConnectionConfigurationFactory();
 
-      List<Integer> availableDataPorts =
-          dataPorts.stream().map(Utils::resolvePort).collect(Collectors.toUnmodifiableList());
+      List<Integer> availableDataPorts = dataPorts.stream().map(Utils::resolvePort).toList();
 
       connectionConfig.setActiveEnabled(false);
       connectionConfig.setPassiveExternalAddress(Utils.hostname());
@@ -196,7 +195,7 @@ public interface FtpServer extends AutoCloseable {
         public List<Integer> dataPorts() {
           return Stream.of(connectionConfig.getPassivePorts().split(","))
               .map(Integer::valueOf)
-              .collect(Collectors.toUnmodifiableList());
+              .toList();
         }
 
         @Override

@@ -92,7 +92,7 @@ public abstract class NetworkCost implements HasClusterCost {
         clusterBean.all().entrySet().stream()
             .filter(e -> e.getValue().size() == 0)
             .map(Map.Entry::getKey)
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     if (!noMetricBrokers.isEmpty())
       throw new NoSufficientMetricsException(
           this,
