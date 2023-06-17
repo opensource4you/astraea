@@ -44,13 +44,11 @@ public interface RecordGenerator extends Function<TopicPartition, List<Record<by
     int batchSize = 1;
     long keyTableSeed = ThreadLocalRandom.current().nextLong();
     long valueTableSeed = ThreadLocalRandom.current().nextLong();
-    List<Long> keyRange =
-        LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList());
+    List<Long> keyRange = LongStream.rangeClosed(0, 10000).boxed().toList();
     Supplier<Long> keyDistribution = DistributionType.UNIFORM.create(10000, Configuration.EMPTY);
     Supplier<Long> keySizeDistribution =
         DistributionType.UNIFORM.create(10000, Configuration.EMPTY);
-    List<Long> valueRange =
-        LongStream.rangeClosed(0, 10000).boxed().collect(Collectors.toUnmodifiableList());
+    List<Long> valueRange = LongStream.rangeClosed(0, 10000).boxed().toList();
     Supplier<Long> valueDistribution = DistributionType.UNIFORM.create(10000, Configuration.EMPTY);
     Supplier<Long> valueSizeDistribution =
         DistributionType.UNIFORM.create(10000, Configuration.EMPTY);

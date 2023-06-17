@@ -19,7 +19,6 @@ package org.astraea.common.cost;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.ClusterInfo;
@@ -93,7 +92,7 @@ public class NodeLatencyCostTest {
                                   -1,
                                   ProducerMetrics.node(JndiClient.local()).stream()
                                       .map(b -> (HasBeanObject) b)
-                                      .collect(Collectors.toUnmodifiableList()))))
+                                      .toList())))
                       .value()
                       .size()
                   >= 1);

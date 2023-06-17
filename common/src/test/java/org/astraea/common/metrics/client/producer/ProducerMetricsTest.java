@@ -17,7 +17,6 @@
 package org.astraea.common.metrics.client.producer;
 
 import java.time.Duration;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.JndiClient;
@@ -178,7 +177,7 @@ public class ProducerMetricsTest {
       Assertions.assertTrue(
           metrics.stream()
               .map(HasNodeMetrics::brokerId)
-              .collect(Collectors.toUnmodifiableList())
+              .toList()
               .containsAll(SERVICE.dataFolders().keySet()));
       metrics.forEach(ProducerMetricsTest::check);
     }

@@ -34,10 +34,7 @@ public class NormalizerTest {
             index -> {
               // generate random data
               var data =
-                  IntStream.range(0, 100)
-                      .boxed()
-                      .map(i -> Math.random() * i * 10000)
-                      .collect(Collectors.toUnmodifiableList());
+                  IntStream.range(0, 100).boxed().map(i -> Math.random() * i * 10000).toList();
               var result = normalizer.normalize(data);
               Assertions.assertNotEquals(0, result.size());
               // make sure there is no NaN
@@ -57,7 +54,7 @@ public class NormalizerTest {
               var data =
                   IntStream.range(0, 100)
                       .mapToObj(i -> Math.max(0.3, Math.min(0.7, Math.random())))
-                      .collect(Collectors.toUnmodifiableList());
+                      .toList();
               var result = normalizer.normalize(data);
               Assertions.assertNotEquals(0, result.size());
               // make sure there is no NaN

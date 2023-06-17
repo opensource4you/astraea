@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 import org.astraea.common.ByteUtils;
 import org.astraea.common.DataSize;
@@ -70,7 +69,7 @@ public class RecordWriterBuilder {
                                                       ? ByteString.EMPTY
                                                       : ByteString.copyFrom(header.value()))
                                               .build())
-                                  .collect(Collectors.toUnmodifiableList()))
+                                  .toList())
                           .build()
                           .writeDelimitedTo(outputStream));
               count.incrementAndGet();

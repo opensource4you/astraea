@@ -77,7 +77,7 @@ public interface BrokerCluster extends AutoCloseable {
             .map(ignored -> Utils.availablePort())
             .distinct()
             .limit(numberOfBrokers)
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
     if (ports.size() != numberOfBrokers)
       throw new RuntimeException("failed to get enough available ports.");

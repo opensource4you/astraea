@@ -20,7 +20,6 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Utility related to data and unit, this class dedicated to easing the pain of converting and
@@ -131,5 +130,5 @@ public enum DataUnit implements EnumInfo {
       Arrays.stream(DataUnit.values())
           .filter(x -> x.candidateUnitForToString)
           .sorted(Comparator.comparing(x -> x.bits))
-          .collect(Collectors.toUnmodifiableList());
+          .toList();
 }

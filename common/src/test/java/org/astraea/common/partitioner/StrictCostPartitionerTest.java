@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
@@ -243,10 +242,7 @@ public class StrictCostPartitionerTest {
 
       partitioner.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);
       var t = partitioner.roundRobinKeeper.lastUpdated.get();
-      var rr =
-          Arrays.stream(partitioner.roundRobinKeeper.roundRobin)
-              .boxed()
-              .collect(Collectors.toUnmodifiableList());
+      var rr = Arrays.stream(partitioner.roundRobinKeeper.roundRobin).boxed().toList();
       Assertions.assertEquals(StrictCostPartitioner.ROUND_ROBIN_LENGTH, rr.size());
       // the rr is not updated yet
       partitioner.roundRobinKeeper.tryToUpdate(ClusterInfo.empty(), Map::of);

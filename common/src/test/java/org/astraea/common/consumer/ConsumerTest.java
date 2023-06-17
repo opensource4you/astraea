@@ -39,7 +39,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -496,10 +495,12 @@ public class ConsumerTest {
                                       .seek(SEEK_TO, 0)
                                       .consumerRebalanceListener(ps -> log.put(index, ps.size()))
                                       .build()) {
-                                while (!closed.get()) consumer.poll(Duration.ofSeconds(2));
+                                while (!closed.get()) {
+                                  consumer.poll(Duration.ofSeconds(2));
+                                }
                               }
                             }))
-                .collect(Collectors.toUnmodifiableList()));
+                .toList());
     Utils.waitFor(() -> log.size() == consumers, Duration.ofSeconds(15));
     Utils.waitFor(
         () -> log.values().stream().filter(ps -> ps == 0).count() == 1, Duration.ofSeconds(15));
@@ -686,10 +687,12 @@ public class ConsumerTest {
                                             latches.countDown();
                                           })
                                       .build()) {
-                                while (!closed.get()) consumer.poll(Duration.ofSeconds(2));
+                                while (!closed.get()) {
+                                  consumer.poll(Duration.ofSeconds(2));
+                                }
                               }
                             }))
-                .collect(Collectors.toUnmodifiableList()));
+                .toList());
     Utils.waitFor(() -> latches.getCount() == 0, Duration.ofSeconds(10));
     assignments.values().forEach(v -> totalPartitions.set(totalPartitions.get() + v));
 
@@ -711,7 +714,7 @@ public class ConsumerTest {
                         .config(ConsumerConfigs.GROUP_ID_CONFIG, groupId)
                         .seek(SeekStrategy.DISTANCE_FROM_BEGINNING, 0)
                         .build())
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     consumers.forEach(consumer -> consumer.poll(Duration.ofSeconds(1)));
     consumers.forEach(Consumer::close);
   }

@@ -19,7 +19,6 @@ package org.astraea.common.cost.utils;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Utils;
@@ -71,7 +70,7 @@ class ClusterInfoSensorTest {
             .send(
                 IntStream.range(0, 100)
                     .mapToObj(x -> Record.builder().topic(topic).value(new byte[x]).build())
-                    .collect(Collectors.toUnmodifiableList()))
+                    .toList())
             .forEach(i -> i.toCompletableFuture().join());
       }
 
@@ -190,17 +189,13 @@ class ClusterInfoSensorTest {
                     1,
                     Stream.of(topic.partition(0, 1), topic.partition(1, 2), topic.partition(2, 3))
                         .flatMap(x -> x)
-                        .collect(Collectors.toUnmodifiableList())),
+                        .toList()),
                 Map.entry(
                     2,
                     Stream.of(topic.partition(1, 0), topic.partition(2, 0))
                         .flatMap(x -> x)
-                        .collect(Collectors.toUnmodifiableList())),
-                Map.entry(
-                    3,
-                    Stream.of(topic.partition(2, 0))
-                        .flatMap(x -> x)
-                        .collect(Collectors.toUnmodifiableList()))));
+                        .toList()),
+                Map.entry(3, Stream.of(topic.partition(2, 0)).flatMap(x -> x).toList())));
     var info = ClusterInfoSensor.metricViewCluster(cb);
 
     Assertions.assertEquals(Set.of("topic"), info.topicNames());

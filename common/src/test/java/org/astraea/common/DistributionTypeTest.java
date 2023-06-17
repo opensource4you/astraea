@@ -91,10 +91,7 @@ public class DistributionTypeTest {
             10000, new Configuration(Map.of(DistributionType.ZIPFIAN_SEED, "100")));
     Assertions.assertEquals(
         List.of(11, 18, 0, 1126, 12),
-        IntStream.range(0, 5)
-            .map(i -> zip100.get().intValue())
-            .boxed()
-            .collect(Collectors.toUnmodifiableList()),
+        IntStream.range(0, 5).map(i -> zip100.get().intValue()).boxed().toList(),
         "Random sequence fixed by specific seed");
 
     // random fixed seed

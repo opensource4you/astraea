@@ -79,9 +79,7 @@ public class LogMetricsTest {
       admin.creator().topic(topicName).numberOfPartitions(2).run().toCompletableFuture().join();
       Utils.sleep(Duration.ofSeconds(2));
       var beans =
-          log.fetch(JndiClient.local()).stream()
-              .filter(m -> m.topic().equals(topicName))
-              .collect(Collectors.toUnmodifiableList());
+          log.fetch(JndiClient.local()).stream().filter(m -> m.topic().equals(topicName)).toList();
       Assertions.assertEquals(2, beans.size());
       Assertions.assertEquals(
           2,

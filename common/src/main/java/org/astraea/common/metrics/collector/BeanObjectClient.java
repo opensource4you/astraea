@@ -87,7 +87,7 @@ public interface BeanObjectClient extends MBeanClient {
                                     && e.getValue()
                                         .matcher(storedEntry.properties().get(e.getKey()))
                                         .matches()))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
       }
     };
   }

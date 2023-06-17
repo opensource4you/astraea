@@ -169,10 +169,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicaLeaders() {
-    return replicaStream()
-        .filter(Replica::isLeader)
-        .filter(Replica::isOnline)
-        .collect(Collectors.toUnmodifiableList());
+    return replicaStream().filter(Replica::isLeader).filter(Replica::isOnline).toList();
   }
 
   /**
@@ -182,10 +179,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicaLeaders(String topic) {
-    return replicaStream(topic)
-        .filter(Replica::isLeader)
-        .filter(Replica::isOnline)
-        .collect(Collectors.toUnmodifiableList());
+    return replicaStream(topic).filter(Replica::isLeader).filter(Replica::isOnline).toList();
   }
 
   /**
@@ -195,10 +189,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicaLeaders(int broker) {
-    return replicaStream(broker)
-        .filter(Replica::isLeader)
-        .filter(Replica::isOnline)
-        .collect(Collectors.toUnmodifiableList());
+    return replicaStream(broker).filter(Replica::isLeader).filter(Replica::isOnline).toList();
   }
 
   /**
@@ -207,10 +198,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicaLeaders(BrokerTopic brokerTopic) {
-    return replicaStream(brokerTopic)
-        .filter(Replica::isLeader)
-        .filter(Replica::isOnline)
-        .collect(Collectors.toUnmodifiableList());
+    return replicaStream(brokerTopic).filter(Replica::isLeader).filter(Replica::isOnline).toList();
   }
 
   /**
@@ -235,7 +223,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> availableReplicas(String topic) {
-    return replicaStream(topic).filter(Replica::isOnline).collect(Collectors.toUnmodifiableList());
+    return replicaStream(topic).filter(Replica::isOnline).toList();
   }
 
   // ---------------------[for replicas]---------------------//
@@ -244,7 +232,7 @@ public interface ClusterInfo {
    * @return all replicas cached by this cluster info.
    */
   default List<Replica> replicas() {
-    return replicaStream().collect(Collectors.toUnmodifiableList());
+    return replicaStream().toList();
   }
 
   /**
@@ -254,7 +242,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicas(String topic) {
-    return replicaStream(topic).collect(Collectors.toUnmodifiableList());
+    return replicaStream(topic).toList();
   }
 
   /**
@@ -265,7 +253,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicas(TopicPartition topicPartition) {
-    return replicaStream(topicPartition).collect(Collectors.toUnmodifiableList());
+    return replicaStream(topicPartition).toList();
   }
 
   /**
@@ -273,7 +261,7 @@ public interface ClusterInfo {
    * @return the replica matched to input replica
    */
   default List<Replica> replicas(TopicPartitionReplica replica) {
-    return replicaStream(replica).collect(Collectors.toUnmodifiableList());
+    return replicaStream(replica).toList();
   }
 
   // ---------------------[others]---------------------//
