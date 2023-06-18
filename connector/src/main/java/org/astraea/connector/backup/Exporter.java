@@ -408,6 +408,7 @@ public class Exporter extends SinkConnector {
     protected void close() {
       this.closed.set(true);
       Utils.packException(() -> writerFuture.toCompletableFuture().get(10, TimeUnit.SECONDS));
+      this.fs.close();
     }
 
     boolean isWriterDone() {
