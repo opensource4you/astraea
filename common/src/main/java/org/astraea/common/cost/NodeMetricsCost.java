@@ -16,10 +16,9 @@
  */
 package org.astraea.common.cost;
 
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
@@ -34,19 +33,14 @@ public abstract class NodeMetricsCost implements HasBrokerCost {
   public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var result =
         new HashMap<>(
-            clusterBean.all().values().stream()
-                .flatMap(Collection::stream)
-                .filter(b -> b instanceof HasNodeMetrics)
-                .map(b -> (HasNodeMetrics) b)
-                .filter(b -> !Double.isNaN(value(b)))
-                .collect(Collectors.groupingBy(HasNodeMetrics::brokerId))
-                .entrySet()
-                .stream()
+            clusterBean.brokerIds().stream()
                 .collect(
                     Collectors.toMap(
-                        Map.Entry::getKey,
-                        e ->
-                            e.getValue().stream()
+                        Function.identity(),
+                        (id) ->
+                            clusterBean
+                                .brokerMetrics(id, HasNodeMetrics.class)
+                                .filter(b -> !Double.isNaN(value(b)))
                                 .sorted(
                                     Comparator.comparing(HasNodeMetrics::createdTimestamp)
                                         .reversed())
