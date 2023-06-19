@@ -30,7 +30,7 @@ def versions = [
         "jmh-core"                : project.properties['jmh-core.version'] ?: "1.36",
         "jmh-generator-annprocess": project.properties['jmh-generator.version'] ?: "1.36",
         junit                     : project.properties['junit.version'] ?: "5.9.2",
-        kafka                     : project.properties['kafka.version'] ?: "3.4.1",
+        kafka                     : project.properties['kafka.version'] ?: "3.5.0",
         mockito                   : project.properties['mockito.version'] ?: "5.2.0",
         "opencsv"                 : project.properties['opencsv.version'] ?: "5.7.1",
         scala                     : project.properties['scala.version'] ?: "2.13.10",

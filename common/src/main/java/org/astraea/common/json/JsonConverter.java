@@ -86,9 +86,7 @@ public interface JsonConverter {
     module.addSerializer(DataSize.class, serialzer(DataSize.class, DataSize::toString));
     // Duration
     module.addDeserializer(Duration.class, deserializer(Duration.class, Utils::toDuration));
-    // TODO: how to support ns?
-    // https://github.com/skiptests/astraea/issues/1430
-    module.addSerializer(Duration.class, serialzer(Duration.class, d -> d.toMillis() + "ms"));
+    module.addSerializer(Duration.class, serialzer(Duration.class, Utils::toDurationString));
     var objectMapper =
         JsonMapper.builder()
             .addModule(new Jdk8Module())

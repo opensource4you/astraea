@@ -166,7 +166,7 @@ public interface JndiClient extends MBeanClient, AutoCloseable {
                           return Stream.empty();
                         }
                       })
-                  .collect(Collectors.toUnmodifiableList()));
+                  .toList());
     }
 
     /**

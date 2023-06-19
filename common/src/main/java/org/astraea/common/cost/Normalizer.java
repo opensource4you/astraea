@@ -56,13 +56,10 @@ public interface Normalizer {
       double max = values.stream().max(comparator).orElse(0.0);
       double min = values.stream().min(comparator).orElse(0.0);
       // there is nothing to rescale, so we just all same values
-      if (max == min)
-        return IntStream.range(0, values.size())
-            .mapToObj(ignored -> 1.0)
-            .collect(Collectors.toUnmodifiableList());
+      if (max == min) return IntStream.range(0, values.size()).mapToObj(ignored -> 1.0).toList();
       return values.stream()
           .map(value -> (positive ? value - min : max - value) / (max - min))
-          .collect(Collectors.toUnmodifiableList());
+          .toList();
     };
   }
 
@@ -76,7 +73,7 @@ public interface Normalizer {
   static Normalizer proportion() {
     return values -> {
       var sum = values.stream().mapToDouble(i -> i).sum();
-      return values.stream().map(v -> v / sum).collect(Collectors.toUnmodifiableList());
+      return values.stream().map(v -> v / sum).toList();
     };
   }
 
@@ -105,7 +102,7 @@ public interface Normalizer {
                 }
                 return Math.round(score * 100) / 100.0;
               })
-          .collect(Collectors.toUnmodifiableList());
+          .toList();
     };
   }
 

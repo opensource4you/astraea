@@ -120,25 +120,21 @@ public class ConnectorMetrics {
   public static List<SourceTaskInfo> sourceTaskInfo(MBeanClient client) {
     return client.beans(SOURCE_TASK_INFO_QUERY).stream()
         .map(b -> (SourceTaskInfo) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   public static List<SinkTaskInfo> sinkTaskInfo(MBeanClient client) {
-    return client.beans(SINK_TASK_INFO_QUERY).stream()
-        .map(b -> (SinkTaskInfo) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+    return client.beans(SINK_TASK_INFO_QUERY).stream().map(b -> (SinkTaskInfo) () -> b).toList();
   }
 
   public static List<TaskError> taskError(MBeanClient client) {
-    return client.beans(TASK_ERROR_QUERY).stream()
-        .map(b -> (TaskError) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+    return client.beans(TASK_ERROR_QUERY).stream().map(b -> (TaskError) () -> b).toList();
   }
 
   public static List<ConnectorTaskInfo> connectorTaskInfo(MBeanClient client) {
     return client.beans(CONNECTOR_TASK_INFO_QUERY).stream()
         .map(b -> (ConnectorTaskInfo) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   public static List<AppInfo> appInfo(MBeanClient client) {
@@ -150,42 +146,34 @@ public class ConnectorMetrics {
   public static List<ConnectCoordinatorInfo> coordinatorInfo(MBeanClient client) {
     return client.beans(COORDINATOR_INFO_QUERY).stream()
         .map(b -> (ConnectCoordinatorInfo) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   public static List<ConnectorInfo> connectorInfo(MBeanClient client) {
-    return client.beans(CONNECTOR_INFO_QUERY).stream()
-        .map(b -> (ConnectorInfo) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+    return client.beans(CONNECTOR_INFO_QUERY).stream().map(b -> (ConnectorInfo) () -> b).toList();
   }
 
   public static List<ConnectWorkerRebalanceInfo> workerRebalanceInfo(MBeanClient client) {
     return client.beans(WORKER_REBALANCE_INFO_QUERY).stream()
         .map(b -> (ConnectWorkerRebalanceInfo) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   public static List<HasNodeMetrics> nodeInfo(MBeanClient client) {
-    return client.beans(NODE_INFO_QUERY).stream()
-        .map(b -> (HasNodeMetrics) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+    return client.beans(NODE_INFO_QUERY).stream().map(b -> (HasNodeMetrics) () -> b).toList();
   }
 
   public static List<ConnectWorkerInfo> workerInfo(MBeanClient client) {
-    return client.beans(WORKER_INFO_QUERY).stream()
-        .map(b -> (ConnectWorkerInfo) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+    return client.beans(WORKER_INFO_QUERY).stream().map(b -> (ConnectWorkerInfo) () -> b).toList();
   }
 
   public static List<ConnectWorkerConnectorInfo> workerConnectorInfo(MBeanClient client) {
     return client.beans(WORKER_CONNECTOR_INFO_QUERY).stream()
         .map(b -> (ConnectWorkerConnectorInfo) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   public static List<HasSelectorMetrics> connector(MBeanClient client) {
-    return client.beans(CONNECTOR_QUERY).stream()
-        .map(b -> (HasSelectorMetrics) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+    return client.beans(CONNECTOR_QUERY).stream().map(b -> (HasSelectorMetrics) () -> b).toList();
   }
 }

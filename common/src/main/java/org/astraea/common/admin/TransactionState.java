@@ -18,7 +18,6 @@ package org.astraea.common.admin;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
 
 public enum TransactionState implements EnumInfo {
@@ -63,6 +62,6 @@ public enum TransactionState implements EnumInfo {
   }
 
   public static Collection<TransactionState> all() {
-    return Arrays.stream(TransactionState.values()).collect(Collectors.toUnmodifiableList());
+    return Arrays.stream(TransactionState.values()).toList();
   }
 }

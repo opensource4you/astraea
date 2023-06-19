@@ -26,7 +26,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
@@ -73,19 +72,13 @@ public class MetricFetcherTest {
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(Set.of(-1000), fetcher.identities());
       Assertions.assertNotEquals(0, queue.size());
-      queue.forEach(
-          (id, es) ->
-              Assertions.assertEquals(
-                  beans, es.stream().distinct().collect(Collectors.toUnmodifiableList())));
+      queue.forEach((id, es) -> Assertions.assertEquals(beans, es.stream().distinct().toList()));
 
       var latest = fetcher.latest();
       Assertions.assertEquals(1, latest.size());
       latest
           .values()
-          .forEach(
-              bs ->
-                  Assertions.assertEquals(
-                      beans, bs.stream().distinct().collect(Collectors.toUnmodifiableList())));
+          .forEach(bs -> Assertions.assertEquals(beans, bs.stream().distinct().toList()));
     }
     // make sure client get closed
     Mockito.verify(client, Mockito.times(1)).close();
@@ -161,8 +154,7 @@ public class MetricFetcherTest {
               .valueDeserializer(Deserializer.BEAN_OBJECT)
               .seek(SeekStrategy.DISTANCE_FROM_BEGINNING, 0)
               .build()) {
-        var records =
-            consumer.poll(Duration.ofSeconds(5)).stream().collect(Collectors.toUnmodifiableList());
+        var records = consumer.poll(Duration.ofSeconds(5)).stream().toList();
         Assertions.assertEquals(1, records.size());
         var getBean = records.get(0).value();
         Assertions.assertEquals(testBean.domainName(), getBean.domainName());

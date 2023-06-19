@@ -77,26 +77,24 @@ public class ConsumerMetrics {
    * @return key is broker id, and value is associated to broker metrics recorded by all consumers
    */
   public static Collection<HasNodeMetrics> node(MBeanClient mBeanClient) {
-    return mBeanClient.beans(NODE_QUERY).stream()
-        .map(b -> (HasNodeMetrics) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+    return mBeanClient.beans(NODE_QUERY).stream().map(b -> (HasNodeMetrics) () -> b).toList();
   }
 
   public static Collection<HasConsumerCoordinatorMetrics> coordinator(MBeanClient mBeanClient) {
     return mBeanClient.beans(COORDINATOR_QUERY).stream()
         .map(b -> (HasConsumerCoordinatorMetrics) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   public static Collection<HasConsumerFetchMetrics> fetch(MBeanClient mBeanClient) {
     return mBeanClient.beans(FETCH_QUERY).stream()
         .map(b -> (HasConsumerFetchMetrics) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   public static Collection<HasConsumerMetrics> consumer(MBeanClient mBeanClient) {
     return mBeanClient.beans(CONSUMER_QUERY).stream()
         .map(b -> (HasConsumerMetrics) () -> b)
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 }

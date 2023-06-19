@@ -107,7 +107,7 @@ class StraightPlanExecutorTest {
               .values()
               .stream()
               .flatMap(Collection::stream)
-              .collect(Collectors.toUnmodifiableList());
+              .toList();
       final var expectedAllocation = ClusterInfoTest.of(allocation);
       final var expectedTopicPartition = expectedAllocation.topicPartitions();
 

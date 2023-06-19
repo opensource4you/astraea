@@ -55,6 +55,12 @@ public final class Utils {
 
   public static final Pattern TIME_PATTERN =
       Pattern.compile("^(?<value>[0-9]+)(?<unit>days|day|h|m|s|ms|us|ns|)$");
+  private static final long DAY_IN_NANOS = Duration.ofDays(1).toNanos();
+  private static final long HOUR_IN_NANOS = Duration.ofHours(1).toNanos();
+  private static final long MINUTE_IN_NANOS = Duration.ofMinutes(1).toNanos();
+  private static final long SECOND_IN_NANOS = 1000_000_000L;
+  private static final long MILLIS_IN_NANOS = 1000_000L;
+  private static final long MICROS_IN_NANOS = 1000L;
 
   /**
    * A converter for time unit.
@@ -109,6 +115,40 @@ public final class Utils {
     } else {
       throw new IllegalArgumentException("value \"" + input + "\" doesn't match any time format");
     }
+  }
+
+  /**
+   * A Duration string formatter
+   *
+   * <p>This formatter is able to transform the following {@link Duration} into the corresponding
+   * string format (i.e. value + time unit)
+   *
+   * <ul>
+   *   <li>{@code Duration.ofSeconds(30)} to {@code "30s"}
+   *   <li>{@code Duration.ofMinutes(1)} to {@code "1m"}
+   *   <li>{@code Duration.ofHours(24)} to {@code "1day"}
+   *   <li>{@code Duration.ofDays(7)} to{@code "7day"}
+   *   <li>{@code Duration.ofMillis(350)} to {@code "350ms"}
+   *   <li>{@code Duration.ofNanos(123 * 1000)} to {@code "123us"}
+   *   <li>{@code Duration.ofNanos(100)} to {@code "100ns"}
+   * </ul>
+   *
+   * <p>If the value in the Duration is evenly divisible by nanoseconds per time unit (i.e. day,
+   * hour, minute, second, millisecond, microsecond, nanosecond), then this formatter will select
+   * the highest time unit as the time unit in the string format.
+   *
+   * @param input Duration
+   * @return duration in readable string format
+   */
+  public static String toDurationString(Duration input) {
+    long inputInNanos = input.toNanos();
+    if (inputInNanos % DAY_IN_NANOS == 0) return (inputInNanos / DAY_IN_NANOS) + "day";
+    if (inputInNanos % HOUR_IN_NANOS == 0) return (inputInNanos / HOUR_IN_NANOS) + "h";
+    if (inputInNanos % MINUTE_IN_NANOS == 0) return (inputInNanos / MINUTE_IN_NANOS) + "m";
+    if (inputInNanos % SECOND_IN_NANOS == 0) return (inputInNanos / SECOND_IN_NANOS) + "s";
+    if (inputInNanos % MILLIS_IN_NANOS == 0) return (inputInNanos / MILLIS_IN_NANOS) + "ms";
+    if (inputInNanos % MICROS_IN_NANOS == 0) return (inputInNanos / MICROS_IN_NANOS) + "us";
+    return inputInNanos + "ns";
   }
 
   /**

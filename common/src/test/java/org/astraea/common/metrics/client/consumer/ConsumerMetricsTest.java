@@ -18,7 +18,6 @@ package org.astraea.common.metrics.client.consumer;
 
 import java.time.Duration;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.consumer.Consumer;
@@ -70,7 +69,7 @@ public class ConsumerMetricsTest {
       Assertions.assertTrue(
           metrics.stream()
               .map(HasNodeMetrics::brokerId)
-              .collect(Collectors.toUnmodifiableList())
+              .toList()
               .containsAll(SERVICE.dataFolders().keySet()));
       metrics.forEach(ConsumerMetricsTest::check);
     }
