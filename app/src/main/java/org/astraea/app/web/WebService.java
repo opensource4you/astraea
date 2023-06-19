@@ -20,6 +20,7 @@ import com.beust.jcommander.Parameter;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
+import java.net.URL;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -34,10 +35,12 @@ import java.util.stream.Collectors;
 import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.IntegerMapField;
 import org.astraea.app.argument.NonNegativeIntegerField;
+import org.astraea.app.argument.URLListField;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Broker;
+import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricSensor;
@@ -58,7 +61,8 @@ public class WebService implements AutoCloseable {
       int port,
       Function<Integer, Integer> brokerIdToJmxPort,
       Duration beanExpiration,
-      Configuration config) {
+      Configuration config,
+      List<URL> workerUrls) {
     this.admin = admin;
     Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier =
         () ->
@@ -112,6 +116,9 @@ public class WebService implements AutoCloseable {
     server.createContext("/reassignments", to(new ReassignmentHandler(admin)));
     server.createContext("/balancer", to(new BalancerHandler(admin, metricStore)));
     server.createContext("/throttles", to(new ThrottleHandler(admin)));
+    if (!workerUrls.isEmpty())
+      server.createContext(
+          "/backups", to(new BackupHandler(ConnectorClient.builder().urls(workerUrls).build())));
     server.start();
   }
 
@@ -135,7 +142,8 @@ public class WebService implements AutoCloseable {
             arg.port,
             arg::jmxPortMapping,
             arg.beanExpiration,
-            new Configuration(arg.configs()))) {
+            new Configuration(arg.configs()),
+            arg.workerUrls)) {
       if (arg.ttl == null) {
         System.out.println("enter ctrl + c to terminate web service");
         TimeUnit.MILLISECONDS.sleep(Long.MAX_VALUE);
@@ -196,6 +204,12 @@ public class WebService implements AutoCloseable {
         validateWith = DurationField.class,
         converter = DurationField.class)
     Duration beanExpiration = Duration.ofHours(1);
+
+    @Parameter(
+        names = {"--worker.urls"},
+        description = "List: the worker's urls",
+        validateWith = URLListField.class)
+    List<URL> workerUrls = List.of();
   }
 
   static class Sensors {
