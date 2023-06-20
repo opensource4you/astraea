@@ -33,11 +33,11 @@ import org.astraea.common.connector.ConnectorStatus;
 import org.astraea.common.connector.TaskInfo;
 import org.astraea.common.connector.TaskStatus;
 import org.astraea.common.json.TypeRef;
+import org.astraea.connector.backup.Exporter;
+import org.astraea.connector.backup.Importer;
 
 public class BackupHandler implements Handler {
 
-  public static final String IMPORTER_CLASS = "org.astraea.connector.backup.Importer";
-  public static final String EXPORTER_CLASS = "org.astraea.connector.backup.Exporter";
   private final ConnectorClient connectorClient;
 
   BackupHandler(ConnectorClient connectorClient) {
@@ -152,7 +152,8 @@ public class BackupHandler implements Handler {
                 Collectors.groupingBy(
                     connectorInfoClass ->
                         connectorInfoClass.config.get(ConnectorConfigs.CONNECTOR_CLASS_KEY)));
-    return new ConnectorInfoResponse(groups.get(IMPORTER_CLASS), groups.get(EXPORTER_CLASS));
+    return new ConnectorInfoResponse(
+        groups.get(Importer.class.getName()), groups.get(Exporter.class.getName()));
   }
 
   private ConnectorStatusResponse statusResponse(List<ConnectorStatus> connectorStatuses) {
@@ -170,7 +171,8 @@ public class BackupHandler implements Handler {
                 Collectors.groupingBy(
                     connectorStatusClass ->
                         connectorStatusClass.configs.get(ConnectorConfigs.CONNECTOR_CLASS_KEY)));
-    return new ConnectorStatusResponse(groups.get(IMPORTER_CLASS), groups.get(EXPORTER_CLASS));
+    return new ConnectorStatusResponse(
+        groups.get(Importer.class.getName()), groups.get(Exporter.class.getName()));
   }
 
   static class ConnectorStatusClass {
@@ -261,13 +263,13 @@ public class BackupHandler implements Handler {
   }
 
   static class ImporterConfig extends ConnectorConfig implements Request {
-    private final String connectorClass = IMPORTER_CLASS;
+    private final String connectorClass = Importer.class.getName();
     String cleanSourcePolicy;
     private Optional<String> archiveDir = Optional.empty();
   }
 
   static class ExporterConfig extends ConnectorConfig implements Request {
-    private final String connectorClass = EXPORTER_CLASS;
+    private final String connectorClass = Exporter.class.getName();
     private Optional<String> size = Optional.empty();
     private Optional<String> rollDuration = Optional.empty();
     private Optional<String> writerBufferSize = Optional.empty();

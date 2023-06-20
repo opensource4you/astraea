@@ -8,7 +8,7 @@
 
 - [建立 exporter](#建立-exporter)
 - [建立 importer](#建立-importer)
-- [查詢所有 exporters 及 importer](#查詢所有-exporters-及-importers)
+- [查詢所有 exporters 及 importers](#查詢所有-exporters-及-importers)
 - [查詢指定名稱的 exporter 或 importer](#查詢指定名稱的-exporter-或-importer)
 - [更改已存在的 exporter 及 importer 參數](#更改已存在的-exporter-及-importer-參數)
 - [刪除 exporter 或 importer](#刪除-exporter-或-importer)
@@ -34,9 +34,33 @@ POST /backups
 | rollDuration | (選填) 如果在超過此時間沒有任何資料流入，會把當下所有已創建之檔案關閉，並在之後有新資料時會創建新檔案並寫入。  <br/>時間單位: `s`, `m`, `h`, `day`, etc.                                                                                 | 3s    |
 | offsetFrom   | (選填）Map 格式："`topic`.`partition`.offset.from": "`offset`"<br/>針對想要的 topic 或是 topicPartition 指定備份 offset 的起點，如果要針對整個 topic 指定需將 partition 留空。ex: {"topicName.offset.from": "101"} | 無     |
 
-cURL 範例
+cURL 範例 1
 
-建立一個 exporter，將 "chia01" `topic` 的資料從 offset:101 開始備份至 local 檔案系統的 `/backup` 目錄下。
+建立一個 exporter，將 `topic` : "chia01" 的資料從 `offset` : "101" 開始備份至 local 檔案系統的 `/backup` 目錄下。
+當檔案超過 500MB 創建新檔案，並會在 5m 內沒有資料流入時關閉當下檔案。
+```shell
+curl -X POST http://localhost:8001/backups \
+    -H "Content-Type: application/json" \
+    -d '{"exporter":[{
+    "name": "export_local", 
+    "topics": "chia01",
+    "fsSchema": "local",
+    "tasksMax": "3",
+    "path": "/backup",
+    "size": "500MB",
+    "rollDuration": "5m",
+    "offsetFrom": {
+      "chia01.offset.from": "101"
+    }}]}' 
+```
+
+cURL 範例 2
+
+建立一個 exporter，將 
+1. `topic` : "chia01" `partition` : "0" 的資料從 `offset` : "101" 開始
+2. `topic` : "chia01" `partition` : "1" 的資料從 `offset` : "201" 開始
+
+備份至 local 檔案系統的 `/backup` 目錄下。
 ```shell
 curl -X POST http://localhost:8001/backups \
     -H "Content-Type: application/json" \
@@ -47,7 +71,8 @@ curl -X POST http://localhost:8001/backups \
     "tasksMax": "3",
     "path": "/backup",
     "offsetFrom": {
-      "chia01.offset.from": "101"
+      "chia01.0.offset.from": "101",
+      "chia01.1.offset.from": "201"
     }}]}' 
 ```
 
@@ -70,7 +95,7 @@ POST /backups
 | cleanSourcePolicy | (選填) 選擇已讀入之檔案的處理方式<br/>`off`：不做處理<br/>`delete`：將檔案移除<br/>`archive`： 將檔案移至`archive.dir`(須填入 `archive.dir` 參數) | off |
 | archiveDir        | (`cleanSourcePolicy` 為 `archive`) 填入封存已經處理好的檔案目錄位置                                                           | 無   |
 
-cURL 範例
+cURL 範例 1
 
 建立一個 importer，從 local 檔案系統 `/backup` 目錄下讀取已備份的檔案，在讀取後將檔案移動至 `/finished` 目錄中。
 ```shell
@@ -86,6 +111,24 @@ curl -X POST http://localhost:8001/backups \
     }]}' 
 ```
 
+cURL 範例 2
+
+建立一個 importer，從 ftp 檔案系統 `/backup` 目錄下讀取已備份的檔案，在讀取後將檔案移除。
+```shell
+curl -X POST http://localhost:8001/backups \
+    -H "Content-Type: application/json" \
+    -d '{"importer":[{
+    "name": "import_local", 
+    "fsSchema": "ftp",
+    "hostname": "localhost",
+    "port": "21",
+    "user": "astraea",
+    "password": "astraea",
+    "tasksMax": "3",
+    "path": "/backup",
+    "cleanSourcePolicy": "delete"
+    }]}' 
+```
 ## 查詢所有 exporters 及 importers
 ```shell
 Get /backups

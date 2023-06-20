@@ -32,11 +32,11 @@ dependencies {
     testImplementation libs["mockito-inline"]
     testImplementation libs["kafka-core"]
     testImplementation libs["commons-io"]
-    testImplementation project(':connector')
     testImplementation project(':it')
 
     implementation project(':common')
     implementation project(':fs')
+    implementation project(':connector')
     implementation libs["kafka-client"]
     implementation libs["jcommander"]
     // we don't use slf4j actually, and it is used by kafka so we swallow the log.
