@@ -465,15 +465,25 @@ public class ExporterTest {
               Record.builder()
                   .topic(topicName)
                   .key("test".getBytes())
-                  .value("test0".getBytes())
+                  .value(Utils.randomString(1024).getBytes())
                   .partition(0)
+                  .offset(0)
                   .timestamp(System.currentTimeMillis())
                   .build(),
               Record.builder()
                   .topic(topicName)
                   .key("test".getBytes())
-                  .value("test1".getBytes())
+                  .value("test".getBytes())
+                  .partition(0)
+                  .offset(1)
+                  .timestamp(System.currentTimeMillis())
+                  .build(),
+              Record.builder()
+                  .topic(topicName)
+                  .key("test".getBytes())
+                  .value("test".getBytes())
                   .partition(1)
+                  .offset(0)
                   .timestamp(System.currentTimeMillis())
                   .build());
 
@@ -489,6 +499,10 @@ public class ExporterTest {
 
       Assertions.assertEquals(
           2, fs.listFolders("/" + String.join("/", fileSize, topicName)).size());
+      Assertions.assertEquals(
+          2, fs.listFiles("/" + String.join("/", fileSize, topicName, "0")).size());
+      Assertions.assertEquals(
+          1, fs.listFiles("/" + String.join("/", fileSize, topicName, "1")).size());
 
       records.forEach(
           sinkRecord -> {
