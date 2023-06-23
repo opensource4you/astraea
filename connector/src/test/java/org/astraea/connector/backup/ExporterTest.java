@@ -784,6 +784,8 @@ public class ExporterTest {
 
       writers.put(tp, recordWriter);
 
+      Assertions.assertEquals(DataSize.ZERO, recordWriter.size());
+
       recordWriter.append(
           Record.builder()
               .topic(topicName)
@@ -793,6 +795,8 @@ public class ExporterTest {
               .offset(0)
               .timestamp(System.currentTimeMillis())
               .build());
+
+      Assertions.assertNotEquals(DataSize.ZERO, recordWriter.size());
 
       task.removeOldWriters(writers);
 
