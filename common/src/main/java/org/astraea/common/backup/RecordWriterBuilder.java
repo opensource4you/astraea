@@ -44,34 +44,37 @@ public class RecordWriterBuilder {
             @Override
             public void append(Record<byte[], byte[]> record) {
               Utils.packException(
-                  () ->
-                      RecordOuterClass.Record.newBuilder()
-                          .setTopic(record.topic())
-                          .setPartition(record.partition())
-                          .setOffset(record.offset())
-                          .setTimestamp(record.timestamp())
-                          .setKey(
-                              record.key() == null
-                                  ? ByteString.EMPTY
-                                  : ByteString.copyFrom(record.key()))
-                          .setValue(
-                              record.value() == null
-                                  ? ByteString.EMPTY
-                                  : ByteString.copyFrom(record.value()))
-                          .addAllHeaders(
-                              record.headers().stream()
-                                  .map(
-                                      header ->
-                                          RecordOuterClass.Record.Header.newBuilder()
-                                              .setKey(header.key())
-                                              .setValue(
-                                                  header.value() == null
-                                                      ? ByteString.EMPTY
-                                                      : ByteString.copyFrom(header.value()))
-                                              .build())
-                                  .toList())
-                          .build()
-                          .writeDelimitedTo(outputStream));
+                  () -> {
+                    var recordBuilder =
+                        RecordOuterClass.Record.newBuilder()
+                            .setTopic(record.topic())
+                            .setPartition(record.partition())
+                            .setOffset(record.offset())
+                            .setTimestamp(record.timestamp())
+                            .setKey(
+                                record.key() == null
+                                    ? ByteString.EMPTY
+                                    : ByteString.copyFrom(record.key()))
+                            .setValue(
+                                record.value() == null
+                                    ? ByteString.EMPTY
+                                    : ByteString.copyFrom(record.value()))
+                            .addAllHeaders(
+                                record.headers().stream()
+                                    .map(
+                                        header ->
+                                            RecordOuterClass.Record.Header.newBuilder()
+                                                .setKey(header.key())
+                                                .setValue(
+                                                    header.value() == null
+                                                        ? ByteString.EMPTY
+                                                        : ByteString.copyFrom(header.value()))
+                                                .build())
+                                    .toList())
+                            .build();
+                    recordBuilder.writeDelimitedTo(outputStream);
+                    this.size.add(recordBuilder.getSerializedSize());
+                  });
               count.incrementAndGet();
               this.latestAppendTimestamp.set(System.currentTimeMillis());
             }
