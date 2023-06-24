@@ -134,6 +134,15 @@ public class Exporter extends SinkConnector {
                   + "backups of a particular topic or topic partition. it can be used in 2 ways: "
                   + "'<topic>.offset.from' or '<topic>.<partition>.offset.from'.")
           .build();
+
+  static String COMPRESSION_TYPE_DEFAULT = "none";
+  static Definition COMPRESSION_TYPE_KEY =
+      Definition.builder()
+          .name("compression.type")
+          .type(Definition.Type.STRING)
+          .documentation("a value that can specify the compression type.")
+          .defaultValue(COMPRESSION_TYPE_DEFAULT)
+          .build();
   private Configuration configs;
 
   @Override
@@ -162,7 +171,8 @@ public class Exporter extends SinkConnector {
         PATH_KEY,
         SIZE_KEY,
         OVERRIDE_KEY,
-        BUFFER_SIZE_KEY);
+        BUFFER_SIZE_KEY,
+        COMPRESSION_TYPE_KEY);
   }
 
   public static class Task extends SinkTask {
@@ -183,6 +193,7 @@ public class Exporter extends SinkConnector {
     String path;
     DataSize size;
     long interval;
+    String compressionType;
 
     // a map of <Topic, <Partition, Offset>>
     private final Map<String, Map<String, Long>> offsetForTopicPartition = new HashMap<>();
@@ -199,6 +210,7 @@ public class Exporter extends SinkConnector {
       return RecordWriter.builder(
               fs.write(
                   String.join("/", path, tp.topic(), String.valueOf(tp.partition()), fileName)))
+          .compression(this.compressionType)
           .build();
     }
 
@@ -299,6 +311,8 @@ public class Exporter extends SinkConnector {
               .orElse(BUFFER_SIZE_DEFAULT)
               .bytes();
       this.taskContext = context;
+      this.compressionType =
+          configuration.string(COMPRESSION_TYPE_KEY.name()).orElse(COMPRESSION_TYPE_DEFAULT);
 
       // fetches key-value pairs from the configuration's variable matching the regular expression
       // '.*offset.from', updates the values of 'offsetForTopic' or 'offsetForTopicPartition' based
