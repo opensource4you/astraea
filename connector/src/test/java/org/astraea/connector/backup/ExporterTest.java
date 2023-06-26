@@ -950,4 +950,67 @@ public class ExporterTest {
       Assertions.assertEquals(1, task.seekOffset.size());
     }
   }
+
+  @Test
+  void testCompression() {
+    try (var server = HdfsServer.local()) {
+      var fileSize = "500Byte";
+      var topicName = Utils.randomString(10);
+
+      var task = new Exporter.Task();
+      var configs =
+          Map.of(
+              "fs.schema",
+              "hdfs",
+              "topics",
+              topicName,
+              "fs.hdfs.hostname",
+              String.valueOf(server.hostname()),
+              "fs.hdfs.port",
+              String.valueOf(server.port()),
+              "fs.hdfs.user",
+              String.valueOf(server.user()),
+              "path",
+              "/" + fileSize,
+              "size",
+              fileSize,
+              "fs.hdfs.override.dfs.client.use.datanode.hostname",
+              "true",
+              "compression.type",
+              "gzip");
+
+      task.start(configs);
+
+      var records =
+          List.of(
+              Record.builder()
+                  .topic(topicName)
+                  .key("test".getBytes())
+                  .value("test value".getBytes())
+                  .partition(0)
+                  .offset(0)
+                  .timestamp(System.currentTimeMillis())
+                  .build(),
+              Record.builder()
+                  .topic(topicName)
+                  .key("test".getBytes())
+                  .value("test value".getBytes())
+                  .partition(0)
+                  .offset(1)
+                  .timestamp(System.currentTimeMillis())
+                  .build());
+
+      task.put(records);
+
+      Utils.sleep(Duration.ofMillis(1000));
+
+      task.close();
+      var fs = FileSystem.of("hdfs", new Configuration(configs));
+
+      var input = fs.read("/" + String.join("/", fileSize, topicName, "0/0"));
+
+      Assertions.assertArrayEquals(
+          new byte[] {(byte) 0x1f, (byte) 0x8b}, Utils.packException(() -> input.readNBytes(2)));
+    }
+  }
 }
