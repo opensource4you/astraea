@@ -777,6 +777,7 @@ public class ExporterTest {
       var task = new Exporter.Task();
       task.fs = FileSystem.of("hdfs", new Configuration(configs));
       task.interval = 1000;
+      task.compressionType = "none";
 
       RecordWriter recordWriter = task.createRecordWriter(tp, offset);
 
@@ -841,6 +842,7 @@ public class ExporterTest {
 
       var task = new Exporter.Task();
       task.fs = FileSystem.of("hdfs", new Configuration(configs));
+      task.compressionType = "none";
       task.size = DataSize.of("100MB");
       task.bufferSize.reset();
       task.recordsQueue.add(
