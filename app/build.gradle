@@ -43,7 +43,7 @@ dependencies {
     implementation libs["slf4j-nop"]
     implementation libs["commons-math3"]
     implementation libs["jackson-datatype-jdk8"]
-    implementation libs["kafka-connect-runtime"]
+    implementation libs["kafka-connect-api"]
 }
 
 application {

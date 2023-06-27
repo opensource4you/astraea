@@ -102,7 +102,8 @@ public class BackupHandler implements Handler {
                 importer -> {
                   var config = connectorConfigMap(importer);
                   config.put(ConnectorConfigs.CONNECTOR_CLASS_KEY, Importer.class.getName());
-                  importer.cleanSourcePolicy.ifPresent(policy -> config.put("clean.source", policy));
+                  importer.cleanSourcePolicy.ifPresent(
+                      policy -> config.put("clean.source", policy));
                   importer.archiveDir.ifPresent(dir -> config.put("archive.dir", dir));
                   return Map.entry(importer.name, config);
                 }),
