@@ -101,8 +101,8 @@ public class BackupHandler implements Handler {
             .map(
                 importer -> {
                   var config = connectorConfigMap(importer);
-                  config.put(ConnectorConfigs.CONNECTOR_CLASS_KEY, importer.connectorClass);
-                  config.put("clean.source", importer.cleanSourcePolicy);
+                  config.put(ConnectorConfigs.CONNECTOR_CLASS_KEY, Importer.class.getName());
+                  importer.cleanSourcePolicy.ifPresent(policy -> config.put("clean.source", policy));
                   importer.archiveDir.ifPresent(dir -> config.put("archive.dir", dir));
                   return Map.entry(importer.name, config);
                 }),
@@ -110,7 +110,7 @@ public class BackupHandler implements Handler {
             .map(
                 exporter -> {
                   var config = connectorConfigMap(exporter);
-                  config.put(ConnectorConfigs.CONNECTOR_CLASS_KEY, exporter.connectorClass);
+                  config.put(ConnectorConfigs.CONNECTOR_CLASS_KEY, Exporter.class.getName());
                   exporter.size.ifPresent(size -> config.put("size", size));
                   exporter.rollDuration.ifPresent(
                       duration -> config.put("roll.duration", duration));
@@ -263,17 +263,15 @@ public class BackupHandler implements Handler {
   }
 
   static class ImporterConfig extends ConnectorConfig implements Request {
-    private final String connectorClass = Importer.class.getName();
-    String cleanSourcePolicy;
-    private Optional<String> archiveDir = Optional.empty();
+    Optional<String> cleanSourcePolicy = Optional.empty();
+    Optional<String> archiveDir = Optional.empty();
   }
 
   static class ExporterConfig extends ConnectorConfig implements Request {
-    private final String connectorClass = Exporter.class.getName();
-    private Optional<String> size = Optional.empty();
-    private Optional<String> rollDuration = Optional.empty();
-    private Optional<String> writerBufferSize = Optional.empty();
-    private Optional<Map<String, String>> offsetFrom = Optional.empty();
+    Optional<String> size = Optional.empty();
+    Optional<String> rollDuration = Optional.empty();
+    Optional<String> writerBufferSize = Optional.empty();
+    Optional<Map<String, String>> offsetFrom = Optional.empty();
   }
 
   static class BackupRequest implements Request {
