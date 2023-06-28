@@ -86,16 +86,17 @@ public class BackupHandlerTest {
                 .toCompletableFuture()
                 .join();
 
-        var responseExporter = response.body().exporters.get(0);
+        var responseExporter = response.body().exporters().get(0);
         Assertions.assertEquals(200, response.statusCode());
-        Assertions.assertEquals(exporterConfig.name, responseExporter.name);
+        Assertions.assertEquals(exporterConfig.name, responseExporter.name());
         Assertions.assertEquals(
-            exporterConfig.topics, responseExporter.config.get(ConnectorConfigs.TOPICS_KEY));
+            exporterConfig.topics, responseExporter.config().get(ConnectorConfigs.TOPICS_KEY));
         Assertions.assertEquals(
-            exporterConfig.tasksMax, responseExporter.config.get(ConnectorConfigs.TASK_MAX_KEY));
-        Assertions.assertEquals(exporterConfig.fsSchema, responseExporter.config.get("fs.schema"));
-        Assertions.assertEquals(exporterConfig.path, responseExporter.config.get("path"));
-        Assertions.assertEquals(0, response.body().importers.size());
+            exporterConfig.tasksMax, responseExporter.config().get(ConnectorConfigs.TASK_MAX_KEY));
+        Assertions.assertEquals(
+            exporterConfig.fsSchema, responseExporter.config().get("fs.schema"));
+        Assertions.assertEquals(exporterConfig.path, responseExporter.config().get("path"));
+        Assertions.assertEquals(0, response.body().importers().size());
 
         HttpExecutor.builder()
             .build()
@@ -172,21 +173,21 @@ public class BackupHandlerTest {
           Assertions.assertInstanceOf(
               BackupHandler.ConnectorStatusResponse.class,
               handler.get(Channel.EMPTY).toCompletableFuture().join());
-      var importer = response.importers.get(0);
-      var exporter = response.exporters.get(0);
+      var importer = response.importers().get(0);
+      var exporter = response.exporters().get(0);
 
-      Assertions.assertEquals(1, response.importers.size());
-      Assertions.assertEquals(importerName, importer.name);
-      Assertions.assertEquals(tasksMax, importer.configs.get(ConnectorConfigs.TASK_MAX_KEY));
-      Assertions.assertEquals(fsSchema, importer.configs.get("fs.schema"));
-      Assertions.assertEquals(pathName, importer.configs.get("path"));
-      Assertions.assertEquals(cleanSourcePolicy, importer.configs.get("clean.source"));
-      Assertions.assertEquals(1, response.exporters.size());
-      Assertions.assertEquals(exporterName, response.exporters.get(0).name);
-      Assertions.assertEquals(topicName, exporter.configs.get(ConnectorConfigs.TOPICS_KEY));
-      Assertions.assertEquals(tasksMax, exporter.configs.get(ConnectorConfigs.TASK_MAX_KEY));
-      Assertions.assertEquals(fsSchema, exporter.configs.get("fs.schema"));
-      Assertions.assertEquals(pathName, exporter.configs.get("path"));
+      Assertions.assertEquals(1, response.importers().size());
+      Assertions.assertEquals(importerName, importer.name());
+      Assertions.assertEquals(tasksMax, importer.configs().get(ConnectorConfigs.TASK_MAX_KEY));
+      Assertions.assertEquals(fsSchema, importer.configs().get("fs.schema"));
+      Assertions.assertEquals(pathName, importer.configs().get("path"));
+      Assertions.assertEquals(cleanSourcePolicy, importer.configs().get("clean.source"));
+      Assertions.assertEquals(1, response.exporters().size());
+      Assertions.assertEquals(exporterName, response.exporters().get(0).name());
+      Assertions.assertEquals(topicName, exporter.configs().get(ConnectorConfigs.TOPICS_KEY));
+      Assertions.assertEquals(tasksMax, exporter.configs().get(ConnectorConfigs.TASK_MAX_KEY));
+      Assertions.assertEquals(fsSchema, exporter.configs().get("fs.schema"));
+      Assertions.assertEquals(pathName, exporter.configs().get("path"));
 
       connectorClient.deleteConnector(importerName).toCompletableFuture().join();
       connectorClient.deleteConnector(exporterName).toCompletableFuture().join();
@@ -241,16 +242,16 @@ public class BackupHandlerTest {
         Assertions.assertInstanceOf(
             BackupHandler.ConnectorStatusResponse.class,
             handler.get(Channel.ofTarget(firstImporterName)).toCompletableFuture().join());
-    var importer = response.importers.get(0);
+    var importer = response.importers().get(0);
 
     Assertions.assertEquals(
         2, connectorClient.connectorNames().toCompletableFuture().join().size());
-    Assertions.assertEquals(1, response.importers.size());
-    Assertions.assertEquals(firstImporterName, importer.name);
-    Assertions.assertEquals(tasksMax, importer.configs.get(ConnectorConfigs.TASK_MAX_KEY));
-    Assertions.assertEquals(fsSchema, importer.configs.get("fs.schema"));
-    Assertions.assertEquals(pathName, importer.configs.get("path"));
-    Assertions.assertEquals(cleanSourcePolicy, importer.configs.get("clean.source"));
+    Assertions.assertEquals(1, response.importers().size());
+    Assertions.assertEquals(firstImporterName, importer.name());
+    Assertions.assertEquals(tasksMax, importer.configs().get(ConnectorConfigs.TASK_MAX_KEY));
+    Assertions.assertEquals(fsSchema, importer.configs().get("fs.schema"));
+    Assertions.assertEquals(pathName, importer.configs().get("path"));
+    Assertions.assertEquals(cleanSourcePolicy, importer.configs().get("clean.source"));
 
     connectorClient.deleteConnector(firstImporterName).toCompletableFuture().join();
     connectorClient.deleteConnector(secondImporterName).toCompletableFuture().join();
@@ -277,15 +278,15 @@ public class BackupHandlerTest {
         Assertions.assertInstanceOf(
             BackupHandler.ConnectorInfoResponse.class,
             handler.post(request).toCompletableFuture().join());
-    var importer = response.importers.get(0);
+    var importer = response.importers().get(0);
     var afterPostSize = connectorClient.connectorNames().toCompletableFuture().join().size();
     Assertions.assertEquals(0, beforePostSize);
     Assertions.assertEquals(1, afterPostSize);
-    Assertions.assertEquals(importerName, importer.name);
-    Assertions.assertEquals(pathName, importer.config.get("path"));
-    Assertions.assertEquals(fsSchema, importer.config.get("fs.schema"));
-    Assertions.assertEquals(tasksMax, importer.config.get(ConnectorConfigs.TASK_MAX_KEY));
-    Assertions.assertEquals(cleanSourcePolicy, importer.config.get("clean.source"));
+    Assertions.assertEquals(importerName, importer.name());
+    Assertions.assertEquals(pathName, importer.config().get("path"));
+    Assertions.assertEquals(fsSchema, importer.config().get("fs.schema"));
+    Assertions.assertEquals(tasksMax, importer.config().get(ConnectorConfigs.TASK_MAX_KEY));
+    Assertions.assertEquals(cleanSourcePolicy, importer.config().get("clean.source"));
 
     connectorClient.deleteConnector(importerName).toCompletableFuture().join();
   }
@@ -340,30 +341,37 @@ public class BackupHandlerTest {
         Assertions.assertInstanceOf(
             BackupHandler.ConnectorInfoResponse.class,
             handler.post(request).toCompletableFuture().join());
-    Assertions.assertEquals(2, response.importers.size());
-    Assertions.assertEquals(2, response.exporters.size());
+    Assertions.assertEquals(2, response.importers().size());
+    Assertions.assertEquals(2, response.exporters().size());
     Assertions.assertTrue(
-        response.importers.stream()
-            .map(importer -> importer.name)
+        response.importers().stream()
+            .map(BackupHandler.ConnectorInfoClass::name)
             .anyMatch(name -> List.of(firstImporterName, secondImporterName).contains(name)));
-    response.importers.forEach(
-        importer -> {
-          Assertions.assertEquals(pathName, importer.config.get("path"));
-          Assertions.assertEquals(fsSchema, importer.config.get("fs.schema"));
-          Assertions.assertEquals(tasksMax, importer.config.get(ConnectorConfigs.TASK_MAX_KEY));
-          Assertions.assertEquals(cleanSourcePolicy, importer.config.get("clean.source"));
-        });
+    response
+        .importers()
+        .forEach(
+            importer -> {
+              Assertions.assertEquals(pathName, importer.config().get("path"));
+              Assertions.assertEquals(fsSchema, importer.config().get("fs.schema"));
+              Assertions.assertEquals(
+                  tasksMax, importer.config().get(ConnectorConfigs.TASK_MAX_KEY));
+              Assertions.assertEquals(cleanSourcePolicy, importer.config().get("clean.source"));
+            });
     Assertions.assertTrue(
-        response.exporters.stream()
-            .map(exporter -> exporter.name)
+        response.exporters().stream()
+            .map(BackupHandler.ConnectorInfoClass::name)
             .anyMatch(name -> List.of(firstExporterName, secondExporterName).contains(name)));
-    response.exporters.forEach(
-        exporter -> {
-          Assertions.assertEquals(topicName, exporter.config.get(ConnectorConfigs.TOPICS_KEY));
-          Assertions.assertEquals(tasksMax, exporter.config.get(ConnectorConfigs.TASK_MAX_KEY));
-          Assertions.assertEquals(fsSchema, exporter.config.get("fs.schema"));
-          Assertions.assertEquals(pathName, exporter.config.get("path"));
-        });
+    response
+        .exporters()
+        .forEach(
+            exporter -> {
+              Assertions.assertEquals(
+                  topicName, exporter.config().get(ConnectorConfigs.TOPICS_KEY));
+              Assertions.assertEquals(
+                  tasksMax, exporter.config().get(ConnectorConfigs.TASK_MAX_KEY));
+              Assertions.assertEquals(fsSchema, exporter.config().get("fs.schema"));
+              Assertions.assertEquals(pathName, exporter.config().get("path"));
+            });
 
     connectorClient.deleteConnector(firstImporterName).toCompletableFuture().join();
     connectorClient.deleteConnector(secondImporterName).toCompletableFuture().join();
@@ -447,15 +455,15 @@ public class BackupHandlerTest {
         Assertions.assertInstanceOf(
             BackupHandler.ConnectorInfoResponse.class,
             handler.put(request).toCompletableFuture().join());
-    var importer = response.importers.get(0);
+    var importer = response.importers().get(0);
 
     Assertions.assertEquals(
         1, connectorClient.connectorNames().toCompletableFuture().join().size());
-    Assertions.assertEquals(importerName, importer.name);
-    Assertions.assertEquals(newPathName, importer.config.get("path"));
-    Assertions.assertEquals(fsSchema, importer.config.get("fs.schema"));
-    Assertions.assertEquals(newTasksMax, importer.config.get(ConnectorConfigs.TASK_MAX_KEY));
-    Assertions.assertEquals(newCleanSourcePolicy, importer.config.get("clean.source"));
+    Assertions.assertEquals(importerName, importer.name());
+    Assertions.assertEquals(newPathName, importer.config().get("path"));
+    Assertions.assertEquals(fsSchema, importer.config().get("fs.schema"));
+    Assertions.assertEquals(newTasksMax, importer.config().get(ConnectorConfigs.TASK_MAX_KEY));
+    Assertions.assertEquals(newCleanSourcePolicy, importer.config().get("clean.source"));
 
     connectorClient.deleteConnector(importerName).toCompletableFuture().join();
   }
@@ -523,18 +531,21 @@ public class BackupHandlerTest {
         Assertions.assertInstanceOf(
             BackupHandler.ConnectorInfoResponse.class,
             handler.put(request).toCompletableFuture().join());
-    Assertions.assertEquals(2, response.importers.size());
+    Assertions.assertEquals(2, response.importers().size());
     Assertions.assertTrue(
-        response.importers.stream()
-            .map(importer -> importer.name)
+        response.importers().stream()
+            .map(BackupHandler.ConnectorInfoClass::name)
             .anyMatch(name -> List.of(firstImporterName, secondImporterName).contains(name)));
-    response.importers.forEach(
-        importer -> {
-          Assertions.assertEquals(newPathName, importer.config.get("path"));
-          Assertions.assertEquals(fsSchema, importer.config.get("fs.schema"));
-          Assertions.assertEquals(newTasksMax, importer.config.get(ConnectorConfigs.TASK_MAX_KEY));
-          Assertions.assertEquals(newCleanSourcePolicy, importer.config.get("clean.source"));
-        });
+    response
+        .importers()
+        .forEach(
+            importer -> {
+              Assertions.assertEquals(newPathName, importer.config().get("path"));
+              Assertions.assertEquals(fsSchema, importer.config().get("fs.schema"));
+              Assertions.assertEquals(
+                  newTasksMax, importer.config().get(ConnectorConfigs.TASK_MAX_KEY));
+              Assertions.assertEquals(newCleanSourcePolicy, importer.config().get("clean.source"));
+            });
 
     connectorClient.deleteConnector(firstImporterName).toCompletableFuture().join();
     connectorClient.deleteConnector(secondImporterName).toCompletableFuture().join();

@@ -176,75 +176,34 @@ public class BackupHandler implements Handler {
         groups.get(Importer.class.getName()), groups.get(Exporter.class.getName()));
   }
 
-  static class ConnectorStatusClass {
-    final String name;
-    final String state;
-    final Map<String, String> configs;
-    final Map<Integer, String> tasks;
-
+  record ConnectorStatusClass(
+      String name, String state, Map<String, String> configs, Map<Integer, String> tasks)
+      implements Response {
     private ConnectorStatusClass() {
-      this.name = "";
-      this.state = "";
-      this.configs = Map.of();
-      this.tasks = Map.of();
-    }
-
-    private ConnectorStatusClass(
-        String name, String state, Map<String, String> configs, Map<Integer, String> tasks) {
-      this.name = name;
-      this.state = state;
-      this.configs = configs;
-      this.tasks = tasks;
+      this("", "", Map.of(), Map.of());
     }
   }
 
-  static class ConnectorInfoClass {
-    final String name;
-    final Map<String, String> config;
-    final List<Integer> tasks;
-
+  record ConnectorInfoClass(String name, Map<String, String> config, List<Integer> tasks)
+      implements Response {
     private ConnectorInfoClass() {
-      this.name = "";
-      this.config = Map.of();
-      this.tasks = List.of();
-    }
-
-    private ConnectorInfoClass(String name, Map<String, String> config, List<Integer> tasks) {
-      this.name = name;
-      this.config = config;
-      this.tasks = tasks;
+      this("", Map.of(), List.of());
     }
   }
 
-  static class ConnectorStatusResponse implements Response {
-    final List<ConnectorStatusClass> importers;
-    final List<ConnectorStatusClass> exporters;
-
+  record ConnectorStatusResponse(
+      List<ConnectorStatusClass> importers, List<ConnectorStatusClass> exporters)
+      implements Response {
     private ConnectorStatusResponse() {
-      this.importers = List.of();
-      this.exporters = List.of();
-    }
-
-    private ConnectorStatusResponse(
-        List<ConnectorStatusClass> importers, List<ConnectorStatusClass> exporters) {
-      this.importers = importers;
-      this.exporters = exporters;
+      this(List.of(), List.of());
     }
   }
 
-  static class ConnectorInfoResponse implements Response {
-    final List<ConnectorInfoClass> importers;
-    final List<ConnectorInfoClass> exporters;
+  record ConnectorInfoResponse(
+      List<ConnectorInfoClass> importers, List<ConnectorInfoClass> exporters) implements Response {
 
     private ConnectorInfoResponse() {
-      this.importers = List.of();
-      this.exporters = List.of();
-    }
-
-    private ConnectorInfoResponse(
-        List<ConnectorInfoClass> importers, List<ConnectorInfoClass> exporters) {
-      this.importers = importers;
-      this.exporters = exporters;
+      this(List.of(), List.of());
     }
   }
 
