@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.io.Writer;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 
 public class CsvWriterBuilder {
@@ -69,7 +70,12 @@ public class CsvWriterBuilder {
 
     @Override
     public void rawAppend(List<String> nextLine) {
-      Utils.packException(() -> writer.write(String.join(SEPARATOR, nextLine)));
+      Utils.packException(
+          () ->
+              writer.write(
+                  nextLine.stream()
+                      .map(e -> e == null ? "" : e)
+                      .collect(Collectors.joining(SEPARATOR))));
       Utils.packException(() -> writer.write('\n'));
     }
 

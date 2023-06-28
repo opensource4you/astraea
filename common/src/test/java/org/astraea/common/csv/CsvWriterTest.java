@@ -18,10 +18,12 @@ package org.astraea.common.csv;
 
 import static org.astraea.it.Utils.createTempDirectory;
 import static org.astraea.it.Utils.mkdir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import org.astraea.common.Utils;
 import org.junit.jupiter.api.Test;
@@ -100,5 +102,21 @@ public class CsvWriterTest {
         CsvWriter.builder(Utils.packException(() -> Files.newBufferedWriter(target))).build()) {
       assertThrows(RuntimeException.class, () -> writer.append(null));
     }
+  }
+
+  @Test
+  void nullElementsTest() {
+    var local_csv = createTempDirectory("local_CSV");
+    var sink = mkdir(local_csv + "/sink");
+    var target = Path.of(sink + "/" + DATA_MAME);
+    try (var writer =
+        CsvWriter.builder(Utils.packException(() -> Files.newBufferedWriter(target))).build()) {
+      List<String> nullElements = new ArrayList<>();
+      nullElements.add(null);
+      nullElements.add(null);
+      nullElements.add(null);
+      writer.append(nullElements);
+    }
+    assertEquals(",,\n", Utils.packException(() -> Files.readString(target)));
   }
 }

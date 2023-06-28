@@ -16,7 +16,7 @@
  */
 package org.astraea.etl
 
-import com.opencsv.CSVWriter
+import org.astraea.common.csv.CsvWriter
 
 import java.io.{BufferedWriter, FileWriter}
 import java.nio.file.{Files, Path}
@@ -56,19 +56,22 @@ object FileCreator {
       path: String,
       rows: List[List[String]]
   ): Try[Unit] =
-    Try(new CSVWriter(new BufferedWriter(new FileWriter(path)))).flatMap(
-      (csvWriter: CSVWriter) =>
-        Try {
-          csvWriter.writeAll(rows.map(_.toArray).asJava)
-          csvWriter.close()
-        } match {
-          case f @ Failure(_) =>
-            Try(csvWriter.close()).recoverWith { case _ =>
-              f
-            }
-          case success =>
-            success
-        }
+    Try(
+      CsvWriter
+        .builder(new BufferedWriter(new FileWriter(path)))
+        .build()
+    ).flatMap((csvWriter: CsvWriter) =>
+      Try {
+        rows.map(_.asJava).foreach(csvWriter.append)
+        csvWriter.close()
+      } match {
+        case f @ Failure(_) =>
+          Try(csvWriter.close()).recoverWith { case _ =>
+            f
+          }
+        case success =>
+          success
+      }
     )
 
   def getCSVFile(file: Path): Seq[Path] = {
