@@ -17,6 +17,7 @@
 package org.astraea.app.web;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,7 +48,12 @@ public class WebServiceTest {
   void testClose() {
     var web =
         new WebService(
-            Mockito.mock(Admin.class), 0, id -> -1, Duration.ofMillis(5), Configuration.EMPTY);
+            Mockito.mock(Admin.class),
+            0,
+            id -> -1,
+            Duration.ofMillis(5),
+            Configuration.EMPTY,
+            List.of());
     web.close();
   }
 
@@ -116,7 +122,12 @@ public class WebServiceTest {
       // Test default metric store configuration
       try (var web =
           new WebService(
-              Mockito.mock(Admin.class), 0, id -> -1, Duration.ofMillis(5), Configuration.EMPTY)) {
+              Mockito.mock(Admin.class),
+              0,
+              id -> -1,
+              Duration.ofMillis(5),
+              Configuration.EMPTY,
+              List.of())) {
 
         Assertions.assertEquals(1, localReceiverCount.get());
         Assertions.assertEquals(0, topicReceiverCount.get());
@@ -130,8 +141,8 @@ public class WebServiceTest {
               0,
               id -> -1,
               Duration.ofMillis(5),
-              new Configuration(
-                  Map.of(WebService.METRIC_STORE_KEY, WebService.METRIC_STORE_LOCAL)))) {
+              new Configuration(Map.of(WebService.METRIC_STORE_KEY, WebService.METRIC_STORE_LOCAL)),
+              List.of())) {
 
         Assertions.assertEquals(1, localReceiverCount.get());
         Assertions.assertEquals(0, topicReceiverCount.get());
@@ -150,7 +161,8 @@ public class WebServiceTest {
                       WebService.METRIC_STORE_KEY,
                       WebService.METRIC_STORE_TOPIC,
                       WebService.BOOTSTRAP_SERVERS_KEY,
-                      "ignore")))) {
+                      "ignore")),
+              List.of())) {
 
         // topic collector may create local receiver to receive local jmx metric
         Assertions.assertEquals(1, topicReceiverCount.get());
@@ -165,7 +177,8 @@ public class WebServiceTest {
                   0,
                   id -> -1,
                   Duration.ofMillis(5),
-                  new Configuration(Map.of(WebService.METRIC_STORE_KEY, "unknown"))));
+                  new Configuration(Map.of(WebService.METRIC_STORE_KEY, "unknown")),
+                  List.of()));
     }
   }
 }

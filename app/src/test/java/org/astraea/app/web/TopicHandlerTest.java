@@ -71,7 +71,8 @@ public class TopicHandlerTest {
               0,
               id -> SERVICE.jmxServiceURL().getPort(),
               Duration.ofMillis(5),
-              Configuration.EMPTY)) {
+              Configuration.EMPTY,
+              List.of())) {
         Response<TopicHandler.Topics> response =
             HttpExecutor.builder()
                 .build()
