@@ -312,7 +312,10 @@ public class Exporter extends SinkConnector {
               .bytes();
       this.taskContext = context;
       this.compressionType =
-          configuration.string(COMPRESSION_TYPE_KEY.name()).orElse(COMPRESSION_TYPE_DEFAULT);
+          configuration
+              .string(COMPRESSION_TYPE_KEY.name())
+              .orElse(COMPRESSION_TYPE_DEFAULT)
+              .toLowerCase();
 
       // fetches key-value pairs from the configuration's variable matching the regular expression
       // '.*offset.from', updates the values of 'offsetForTopic' or 'offsetForTopicPartition' based
