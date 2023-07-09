@@ -18,7 +18,6 @@ package org.astraea.common.backup;
 
 import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -119,8 +118,17 @@ public class RecordWriterBuilder {
     this.fs = outputStream;
   }
 
-  public RecordWriterBuilder compression() throws IOException {
-    this.fs = new GZIPOutputStream(this.fs);
+  public RecordWriterBuilder compression(String type) {
+    switch (type) {
+      case "gzip":
+        this.fs = Utils.packException(() -> new GZIPOutputStream(this.fs));
+        break;
+      case "none":
+        // do nothing.
+        break;
+      default:
+        throw new IllegalArgumentException("unsupported compression type: " + type);
+    }
     return this;
   }
 
