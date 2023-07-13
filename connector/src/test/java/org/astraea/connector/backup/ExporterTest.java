@@ -937,11 +937,11 @@ public class ExporterTest {
               .timestamp(System.currentTimeMillis())
               .build();
 
-      Assertions.assertFalse(task.targeOffset(record1).isPresent());
-      Assertions.assertEquals(100, task.targeOffset(record2).orElse(null));
-      Assertions.assertEquals(200, task.targeOffset(record3).orElse(null));
-      Assertions.assertEquals(200, task.targeOffset(record4).orElse(null));
-      Assertions.assertFalse(task.targeOffset(record5).isPresent());
+      Assertions.assertFalse(task.targetOffset(record1).isPresent());
+      Assertions.assertEquals(100, task.targetOffset(record2).orElse(null));
+      Assertions.assertEquals(200, task.targetOffset(record3).orElse(null));
+      Assertions.assertEquals(200, task.targetOffset(record4).orElse(null));
+      Assertions.assertFalse(task.targetOffset(record5).isPresent());
 
       Assertions.assertTrue(task.isValid(record1));
       Assertions.assertFalse(task.isValid(record2));

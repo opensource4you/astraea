@@ -373,7 +373,7 @@ public class Exporter extends SinkConnector {
     }
 
     protected boolean isValid(Record<byte[], byte[]> r) {
-      var targetOffset = targeOffset(r);
+      var targetOffset = targetOffset(r);
 
       // If the target offset exists and the record's offset is less than the target offset,
       // set the seek offset to the target offset and return false.
@@ -394,7 +394,7 @@ public class Exporter extends SinkConnector {
      *     is not found.
      */
     // visible for test
-    protected Optional<Long> targeOffset(Record<byte[], byte[]> r) {
+    protected Optional<Long> targetOffset(Record<byte[], byte[]> r) {
       var topicMap = this.offsetForTopicPartition.get(r.topic());
 
       // If we are unable to obtain the target offset from the 'offsetForTopicPartition' map,
