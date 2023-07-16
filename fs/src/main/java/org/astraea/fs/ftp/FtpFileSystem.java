@@ -208,6 +208,11 @@ public class FtpFileSystem implements FileSystem {
             }
 
             @Override
+            public void write(byte b[]) throws IOException {
+              outputStream.write(b);
+            }
+
+            @Override
             public void write(byte b[], int off, int len) throws IOException {
               outputStream.write(b, off, len);
             }

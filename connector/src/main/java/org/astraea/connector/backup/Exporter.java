@@ -29,6 +29,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
@@ -195,6 +196,8 @@ public class Exporter extends SinkConnector {
     long interval;
     String compressionType;
 
+    Configuration configuration;
+
     // a map of <Topic, <Partition, Offset>>
     private final Map<String, Map<String, Long>> offsetForTopicPartition = new HashMap<>();
 
@@ -205,12 +208,26 @@ public class Exporter extends SinkConnector {
 
     private SinkTaskContext taskContext;
 
-    RecordWriter createRecordWriter(TopicPartition tp, long offset) {
-      var fileName = String.valueOf(offset);
+    // create for test
+    RecordWriter createRecordWriter(Record record, Configuration configuration) {
+      var fileName = String.valueOf(record.offset());
       return RecordWriter.builder(
               fs.write(
-                  String.join("/", path, tp.topic(), String.valueOf(tp.partition()), fileName)))
-          .compression(this.compressionType)
+                  String.join(
+                      "/", path, record.topic(), String.valueOf(record.partition()), fileName)),
+              configuration,
+              record)
+          .build();
+    }
+
+    RecordWriter createRecordWriter(Record record) {
+      var fileName = String.valueOf(record.offset());
+      return RecordWriter.builder(
+              fs.write(
+                  String.join(
+                      "/", path, record.topic(), String.valueOf(record.partition()), fileName)),
+              this.configuration,
+              record)
           .build();
     }
 
@@ -249,8 +266,7 @@ public class Exporter extends SinkConnector {
       records.forEach(
           record -> {
             var writer =
-                writers.computeIfAbsent(
-                    record.topicPartition(), tp -> createRecordWriter(tp, record.offset()));
+                writers.computeIfAbsent(record.topicPartition(), tp -> createRecordWriter(record));
             writer.append(record);
             if (writer.size().greaterThan(size)) {
               writers.remove(record.topicPartition()).close();
@@ -316,6 +332,13 @@ public class Exporter extends SinkConnector {
               .string(COMPRESSION_TYPE_KEY.name())
               .orElse(COMPRESSION_TYPE_DEFAULT)
               .toLowerCase();
+
+      var originalConfiguration =
+          configuration.raw().entrySet().stream()
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      originalConfiguration.computeIfAbsent(
+          "connector.name", k -> this.taskContext.configs().get("name"));
+      this.configuration = new Configuration(originalConfiguration);
 
       // fetches key-value pairs from the configuration's variable matching the regular expression
       // '.*offset.from', updates the values of 'offsetForTopic' or 'offsetForTopicPartition' based

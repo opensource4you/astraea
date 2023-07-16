@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.connector.Value;
 import org.astraea.common.consumer.Record;
 import org.astraea.common.producer.Producer;
+import org.astraea.connector.SinkTaskContext;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
 import org.astraea.it.HdfsServer;
@@ -51,6 +53,26 @@ public class ExporterTest {
 
   private static final Service SERVICE =
       Service.builder().numberOfWorkers(1).numberOfBrokers(1).build();
+
+  private static final SinkTaskContext context =
+      new SinkTaskContext() {
+        @Override
+        public void offset(Map<TopicPartition, Long> offsets) {}
+
+        @Override
+        public void offset(TopicPartition topicPartition, long offset) {}
+
+        @Override
+        public void pause(Collection<TopicPartition> partitions) {}
+
+        @Override
+        public void requestCommit() {}
+
+        @Override
+        public Map<String, String> configs() {
+          return Map.of("name", "test");
+        }
+      };
 
   @AfterAll
   static void closeService() {
@@ -191,7 +213,7 @@ public class ExporterTest {
 
       var fs = FileSystem.of("ftp", new Configuration(configs));
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var records =
           List.of(
@@ -751,8 +773,11 @@ public class ExporterTest {
       var topicName = Utils.randomString(10);
       var tp = TopicPartition.of(topicName, 0);
       long offset = 123;
+      var testRecord = Record.builder().topic(topicName).topicPartition(tp).offset(offset).build();
       var configs =
           Map.of(
+              "name",
+              "test",
               "fs.schema",
               "hdfs",
               "topics",
@@ -779,7 +804,7 @@ public class ExporterTest {
       task.interval = 1000;
       task.compressionType = "none";
 
-      RecordWriter recordWriter = task.createRecordWriter(tp, offset);
+      RecordWriter recordWriter = task.createRecordWriter(testRecord, new Configuration(configs));
 
       Assertions.assertNotNull(recordWriter);
 
@@ -981,7 +1006,7 @@ public class ExporterTest {
               "compression.type",
               "gzip");
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var records =
           List.of(
@@ -1012,7 +1037,7 @@ public class ExporterTest {
       var input = fs.read("/" + String.join("/", fileSize, topicName, "0/0"));
 
       Assertions.assertArrayEquals(
-          new byte[] {(byte) 0x1f, (byte) 0x8b}, Utils.packException(() -> input.readNBytes(2)));
+          new byte[] {(byte) 0x0, (byte) 0x0, (byte) 0x1f, (byte) 0x8b}, Utils.packException(() -> input.readNBytes(4)));
     }
   }
 }

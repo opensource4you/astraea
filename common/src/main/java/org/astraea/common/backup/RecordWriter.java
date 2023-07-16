@@ -19,6 +19,7 @@ package org.astraea.common.backup;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;
@@ -53,5 +54,11 @@ public interface RecordWriter extends AutoCloseable {
 
   static RecordWriterBuilder builder(OutputStream outputStream) {
     return new RecordWriterBuilder(RecordWriterBuilder.LATEST_VERSION, outputStream);
+  }
+
+  static RecordWriterBuilder builder(
+      OutputStream outputStream, Configuration configuration, Record record) {
+    return new RecordWriterBuilder(
+        RecordWriterBuilder.LATEST_VERSION, outputStream, configuration, record);
   }
 }
