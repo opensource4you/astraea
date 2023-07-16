@@ -20,9 +20,11 @@ import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
 import java.io.OutputStream;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Function;
 import java.util.zip.GZIPOutputStream;
 import org.astraea.common.ByteUtils;
 import org.astraea.common.Configuration;
@@ -34,7 +36,83 @@ import org.astraea.common.generated.RecordOuterClass;
 
 public class RecordWriterBuilder {
 
-  private static final Bi3Function<Configuration, Record, OutputStream, RecordWriter> V0 =
+  static RecordOuterClass.Record record2Builder(Record<byte[], byte[]> record) {
+    return Utils.packException(
+        () ->
+            RecordOuterClass.Record.newBuilder()
+                .setTopic(record.topic())
+                .setPartition(record.partition())
+                .setOffset(record.offset())
+                .setTimestamp(record.timestamp())
+                .setKey(record.key() == null ? ByteString.EMPTY : ByteString.copyFrom(record.key()))
+                .setValue(
+                    record.value() == null ? ByteString.EMPTY : ByteString.copyFrom(record.value()))
+                .addAllHeaders(
+                    record.headers().stream()
+                        .map(
+                            header ->
+                                RecordOuterClass.Record.Header.newBuilder()
+                                    .setKey(header.key())
+                                    .setValue(
+                                        header.value() == null
+                                            ? ByteString.EMPTY
+                                            : ByteString.copyFrom(header.value()))
+                                    .build())
+                        .toList())
+                .build());
+  }
+
+  private static final Function<OutputStream, RecordWriter> V0 =
+      outputStream ->
+          new RecordWriter() {
+            private final AtomicInteger count = new AtomicInteger();
+            private final LongAdder size = new LongAdder();
+
+            private final AtomicLong latestAppendTimestamp = new AtomicLong();
+
+            @Override
+            public void append(Record<byte[], byte[]> record) {
+              Utils.packException(
+                  () -> {
+                    var recordBuilder = record2Builder(record);
+                    recordBuilder.writeDelimitedTo(outputStream);
+                    this.size.add(recordBuilder.getSerializedSize());
+                  });
+              count.incrementAndGet();
+              this.latestAppendTimestamp.set(System.currentTimeMillis());
+            }
+
+            @Override
+            public long latestAppendTimestamp() {
+              return this.latestAppendTimestamp.get();
+            }
+
+            @Override
+            public DataSize size() {
+              return DataSize.Byte.of(size.sum());
+            }
+
+            @Override
+            public int count() {
+              return count.get();
+            }
+
+            @Override
+            public void flush() {
+              Utils.packException(outputStream::flush);
+            }
+
+            @Override
+            public void close() {
+              Utils.packException(
+                  () -> {
+                    outputStream.flush();
+                    outputStream.close();
+                  });
+            }
+          };
+
+  private static final Bi3Function<Configuration, Record, OutputStream, RecordWriter> V1 =
       (configuration, record, outputStream) ->
           new RecordWriter() {
             private final AtomicInteger count = new AtomicInteger();
@@ -108,33 +186,7 @@ public class RecordWriterBuilder {
             public void append(Record<byte[], byte[]> record) {
               Utils.packException(
                   () -> {
-                    var recordBuilder =
-                        RecordOuterClass.Record.newBuilder()
-                            .setTopic(record.topic())
-                            .setPartition(record.partition())
-                            .setOffset(record.offset())
-                            .setTimestamp(record.timestamp())
-                            .setKey(
-                                record.key() == null
-                                    ? ByteString.EMPTY
-                                    : ByteString.copyFrom(record.key()))
-                            .setValue(
-                                record.value() == null
-                                    ? ByteString.EMPTY
-                                    : ByteString.copyFrom(record.value()))
-                            .addAllHeaders(
-                                record.headers().stream()
-                                    .map(
-                                        header ->
-                                            RecordOuterClass.Record.Header.newBuilder()
-                                                .setKey(header.key())
-                                                .setValue(
-                                                    header.value() == null
-                                                        ? ByteString.EMPTY
-                                                        : ByteString.copyFrom(header.value()))
-                                                .build())
-                                    .toList())
-                            .build();
+                    var recordBuilder = record2Builder(record);
                     recordBuilder.writeDelimitedTo(this.targetOutputStream);
                     this.size.add(recordBuilder.getSerializedSize());
                   });
@@ -173,7 +225,7 @@ public class RecordWriterBuilder {
             }
           };
 
-  public static final short LATEST_VERSION = (short) 0;
+  public static final short LATEST_VERSION = (short) 1;
 
   private final short version;
   private OutputStream fs;
@@ -208,7 +260,10 @@ public class RecordWriterBuilder {
         () -> {
           if (version == 0) {
             fs.write(ByteUtils.toBytes(version));
-            return V0.apply(this.configuration, this.record, fs);
+            return V0.apply(fs);
+          } else if (version == 1) {
+            fs.write(ByteUtils.toBytes(version));
+            return V1.apply(this.configuration, this.record, fs);
           }
           throw new IllegalArgumentException("unsupported version: " + version);
         });

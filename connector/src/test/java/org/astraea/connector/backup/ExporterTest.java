@@ -300,7 +300,7 @@ public class ExporterTest {
 
       var fs = FileSystem.of("ftp", new Configuration(configs));
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var records1 =
           Record.builder()
@@ -375,7 +375,7 @@ public class ExporterTest {
 
       var fs = FileSystem.of("ftp", new Configuration(configs));
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var record1 =
           Record.builder()
@@ -480,7 +480,7 @@ public class ExporterTest {
               "fs.hdfs.override.dfs.client.use.datanode.hostname",
               "true");
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var records =
           List.of(
@@ -579,7 +579,7 @@ public class ExporterTest {
               "roll.duration",
               "300ms");
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var records1 =
           Record.builder()
@@ -652,7 +652,7 @@ public class ExporterTest {
               "roll.duration",
               "100ms");
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var record1 =
           Record.builder()
@@ -776,7 +776,7 @@ public class ExporterTest {
       var testRecord = Record.builder().topic(topicName).topicPartition(tp).offset(offset).build();
       var configs =
           Map.of(
-              "name",
+              "connector.name",
               "test",
               "fs.schema",
               "hdfs",
@@ -844,6 +844,8 @@ public class ExporterTest {
       var path = "/test";
       var configs =
           Map.of(
+              "connector.name",
+              "test",
               "fs.schema",
               "hdfs",
               "topics",
@@ -868,6 +870,7 @@ public class ExporterTest {
       var task = new Exporter.Task();
       task.fs = FileSystem.of("hdfs", new Configuration(configs));
       task.compressionType = "none";
+      task.configuration = new Configuration(configs);
       task.size = DataSize.of("100MB");
       task.bufferSize.reset();
       task.recordsQueue.add(
@@ -914,7 +917,7 @@ public class ExporterTest {
 
       var task = new Exporter.Task();
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var record1 =
           Record.builder()
@@ -1037,7 +1040,8 @@ public class ExporterTest {
       var input = fs.read("/" + String.join("/", fileSize, topicName, "0/0"));
 
       Assertions.assertArrayEquals(
-          new byte[] {(byte) 0x0, (byte) 0x0, (byte) 0x1f, (byte) 0x8b}, Utils.packException(() -> input.readNBytes(4)));
+          new byte[] {(byte) 0x0, (byte) 0x1, (byte) 0x1f, (byte) 0x8b},
+          Utils.packException(() -> input.readNBytes(4)));
     }
   }
 }

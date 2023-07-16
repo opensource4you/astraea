@@ -53,7 +53,7 @@ public interface RecordWriter extends AutoCloseable {
   }
 
   static RecordWriterBuilder builder(OutputStream outputStream) {
-    return new RecordWriterBuilder(RecordWriterBuilder.LATEST_VERSION, outputStream);
+    return new RecordWriterBuilder((short) 0, outputStream);
   }
 
   static RecordWriterBuilder builder(
