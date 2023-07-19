@@ -149,7 +149,7 @@ public class StrictCostPartitionerTest {
           new byte[0],
           new byte[0],
           ClusterInfoTest.of(List.of(replicaInfo0, replicaInfo1)));
-      Assertions.assertEquals(0, partitioner.metricStore.sensors().size());
+      Assertions.assertEquals(1, partitioner.metricStore.sensors().size());
     }
   }
 

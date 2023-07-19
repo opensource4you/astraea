@@ -261,7 +261,7 @@ public interface MetricStore extends AutoCloseable {
             while (!closed.get()) {
               try {
                 receivers.stream()
-                    .map(r -> r.receive(Duration.ofSeconds(3)))
+                    .map(r -> r.receive(Duration.ZERO))
                     .forEach(
                         allBeans -> {
                           beanReceivedSensor.record(
