@@ -261,6 +261,11 @@ public interface MetricStore extends AutoCloseable {
             while (!closed.get()) {
               try {
                 receivers.stream()
+                    // TODO: Busy waiting on metric receiving.
+                    // issue: https://github.com/skiptests/astraea/issues/1834
+                    // To prevent specific receiver block other receivers' job, we set receive
+                    // timeout to zero. But if all receivers return empty immediately, it may cause
+                    // this thread busy waiting on doing `receiver.receive`.
                     .map(r -> r.receive(Duration.ZERO))
                     .forEach(
                         allBeans -> {
