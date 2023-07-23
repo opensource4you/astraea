@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.zip.GZIPOutputStream;
 import org.astraea.common.ByteUtils;
@@ -30,7 +31,6 @@ import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;
-import org.astraea.common.function.Bi3Function;
 import org.astraea.common.generated.RecordOuterClass;
 
 public class RecordWriterBuilder {
@@ -111,8 +111,8 @@ public class RecordWriterBuilder {
             }
           };
 
-  private static final Bi3Function<Configuration, Record, OutputStream, RecordWriter> V1 =
-      (configuration, record, outputStream) ->
+  private static final BiFunction<Configuration, OutputStream, RecordWriter> V1 =
+      (configuration, outputStream) ->
           new RecordWriter() {
             private final AtomicInteger count = new AtomicInteger();
             private final LongAdder size = new LongAdder();
@@ -161,17 +161,7 @@ public class RecordWriterBuilder {
 
                     // 552 Bytes total for whole metadata.
                     outputStream.write(
-                        this.extendString(
-                            this.connectorName, 255)); // 255 Bytes for this connector name
-                    outputStream.write(
-                        this.extendString(record.topic(), 255)); // 255 Bytes for topic name
-                    // 42 Bytes
-                    outputStream.write(
-                        ByteUtils.toBytes(record.partition())); // 4 Bytes for partition
-                    outputStream.write(
-                        ByteUtils.toBytes(record.offset())); // 8 bytes for 1st record offset
-                    outputStream.write(
-                        ByteUtils.toBytes(record.timestamp())); // 8 bytes for 1st record timestamp
+                        this.extendString(this.connectorName, 255)); // 255 Bytes for this connector
                     outputStream.write(ByteUtils.toBytes(this.count())); // 4 Bytes for count
                     outputStream.write(
                         ByteUtils.toBytes(this.interval)); // 8 Bytes for mills of roll.duration
@@ -229,19 +219,16 @@ public class RecordWriterBuilder {
   private final short version;
   private OutputStream fs;
   private Configuration configuration;
-  private Record record;
 
   RecordWriterBuilder(short version, OutputStream outputStream) {
     this.version = version;
     this.fs = outputStream;
   }
 
-  RecordWriterBuilder(
-      short version, OutputStream outputStream, Configuration configuration, Record record) {
+  RecordWriterBuilder(short version, OutputStream outputStream, Configuration configuration) {
     this.version = version;
     this.fs = outputStream;
     this.configuration = configuration;
-    this.record = record;
   }
 
   public RecordWriterBuilder buffered() {
@@ -262,7 +249,7 @@ public class RecordWriterBuilder {
             return V0.apply(fs);
           } else if (version == 1) {
             fs.write(ByteUtils.toBytes(version));
-            return V1.apply(this.configuration, this.record, fs);
+            return V1.apply(this.configuration, fs);
           }
           throw new IllegalArgumentException("unsupported version: " + version);
         });

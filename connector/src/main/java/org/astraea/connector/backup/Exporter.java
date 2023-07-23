@@ -215,8 +215,7 @@ public class Exporter extends SinkConnector {
               fs.write(
                   String.join(
                       "/", path, record.topic(), String.valueOf(record.partition()), fileName)),
-              configuration,
-              record)
+              configuration)
           .build();
     }
 
@@ -226,8 +225,7 @@ public class Exporter extends SinkConnector {
               fs.write(
                   String.join(
                       "/", path, record.topic(), String.valueOf(record.partition()), fileName)),
-              this.configuration,
-              record)
+              this.configuration)
           .build();
     }
 
