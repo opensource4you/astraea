@@ -37,6 +37,11 @@ public interface SinkTaskContext {
 
         @Override
         public void requestCommit() {}
+
+        @Override
+        public Map<String, String> configs() {
+          return null;
+        }
       };
 
   /**
@@ -67,6 +72,8 @@ public interface SinkTaskContext {
    */
   void requestCommit();
 
+  Map<String, String> configs();
+
   static SinkTaskContext of(org.apache.kafka.connect.sink.SinkTaskContext context) {
     return new SinkTaskContext() {
       @Override
@@ -94,6 +101,12 @@ public interface SinkTaskContext {
       public void requestCommit() {
         context.requestCommit();
       }
+
+      @Override
+      public Map<String, String> configs() {
+        return context.configs();
+      }
+      ;
     };
   }
 }
