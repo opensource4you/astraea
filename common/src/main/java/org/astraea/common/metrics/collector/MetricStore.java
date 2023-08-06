@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -236,6 +237,7 @@ public interface MetricStore extends AutoCloseable {
       this.receivers = receivers;
       // receiver + cleaner
       this.executor = Executors.newFixedThreadPool(2);
+      var isChecking = new AtomicBoolean(false);
       Runnable cleanerJob =
           () -> {
             while (!closed.get()) {
@@ -292,7 +294,13 @@ public interface MetricStore extends AutoCloseable {
                           if (!allBeans.isEmpty()) {
                             // generate new cluster bean
                             updateClusterBean();
-                            checkWaitingList(this.waitingList, clusterBean());
+                            // Create one thread for checking the waiting list, if there is no
+                            // thread checking it currently.
+                            if (isChecking.compareAndSet(false, true)) {
+                              CompletableFuture.runAsync(
+                                      () -> checkWaitingList(this.waitingList, clusterBean()))
+                                  .thenAccept(ignore -> isChecking.set(false));
+                            }
                           }
                         });
               } catch (Exception e) {
