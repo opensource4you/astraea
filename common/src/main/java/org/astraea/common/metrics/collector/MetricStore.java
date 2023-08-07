@@ -237,7 +237,7 @@ public interface MetricStore extends AutoCloseable {
       this.receivers = receivers;
       // receiver + cleaner
       this.executor = Executors.newFixedThreadPool(2);
-      var isChecking = new AtomicBoolean(false);
+
       Runnable cleanerJob =
           () -> {
             while (!closed.get()) {
@@ -260,6 +260,8 @@ public interface MetricStore extends AutoCloseable {
           };
       Runnable receiverJob =
           () -> {
+            var isChecking = new AtomicBoolean(false);
+            var needChecking = new AtomicBoolean(false);
             while (!closed.get()) {
               try {
                 receivers.stream()
@@ -294,13 +296,18 @@ public interface MetricStore extends AutoCloseable {
                           if (!allBeans.isEmpty()) {
                             // generate new cluster bean
                             updateClusterBean();
-                            // Create one thread for checking the waiting list, if there is no
-                            // thread checking it currently.
-                            if (isChecking.compareAndSet(false, true)) {
-                              CompletableFuture.runAsync(
-                                      () -> checkWaitingList(this.waitingList, clusterBean()))
-                                  .thenAccept(ignore -> isChecking.set(false));
-                            }
+                            needChecking.set(true);
+                          }
+                          // Create one thread for checking the waiting list, if there is no
+                          // thread checking it currently.
+                          // To avoid the latest update being ignored by other checking thread, here
+                          // comes a flag "needChecking" representing there might be an update
+                          // between now and last checking, even if there is no update in this loop.
+                          if (needChecking.get() && isChecking.compareAndSet(false, true)) {
+                            needChecking.set(false);
+                            CompletableFuture.runAsync(
+                                    () -> checkWaitingList(this.waitingList, clusterBean()))
+                                .thenAccept(ignore -> isChecking.set(false));
                           }
                         });
               } catch (Exception e) {
