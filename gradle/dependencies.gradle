@@ -30,7 +30,7 @@ def versions = [
         "jmh-core"                : project.properties['jmh-core.version'] ?: "1.36",
         "jmh-generator-annprocess": project.properties['jmh-generator.version'] ?: "1.36",
         junit                     : project.properties['junit.version'] ?: "5.9.3",
-        kafka                     : project.properties['kafka.version'] ?: "3.5.0",
+        kafka                     : project.properties['kafka.version'] ?: "3.5.1",
         mockito                   : project.properties['mockito.version'] ?: "5.4.0",
         "mockito-inline"          : project.properties['mockito.version'] ?: "5.2.0",
         scala                     : project.properties['scala.version'] ?: "2.13.11",
