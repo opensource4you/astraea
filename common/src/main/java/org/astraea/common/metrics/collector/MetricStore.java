@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -223,8 +222,8 @@ public interface MetricStore extends AutoCloseable {
     private final Set<Integer> identities = new ConcurrentSkipListSet<>();
 
     private volatile Map<MetricSensor, BiConsumer<Integer, Exception>> lastSensors = Map.of();
-    private final Map<CountDownLatch, Predicate<ClusterBean>> waitingList =
-        new ConcurrentHashMap<>();
+    // Thread ids and latches for detecting cluster bean changing.
+    private final Map<Long, CountDownLatch> waitingList = new ConcurrentHashMap<>();
     // For mbean register. To distinguish mbeans of different metricStore.
     private final String uid = Utils.randomString();
     private final Sensor<Long> beanReceivedSensor =
@@ -296,18 +295,8 @@ public interface MetricStore extends AutoCloseable {
                           if (!allBeans.isEmpty()) {
                             // generate new cluster bean
                             updateClusterBean();
-                            needChecking.set(true);
-                          }
-                          // Create one thread for checking the waiting list, if there is no
-                          // thread checking it currently.
-                          // To avoid the latest update being ignored by other checking thread, here
-                          // comes a flag "needChecking" representing there might be an update
-                          // between now and last checking, even if there is no update in this loop.
-                          if (needChecking.get() && isChecking.compareAndSet(false, true)) {
-                            needChecking.set(false);
-                            CompletableFuture.runAsync(
-                                    () -> checkWaitingList(this.waitingList, clusterBean()))
-                                .thenAccept(ignore -> isChecking.set(false));
+                            // Tell all waiting threads that cluster bean has been changed
+                            this.waitingList.values().forEach(CountDownLatch::countDown);
                           }
                         });
               } catch (Exception e) {
@@ -364,22 +353,39 @@ public interface MetricStore extends AutoCloseable {
       receivers.forEach(Receiver::close);
     }
 
-    /** User thread will "wait" until being awakened by the metric store or being timeout. */
+    /**
+     * User thread will "wait" until checker pass or timeout. First, register a latch to the waiting
+     * list. Second run the checker with current clusterBean. If the checker passes, done.
+     * Otherwise, wait for the cluster bean changing (/the latch counted down) and try again.
+     */
     @Override
-    public void wait(Predicate<ClusterBean> checker, Duration timeout) {
-      var latch = new CountDownLatch(1);
+    public void wait(Predicate<ClusterBean> checker, Duration duration) {
+      long timeout = System.currentTimeMillis() + duration.toMillis();
+      var threadId = Thread.currentThread().getId();
+      // For first check, we don't need to wait.
+      var latch = new CountDownLatch(0);
       try {
-        waitingList.put(latch, checker);
-        // Check the newly added checker immediately
-        checkWaitingList(Map.of(latch, checker), clusterBean());
-        // Wait until being awake or timeout
-        if (!latch.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
-          throw new IllegalStateException("Timeout waiting for the checker");
+        while (System.currentTimeMillis() < timeout) {
+          try {
+            // Wait for clusterBean being updated
+            if (!latch.await(timeout - System.currentTimeMillis(), TimeUnit.MILLISECONDS)) {
+              throw new IllegalStateException("Timeout waiting for the checker");
+            }
+            // Add new latch for detecting clusterBean updated
+            latch = new CountDownLatch(1);
+            this.waitingList.put(threadId, latch);
+
+            // Return if check pass.
+            if (checker.test(clusterBean())) return;
+          } catch (NoSufficientMetricsException e) {
+            // Check failed. Try again next time.
+          } catch (InterruptedException ie) {
+            throw new IllegalStateException("Interrupted while waiting for the checker");
+          }
         }
-      } catch (InterruptedException ie) {
-        throw new IllegalStateException("Interrupted while waiting for the checker");
+        throw new IllegalStateException("Timeout waiting for the checker");
       } finally {
-        waitingList.remove(latch);
+        this.waitingList.remove(threadId);
       }
     }
 
@@ -391,21 +397,6 @@ public interface MetricStore extends AutoCloseable {
                   .collect(
                       Collectors.toUnmodifiableMap(
                           Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
-    }
-
-    /**
-     * Check the checkers in the waiting list. If the checker returns true, count down the latch.
-     */
-    private static void checkWaitingList(
-        Map<CountDownLatch, Predicate<ClusterBean>> waitingList, ClusterBean clusterBean) {
-      waitingList.forEach(
-          (latch, checker) -> {
-            try {
-              if (checker.test(clusterBean)) latch.countDown();
-            } catch (NoSufficientMetricsException e) {
-              // Check failed. Try again next time.
-            }
-          });
     }
   }
 }
