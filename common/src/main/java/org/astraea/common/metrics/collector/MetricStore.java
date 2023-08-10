@@ -259,8 +259,6 @@ public interface MetricStore extends AutoCloseable {
           };
       Runnable receiverJob =
           () -> {
-            var isChecking = new AtomicBoolean(false);
-            var needChecking = new AtomicBoolean(false);
             while (!closed.get()) {
               try {
                 receivers.stream()
