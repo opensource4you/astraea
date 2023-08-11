@@ -57,6 +57,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 class NetworkCostTest {
 
@@ -488,6 +489,40 @@ class NetworkCostTest {
     Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-6")), (double) 7 / 12);
     Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-7")), (double) 8 / 15);
     Assertions.assertEquals(ingressPartitionCost.get(TopicPartition.of("test-8")), (double) 9 / 18);
+  }
+
+  @ParameterizedTest
+  @ValueSource(classes = {NetworkIngressCost.class, NetworkEgressCost.class})
+  void testSetCalculation(Class<? extends NetworkCost> costClass) {
+    var cluster =
+        ClusterInfo.builder()
+            .addNode(Set.of(1, 2))
+            .addFolders(Map.of(1, Set.of("/a")))
+            .addFolders(Map.of(2, Set.of("/a")))
+            .addTopic("topic", 1, (short) 1)
+            .build();
+    var handle = ClusterBean.of(Map.of());
+    var ingress = Mockito.spy(Map.of(TopicPartition.of("topic-0"), 1024L));
+    var egress = Mockito.spy(Map.of(TopicPartition.of("topic-0"), 1024L));
+    var costFunction = Utils.construct(costClass, Configuration.EMPTY);
+
+    costFunction.setCalculation(handle, ingress, egress);
+
+    Assertions.assertDoesNotThrow(
+        () -> {
+          Mockito.verifyNoInteractions(ingress);
+          Mockito.verifyNoInteractions(egress);
+        },
+        "The ingress/egress maps should not be touched");
+    Assertions.assertDoesNotThrow(
+        () -> costFunction.clusterCost(cluster, handle),
+        "Trigger the cost evaluation, this should touch the specified calculations");
+    Assertions.assertDoesNotThrow(
+        () -> {
+          Mockito.verify(ingress, Mockito.atLeastOnce()).get(Mockito.any(TopicPartition.class));
+          Mockito.verify(egress, Mockito.atLeastOnce()).get(Mockito.any(TopicPartition.class));
+        },
+        "The ingress/egress maps should be touched");
   }
 
   @ParameterizedTest

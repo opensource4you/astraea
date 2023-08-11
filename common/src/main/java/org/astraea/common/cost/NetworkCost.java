@@ -205,6 +205,24 @@ public abstract class NetworkCost implements HasClusterCost {
             .toList();
   }
 
+  /**
+   * Set {@code partitionNetIn} and {@code partitionNetOut} network usage to the given {@code
+   * handle}. This function offers a way to specify the network usage of each partition directly,
+   * which can be crucial for situations like software simulation, where every partition resource
+   * usage and pattern is deterministic before the simulation run, so there is no need to trigger a
+   * bandwidth estimation.
+   *
+   * @param handle a {@link ClusterBean} object associate with the following partition usage.
+   * @param partitionNetIn the network ingress usage of each partition.
+   * @param partitionNetOut the network egress usage of each partition.
+   */
+  public void setCalculation(
+      ClusterBean handle,
+      Map<TopicPartition, Long> partitionNetIn,
+      Map<TopicPartition, Long> partitionNetOut) {
+    this.calculationCache.put(handle, new CachedCalculation(partitionNetIn, partitionNetOut));
+  }
+
   private Map<BrokerTopic, List<Replica>> mapLeaderAllocation(ClusterInfo clusterInfo) {
     return clusterInfo
         .replicaStream()
@@ -341,6 +359,11 @@ public abstract class NetworkCost implements HasClusterCost {
           estimateRate(metricViewCluster, sourceMetric, ServerMetrics.Topic.BYTES_IN_PER_SEC);
       this.partitionEgressRate =
           estimateRate(metricViewCluster, sourceMetric, ServerMetrics.Topic.BYTES_OUT_PER_SEC);
+    }
+
+    private CachedCalculation(Map<TopicPartition, Long> netIn, Map<TopicPartition, Long> netOut) {
+      this.partitionIngressRate = netIn;
+      this.partitionEgressRate = netOut;
     }
   }
 
