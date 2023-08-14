@@ -93,7 +93,7 @@ class GreedyBalancerTest extends BalancerConfigTestSuite {
                 Assertions.assertEquals("astraea.balancer", bean.domainName());
                 Assertions.assertTrue(0 < (long) bean.attributes().get("Iteration"));
                 Assertions.assertTrue(1.0 > (double) bean.attributes().get("MinCost"));
-                Assertions.assertTrue(0 < (long) bean.attributes().get("PlansGenerated"));
+                Assertions.assertTrue(0 < (long) bean.attributes().get("Plans"));
               });
     }
   }

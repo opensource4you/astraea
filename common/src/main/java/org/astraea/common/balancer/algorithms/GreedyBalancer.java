@@ -194,7 +194,7 @@ public class GreedyBalancer implements Balancer {
     final var loop = new AtomicInteger(iteration);
     final var start = System.currentTimeMillis();
     final var executionTime = config.timeout().toMillis();
-    final var planGenerated = new LongAdder();
+    final var plans = new LongAdder();
     Supplier<Boolean> moreRoom =
         () -> System.currentTimeMillis() - start < executionTime && loop.getAndDecrement() > 0;
     BiFunction<ClusterInfo, ClusterCost, Optional<Plan>> next =
@@ -202,7 +202,7 @@ public class GreedyBalancer implements Balancer {
             allocationTweaker
                 .generate(currentAllocation)
                 .takeWhile(ignored -> moreRoom.get())
-                .peek(ignore -> planGenerated.increment())
+                .peek(ignore -> plans.increment())
                 .filter(
                     newAllocation ->
                         !moveCostFunction
@@ -233,7 +233,7 @@ public class GreedyBalancer implements Balancer {
         .property("run", Integer.toString(run.getAndIncrement()))
         .attribute("Iteration", Long.class, currentIteration::sum)
         .attribute("MinCost", Double.class, currentMinCost::get)
-        .attribute("PlansGenerated", Long.class, planGenerated::longValue)
+        .attribute("Plans", Long.class, plans::longValue)
         .register();
 
     while (true) {
