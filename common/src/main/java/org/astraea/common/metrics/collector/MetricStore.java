@@ -235,7 +235,6 @@ public interface MetricStore extends AutoCloseable {
       this.receivers = receivers;
       // receiver + cleaner
       this.executor = Executors.newFixedThreadPool(2);
-
       Runnable cleanerJob =
           () -> {
             while (!closed.get()) {
@@ -358,16 +357,15 @@ public interface MetricStore extends AutoCloseable {
      */
     @Override
     public void wait(Predicate<ClusterBean> checker, Duration duration) {
-      long timeout = System.currentTimeMillis() + duration.toMillis();
+      var endTime = System.currentTimeMillis() + duration.toMillis();
+      var timeout = duration.toMillis();
       if (checker.test(clusterBean())) return;
 
-      while (System.currentTimeMillis() < timeout) {
+      while (timeout > 0) {
         try {
           synchronized (beanUpdateMonitor) {
             // Release the lock and wait for clusterBean being updated
-            this.beanUpdateMonitor.wait(timeout - System.currentTimeMillis());
-            // Tell other threads clusterBean has been updated
-            beanUpdateMonitor.notifyAll();
+            this.beanUpdateMonitor.wait(timeout);
           }
           if (checker.test(clusterBean())) return;
         } catch (NoSufficientMetricsException e) {
@@ -375,6 +373,7 @@ public interface MetricStore extends AutoCloseable {
         } catch (InterruptedException ie) {
           throw new IllegalStateException("Interrupted while waiting for the checker");
         }
+        timeout = endTime - System.currentTimeMillis();
       }
       throw new IllegalStateException("Timeout waiting for the checker");
     }
