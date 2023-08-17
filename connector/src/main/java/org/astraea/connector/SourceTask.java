@@ -19,6 +19,7 @@ package org.astraea.connector;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.kafka.connect.data.Schema;
 import org.astraea.common.Configuration;
@@ -28,7 +29,7 @@ import org.astraea.common.producer.Record;
 
 public abstract class SourceTask extends org.apache.kafka.connect.source.SourceTask {
 
-  protected abstract void init(Configuration configuration, MetadataStorage storage);
+  protected abstract void init(Configuration configuration, SourceTaskContext storage);
 
   /**
    * use {@link Record#builder()} or {@link SourceRecord#builder()} to construct the returned
@@ -52,7 +53,7 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
 
   @Override
   public final void start(Map<String, String> props) {
-    init(Configuration.of(props), MetadataStorage.of(context.offsetStorageReader()));
+    init(new Configuration(props), SourceTaskContext.of(Objects.requireNonNull(context)));
   }
 
   @Override
@@ -76,7 +77,7 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
                     r.headers().stream()
                         .map(h -> new HeaderImpl(h.key(), null, h.value()))
                         .collect(Collectors.toList())))
-        .collect(Collectors.toList());
+        .toList();
   }
 
   @Override
@@ -92,32 +93,8 @@ public abstract class SourceTask extends org.apache.kafka.connect.source.SourceT
     commit(Metadata.of(metadata));
   }
 
-  private static class HeaderImpl implements org.apache.kafka.connect.header.Header {
-
-    private final String key;
-    private final Schema schema;
-    private final Object value;
-
-    private HeaderImpl(String key, Schema schema, Object value) {
-      this.key = key;
-      this.schema = schema;
-      this.value = value;
-    }
-
-    @Override
-    public String key() {
-      return key;
-    }
-
-    @Override
-    public Schema schema() {
-      return schema;
-    }
-
-    @Override
-    public Object value() {
-      return value;
-    }
+  private record HeaderImpl(String key, Schema schema, Object value)
+      implements org.apache.kafka.connect.header.Header {
 
     @Override
     public org.apache.kafka.connect.header.Header with(Schema schema, Object value) {

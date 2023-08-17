@@ -85,16 +85,13 @@ public interface Query {
         for (var index = 0; index != queries.size(); ++index) {
           if (match == null) match = queries.get(index).required(item);
           else {
-            switch (ops.get(index - 1)) {
-              case "&&":
-                match = match && queries.get(index).required(item);
-                break;
-              case "||":
-                match = match || queries.get(index).required(item);
-                break;
-              default:
-                throw new IllegalArgumentException("unsupported op: " + ops.get(index - 1));
-            }
+            match =
+                switch (ops.get(index - 1)) {
+                  case "&&" -> match && queries.get(index).required(item);
+                  case "||" -> match || queries.get(index).required(item);
+                  default -> throw new IllegalArgumentException(
+                      "unsupported op: " + ops.get(index - 1));
+                };
           }
         }
         return match == null || match;
@@ -126,15 +123,13 @@ public interface Query {
                               // swallow
                             }
                           }
-                          if (e.getValue() instanceof DataSize) {
-                            var size = ((DataSize) e.getValue());
+                          if (e.getValue() instanceof DataSize size) {
                             return keyPattern.matcher(e.getKey()).matches()
                                 && size.smallerThan(DataSize.of(valueString));
                           }
-                          if (e.getValue() instanceof LocalDateTime) {
-                            var time = ((LocalDateTime) e.getValue());
+                          if (e.getValue() instanceof LocalDateTime time) {
                             return keyPattern.matcher(e.getKey()).matches()
-                                && time.compareTo(LocalDateTime.parse(valueString)) < 0;
+                                && time.isBefore(LocalDateTime.parse(valueString));
                           }
                           return false;
                         });
@@ -163,15 +158,13 @@ public interface Query {
                               // swallow
                             }
                           }
-                          if (e.getValue() instanceof DataSize) {
-                            var size = ((DataSize) e.getValue());
+                          if (e.getValue() instanceof DataSize size) {
                             return keyPattern.matcher(e.getKey()).matches()
                                 && size.equals(DataSize.of(valueString));
                           }
-                          if (e.getValue() instanceof LocalDateTime) {
-                            var time = ((LocalDateTime) e.getValue());
+                          if (e.getValue() instanceof LocalDateTime time) {
                             return keyPattern.matcher(e.getKey()).matches()
-                                && time.compareTo(LocalDateTime.parse(valueString)) == 0;
+                                && time.isEqual(LocalDateTime.parse(valueString));
                           }
                           return false;
                         });
@@ -200,15 +193,13 @@ public interface Query {
                               // swallow
                             }
                           }
-                          if (e.getValue() instanceof DataSize) {
-                            var size = ((DataSize) e.getValue());
+                          if (e.getValue() instanceof DataSize size) {
                             return keyPattern.matcher(e.getKey()).matches()
                                 && size.greaterThan(DataSize.of(valueString));
                           }
-                          if (e.getValue() instanceof LocalDateTime) {
-                            var time = ((LocalDateTime) e.getValue());
+                          if (e.getValue() instanceof LocalDateTime time) {
                             return keyPattern.matcher(e.getKey()).matches()
-                                && time.compareTo(LocalDateTime.parse(valueString)) > 0;
+                                && time.isAfter(LocalDateTime.parse(valueString));
                           }
                           return false;
                         });

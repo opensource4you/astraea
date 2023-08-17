@@ -21,8 +21,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.client.HasNodeMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
@@ -59,8 +59,8 @@ public abstract class NodeMetricsCost implements HasBrokerCost {
         .max()
         .ifPresent(
             max ->
-                clusterInfo.nodes().stream()
-                    .map(NodeInfo::id)
+                clusterInfo.brokers().stream()
+                    .map(Broker::id)
                     .filter(id -> !result.containsKey(id))
                     .forEach(id -> result.put(id, max)));
     return () -> result;

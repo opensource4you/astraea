@@ -109,7 +109,7 @@ public class ConnectorTest {
     private static final AtomicInteger CLOSE_COUNT = new AtomicInteger(0);
 
     @Override
-    protected void init(Configuration configuration, MetadataStorage storage) {
+    protected void init(Configuration configuration, SourceContext context) {
       INIT_COUNT.incrementAndGet();
     }
 
@@ -126,7 +126,7 @@ public class ConnectorTest {
     @Override
     protected List<Configuration> takeConfiguration(int maxTasks) {
       return IntStream.range(0, maxTasks)
-          .mapToObj(i -> Configuration.of(Map.of()))
+          .mapToObj(i -> Configuration.EMPTY)
           .collect(Collectors.toList());
     }
 
@@ -141,7 +141,7 @@ public class ConnectorTest {
     private static final AtomicInteger CLOSE_COUNT = new AtomicInteger(0);
 
     @Override
-    protected void init(Configuration configuration, MetadataStorage storage) {
+    protected void init(Configuration configuration, SourceTaskContext storage) {
       INIT_COUNT.incrementAndGet();
     }
 
@@ -166,7 +166,7 @@ public class ConnectorTest {
     @Override
     protected List<Configuration> takeConfiguration(int maxTasks) {
       return IntStream.range(0, maxTasks)
-          .mapToObj(i -> Configuration.of(Map.of()))
+          .mapToObj(i -> Configuration.EMPTY)
           .collect(Collectors.toList());
     }
 

@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Header;
@@ -171,7 +170,7 @@ public class ProducerTest {
         .send(
             IntStream.range(0, count)
                 .mapToObj(i -> Record.builder().topic(topic).value(new byte[10]).build())
-                .collect(Collectors.toUnmodifiableList()))
+                .toList())
         .forEach(f -> f.whenComplete((m, e) -> latch.countDown()));
 
     latch.await();

@@ -97,8 +97,7 @@ public class SourceDataTest {
                 ConsumerConfigs.AUTO_OFFSET_RESET_CONFIG,
                 ConsumerConfigs.AUTO_OFFSET_RESET_EARLIEST)
             .build()) {
-      var records =
-          consumer.poll(Duration.ofSeconds(10)).stream().collect(Collectors.toUnmodifiableList());
+      var records = consumer.poll(Duration.ofSeconds(10)).stream().toList();
       Assertions.assertEquals(1, records.size());
       Assertions.assertArrayEquals(KEY, records.get(0).key());
       Assertions.assertArrayEquals(VALUE, records.get(0).value());
@@ -116,7 +115,7 @@ public class SourceDataTest {
     private Configuration configuration = Configuration.EMPTY;
 
     @Override
-    protected void init(Configuration configuration, MetadataStorage storage) {
+    protected void init(Configuration configuration, SourceContext context) {
       this.configuration = configuration;
     }
 
@@ -142,7 +141,7 @@ public class SourceDataTest {
     private boolean isDone = false;
 
     @Override
-    protected void init(Configuration configuration, MetadataStorage storage) {
+    protected void init(Configuration configuration, SourceTaskContext context) {
       topics = Set.copyOf(configuration.list(ConnectorConfigs.TOPICS_KEY, ","));
     }
 

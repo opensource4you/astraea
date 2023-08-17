@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package org.astraea.common.generated.admin;
+
+import "org/astraea/common/generated/admin/Broker.proto";
+import "org/astraea/common/generated/admin/Topic.proto";
+import "org/astraea/common/generated/admin/Replica.proto";
+
+message ClusterInfo {
+  string clusterId = 1;
+  repeated Broker broker = 2;
+  repeated Topic topic = 3;
+  repeated Replica replica = 4;
+}

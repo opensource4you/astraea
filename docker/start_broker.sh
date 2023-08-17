@@ -20,7 +20,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 # ===============================[global variables]===============================
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
-declare -r VERSION=${REVISION:-${VERSION:-3.4.0}}
+declare -r VERSION=${REVISION:-${VERSION:-3.5.1}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
@@ -61,7 +61,7 @@ function showHelp() {
   echo "    ACCOUNT=skiptests                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    VERSION=3.4.0                            set version of kafka distribution"
+  echo "    VERSION=3.5.1                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1                set host folders used by broker"
@@ -314,7 +314,7 @@ if [[ "$quorum" == "kraft" ]]; then
   setPropertyIfEmpty "node.id" "$NODE_ID"
   setPropertyIfEmpty "process.roles" "broker"
   setPropertyIfEmpty "controller.listener.names" "CONTROLLER"
-  command="./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/broker.properties && ./bin/kafka-server-start.sh /tmp/broker.properties"
+  command="./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/broker.properties --ignore-formatted && ./bin/kafka-server-start.sh /tmp/broker.properties"
 fi
 
 docker run -d --init \

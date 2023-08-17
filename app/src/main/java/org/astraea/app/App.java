@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.astraea.app.automation.Automation;
+import org.astraea.app.benchmark.BalancerBenchmarkApp;
 import org.astraea.app.performance.Performance;
 import org.astraea.app.publisher.MetricPublisher;
 import org.astraea.app.version.Version;
@@ -39,7 +40,9 @@ public class App {
           "version",
           Version.class,
           "metric_publisher",
-          MetricPublisher.class);
+          MetricPublisher.class,
+          "balancer_benchmark",
+          BalancerBenchmarkApp.class);
 
   static void execute(Map<String, Class<?>> mains, List<String> args) throws Throwable {
 
@@ -70,8 +73,8 @@ public class App {
       method.invoke(null, (Object) args.subList(1, args.size()).toArray(String[]::new));
     } catch (InvocationTargetException targetException) {
       // Print out ParameterException, don't throw.
-      if (targetException.getTargetException() instanceof ParameterException) {
-        System.out.println(targetException.getTargetException().getMessage());
+      if (targetException.getTargetException() instanceof ParameterException exception) {
+        System.out.println(exception.getMessage());
       } else {
         throw targetException.getTargetException();
       }

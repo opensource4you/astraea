@@ -20,7 +20,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
@@ -81,29 +80,14 @@ public class ControllerMetrics {
       return new Gauge(mBeanClient.bean(ALL.get(this)));
     }
 
-    public static class Gauge implements HasGauge<Integer> {
-      private final BeanObject beanObject;
-
-      public Gauge(BeanObject beanObject) {
-        this.beanObject = beanObject;
-      }
+    public record Gauge(BeanObject beanObject) implements HasGauge<Integer> {
 
       public String metricsName() {
         return beanObject().properties().get("name");
       }
 
-      @Override
-      public Integer value() {
-        return (int) Objects.requireNonNull(beanObject().attributes().get("Value"));
-      }
-
       public Controller type() {
         return Controller.ofAlias(metricsName());
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
       }
     }
   }

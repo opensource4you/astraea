@@ -36,7 +36,7 @@ public final class LogMetrics {
   public static final Collection<BeanQuery> QUERIES =
       Stream.of(LogCleanerManager.ALL.values().stream(), Log.ALL.values().stream())
           .flatMap(f -> f)
-          .collect(Collectors.toUnmodifiableList());
+          .toList();
 
   public enum LogCleanerManager implements EnumInfo {
     UNCLEANABLE_BYTES("uncleanable-bytes"),
@@ -80,17 +80,10 @@ public final class LogMetrics {
     }
 
     public List<Gauge> fetch(MBeanClient mBeanClient) {
-      return mBeanClient.beans(ALL.get(this)).stream()
-          .map(Gauge::new)
-          .collect(Collectors.toUnmodifiableList());
+      return mBeanClient.beans(ALL.get(this)).stream().map(Gauge::new).toList();
     }
 
-    public static class Gauge implements HasGauge<Long> {
-      private final BeanObject beanObject;
-
-      public Gauge(BeanObject beanObject) {
-        this.beanObject = beanObject;
-      }
+    public record Gauge(BeanObject beanObject) implements HasGauge<Long> {
 
       public String path() {
         var path = beanObject().properties().get("logDirectory");
@@ -105,11 +98,6 @@ public final class LogMetrics {
 
       public LogCleanerManager type() {
         return ofAlias(metricsName());
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
       }
     }
   }
@@ -171,70 +159,21 @@ public final class LogMetrics {
           .filter(m -> m instanceof Gauge)
           .map(m -> (Gauge) m)
           .filter(m -> m.type() == type)
-          .collect(Collectors.toUnmodifiableList());
+          .toList();
     }
 
     public List<Gauge> fetch(MBeanClient mBeanClient) {
-      return mBeanClient.beans(ALL.get(this)).stream()
-          .map(Gauge::new)
-          .collect(Collectors.toUnmodifiableList());
+      return mBeanClient.beans(ALL.get(this)).stream().map(Gauge::new).toList();
     }
 
-    public Builder builder() {
-      return new Builder(this);
-    }
-
-    public static class Builder {
-      private final LogMetrics.Log metric;
-      private String topic;
-      private int partition;
-      private long value;
-
-      public Builder(Log metric) {
-        this.metric = metric;
-      }
-
-      public Builder topic(String topic) {
-        this.topic = topic;
-        return this;
-      }
-
-      public Builder partition(int partition) {
-        this.partition = partition;
-        return this;
-      }
-
-      public Builder logSize(long value) {
-        this.value = value;
-        return this;
-      }
-
-      public Gauge build() {
-        return new Gauge(
-            new BeanObject(
-                LogMetrics.DOMAIN_NAME,
-                Map.ofEntries(
-                    Map.entry("type", LOG_TYPE),
-                    Map.entry("name", metric.metricName()),
-                    Map.entry("topic", topic),
-                    Map.entry("partition", String.valueOf(partition))),
-                Map.of("Value", value)));
-      }
-    }
-
-    public static class Gauge implements HasGauge<Long> {
-      private final BeanObject beanObject;
-
-      public Gauge(BeanObject beanObject) {
-        this.beanObject = beanObject;
-      }
+    public record Gauge(BeanObject beanObject) implements HasGauge<Long> {
 
       public String topic() {
-        return beanObject().properties().get("topic");
+        return topicIndex().get();
       }
 
       public int partition() {
-        return Integer.parseInt(beanObject().properties().get("partition"));
+        return partitionIndex().get().partition();
       }
 
       public String metricsName() {
@@ -243,11 +182,6 @@ public final class LogMetrics {
 
       public Log type() {
         return ofAlias(metricsName());
-      }
-
-      @Override
-      public BeanObject beanObject() {
-        return beanObject;
       }
     }
   }

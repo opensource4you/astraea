@@ -73,9 +73,7 @@ public interface ConsumerThread extends AbstractThread {
           consumerSupplier) {
     if (consumers == 0) return List.of();
     var closeLatches =
-        IntStream.range(0, consumers)
-            .mapToObj(ignored -> new CountDownLatch(1))
-            .collect(Collectors.toUnmodifiableList());
+        IntStream.range(0, consumers).mapToObj(ignored -> new CountDownLatch(1)).toList();
     var executors = Executors.newFixedThreadPool(consumers);
     // monitor
     CompletableFuture.runAsync(

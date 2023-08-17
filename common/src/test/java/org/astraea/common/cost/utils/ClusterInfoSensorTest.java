@@ -19,13 +19,13 @@ package org.astraea.common.cost.utils;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.cost.LogMetricsGaugeBuilder;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
@@ -70,7 +70,7 @@ class ClusterInfoSensorTest {
             .send(
                 IntStream.range(0, 100)
                     .mapToObj(x -> Record.builder().topic(topic).value(new byte[x]).build())
-                    .collect(Collectors.toUnmodifiableList()))
+                    .toList())
             .forEach(i -> i.toCompletableFuture().join());
       }
 
@@ -100,7 +100,7 @@ class ClusterInfoSensorTest {
                       TopicPartition.of(topic, 1),
                       TopicPartition.of(topic, 2))));
       // compare broker id
-      Assertions.assertTrue(info.replicaStream().allMatch(r -> r.nodeInfo().id() == aBroker.id()));
+      Assertions.assertTrue(info.replicaStream().allMatch(r -> r.brokerId() == aBroker.id()));
       // compare replica size
       var realCluster = admin.clusterInfo(Set.of(topic)).toCompletableFuture().join();
       Assertions.assertTrue(
@@ -132,15 +132,13 @@ class ClusterInfoSensorTest {
                     1,
                     List.of(
                         MetricFactory.ofPartitionMetric("TwoReplica", 0, 2),
-                        LogMetrics.Log.SIZE
-                            .builder()
+                        new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
                             .topic("TwoReplica")
                             .partition(0)
                             .logSize(200)
                             .build(),
                         MetricFactory.ofPartitionMetric("OneReplica", 0, 1),
-                        LogMetrics.Log.SIZE
-                            .builder()
+                        new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
                             .topic("OneReplica")
                             .partition(0)
                             .logSize(100)
@@ -149,8 +147,7 @@ class ClusterInfoSensorTest {
                     2,
                     List.of(
                         MetricFactory.ofPartitionMetric("TwoReplica", 0, 0),
-                        LogMetrics.Log.SIZE
-                            .builder()
+                        new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
                             .topic("TwoReplica")
                             .partition(0)
                             .logSize(150)
@@ -177,8 +174,7 @@ class ClusterInfoSensorTest {
           Stream<HasBeanObject> partition(int partition, int replica) {
             return Stream.of(
                 MetricFactory.ofPartitionMetric("topic", partition, replica),
-                LogMetrics.Log.SIZE
-                    .builder()
+                new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
                     .topic("topic")
                     .partition(partition)
                     .logSize(0)
@@ -193,17 +189,13 @@ class ClusterInfoSensorTest {
                     1,
                     Stream.of(topic.partition(0, 1), topic.partition(1, 2), topic.partition(2, 3))
                         .flatMap(x -> x)
-                        .collect(Collectors.toUnmodifiableList())),
+                        .toList()),
                 Map.entry(
                     2,
                     Stream.of(topic.partition(1, 0), topic.partition(2, 0))
                         .flatMap(x -> x)
-                        .collect(Collectors.toUnmodifiableList())),
-                Map.entry(
-                    3,
-                    Stream.of(topic.partition(2, 0))
-                        .flatMap(x -> x)
-                        .collect(Collectors.toUnmodifiableList()))));
+                        .toList()),
+                Map.entry(3, Stream.of(topic.partition(2, 0)).flatMap(x -> x).toList())));
     var info = ClusterInfoSensor.metricViewCluster(cb);
 
     Assertions.assertEquals(Set.of("topic"), info.topicNames());
@@ -244,7 +236,7 @@ class ClusterInfoSensorTest {
 
     var info = ClusterInfoSensor.metricViewCluster(cb);
 
-    Assertions.assertEquals(1, info.nodes().size());
+    Assertions.assertEquals(1, info.brokers().size());
     Assertions.assertEquals(id, info.clusterId());
   }
 

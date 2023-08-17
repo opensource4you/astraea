@@ -18,21 +18,48 @@ package org.astraea.common.backup;
 
 import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 import org.astraea.common.ByteUtils;
+import org.astraea.common.Configuration;
 import org.astraea.common.DataSize;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;
 import org.astraea.common.generated.RecordOuterClass;
 
 public class RecordWriterBuilder {
+
+  static RecordOuterClass.Record record2Builder(Record<byte[], byte[]> record) {
+    return Utils.packException(
+        () ->
+            RecordOuterClass.Record.newBuilder()
+                .setTopic(record.topic())
+                .setPartition(record.partition())
+                .setOffset(record.offset())
+                .setTimestamp(record.timestamp())
+                .setKey(record.key() == null ? ByteString.EMPTY : ByteString.copyFrom(record.key()))
+                .setValue(
+                    record.value() == null ? ByteString.EMPTY : ByteString.copyFrom(record.value()))
+                .addAllHeaders(
+                    record.headers().stream()
+                        .map(
+                            header ->
+                                RecordOuterClass.Record.Header.newBuilder()
+                                    .setKey(header.key())
+                                    .setValue(
+                                        header.value() == null
+                                            ? ByteString.EMPTY
+                                            : ByteString.copyFrom(header.value()))
+                                    .build())
+                        .toList())
+                .build());
+  }
 
   private static final Function<OutputStream, RecordWriter> V0 =
       outputStream ->
@@ -45,34 +72,11 @@ public class RecordWriterBuilder {
             @Override
             public void append(Record<byte[], byte[]> record) {
               Utils.packException(
-                  () ->
-                      RecordOuterClass.Record.newBuilder()
-                          .setTopic(record.topic())
-                          .setPartition(record.partition())
-                          .setOffset(record.offset())
-                          .setTimestamp(record.timestamp())
-                          .setKey(
-                              record.key() == null
-                                  ? ByteString.EMPTY
-                                  : ByteString.copyFrom(record.key()))
-                          .setValue(
-                              record.value() == null
-                                  ? ByteString.EMPTY
-                                  : ByteString.copyFrom(record.value()))
-                          .addAllHeaders(
-                              record.headers().stream()
-                                  .map(
-                                      header ->
-                                          RecordOuterClass.Record.Header.newBuilder()
-                                              .setKey(header.key())
-                                              .setValue(
-                                                  header.value() == null
-                                                      ? ByteString.EMPTY
-                                                      : ByteString.copyFrom(header.value()))
-                                              .build())
-                                  .collect(Collectors.toUnmodifiableList()))
-                          .build()
-                          .writeDelimitedTo(outputStream));
+                  () -> {
+                    var recordBuilder = record2Builder(record);
+                    recordBuilder.writeDelimitedTo(outputStream);
+                    this.size.add(recordBuilder.getSerializedSize());
+                  });
               count.incrementAndGet();
               this.latestAppendTimestamp.set(System.currentTimeMillis());
             }
@@ -107,19 +111,124 @@ public class RecordWriterBuilder {
             }
           };
 
-  public static final short LATEST_VERSION = (short) 0;
+  private static final BiFunction<Configuration, OutputStream, RecordWriter> V1 =
+      (configuration, outputStream) ->
+          new RecordWriter() {
+            private final AtomicInteger count = new AtomicInteger();
+            private final LongAdder size = new LongAdder();
+            private final AtomicLong latestAppendTimestamp = new AtomicLong();
+            private final String connectorName;
+            private final Long interval;
+            private final String compressionType;
+            private OutputStream targetOutputStream;
+
+            // instance initializer block
+            {
+              this.connectorName = configuration.requireString("connector.name");
+              this.interval =
+                  configuration
+                      .string("roll.duration")
+                      .map(Utils::toDuration)
+                      .orElse(Duration.ofSeconds(3))
+                      .toMillis();
+              this.compressionType = configuration.string("compression.type").orElse("none");
+
+              switch (this.compressionType) {
+                case "gzip" -> Utils.packException(
+                    () -> this.targetOutputStream = new GZIPOutputStream(outputStream));
+                case "none" -> this.targetOutputStream = outputStream;
+                default -> throw new IllegalArgumentException(
+                    String.format("compression type '%s' is not supported", this.compressionType));
+              }
+            }
+
+            byte[] extendString(String input, int length) {
+              byte[] original = input.getBytes();
+              byte[] result = new byte[length];
+              System.arraycopy(original, 0, result, 0, original.length);
+              for (int i = original.length; i < result.length; i++) {
+                result[i] = (byte) ' ';
+              }
+              return result;
+            }
+
+            void appendMetadata() {
+              Utils.packException(
+                  () -> {
+                    if (this.compressionType.equals("gzip")) {
+                      ((GZIPOutputStream) targetOutputStream).finish();
+                    }
+
+                    // 552 Bytes total for whole metadata.
+                    outputStream.write(
+                        this.extendString(this.connectorName, 255)); // 255 Bytes for this connector
+                    outputStream.write(ByteUtils.toBytes(this.count())); // 4 Bytes for count
+                    outputStream.write(
+                        ByteUtils.toBytes(this.interval)); // 8 Bytes for mills of roll.duration
+                    outputStream.write(
+                        this.extendString(
+                            this.compressionType, 10)); // 10 Bytes for compression type name.
+                  });
+            }
+
+            @Override
+            public void append(Record<byte[], byte[]> record) {
+              Utils.packException(
+                  () -> {
+                    var recordBuilder = record2Builder(record);
+                    recordBuilder.writeDelimitedTo(this.targetOutputStream);
+                    this.size.add(recordBuilder.getSerializedSize());
+                  });
+              count.incrementAndGet();
+              this.latestAppendTimestamp.set(System.currentTimeMillis());
+            }
+
+            @Override
+            public DataSize size() {
+              return DataSize.Byte.of(size.sum());
+            }
+
+            @Override
+            public int count() {
+              return count.get();
+            }
+
+            @Override
+            public void flush() {
+              Utils.packException(outputStream::flush);
+            }
+
+            @Override
+            public long latestAppendTimestamp() {
+              return this.latestAppendTimestamp.get();
+            }
+
+            @Override
+            public void close() {
+              Utils.packException(
+                  () -> {
+                    appendMetadata();
+                    outputStream.flush();
+                    outputStream.close();
+                  });
+            }
+          };
+
+  public static final short LATEST_VERSION = (short) 1;
 
   private final short version;
   private OutputStream fs;
+  private Configuration configuration;
 
   RecordWriterBuilder(short version, OutputStream outputStream) {
     this.version = version;
     this.fs = outputStream;
   }
 
-  public RecordWriterBuilder compression() throws IOException {
-    this.fs = new GZIPOutputStream(this.fs);
-    return this;
+  RecordWriterBuilder(short version, OutputStream outputStream, Configuration configuration) {
+    this.version = version;
+    this.fs = outputStream;
+    this.configuration = configuration;
   }
 
   public RecordWriterBuilder buffered() {
@@ -135,13 +244,14 @@ public class RecordWriterBuilder {
   public RecordWriter build() {
     return Utils.packException(
         () -> {
-          switch (version) {
-            case 0:
-              fs.write(ByteUtils.toBytes(version));
-              return V0.apply(fs);
-            default:
-              throw new IllegalArgumentException("unsupported version: " + version);
+          if (version == 0) {
+            fs.write(ByteUtils.toBytes(version));
+            return V0.apply(fs);
+          } else if (version == 1) {
+            fs.write(ByteUtils.toBytes(version));
+            return V1.apply(this.configuration, fs);
           }
+          throw new IllegalArgumentException("unsupported version: " + version);
         });
   }
 }

@@ -27,7 +27,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +46,9 @@ import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.HasBeanObject;
 import org.astraea.common.metrics.MBeanClient;
+import org.astraea.common.metrics.MBeanRegister;
+import org.astraea.common.metrics.Sensor;
+import org.astraea.common.metrics.stats.Sum;
 
 public interface MetricStore extends AutoCloseable {
 
@@ -80,6 +82,22 @@ public interface MetricStore extends AutoCloseable {
 
     static MetricFetcher.Sender local() {
       return LocalSenderReceiver.of();
+    }
+
+    static Receiver fixed(Map<Integer, Collection<BeanObject>> beans) {
+      return new Receiver() {
+        private final AtomicBoolean done = new AtomicBoolean(false);
+
+        @Override
+        public Map<Integer, Collection<BeanObject>> receive(Duration timeout) {
+          return done.compareAndSet(false, true) ? beans : Map.of();
+        }
+
+        @Override
+        public void close() {
+          done.set(true);
+        }
+      };
     }
 
     /**
@@ -147,7 +165,7 @@ public interface MetricStore extends AutoCloseable {
                     (client, bean) ->
                         client.beans(BeanQuery.all()).stream()
                             .map(bs -> (HasBeanObject) () -> bs)
-                            .collect(Collectors.toUnmodifiableList()),
+                            .toList(),
                 (id, ignored) -> {});
 
     private Collection<Receiver> receivers;
@@ -178,6 +196,15 @@ public interface MetricStore extends AutoCloseable {
   }
 
   class MetricStoreImpl implements MetricStore {
+    public static final String DOMAIN_NAME = "org.astraea";
+    public static final String TYPE_PROPERTY = "type";
+    public static final String TYPE_VALUE = "metricStore";
+    public static final String NAME_PROPERTY = "name";
+    public static final String BEAN_COUNT_NAME = "BeanCount";
+    public static final String BEAN_RECEIVE_NAME = "BeanReceived";
+    public static final String ID_PROPERTY = "id";
+    public static final String COUNT_PROPERTY = "count";
+    public static final String SUM_PROPERTY = "sum";
 
     private final Map<Integer, Collection<HasBeanObject>> beans = new ConcurrentHashMap<>();
 
@@ -194,8 +221,12 @@ public interface MetricStore extends AutoCloseable {
     private final Set<Integer> identities = new ConcurrentSkipListSet<>();
 
     private volatile Map<MetricSensor, BiConsumer<Integer, Exception>> lastSensors = Map.of();
-    private final Map<CountDownLatch, Predicate<ClusterBean>> waitingList =
-        new ConcurrentHashMap<>();
+    // Monitor for detecting cluster bean changing.
+    private final Object beanUpdateMonitor = new Object();
+    // For mbean register. To distinguish mbeans of different metricStore.
+    private final String uid = Utils.randomString();
+    private final Sensor<Long> beanReceivedSensor =
+        Sensor.builder().addStat(SUM_PROPERTY, Sum.ofLong()).build();
 
     private MetricStoreImpl(
         Supplier<Map<MetricSensor, BiConsumer<Integer, Exception>>> sensorsSupplier,
@@ -229,9 +260,16 @@ public interface MetricStore extends AutoCloseable {
             while (!closed.get()) {
               try {
                 receivers.stream()
-                    .map(r -> r.receive(Duration.ofSeconds(3)))
+                    // TODO: Busy waiting on metric receiving.
+                    // issue: https://github.com/skiptests/astraea/issues/1834
+                    // To prevent specific receiver block other receivers' job, we set receive
+                    // timeout to zero. But if all receivers return empty immediately, it may cause
+                    // this thread busy waiting on doing `receiver.receive`.
+                    .map(r -> r.receive(Duration.ZERO))
                     .forEach(
                         allBeans -> {
+                          beanReceivedSensor.record(
+                              allBeans.values().stream().mapToLong(Collection::size).sum());
                           identities.addAll(allBeans.keySet());
                           lastSensors = sensorsSupplier.get();
                           allBeans.forEach(
@@ -253,7 +291,10 @@ public interface MetricStore extends AutoCloseable {
                           if (!allBeans.isEmpty()) {
                             // generate new cluster bean
                             updateClusterBean();
-                            checkWaitingList(this.waitingList, clusterBean());
+                            // Tell waiting threads that cluster bean has been changed
+                            synchronized (beanUpdateMonitor) {
+                              beanUpdateMonitor.notifyAll();
+                            }
                           }
                         });
               } catch (Exception e) {
@@ -264,6 +305,27 @@ public interface MetricStore extends AutoCloseable {
           };
       executor.execute(cleanerJob);
       executor.execute(receiverJob);
+
+      // ------------ MBean register ------------
+      MBeanRegister.local()
+          .domainName(DOMAIN_NAME)
+          .property(TYPE_PROPERTY, TYPE_VALUE)
+          .property(ID_PROPERTY, uid)
+          .property(NAME_PROPERTY, BEAN_COUNT_NAME)
+          .attribute(
+              COUNT_PROPERTY,
+              Long.class,
+              () -> beans.values().stream().mapToLong(Collection::size).sum())
+          .description("The number of beans stored in this metricStore.")
+          .register();
+      MBeanRegister.local()
+          .domainName(DOMAIN_NAME)
+          .property(TYPE_PROPERTY, TYPE_VALUE)
+          .property(ID_PROPERTY, uid)
+          .property(NAME_PROPERTY, BEAN_RECEIVE_NAME)
+          .attribute(SUM_PROPERTY, Long.class, () -> beanReceivedSensor.measure(SUM_PROPERTY))
+          .description("The total number of beans received.")
+          .register();
     }
 
     @Override
@@ -289,23 +351,31 @@ public interface MetricStore extends AutoCloseable {
       receivers.forEach(Receiver::close);
     }
 
-    /** User thread will "wait" until being awakened by the metric store or being timeout. */
+    /**
+     * User thread will wait until checker pass or timeout. When cluster bean has changed, the
+     * waiting threads will be notified.
+     */
     @Override
-    public void wait(Predicate<ClusterBean> checker, Duration timeout) {
-      var latch = new CountDownLatch(1);
-      try {
-        waitingList.put(latch, checker);
-        // Check the newly added checker immediately
-        checkWaitingList(Map.of(latch, checker), clusterBean());
-        // Wait until being awake or timeout
-        if (!latch.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
-          throw new IllegalStateException("Timeout waiting for the checker");
+    public void wait(Predicate<ClusterBean> checker, Duration duration) {
+      var endTime = System.currentTimeMillis() + duration.toMillis();
+      var timeout = duration.toMillis();
+      if (checker.test(clusterBean())) return;
+
+      while (timeout > 0) {
+        try {
+          synchronized (beanUpdateMonitor) {
+            // Release the lock and wait for clusterBean being updated
+            this.beanUpdateMonitor.wait(timeout);
+          }
+          if (checker.test(clusterBean())) return;
+        } catch (NoSufficientMetricsException e) {
+          // Check failed. Try again next time.
+        } catch (InterruptedException ie) {
+          throw new IllegalStateException("Interrupted while waiting for the checker");
         }
-      } catch (InterruptedException ie) {
-        throw new IllegalStateException("Interrupted while waiting for the checker");
-      } finally {
-        waitingList.remove(latch);
+        timeout = endTime - System.currentTimeMillis();
       }
+      throw new IllegalStateException("Timeout waiting for the checker");
     }
 
     private void updateClusterBean() {
@@ -316,21 +386,6 @@ public interface MetricStore extends AutoCloseable {
                   .collect(
                       Collectors.toUnmodifiableMap(
                           Map.Entry::getKey, e -> List.copyOf(e.getValue()))));
-    }
-
-    /**
-     * Check the checkers in the waiting list. If the checker returns true, count down the latch.
-     */
-    private static void checkWaitingList(
-        Map<CountDownLatch, Predicate<ClusterBean>> waitingList, ClusterBean clusterBean) {
-      waitingList.forEach(
-          (latch, checker) -> {
-            try {
-              if (checker.test(clusterBean)) latch.countDown();
-            } catch (NoSufficientMetricsException e) {
-              // Check failed. Try again next time.
-            }
-          });
     }
   }
 }

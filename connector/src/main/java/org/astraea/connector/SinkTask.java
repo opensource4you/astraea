@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.header.Headers;
@@ -33,7 +32,7 @@ import org.astraea.common.consumer.Record;
 
 public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
 
-  protected void init(Configuration configuration) {
+  protected void init(Configuration configuration, SinkTaskContext context) {
     // empty
   }
 
@@ -51,13 +50,13 @@ public abstract class SinkTask extends org.apache.kafka.connect.sink.SinkTask {
 
   @Override
   public final void start(Map<String, String> props) {
-    init(Configuration.of(props));
+    init(new Configuration(props), SinkTaskContext.of(context));
   }
 
   @Override
   public final void put(Collection<SinkRecord> records) {
     if (records != null && !records.isEmpty())
-      put(records.stream().map(SinkTask::toRecord).collect(Collectors.toList()));
+      put(records.stream().map(SinkTask::toRecord).toList());
   }
 
   private static byte[] toBytes(Schema schema, Object value) {

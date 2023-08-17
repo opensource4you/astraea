@@ -16,6 +16,7 @@
  */
 package org.astraea.common.backup;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -77,8 +78,10 @@ public class RecordReaderBuilder {
           .serializedValueSize(outerRecord.getValue().size())
           .build();
     } catch (IOException e) {
-      throw new SerializationException(e);
+      // swallow the exception until the importer can read metadata at the end of the file.
+      if (!(e instanceof InvalidProtocolBufferException)) throw new SerializationException(e);
     }
+    return null;
   }
 
   private InputStream fs;
@@ -104,11 +107,8 @@ public class RecordReaderBuilder {
 
   public RecordReader build() {
     var version = ByteUtils.readShort(fs);
-    switch (version) {
-      case 0:
-        return V0.apply(fs);
-      default:
-        throw new IllegalArgumentException("unsupported version: " + version);
-    }
+    if (version == 0 || version == 1) return V0.apply(fs);
+
+    throw new IllegalArgumentException("unsupported version: " + version);
   }
 }

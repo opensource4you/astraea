@@ -51,9 +51,7 @@ public interface BrokerCluster extends AutoCloseable {
 
     return CompletableFuture.supplyAsync(
         () -> {
-          var broker =
-              new KafkaRaftServer(
-                  new KafkaConfig(configs), SystemTime.SYSTEM, scala.Option.empty());
+          var broker = new KafkaRaftServer(new KafkaConfig(configs), SystemTime.SYSTEM);
           broker.startup();
           return Map.entry(nodeId, broker);
         });
@@ -79,7 +77,7 @@ public interface BrokerCluster extends AutoCloseable {
             .map(ignored -> Utils.availablePort())
             .distinct()
             .limit(numberOfBrokers)
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
     if (ports.size() != numberOfBrokers)
       throw new RuntimeException("failed to get enough available ports.");

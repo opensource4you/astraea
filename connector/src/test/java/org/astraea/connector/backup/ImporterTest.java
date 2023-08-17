@@ -29,7 +29,7 @@ import org.astraea.common.connector.Config;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.Value;
 import org.astraea.common.consumer.Record;
-import org.astraea.connector.MetadataStorage;
+import org.astraea.connector.SourceTaskContext;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
 import org.astraea.it.Service;
@@ -126,7 +126,7 @@ public class ImporterTest {
               "file.set",
               "0");
 
-      var fs = FileSystem.of("ftp", Configuration.of(configs));
+      var fs = FileSystem.of("ftp", new Configuration(configs));
 
       var records =
           List.of(
@@ -150,7 +150,7 @@ public class ImporterTest {
       records.forEach(writer::append);
       writer.close();
 
-      task.init(Configuration.of(configs), MetadataStorage.EMPTY);
+      task.init(new Configuration(configs), SourceTaskContext.EMPTY);
       var returnRecords = new ArrayList<>(task.take());
 
       for (int i = 0; i < records.size(); i++) {

@@ -27,6 +27,7 @@ import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.consumer.Record;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
+import org.astraea.connector.SinkTaskContext;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -103,7 +104,8 @@ public class PerfSinkTest {
   @Test
   void testTask() {
     var task = new PerfSink.Task();
-    task.init(Configuration.of(Map.of(PerfSink.FREQUENCY_DEF.name(), "1s")));
+    task.init(
+        new Configuration(Map.of(PerfSink.FREQUENCY_DEF.name(), "1s")), SinkTaskContext.EMPTY);
 
     var now = System.currentTimeMillis();
     task.put(List.<Record<byte[], byte[]>>of());

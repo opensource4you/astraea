@@ -80,7 +80,7 @@ public interface Admin extends AutoCloseable {
                 FutureUtils.sequence(
                         checkers.stream()
                             .map(checker -> checker.test(this, topicNames).toCompletableFuture())
-                            .collect(Collectors.toUnmodifiableList()))
+                            .toList())
                     .thenApply(
                         all ->
                             all.stream()
@@ -165,11 +165,6 @@ public interface Admin extends AutoCloseable {
   CompletionStage<List<Partition>> partitions(Set<String> topics);
 
   /**
-   * @return online node information
-   */
-  CompletionStage<List<NodeInfo>> nodeInfos();
-
-  /**
    * @return online broker information
    */
   CompletionStage<List<Broker>> brokers();
@@ -183,15 +178,7 @@ public interface Admin extends AutoCloseable {
   default CompletionStage<Map<Integer, Set<String>>> brokerFolders() {
     return brokers()
         .thenApply(
-            brokers ->
-                brokers.stream()
-                    .collect(
-                        Collectors.toMap(
-                            NodeInfo::id,
-                            n ->
-                                n.dataFolders().stream()
-                                    .map(Broker.DataFolder::path)
-                                    .collect(Collectors.toSet()))));
+            brokers -> brokers.stream().collect(Collectors.toMap(Broker::id, Broker::dataFolders)));
   }
 
   CompletionStage<Set<String>> consumerGroupIds();

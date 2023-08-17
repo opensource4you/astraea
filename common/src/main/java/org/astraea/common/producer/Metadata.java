@@ -19,73 +19,31 @@ package org.astraea.common.producer;
 import java.util.Optional;
 import org.apache.kafka.clients.producer.RecordMetadata;
 
-public interface Metadata {
+/**
+ * @param topic The topic the record was appended to
+ * @param partition The partition the record was sent to
+ * @param offset The offset of the record in the topic/partition.
+ * @param serializedKeySize The size of the serialized, uncompressed key in bytes. If key is null,
+ *     the returned size is -1.
+ * @param serializedValueSize The size of the serialized, uncompressed value in bytes. If value is
+ *     null, the returned size is -1.
+ * @param timestamp the timestamp of the record
+ */
+public record Metadata(
+    String topic,
+    int partition,
+    long offset,
+    int serializedKeySize,
+    int serializedValueSize,
+    Optional<Long> timestamp) {
 
-  static Metadata of(RecordMetadata metadata) {
-    return new Metadata() {
-      @Override
-      public long offset() {
-        return metadata.offset();
-      }
-
-      @Override
-      public int serializedKeySize() {
-        return metadata.serializedKeySize();
-      }
-
-      @Override
-      public int serializedValueSize() {
-        return metadata.serializedValueSize();
-      }
-
-      @Override
-      public Optional<Long> timestamp() {
-        return metadata.hasTimestamp() ? Optional.of(metadata.timestamp()) : Optional.empty();
-      }
-
-      @Override
-      public String topic() {
-        return metadata.topic();
-      }
-
-      @Override
-      public int partition() {
-        return metadata.partition();
-      }
-    };
+  public static Metadata of(RecordMetadata metadata) {
+    return new Metadata(
+        metadata.topic(),
+        metadata.partition(),
+        metadata.offset(),
+        metadata.serializedKeySize(),
+        metadata.serializedValueSize(),
+        metadata.hasTimestamp() ? Optional.of(metadata.timestamp()) : Optional.empty());
   }
-
-  /**
-   * The offset of the record in the topic/partition.
-   *
-   * @return the offset of the record, or -1
-   */
-  long offset();
-
-  /**
-   * @return The size of the serialized, uncompressed key in bytes. If key is null, the returned
-   *     size is -1.
-   */
-  int serializedKeySize();
-
-  /**
-   * @return The size of the serialized, uncompressed value in bytes. If value is null, the returned
-   *     size is -1.
-   */
-  int serializedValueSize();
-
-  /**
-   * @return the timestamp of the record
-   */
-  Optional<Long> timestamp();
-
-  /**
-   * @return The topic the record was appended to
-   */
-  String topic();
-
-  /**
-   * @return The partition the record was sent to
-   */
-  int partition();
 }

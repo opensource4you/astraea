@@ -18,28 +18,32 @@ package org.astraea.connector.perf;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
+import org.astraea.connector.SinkContext;
 import org.astraea.connector.SinkTask;
+import org.astraea.connector.SinkTaskContext;
 
 public class PerfSink extends SinkConnector {
+
+  static Duration FREQUENCY_DEFAULT = Duration.ofMillis(300);
+
   static Definition FREQUENCY_DEF =
       Definition.builder()
           .name("frequency")
           .type(Definition.Type.STRING)
-          .defaultValue("300ms")
+          .defaultValue(FREQUENCY_DEFAULT.toMillis() + "ms")
           .validator((name, value) -> Utils.toDuration(value.toString()))
           .build();
 
   private Configuration config;
 
   @Override
-  protected void init(Configuration configuration) {
+  protected void init(Configuration configuration, SinkContext context) {
     this.config = configuration;
   }
 
@@ -50,7 +54,7 @@ public class PerfSink extends SinkConnector {
 
   @Override
   protected List<Configuration> takeConfiguration(int maxTasks) {
-    return IntStream.range(0, maxTasks).mapToObj(i -> config).collect(Collectors.toList());
+    return IntStream.range(0, maxTasks).mapToObj(i -> config).toList();
   }
 
   @Override
@@ -60,12 +64,12 @@ public class PerfSink extends SinkConnector {
 
   public static class Task extends SinkTask {
 
-    private Duration frequency = Utils.toDuration(FREQUENCY_DEF.defaultValue().toString());
+    private Duration frequency = FREQUENCY_DEFAULT;
 
     private volatile long lastPut = System.currentTimeMillis();
 
     @Override
-    protected void init(Configuration configuration) {
+    protected void init(Configuration configuration, SinkTaskContext context) {
       frequency =
           configuration.string(FREQUENCY_DEF.name()).map(Utils::toDuration).orElse(frequency);
     }

@@ -38,10 +38,10 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ConsumerGroup;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicConfigs;
+import org.astraea.common.admin.TopicPartitionPath;
 import org.astraea.common.metrics.broker.HasRate;
 import org.astraea.common.metrics.broker.ServerMetrics;
 import org.astraea.gui.Context;
@@ -108,13 +108,9 @@ public class TopicNode {
                                                   .mapToDouble(HasRate::fiveMinuteRate)
                                                   .sum();
                                           switch (metric) {
-                                            case BYTES_IN_PER_SEC:
-                                            case BYTES_OUT_PER_SEC:
-                                              map.put(key, DataSize.Byte.of((long) value));
-                                              break;
-                                            default:
-                                              map.put(key, value);
-                                              break;
+                                            case BYTES_IN_PER_SEC, BYTES_OUT_PER_SEC -> map.put(
+                                                key, DataSize.Byte.of((long) value));
+                                            default -> map.put(key, value);
                                           }
                                         });
                                     return map;
@@ -364,12 +360,12 @@ public class TopicNode {
       List<ProducerState> producerStates) {
     var topicSize =
         brokers.stream()
-            .flatMap(
-                n -> n.dataFolders().stream().flatMap(d -> d.partitionSizes().entrySet().stream()))
+            .flatMap(n -> n.topicPartitionPaths().stream())
             .collect(
                 Collectors.groupingBy(
-                    e -> e.getKey().topic(),
-                    Collectors.mapping(Map.Entry::getValue, Collectors.reducing(0L, Long::sum))));
+                    TopicPartitionPath::topic,
+                    Collectors.mapping(
+                        TopicPartitionPath::size, Collectors.reducing(0L, Long::sum))));
 
     var topicPartitions = partitions.stream().collect(Collectors.groupingBy(Partition::topic));
     var topicGroups =
@@ -413,7 +409,7 @@ public class TopicNode {
                     "number of producer id", topicProducers.getOrDefault(topic, Set.of()).size());
               ps.stream()
                   .flatMap(p -> p.replicas().stream())
-                  .collect(Collectors.groupingBy(NodeInfo::id))
+                  .collect(Collectors.groupingBy(Broker::id))
                   .entrySet()
                   .stream()
                   .sorted(Map.Entry.comparingByKey())

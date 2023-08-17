@@ -30,8 +30,8 @@ import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.BrokerConfigs;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.json.TypeRef;
@@ -100,9 +100,8 @@ public class ThrottleHandler implements Handler {
 
     var topicToAppends =
         admin
-            .nodeInfos()
-            .thenApply(
-                nodeInfos -> nodeInfos.stream().map(NodeInfo::id).collect(Collectors.toSet()))
+            .brokers()
+            .thenApply(brokers -> brokers.stream().map(Broker::id).collect(Collectors.toSet()))
             .thenCompose(admin::topicPartitionReplicas)
             .thenApply(
                 replicas ->
@@ -197,9 +196,8 @@ public class ThrottleHandler implements Handler {
 
     var topicToSubtracts =
         admin
-            .nodeInfos()
-            .thenApply(
-                nodeInfos -> nodeInfos.stream().map(NodeInfo::id).collect(Collectors.toSet()))
+            .brokers()
+            .thenApply(brokers -> brokers.stream().map(Broker::id).collect(Collectors.toSet()))
             .thenCompose(admin::topicPartitionReplicas)
             .thenApply(
                 replicas -> {
@@ -251,11 +249,11 @@ public class ThrottleHandler implements Handler {
 
     var brokerToUnset =
         admin
-            .nodeInfos()
+            .brokers()
             .thenApply(
                 ns ->
                     ns.stream()
-                        .map(NodeInfo::id)
+                        .map(Broker::id)
                         .filter(
                             id ->
                                 !channel.queries().containsKey("broker")

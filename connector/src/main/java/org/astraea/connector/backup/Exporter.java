@@ -16,10 +16,13 @@
  */
 package org.astraea.connector.backup;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -37,7 +40,9 @@ import org.astraea.common.backup.RecordWriter;
 import org.astraea.common.consumer.Record;
 import org.astraea.connector.Definition;
 import org.astraea.connector.SinkConnector;
+import org.astraea.connector.SinkContext;
 import org.astraea.connector.SinkTask;
+import org.astraea.connector.SinkTaskContext;
 import org.astraea.fs.FileSystem;
 
 public class Exporter extends SinkConnector {
@@ -80,21 +85,25 @@ public class Exporter extends SinkConnector {
           .documentation("the path required for file storage.")
           .required()
           .build();
+
+  static DataSize SIZE_DEFAULT = DataSize.MB.of(100);
   static Definition SIZE_KEY =
       Definition.builder()
           .name("size")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> DataSize.of(obj.toString()))
-          .defaultValue("100MB")
+          .defaultValue(SIZE_DEFAULT.toString())
           .documentation("is the maximum number of the size will be included in each file.")
           .build();
+
+  static Duration TIME_DEFAULT = Duration.ofSeconds(3);
 
   static Definition TIME_KEY =
       Definition.builder()
           .name("roll.duration")
           .type(Definition.Type.STRING)
           .validator((name, obj) -> Utils.toDuration(obj.toString()))
-          .defaultValue("3s")
+          .defaultValue(TIME_DEFAULT.toSeconds() + "s")
           .documentation("the maximum time before a new archive file is rolling out.")
           .build();
 
@@ -105,6 +114,8 @@ public class Exporter extends SinkConnector {
           .documentation("a value that needs to be overridden in the file system.")
           .build();
 
+  static DataSize BUFFER_SIZE_DEFAULT = DataSize.MB.of(300);
+
   static Definition BUFFER_SIZE_KEY =
       Definition.builder()
           .name("writer.buffer.size")
@@ -112,12 +123,31 @@ public class Exporter extends SinkConnector {
           .validator((name, obj) -> DataSize.of(obj.toString()))
           .documentation(
               "a value that represents the capacity of a blocking queue from which the writer can take records.")
-          .defaultValue("300MB")
+          .defaultValue(BUFFER_SIZE_DEFAULT.toString())
+          .build();
+
+  static Definition FROM_OFFSET_REGEX_KEY =
+      Definition.builder()
+          .name(".*offset.from")
+          .type(Definition.Type.STRING)
+          .documentation(
+              "a value that specifies the starting offset value for the "
+                  + "backups of a particular topic or topic partition. it can be used in 2 ways: "
+                  + "'<topic>.offset.from' or '<topic>.<partition>.offset.from'.")
+          .build();
+
+  static String COMPRESSION_TYPE_DEFAULT = "none";
+  static Definition COMPRESSION_TYPE_KEY =
+      Definition.builder()
+          .name("compression.type")
+          .type(Definition.Type.STRING)
+          .documentation("a value that can specify the compression type.")
+          .defaultValue(COMPRESSION_TYPE_DEFAULT)
           .build();
   private Configuration configs;
 
   @Override
-  protected void init(Configuration configuration) {
+  protected void init(Configuration configuration, SinkContext context) {
     this.configs = configuration;
   }
 
@@ -128,7 +158,7 @@ public class Exporter extends SinkConnector {
 
   @Override
   protected List<Configuration> takeConfiguration(int maxTasks) {
-    return IntStream.range(0, maxTasks).mapToObj(ignored -> configs).collect(Collectors.toList());
+    return IntStream.range(0, maxTasks).mapToObj(ignored -> configs).toList();
   }
 
   @Override
@@ -142,7 +172,8 @@ public class Exporter extends SinkConnector {
         PATH_KEY,
         SIZE_KEY,
         OVERRIDE_KEY,
-        BUFFER_SIZE_KEY);
+        BUFFER_SIZE_KEY,
+        COMPRESSION_TYPE_KEY);
   }
 
   public static class Task extends SinkTask {
@@ -160,15 +191,41 @@ public class Exporter extends SinkConnector {
     private long bufferSizeLimit;
 
     FileSystem fs;
-    String topicName;
     String path;
     DataSize size;
     long interval;
+    String compressionType;
 
-    RecordWriter createRecordWriter(TopicPartition tp, long offset) {
-      var fileName = String.valueOf(offset);
+    Configuration configuration;
+
+    // a map of <Topic, <Partition, Offset>>
+    private final Map<String, Map<String, Long>> offsetForTopicPartition = new HashMap<>();
+
+    private final Map<String, Long> offsetForTopic = new HashMap<>();
+
+    // visible for test
+    protected final Map<TopicPartition, Long> seekOffset = new HashMap<>();
+
+    private SinkTaskContext taskContext;
+
+    // create for test
+    RecordWriter createRecordWriter(Record record, Configuration configuration) {
+      var fileName = String.valueOf(record.offset());
       return RecordWriter.builder(
-              fs.write(String.join("/", path, topicName, String.valueOf(tp.partition()), fileName)))
+              fs.write(
+                  String.join(
+                      "/", path, record.topic(), String.valueOf(record.partition()), fileName)),
+              configuration)
+          .build();
+    }
+
+    RecordWriter createRecordWriter(Record record) {
+      var fileName = String.valueOf(record.offset());
+      return RecordWriter.builder(
+              fs.write(
+                  String.join(
+                      "/", path, record.topic(), String.valueOf(record.partition()), fileName)),
+              this.configuration)
           .build();
     }
 
@@ -207,8 +264,7 @@ public class Exporter extends SinkConnector {
       records.forEach(
           record -> {
             var writer =
-                writers.computeIfAbsent(
-                    record.topicPartition(), tp -> createRecordWriter(tp, record.offset()));
+                writers.computeIfAbsent(record.topicPartition(), tp -> createRecordWriter(record));
             writer.append(record);
             if (writer.size().greaterThan(size)) {
               writers.remove(record.topicPartition()).close();
@@ -252,25 +308,52 @@ public class Exporter extends SinkConnector {
     }
 
     @Override
-    protected void init(Configuration configuration) {
-      this.topicName = configuration.requireString(TOPICS_KEY);
+    protected void init(Configuration configuration, SinkTaskContext context) {
       this.path = configuration.requireString(PATH_KEY.name());
-      this.size =
-          DataSize.of(
-              configuration.string(SIZE_KEY.name()).orElse(SIZE_KEY.defaultValue().toString()));
+      this.size = configuration.string(SIZE_KEY.name()).map(DataSize::of).orElse(SIZE_DEFAULT);
       this.interval =
-          Utils.toDuration(
-                  configuration.string(TIME_KEY.name()).orElse(TIME_KEY.defaultValue().toString()))
+          configuration
+              .string(TIME_KEY.name())
+              .map(Utils::toDuration)
+              .orElse(TIME_DEFAULT)
               .toMillis();
-
       this.bufferSize.reset();
-
       this.bufferSizeLimit =
-          DataSize.of(
-                  configuration
-                      .string(BUFFER_SIZE_KEY.name())
-                      .orElse(BUFFER_SIZE_KEY.defaultValue().toString()))
+          configuration
+              .string(BUFFER_SIZE_KEY.name())
+              .map(DataSize::of)
+              .orElse(BUFFER_SIZE_DEFAULT)
               .bytes();
+      this.taskContext = context;
+      this.compressionType =
+          configuration
+              .string(COMPRESSION_TYPE_KEY.name())
+              .orElse(COMPRESSION_TYPE_DEFAULT)
+              .toLowerCase();
+
+      var originalConfiguration =
+          configuration.raw().entrySet().stream()
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      originalConfiguration.computeIfAbsent(
+          "connector.name", k -> this.taskContext.configs().get("name"));
+      this.configuration = new Configuration(originalConfiguration);
+
+      // fetches key-value pairs from the configuration's variable matching the regular expression
+      // '.*offset.from', updates the values of 'offsetForTopic' or 'offsetForTopicPartition' based
+      // on the
+      // key's prefix.
+      configuration
+          .requireRegex(FROM_OFFSET_REGEX_KEY.name())
+          .forEach(
+              (k, v) -> {
+                var splitKey = k.split("\\.");
+                if (splitKey.length == 3) {
+                  this.offsetForTopic.put(splitKey[0], Long.valueOf(v));
+                } else {
+                  this.offsetForTopicPartition.put(
+                      splitKey[0], Map.of(splitKey[1], Long.valueOf(v)));
+                }
+              });
 
       this.fs = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.writerFuture = CompletableFuture.runAsync(createWriter());
@@ -282,6 +365,8 @@ public class Exporter extends SinkConnector {
           r ->
               Utils.packException(
                   () -> {
+                    if (!isValid(r)) return;
+
                     int recordLength =
                         Stream.of(r.key(), r.value())
                             .filter(Objects::nonNull)
@@ -297,12 +382,71 @@ public class Exporter extends SinkConnector {
 
                     this.bufferSize.add(recordLength);
                   }));
+      this.seekOffset
+          .entrySet()
+          .iterator()
+          .forEachRemaining(
+              entry -> {
+                this.taskContext.requestCommit();
+                this.taskContext.offset(entry.getKey(), entry.getValue());
+                this.seekOffset.remove(entry.getKey());
+              });
+    }
+
+    protected boolean isValid(Record<byte[], byte[]> r) {
+      var targetOffset = targetOffset(r);
+
+      // If the target offset exists and the record's offset is less than the target offset,
+      // set the seek offset to the target offset and return false.
+      if (targetOffset.isPresent() && r.offset() < targetOffset.get()) {
+        this.seekOffset.put(r.topicPartition(), targetOffset.get());
+        return false;
+      }
+
+      checkSeekOffset(r);
+      return true;
+    }
+
+    /**
+     * Retrieves the target offset for the specified topic and partition.
+     *
+     * @param r {@link Record}
+     * @return the target offset for the specified topic and partition, or null if the target offset
+     *     is not found.
+     */
+    // visible for test
+    protected Optional<Long> targetOffset(Record<byte[], byte[]> r) {
+      var topicMap = this.offsetForTopicPartition.get(r.topic());
+
+      // If we are unable to obtain the target offset from the 'offsetForTopicPartition' map,
+      // we will attempt to retrieve it from another map called 'offsetForTopic'.
+      if (topicMap != null && topicMap.get(String.valueOf(r.partition())) != null)
+        return Optional.ofNullable(topicMap.get(String.valueOf(r.partition())));
+      return Optional.ofNullable(this.offsetForTopic.get(r.topic()));
+    }
+
+    /**
+     * Checks if the record's offset is greater or equal to the seek offset for this topicPartition.
+     * If the record's offset is greater or equal to the seek offset for this topicPartition, the
+     * seek offset will be removed.
+     *
+     * <p>This method is used to prevent reset offset infinitely.
+     *
+     * <p>This method is called by {@link #isValid(Record)}
+     *
+     * @param r {@link Record}
+     */
+    private void checkSeekOffset(Record<byte[], byte[]> r) {
+      var seekOffset = this.seekOffset.get(r.topicPartition());
+      if (seekOffset != null && seekOffset <= r.offset())
+        this.seekOffset.remove(r.topicPartition());
     }
 
     @Override
     protected void close() {
       this.closed.set(true);
       Utils.packException(() -> writerFuture.toCompletableFuture().get(10, TimeUnit.SECONDS));
+      Utils.close(this.fs);
     }
 
     boolean isWriterDone() {

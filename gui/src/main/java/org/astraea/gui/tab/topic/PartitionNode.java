@@ -59,7 +59,7 @@ class PartitionNode {
               result.put(TOPIC_NAME_KEY, p.topic());
               result.put(PARTITION_KEY, p.partition());
               result.put("internal", p.internal());
-              p.leader().ifPresent(l -> result.put("leader", l.id()));
+              p.leaderId().ifPresent(l -> result.put("leader", l));
               result.put(
                   "replicas",
                   p.replicas().stream()

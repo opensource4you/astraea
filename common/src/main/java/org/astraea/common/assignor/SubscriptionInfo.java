@@ -72,9 +72,7 @@ public final class SubscriptionInfo {
     var ownPartitions =
         subscription.ownedPartitions() == null
             ? List.<TopicPartition>of()
-            : subscription.ownedPartitions().stream()
-                .map(TopicPartition::from)
-                .collect(Collectors.toUnmodifiableList());
+            : subscription.ownedPartitions().stream().map(TopicPartition::from).toList();
 
     var kafkaUserData = subscription.userData();
     // convert ByteBuffer into Map<String,String>

@@ -49,7 +49,7 @@ public interface SelectBox {
                           });
                   return box;
                 })
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     items.get(0).setSelected(true);
 
     var node = grid(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns);
@@ -71,7 +71,7 @@ public interface SelectBox {
                           });
                   return box;
                 })
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     var node = grid(items.stream().map(m -> (Node) m).collect(Collectors.toList()), sizeOfColumns);
     return of(() -> selectedKeys, node);
   }

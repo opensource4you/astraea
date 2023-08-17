@@ -25,7 +25,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
@@ -286,12 +285,9 @@ class BalancerConsoleTest {
                         CompletableFuture.completedFuture(
                             ClusterInfo.of(
                                 cluster.clusterId(),
-                                cluster.nodes(),
+                                cluster.brokers(),
                                 cluster.topics(),
-                                cluster
-                                    .replicaStream()
-                                    .map(mapper)
-                                    .collect(Collectors.toUnmodifiableList()))))
+                                cluster.replicaStream().map(mapper).toList())))
                     .when(spy)
                     .clusterInfo(Mockito.anySet());
                 Assertions.assertThrows(
@@ -400,7 +396,12 @@ class BalancerConsoleTest {
                   costFunction,
                   Duration.ofMillis(sampleTimeMs - (System.currentTimeMillis() - startMs)));
             return Optional.of(
-                new Plan(config.clusterInfo(), () -> 0, config.clusterInfo(), () -> 0));
+                new Plan(
+                    config.clusterBean(),
+                    config.clusterInfo(),
+                    () -> 0,
+                    config.clusterInfo(),
+                    () -> 0));
           }
         };
 

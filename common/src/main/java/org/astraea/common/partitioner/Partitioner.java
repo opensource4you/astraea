@@ -141,7 +141,7 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
   @Override
   public final void configure(Map<String, ?> configs) {
     var config =
-        Configuration.of(
+        new Configuration(
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
     config.string(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG).ifPresent(s -> admin = Admin.of(s));
@@ -166,8 +166,8 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
     return target;
   }
 
-  boolean tryToUpdate() {
-    if (admin == null) return false;
+  void tryToUpdate() {
+    if (admin == null) return;
     var now = System.nanoTime();
     // need to refresh cluster info if lease expires
     if (lastUpdated.updateAndGet(last -> now - last >= CLUSTER_INFO_LEASE.toNanos() ? now : last)
@@ -182,9 +182,7 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
                   lastUpdated.set(System.nanoTime());
                 }
               });
-      return true;
     }
-    return false;
   }
 
   @Override

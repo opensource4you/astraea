@@ -25,7 +25,7 @@ import org.astraea.app.argument.DurationField;
 import org.astraea.app.argument.StringMapField;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
-import org.astraea.common.admin.NodeInfo;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.collector.MetricFetcher;
 
@@ -43,33 +43,32 @@ public class MetricPublisher {
 
   // Valid for testing
   static void execute(Arguments arguments) {
-    var admin = Admin.of(arguments.bootstrapServers());
-    var topicSender = MetricFetcher.Sender.topic(arguments.bootstrapServers());
-    try (var metricFetcher =
-        MetricFetcher.builder()
-            .clientSupplier(
-                () ->
-                    admin
-                        .nodeInfos()
-                        .thenApply(
-                            nodes ->
-                                nodes.stream()
-                                    .collect(
-                                        Collectors.toUnmodifiableMap(
-                                            NodeInfo::id,
-                                            node ->
-                                                JndiClient.of(
-                                                    node.host(),
-                                                    arguments.idToJmxPort().apply(node.id()))))))
-            .fetchBeanDelay(arguments.period)
-            .fetchMetadataDelay(Duration.ofMinutes(5))
-            .threads(3)
-            .sender(topicSender)
-            .build()) {
+    try (var admin = Admin.of(arguments.bootstrapServers());
+        var topicSender = MetricFetcher.Sender.topic(arguments.bootstrapServers());
+        var metricFetcher =
+            MetricFetcher.builder()
+                .clientSupplier(
+                    () ->
+                        admin
+                            .brokers()
+                            .thenApply(
+                                brokers ->
+                                    brokers.stream()
+                                        .collect(
+                                            Collectors.toUnmodifiableMap(
+                                                Broker::id,
+                                                broker ->
+                                                    JndiClient.of(
+                                                        broker.host(),
+                                                        arguments
+                                                            .idToJmxPort()
+                                                            .apply(broker.id()))))))
+                .fetchBeanDelay(arguments.period)
+                .fetchMetadataDelay(Duration.ofMinutes(5))
+                .threads(3)
+                .sender(topicSender)
+                .build()) {
       Utils.sleep(arguments.ttl);
-    } finally {
-      admin.close();
-      topicSender.close();
     }
   }
 

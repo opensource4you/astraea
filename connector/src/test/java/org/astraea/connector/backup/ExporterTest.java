@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.connector.Value;
 import org.astraea.common.consumer.Record;
 import org.astraea.common.producer.Producer;
+import org.astraea.connector.SinkTaskContext;
 import org.astraea.fs.FileSystem;
 import org.astraea.it.FtpServer;
 import org.astraea.it.HdfsServer;
@@ -51,6 +53,26 @@ public class ExporterTest {
 
   private static final Service SERVICE =
       Service.builder().numberOfWorkers(1).numberOfBrokers(1).build();
+
+  private static final SinkTaskContext context =
+      new SinkTaskContext() {
+        @Override
+        public void offset(Map<TopicPartition, Long> offsets) {}
+
+        @Override
+        public void offset(TopicPartition topicPartition, long offset) {}
+
+        @Override
+        public void pause(Collection<TopicPartition> partitions) {}
+
+        @Override
+        public void requestCommit() {}
+
+        @Override
+        public Map<String, String> configs() {
+          return Map.of("name", "test");
+        }
+      };
 
   @AfterAll
   static void closeService() {
@@ -189,9 +211,9 @@ public class ExporterTest {
               "roll.duration",
               "100m");
 
-      var fs = FileSystem.of("ftp", Configuration.of(configs));
+      var fs = FileSystem.of("ftp", new Configuration(configs));
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var records =
           List.of(
@@ -276,9 +298,9 @@ public class ExporterTest {
               "roll.duration",
               "300ms");
 
-      var fs = FileSystem.of("ftp", Configuration.of(configs));
+      var fs = FileSystem.of("ftp", new Configuration(configs));
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var records1 =
           Record.builder()
@@ -351,9 +373,9 @@ public class ExporterTest {
               "roll.duration",
               "100ms");
 
-      var fs = FileSystem.of("ftp", Configuration.of(configs));
+      var fs = FileSystem.of("ftp", new Configuration(configs));
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var record1 =
           Record.builder()
@@ -458,22 +480,32 @@ public class ExporterTest {
               "fs.hdfs.override.dfs.client.use.datanode.hostname",
               "true");
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var records =
           List.of(
               Record.builder()
                   .topic(topicName)
                   .key("test".getBytes())
-                  .value("test0".getBytes())
+                  .value(Utils.randomString(1024).getBytes())
                   .partition(0)
+                  .offset(0)
                   .timestamp(System.currentTimeMillis())
                   .build(),
               Record.builder()
                   .topic(topicName)
                   .key("test".getBytes())
-                  .value("test1".getBytes())
+                  .value("test".getBytes())
+                  .partition(0)
+                  .offset(1)
+                  .timestamp(System.currentTimeMillis())
+                  .build(),
+              Record.builder()
+                  .topic(topicName)
+                  .key("test".getBytes())
+                  .value("test".getBytes())
                   .partition(1)
+                  .offset(0)
                   .timestamp(System.currentTimeMillis())
                   .build());
 
@@ -485,10 +517,14 @@ public class ExporterTest {
 
       Assertions.assertTrue(task.isWriterDone());
 
-      var fs = FileSystem.of("hdfs", Configuration.of(configs));
+      var fs = FileSystem.of("hdfs", new Configuration(configs));
 
       Assertions.assertEquals(
           2, fs.listFolders("/" + String.join("/", fileSize, topicName)).size());
+      Assertions.assertEquals(
+          2, fs.listFiles("/" + String.join("/", fileSize, topicName, "0")).size());
+      Assertions.assertEquals(
+          1, fs.listFiles("/" + String.join("/", fileSize, topicName, "1")).size());
 
       records.forEach(
           sinkRecord -> {
@@ -543,7 +579,7 @@ public class ExporterTest {
               "roll.duration",
               "300ms");
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var records1 =
           Record.builder()
@@ -559,7 +595,7 @@ public class ExporterTest {
 
       Utils.sleep(Duration.ofMillis(1000));
 
-      var fs = FileSystem.of("hdfs", Configuration.of(configs));
+      var fs = FileSystem.of("hdfs", new Configuration(configs));
 
       Assertions.assertEquals(
           1, fs.listFiles("/" + String.join("/", fileSize, topicName, "0")).size());
@@ -616,7 +652,7 @@ public class ExporterTest {
               "roll.duration",
               "100ms");
 
-      task.start(configs);
+      task.init(new Configuration(configs), context);
 
       var record1 =
           Record.builder()
@@ -657,7 +693,7 @@ public class ExporterTest {
       task.put(List.of(record3));
       Utils.sleep(Duration.ofMillis(1000));
 
-      var fs = FileSystem.of("hdfs", Configuration.of(configs));
+      var fs = FileSystem.of("hdfs", new Configuration(configs));
 
       Assertions.assertEquals(
           2, fs.listFolders("/" + String.join("/", fileSize, topicName)).size());
@@ -737,8 +773,11 @@ public class ExporterTest {
       var topicName = Utils.randomString(10);
       var tp = TopicPartition.of(topicName, 0);
       long offset = 123;
+      var testRecord = Record.builder().topic(topicName).topicPartition(tp).offset(offset).build();
       var configs =
           Map.of(
+              "connector.name",
+              "test",
               "fs.schema",
               "hdfs",
               "topics",
@@ -761,14 +800,17 @@ public class ExporterTest {
       var writers = new HashMap<TopicPartition, RecordWriter>();
 
       var task = new Exporter.Task();
-      task.fs = FileSystem.of("hdfs", Configuration.of(configs));
+      task.fs = FileSystem.of("hdfs", new Configuration(configs));
       task.interval = 1000;
+      task.compressionType = "none";
 
-      RecordWriter recordWriter = task.createRecordWriter(tp, offset);
+      RecordWriter recordWriter = task.createRecordWriter(testRecord, new Configuration(configs));
 
       Assertions.assertNotNull(recordWriter);
 
       writers.put(tp, recordWriter);
+
+      Assertions.assertEquals(DataSize.ZERO, recordWriter.size());
 
       recordWriter.append(
           Record.builder()
@@ -779,6 +821,8 @@ public class ExporterTest {
               .offset(0)
               .timestamp(System.currentTimeMillis())
               .build());
+
+      Assertions.assertNotEquals(DataSize.ZERO, recordWriter.size());
 
       task.removeOldWriters(writers);
 
@@ -800,6 +844,8 @@ public class ExporterTest {
       var path = "/test";
       var configs =
           Map.of(
+              "connector.name",
+              "test",
               "fs.schema",
               "hdfs",
               "topics",
@@ -822,7 +868,9 @@ public class ExporterTest {
       var writers = new HashMap<TopicPartition, RecordWriter>();
 
       var task = new Exporter.Task();
-      task.fs = FileSystem.of("hdfs", Configuration.of(configs));
+      task.fs = FileSystem.of("hdfs", new Configuration(configs));
+      task.compressionType = "none";
+      task.configuration = new Configuration(configs);
       task.size = DataSize.of("100MB");
       task.bufferSize.reset();
       task.recordsQueue.add(
@@ -840,6 +888,160 @@ public class ExporterTest {
       task.writeRecords(writers);
 
       Assertions.assertEquals(0, task.recordsQueue.size());
+    }
+  }
+
+  @Test
+  void testIsValid() {
+    try (var server = HdfsServer.local()) {
+      var topicName = Utils.randomString(10);
+      var path = "/test";
+      var configs =
+          Map.of(
+              "fs.schema",
+              "hdfs",
+              "topics",
+              topicName,
+              "fs.hdfs.hostname",
+              String.valueOf(server.hostname()),
+              "fs.hdfs.port",
+              String.valueOf(server.port()),
+              "fs.hdfs.user",
+              String.valueOf(server.user()),
+              "path",
+              path,
+              "test1.offset.from",
+              "100",
+              "test2.0.offset.from",
+              "200");
+
+      var task = new Exporter.Task();
+
+      task.init(new Configuration(configs), context);
+
+      var record1 =
+          Record.builder()
+              .topic("test0")
+              .key("test".getBytes())
+              .value("test".getBytes())
+              .partition(0)
+              .offset(1)
+              .timestamp(System.currentTimeMillis())
+              .build();
+      var record2 =
+          Record.builder()
+              .topic("test1")
+              .key("test".getBytes())
+              .value("test".getBytes())
+              .partition(0)
+              .offset(1)
+              .timestamp(System.currentTimeMillis())
+              .build();
+      var record3 =
+          Record.builder()
+              .topic("test2")
+              .key("test".getBytes())
+              .value("test".getBytes())
+              .partition(0)
+              .offset(1)
+              .timestamp(System.currentTimeMillis())
+              .build();
+      var record4 =
+          Record.builder()
+              .topic("test2")
+              .key("test".getBytes())
+              .value("test".getBytes())
+              .partition(0)
+              .offset(200)
+              .timestamp(System.currentTimeMillis())
+              .build();
+      var record5 =
+          Record.builder()
+              .topic("test2")
+              .key("test".getBytes())
+              .value("test".getBytes())
+              .partition(1)
+              .offset(1)
+              .timestamp(System.currentTimeMillis())
+              .build();
+
+      Assertions.assertFalse(task.targetOffset(record1).isPresent());
+      Assertions.assertEquals(100, task.targetOffset(record2).orElse(null));
+      Assertions.assertEquals(200, task.targetOffset(record3).orElse(null));
+      Assertions.assertEquals(200, task.targetOffset(record4).orElse(null));
+      Assertions.assertFalse(task.targetOffset(record5).isPresent());
+
+      Assertions.assertTrue(task.isValid(record1));
+      Assertions.assertFalse(task.isValid(record2));
+      Assertions.assertFalse(task.isValid(record3));
+      Assertions.assertEquals(2, task.seekOffset.size());
+      Assertions.assertTrue(task.isValid(record4));
+      Assertions.assertTrue(task.isValid(record5));
+      Assertions.assertEquals(1, task.seekOffset.size());
+    }
+  }
+
+  @Test
+  void testCompression() {
+    try (var server = HdfsServer.local()) {
+      var fileSize = "500Byte";
+      var topicName = Utils.randomString(10);
+
+      var task = new Exporter.Task();
+      var configs =
+          Map.of(
+              "fs.schema",
+              "hdfs",
+              "topics",
+              topicName,
+              "fs.hdfs.hostname",
+              String.valueOf(server.hostname()),
+              "fs.hdfs.port",
+              String.valueOf(server.port()),
+              "fs.hdfs.user",
+              String.valueOf(server.user()),
+              "path",
+              "/" + fileSize,
+              "size",
+              fileSize,
+              "fs.hdfs.override.dfs.client.use.datanode.hostname",
+              "true",
+              "compression.type",
+              "gzip");
+
+      task.init(new Configuration(configs), context);
+
+      var records =
+          List.of(
+              Record.builder()
+                  .topic(topicName)
+                  .key("test".getBytes())
+                  .value("test value".getBytes())
+                  .partition(0)
+                  .offset(0)
+                  .timestamp(System.currentTimeMillis())
+                  .build(),
+              Record.builder()
+                  .topic(topicName)
+                  .key("test".getBytes())
+                  .value("test value".getBytes())
+                  .partition(0)
+                  .offset(1)
+                  .timestamp(System.currentTimeMillis())
+                  .build());
+
+      task.put(records);
+
+      Utils.sleep(Duration.ofMillis(1000));
+
+      task.close();
+      var fs = FileSystem.of("hdfs", new Configuration(configs));
+
+      var input = fs.read("/" + String.join("/", fileSize, topicName, "0/0"));
+
+      Assertions.assertArrayEquals(
+          new byte[] {(byte) 0x0, (byte) 0x1, (byte) 0x1f, (byte) 0x8b},
+          Utils.packException(() -> input.readNBytes(4)));
     }
   }
 }

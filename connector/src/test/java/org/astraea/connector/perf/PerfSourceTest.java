@@ -30,8 +30,9 @@ import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.ConnectorConfigs;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.connector.ConnectorMetrics;
-import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
+import org.astraea.connector.SourceContext;
+import org.astraea.connector.SourceTaskContext;
 import org.astraea.it.Service;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -50,8 +51,8 @@ public class PerfSourceTest {
   @Test
   void testDistributeConfigs() {
     var s = new PerfSource();
-    var config = Configuration.of(Map.of(SourceConnector.TOPICS_KEY, "a,b,c,d"));
-    s.init(config, MetadataStorage.EMPTY);
+    var config = new Configuration(Map.of(SourceConnector.TOPICS_KEY, "a,b,c,d"));
+    s.init(config, SourceContext.EMPTY);
     var configs = s.takeConfiguration(10);
     Assertions.assertEquals(4, configs.size());
     Assertions.assertEquals("a", configs.get(0).requireString(SourceConnector.TOPICS_KEY));
@@ -331,7 +332,7 @@ public class PerfSourceTest {
   @Test
   void testInit() {
     var task = new PerfSource.Task();
-    task.init(Configuration.of(Map.of(ConnectorConfigs.TOPICS_KEY, "a")), MetadataStorage.EMPTY);
+    task.init(new Configuration(Map.of(ConnectorConfigs.TOPICS_KEY, "a")), SourceTaskContext.EMPTY);
     Assertions.assertNotNull(task.recordGenerator);
     Assertions.assertEquals(1, task.specifyPartitions.size());
   }
@@ -340,7 +341,7 @@ public class PerfSourceTest {
   void testKeyAndValue() {
     var task = new PerfSource.Task();
     task.init(
-        Configuration.of(
+        new Configuration(
             Map.of(
                 ConnectorConfigs.TOPICS_KEY,
                 "a",
@@ -348,7 +349,7 @@ public class PerfSourceTest {
                 "uniform",
                 PerfSource.VALUE_DISTRIBUTION_DEF.name(),
                 "uniform")),
-        MetadataStorage.EMPTY);
+        SourceTaskContext.EMPTY);
     var records = task.take();
     var keySizes =
         records.stream().map(r -> r.key().length).collect(Collectors.toUnmodifiableSet());
@@ -362,9 +363,9 @@ public class PerfSourceTest {
   void testZeroKeySize() {
     var task = new PerfSource.Task();
     task.init(
-        Configuration.of(
+        new Configuration(
             Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.KEY_SIZE_DEF.name(), "0Byte")),
-        MetadataStorage.EMPTY);
+        SourceTaskContext.EMPTY);
     var records = task.take();
     Assertions.assertNotEquals(0, records.size());
     records.forEach(r -> Assertions.assertNull(r.key()));
@@ -374,9 +375,9 @@ public class PerfSourceTest {
   void testZeroValueSize() {
     var task = new PerfSource.Task();
     task.init(
-        Configuration.of(
+        new Configuration(
             Map.of(ConnectorConfigs.TOPICS_KEY, "a", PerfSource.VALUE_SIZE_DEF.name(), "0Byte")),
-        MetadataStorage.EMPTY);
+        SourceTaskContext.EMPTY);
     var records = task.take();
     Assertions.assertNotEquals(0, records.size());
     records.forEach(r -> Assertions.assertNull(r.value()));

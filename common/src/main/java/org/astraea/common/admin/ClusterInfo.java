@@ -87,22 +87,22 @@ public interface ClusterInfo {
             .sorted(
                 Comparator.comparing(Replica::isPreferredLeader)
                     .reversed()
-                    .thenComparing(r -> r.nodeInfo().id()))
-            .collect(Collectors.toUnmodifiableList());
+                    .thenComparing(Replica::brokerId))
+            .toList();
     final var targetIds =
         targetReplicas.stream()
             .sorted(
                 Comparator.comparing(Replica::isPreferredLeader)
                     .reversed()
-                    .thenComparing(r -> r.nodeInfo().id()))
-            .collect(Collectors.toUnmodifiableList());
+                    .thenComparing(Replica::brokerId))
+            .toList();
     return IntStream.range(0, sourceIds.size())
         .allMatch(
             index -> {
               final var source = sourceIds.get(index);
               final var target = targetIds.get(index);
               return source.isPreferredLeader() == target.isPreferredLeader()
-                  && source.nodeInfo().id() == target.nodeInfo().id()
+                  && source.brokerId() == target.brokerId()
                   && Objects.equals(source.path(), target.path());
             });
   }
@@ -121,7 +121,7 @@ public interface ClusterInfo {
                   .forEach(
                       log ->
                           stringBuilder.append(
-                              String.format("(%s, %s) ", log.nodeInfo().id(), log.path())));
+                              String.format("(%s, %s) ", log.brokerId(), log.path())));
 
               stringBuilder.append(System.lineSeparator());
             });
@@ -147,7 +147,7 @@ public interface ClusterInfo {
    * @return cluster info
    */
   static ClusterInfo of(
-      String clusterId, List<NodeInfo> nodes, Map<String, Topic> topics, List<Replica> replicas) {
+      String clusterId, List<Broker> nodes, Map<String, Topic> topics, List<Replica> replicas) {
     return new OptimizedClusterInfo(clusterId, nodes, topics, replicas);
   }
 
@@ -169,10 +169,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicaLeaders() {
-    return replicaStream()
-        .filter(Replica::isLeader)
-        .filter(Replica::isOnline)
-        .collect(Collectors.toUnmodifiableList());
+    return replicaStream().filter(Replica::isLeader).filter(Replica::isOnline).toList();
   }
 
   /**
@@ -182,10 +179,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicaLeaders(String topic) {
-    return replicaStream(topic)
-        .filter(Replica::isLeader)
-        .filter(Replica::isOnline)
-        .collect(Collectors.toUnmodifiableList());
+    return replicaStream(topic).filter(Replica::isLeader).filter(Replica::isOnline).toList();
   }
 
   /**
@@ -195,10 +189,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicaLeaders(int broker) {
-    return replicaStream(broker)
-        .filter(Replica::isLeader)
-        .filter(Replica::isOnline)
-        .collect(Collectors.toUnmodifiableList());
+    return replicaStream(broker).filter(Replica::isLeader).filter(Replica::isOnline).toList();
   }
 
   /**
@@ -207,10 +198,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicaLeaders(BrokerTopic brokerTopic) {
-    return replicaStream(brokerTopic)
-        .filter(Replica::isLeader)
-        .filter(Replica::isOnline)
-        .collect(Collectors.toUnmodifiableList());
+    return replicaStream(brokerTopic).filter(Replica::isLeader).filter(Replica::isOnline).toList();
   }
 
   /**
@@ -235,7 +223,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> availableReplicas(String topic) {
-    return replicaStream(topic).filter(Replica::isOnline).collect(Collectors.toUnmodifiableList());
+    return replicaStream(topic).filter(Replica::isOnline).toList();
   }
 
   // ---------------------[for replicas]---------------------//
@@ -244,7 +232,7 @@ public interface ClusterInfo {
    * @return all replicas cached by this cluster info.
    */
   default List<Replica> replicas() {
-    return replicaStream().collect(Collectors.toUnmodifiableList());
+    return replicaStream().toList();
   }
 
   /**
@@ -254,7 +242,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicas(String topic) {
-    return replicaStream(topic).collect(Collectors.toUnmodifiableList());
+    return replicaStream(topic).toList();
   }
 
   /**
@@ -265,7 +253,7 @@ public interface ClusterInfo {
    * @return A list of {@link Replica}.
    */
   default List<Replica> replicas(TopicPartition topicPartition) {
-    return replicaStream(topicPartition).collect(Collectors.toUnmodifiableList());
+    return replicaStream(topicPartition).toList();
   }
 
   /**
@@ -273,7 +261,7 @@ public interface ClusterInfo {
    * @return the replica matched to input replica
    */
   default List<Replica> replicas(TopicPartitionReplica replica) {
-    return replicaStream(replica).collect(Collectors.toUnmodifiableList());
+    return replicaStream(replica).toList();
   }
 
   // ---------------------[others]---------------------//
@@ -306,8 +294,8 @@ public interface ClusterInfo {
    * @return the node information. It throws NoSuchElementException if specify node id is not
    *     associated to any node
    */
-  default NodeInfo node(int id) {
-    return nodes().stream()
+  default Broker node(int id) {
+    return brokers().stream()
         .filter(n -> n.id() == id)
         .findAny()
         .orElseThrow(() -> new NoSuchElementException(id + " is nonexistent"));
@@ -319,20 +307,14 @@ public interface ClusterInfo {
    */
   default Map<Integer, Set<String>> brokerFolders() {
     return brokers().stream()
-        .collect(
-            Collectors.toUnmodifiableMap(
-                NodeInfo::id,
-                node ->
-                    node.dataFolders().stream()
-                        .map(Broker.DataFolder::path)
-                        .collect(Collectors.toUnmodifiableSet())));
+        .collect(Collectors.toUnmodifiableMap(Broker::id, Broker::dataFolders));
   }
 
   // ---------------------[streams methods]---------------------//
   // implements following methods by smart index to speed up the queries
 
   default Stream<Replica> replicaStream(int broker) {
-    return replicaStream().filter(r -> r.nodeInfo().id() == broker);
+    return replicaStream().filter(r -> r.brokerId() == broker);
   }
 
   default Stream<Replica> replicaStream(String topic) {
@@ -340,8 +322,7 @@ public interface ClusterInfo {
   }
 
   default Stream<Replica> replicaStream(BrokerTopic brokerTopic) {
-    return replicaStream(brokerTopic.topic())
-        .filter(r -> r.nodeInfo().id() == brokerTopic.broker());
+    return replicaStream(brokerTopic.topic()).filter(r -> r.brokerId() == brokerTopic.broker());
   }
 
   default Stream<Replica> replicaStream(TopicPartition partition) {
@@ -349,23 +330,15 @@ public interface ClusterInfo {
   }
 
   default Stream<Replica> replicaStream(TopicPartitionReplica replica) {
-    return replicaStream(replica.topicPartition())
-        .filter(r -> r.nodeInfo().id() == replica.brokerId());
+    return replicaStream(replica.topicPartition()).filter(r -> r.brokerId() == replica.brokerId());
   }
 
   // ---------------------[abstract methods]---------------------//
 
   /**
-   * @return The known nodes
+   * @return The known brokers
    */
-  List<NodeInfo> nodes();
-
-  default List<Broker> brokers() {
-    return nodes().stream()
-        .filter(n -> n instanceof Broker)
-        .map(n -> (Broker) n)
-        .collect(Collectors.toUnmodifiableList());
-  }
+  List<Broker> brokers();
 
   /**
    * @return replica stream to offer effective way to operate a bunch of replicas

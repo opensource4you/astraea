@@ -29,12 +29,12 @@ import org.astraea.common.metrics.collector.MetricSensor;
 
 /** more replica leaders -> higher cost */
 public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMoveCost {
-  private final Dispersion dispersion = Dispersion.cov();
+  private final Dispersion dispersion = Dispersion.normalizedStandardDeviation();
   private final Configuration config;
   public static final String MAX_MIGRATE_LEADER_KEY = "max.migrated.leader.number";
 
   public ReplicaLeaderCost() {
-    this.config = Configuration.of(Map.of());
+    this.config = Configuration.EMPTY;
   }
 
   public ReplicaLeaderCost(Configuration config) {
@@ -52,7 +52,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   @Override
   public ClusterCost clusterCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
     var brokerScore = leaderCount(clusterInfo);
-    var value = dispersion.calculate(brokerScore.values());
+    var value = dispersion.calculate(brokerScore.values()) * 2;
     return ClusterCost.of(
         value,
         () ->
@@ -62,7 +62,7 @@ public class ReplicaLeaderCost implements HasBrokerCost, HasClusterCost, HasMove
   }
 
   static Map<Integer, Integer> leaderCount(ClusterInfo clusterInfo) {
-    return clusterInfo.nodes().stream()
+    return clusterInfo.brokers().stream()
         .map(nodeInfo -> Map.entry(nodeInfo.id(), clusterInfo.replicaLeaders(nodeInfo.id()).size()))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }

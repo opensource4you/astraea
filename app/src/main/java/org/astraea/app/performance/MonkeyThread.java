@@ -22,7 +22,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
@@ -42,17 +41,13 @@ public class MonkeyThread implements AbstractThread {
     System.out.println("create chaos monkey");
     return param.monkeys.entrySet().stream()
         .map(
-            entry -> {
-              switch ((entry.getKey())) {
-                case "kill":
-                  return killMonkey(consumerThreads, entry.getValue());
-                case "add":
-                  return addMonkey(consumerThreads, entry.getValue(), param);
-                default:
-                  return unsubscribeMonkey(consumerThreads, entry.getValue());
-              }
-            })
-        .collect(Collectors.toUnmodifiableList());
+            entry ->
+                switch ((entry.getKey())) {
+                  case "kill" -> killMonkey(consumerThreads, entry.getValue());
+                  case "add" -> addMonkey(consumerThreads, entry.getValue(), param);
+                  default -> unsubscribeMonkey(consumerThreads, entry.getValue());
+                })
+        .toList();
   }
 
   private static MonkeyThread killMonkey(List<ConsumerThread> consumerThreads, Duration frequency) {

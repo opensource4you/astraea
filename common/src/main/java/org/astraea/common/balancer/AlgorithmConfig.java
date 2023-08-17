@@ -27,59 +27,41 @@ import org.astraea.common.cost.HasClusterCost;
 import org.astraea.common.cost.HasMoveCost;
 import org.astraea.common.metrics.ClusterBean;
 
-/** The generic algorithm parameter for resolving the Kafka rebalance problem. */
-public interface AlgorithmConfig {
+/**
+ * The generic algorithm parameter for resolving the Kafka rebalance problem.
+ *
+ * @param executionId a String indicate the name of this execution. This information is used for
+ *     debug and logging usage.
+ * @param clusterCostFunction the cluster cost function for this problem.
+ * @param moveCostFunction the movement cost functions for this problem
+ * @param balancerConfig the configuration of this balancer run
+ * @param clusterInfo the initial cluster state of this optimization problem
+ * @param clusterBean the metrics of the associated cluster and optimization problem
+ * @param timeout the execution limit of this optimization problem
+ */
+public record AlgorithmConfig(
+    String executionId,
+    HasClusterCost clusterCostFunction,
+    HasMoveCost moveCostFunction,
+    Configuration balancerConfig,
+    ClusterInfo clusterInfo,
+    ClusterBean clusterBean,
+    Duration timeout) {
 
-  static Builder builder() {
+  public static Builder builder() {
     return new Builder(null);
   }
 
-  static Builder builder(AlgorithmConfig config) {
+  public static Builder builder(AlgorithmConfig config) {
     return new Builder(config);
   }
 
-  /**
-   * @return a String indicate the name of this execution. This information is used for debug and
-   *     logging usage.
-   */
-  String executionId();
-
-  /**
-   * @return the cluster cost function for this problem.
-   */
-  HasClusterCost clusterCostFunction();
-
-  /**
-   * @return the movement cost functions for this problem
-   */
-  HasMoveCost moveCostFunction();
-
-  /**
-   * @return the configuration of this balancer run
-   */
-  Configuration balancerConfig();
-
-  /**
-   * @return the initial cluster state of this optimization problem
-   */
-  ClusterInfo clusterInfo();
-
-  /**
-   * @return the metrics of the associated cluster and optimization problem
-   */
-  ClusterBean clusterBean();
-
-  /**
-   * @return the execution limit of this optimization problem
-   */
-  Duration timeout();
-
-  class Builder {
+  public static class Builder {
 
     private String executionId = "noname-" + UUID.randomUUID();
     private HasClusterCost clusterCostFunction;
     private HasMoveCost moveCostFunction = HasMoveCost.EMPTY;
-    private Map<String, String> balancerConfig = new HashMap<>();
+    private final Map<String, String> balancerConfig = new HashMap<>();
 
     private ClusterInfo clusterInfo;
     private ClusterBean clusterBean = ClusterBean.EMPTY;
@@ -184,44 +166,14 @@ public interface AlgorithmConfig {
     }
 
     public AlgorithmConfig build() {
-      var config = Configuration.of(balancerConfig);
-
-      return new AlgorithmConfig() {
-        @Override
-        public String executionId() {
-          return executionId;
-        }
-
-        @Override
-        public HasClusterCost clusterCostFunction() {
-          return clusterCostFunction;
-        }
-
-        @Override
-        public HasMoveCost moveCostFunction() {
-          return moveCostFunction;
-        }
-
-        @Override
-        public Configuration balancerConfig() {
-          return config;
-        }
-
-        @Override
-        public ClusterInfo clusterInfo() {
-          return clusterInfo;
-        }
-
-        @Override
-        public ClusterBean clusterBean() {
-          return clusterBean;
-        }
-
-        @Override
-        public Duration timeout() {
-          return timeout;
-        }
-      };
+      return new AlgorithmConfig(
+          executionId,
+          clusterCostFunction,
+          moveCostFunction,
+          new Configuration(balancerConfig),
+          clusterInfo,
+          clusterBean,
+          timeout);
     }
   }
 }

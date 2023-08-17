@@ -16,13 +16,18 @@
  */
 package org.astraea.common.json;
 
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
+
 import java.lang.reflect.Array;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import org.apache.commons.lang3.reflect.TypeUtils;
 
 /** ParentType didn't erase , use reflection to get that type */
 public abstract class TypeRef<T> {
@@ -41,7 +46,7 @@ public abstract class TypeRef<T> {
   }
 
   public static <T> TypeRef<List<T>> array(Class<T> clz) {
-    return of(TypeUtils.parameterize(List.class, clz));
+    return of(new ParameterizedTypeImpl(List.class, new Type[] {clz}));
   }
 
   @SuppressWarnings("unchecked")
@@ -50,11 +55,11 @@ public abstract class TypeRef<T> {
   }
 
   public static <T> TypeRef<Map<String, T>> map(Class<T> clz) {
-    return of(TypeUtils.parameterize(Map.class, String.class, clz));
+    return of(new ParameterizedTypeImpl(Map.class, new Type[] {String.class, clz}));
   }
 
   public static <T> TypeRef<Set<T>> set(Class<T> clz) {
-    return of(TypeUtils.parameterize(Set.class, clz));
+    return of(new ParameterizedTypeImpl(Set.class, new Type[] {clz}));
   }
 
   protected final Type type;
@@ -77,12 +82,69 @@ public abstract class TypeRef<T> {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof TypeRef)) {
+    if (!(o instanceof TypeRef<?> typeRef)) {
       return false;
     }
 
-    TypeRef<?> typeRef = (TypeRef<?>) o;
-
     return getType() != null ? getType().equals(typeRef.getType()) : typeRef.getType() == null;
+  }
+
+  private static class ParameterizedTypeImpl implements ParameterizedType {
+    private final Class<?> raw;
+    private final Type useOwner;
+    private final Type[] typeArguments;
+
+    ParameterizedTypeImpl(final Class<?> rawClass, final Type[] typeArguments) {
+      this.raw = requireNonNull(rawClass);
+      this.useOwner = rawClass.getEnclosingClass();
+      this.typeArguments =
+          Arrays.copyOf(requireNonNull(typeArguments), typeArguments.length, Type[].class);
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+      if (this == obj) return true;
+      if (obj == null || getClass() != obj.getClass()) return false;
+      ParameterizedTypeImpl that = (ParameterizedTypeImpl) obj;
+      return Objects.equals(raw, that.raw)
+          && Objects.equals(useOwner, that.useOwner)
+          && Arrays.equals(typeArguments, that.typeArguments);
+    }
+
+    @Override
+    public Type[] getActualTypeArguments() {
+      return typeArguments.clone();
+    }
+
+    @Override
+    public Type getOwnerType() {
+      return useOwner;
+    }
+
+    @Override
+    public Type getRawType() {
+      return raw;
+    }
+
+    @Override
+    public int hashCode() {
+      int result = Objects.hash(raw, useOwner);
+      return result * 31 + Arrays.hashCode(typeArguments);
+    }
+
+    @Override
+    public String toString() {
+      StringBuilder builder = new StringBuilder();
+      builder.append(
+          useOwner == null ? raw.getName() : format("%s.%s", useOwner, raw.getTypeName()));
+
+      if (typeArguments.length > 0) {
+        builder.append('<');
+        builder.append(Arrays.stream(typeArguments).map(Type::getTypeName).collect(joining(", ")));
+        builder.append('>');
+      }
+
+      return builder.toString();
+    }
   }
 }

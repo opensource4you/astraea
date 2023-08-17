@@ -29,7 +29,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
@@ -76,7 +75,7 @@ class BalancerHandler implements Handler, AutoCloseable {
     var balancerPostRequest = channel.request(TypeRef.of(BalancerPostRequest.class));
     var request =
         admin
-            .topicNames(false)
+            .topicNames(true)
             .thenCompose(admin::clusterInfo)
             .thenApply(
                 currentClusterInfo ->
@@ -113,7 +112,7 @@ class BalancerHandler implements Handler, AutoCloseable {
     final var request = channel.request(TypeRef.of(BalancerPutRequest.class));
     final var taskId = request.id;
     final var taskPhase = balancerConsole.taskPhase(taskId);
-    final var executorConfig = Configuration.of(request.executorConfig);
+    final var executorConfig = new Configuration(request.executorConfig);
     final var executor =
         Utils.construct(request.executor, RebalancePlanExecutor.class, executorConfig);
 
@@ -147,30 +146,23 @@ class BalancerHandler implements Handler, AutoCloseable {
     var contextCluster = taskMetadata.get(taskId).clusterInfo;
     var exception =
         (Function<BalancerConsole.TaskPhase, String>)
-            (phase) -> {
-              switch (phase) {
-                case Searching:
-                case Searched:
-                case Executing:
-                case Executed:
+            (phase) ->
+                switch (phase) {
+                  case Searching, Searched, Executing, Executed ->
                   // No error message during the search & execution
-                  return null;
-                case SearchFailed:
-                  return planGenerations
+                  null;
+                  case SearchFailed -> planGenerations
                       .get(taskId)
                       .handle((plan, err) -> err != null ? err.toString() : null)
                       .toCompletableFuture()
                       .getNow(null);
-                case ExecutionFailed:
-                  return planExecutions
+                  case ExecutionFailed -> planExecutions
                       .get(taskId)
                       .handle((ignore, err) -> err != null ? err.toString() : null)
                       .toCompletableFuture()
                       .getNow(null);
-                default:
-                  throw new IllegalStateException("Unknown state: " + phase);
-              }
-            };
+                  default -> throw new IllegalStateException("Unknown state: " + phase);
+                };
     var changes =
         (Function<Balancer.Plan, List<Change>>)
             (solution) ->
@@ -179,7 +171,7 @@ class BalancerHandler implements Handler, AutoCloseable {
                         tp ->
                             Change.from(
                                 contextCluster.replicas(tp), solution.proposal().replicas(tp)))
-                    .collect(Collectors.toUnmodifiableList());
+                    .toList();
     var report =
         (Supplier<PlanReport>)
             () ->
@@ -193,7 +185,8 @@ class BalancerHandler implements Handler, AutoCloseable {
                         solution ->
                             new PlanReport(
                                 changes.apply(solution),
-                                MigrationCost.migrationCosts(contextCluster, solution.proposal())))
+                                MigrationCost.migrationCosts(
+                                    contextCluster, solution.proposal(), solution.clusterBean())))
                     .orElse(null);
     var phase = balancerConsole.taskPhase(taskId).orElseThrow();
     return new PlanExecutionProgress(
@@ -216,7 +209,7 @@ class BalancerHandler implements Handler, AutoCloseable {
 
     return new PostRequestWrapper(
         balancerPostRequest.balancer,
-        Configuration.of(balancerPostRequest.balancerConfig),
+        new Configuration(balancerPostRequest.balancerConfig),
         balancerPostRequest.parse(),
         currentClusterInfo);
   }
@@ -256,7 +249,7 @@ class BalancerHandler implements Handler, AutoCloseable {
     final Optional<Long> size;
 
     Placement(Replica replica, Optional<Long> size) {
-      this.brokerId = replica.nodeInfo().id();
+      this.brokerId = replica.brokerId();
       this.directory = replica.path();
       this.size = size;
     }
@@ -283,11 +276,11 @@ class BalancerHandler implements Handler, AutoCloseable {
           before.stream()
               .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
               .map(r -> new Placement(r, Optional.of(r.size())))
-              .collect(Collectors.toList()),
+              .toList(),
           after.stream()
               .sorted(Comparator.comparing(Replica::isPreferredLeader).reversed())
               .map(r -> new Placement(r, Optional.empty()))
-              .collect(Collectors.toList()));
+              .toList());
     }
 
     Change(String topic, int partition, List<Placement> before, List<Placement> after) {

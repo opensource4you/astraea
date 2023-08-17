@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -41,6 +42,7 @@ import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricStore;
 import org.astraea.common.partitioner.PartitionerUtils;
+import org.astraea.common.producer.ProducerConfigs;
 
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
 public abstract class Assignor implements ConsumerPartitionAssignor, Configurable {
@@ -99,24 +101,46 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                 () ->
                     new IllegalArgumentException(
                         ConsumerConfigs.BOOTSTRAP_SERVERS_CONFIG + " must be defined"));
-    Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
-        () ->
-            admin
-                .brokers()
-                .thenApply(
-                    brokers -> {
-                      var map = new HashMap<Integer, JndiClient>();
-                      brokers.forEach(
-                          b ->
-                              map.put(
-                                  b.id(), JndiClient.of(b.host(), jmxPortGetter.apply(b.id()))));
-                      // add local client to fetch consumer metrics
-                      map.put(-1, JndiClient.local());
-                      return Collections.unmodifiableMap(map);
-                    });
+
+    List<MetricStore.Receiver> receivers =
+        switch (config
+            .string(ConsumerConfigs.METRIC_STORE_KEY)
+            .orElse(ConsumerConfigs.METRIC_STORE_LOCAL)) {
+          case ConsumerConfigs.METRIC_STORE_TOPIC -> List.of(
+              MetricStore.Receiver.topic(
+                  config.requireString(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG)),
+              MetricStore.Receiver.local(
+                  () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
+          case ConsumerConfigs.METRIC_STORE_LOCAL -> {
+            Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
+                () ->
+                    admin
+                        .brokers()
+                        .thenApply(
+                            brokers -> {
+                              var map = new HashMap<Integer, JndiClient>();
+                              brokers.forEach(
+                                  b ->
+                                      map.put(
+                                          b.id(),
+                                          JndiClient.of(b.host(), jmxPortGetter.apply(b.id()))));
+                              // add local client to fetch consumer metrics
+                              map.put(-1, JndiClient.local());
+                              return Collections.unmodifiableMap(map);
+                            });
+            yield List.of(MetricStore.Receiver.local(clientSupplier));
+          }
+          default -> throw new IllegalArgumentException(
+              "unknown metric store type: "
+                  + config.string(ConsumerConfigs.METRIC_STORE_KEY)
+                  + ". Use "
+                  + ConsumerConfigs.METRIC_STORE_TOPIC
+                  + " or "
+                  + ConsumerConfigs.METRIC_STORE_LOCAL);
+        };
     metricStore =
         MetricStore.builder()
-            .receivers(List.of(MetricStore.Receiver.local(clientSupplier)))
+            .receivers(receivers)
             .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
             .build();
   }
@@ -161,7 +185,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   @Override
   public final void configure(Map<String, ?> configs) {
     this.config =
-        Configuration.of(
+        new Configuration(
             configs.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().toString())));
     var costFunctions =

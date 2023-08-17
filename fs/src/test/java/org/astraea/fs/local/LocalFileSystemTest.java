@@ -31,7 +31,7 @@ public class LocalFileSystemTest extends AbstractFileSystemTest {
         () -> {
           var tmp = Files.createTempDirectory("test_local_fs");
           return FileSystem.of(
-              "local", Configuration.of(Map.of(LocalFileSystem.ROOT_KEY, tmp.toString())));
+              "local", new Configuration(Map.of(LocalFileSystem.ROOT_KEY, tmp.toString())));
         });
   }
 }

@@ -228,7 +228,7 @@ public interface TableViewer {
                                             });
                                         return col;
                                       })
-                                  .collect(Collectors.toUnmodifiableList());
+                                  .toList();
                           Runnable updater =
                               () -> {
                                 table.getColumns().setAll(columns);

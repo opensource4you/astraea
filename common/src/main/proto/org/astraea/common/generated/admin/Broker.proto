@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package org.astraea.common.generated.admin;
+
+import "org/astraea/common/generated/admin/TopicPartition.proto";
+
+message Broker {
+  int32 id = 1;
+  string host = 2;
+  int32 port = 3;
+  bool isController = 4;
+  map<string, string> config = 5;
+  repeated string dataFolders = 6;
+  repeated TopicPartitionPath topicPartitionPaths = 7;
+
+  message TopicPartitionPath {
+    string topic = 1;
+    int32 partition = 2;
+    int64 size = 3;
+    string path = 4;
+  }
+}

@@ -58,12 +58,13 @@ class GreedyBalancerTest extends BalancerConfigTestSuite {
 
   @Test
   void testJmx() {
-    var cost = new DecreasingCost(Configuration.of(Map.of()));
+    var cost = new DecreasingCost(Configuration.EMPTY);
     var id = "TestJmx-" + UUID.randomUUID();
     var clusterInfo = FakeClusterInfo.of(5, 5, 5, 2);
     var balancer =
         Utils.construct(
-            GreedyBalancer.class, Configuration.of(Map.of(GreedyBalancer.ITERATION_CONFIG, "100")));
+            GreedyBalancer.class,
+            new Configuration(Map.of(GreedyBalancer.ITERATION_CONFIG, "100")));
 
     try (JndiClient client = JndiClient.local()) {
       IntStream.range(0, 10)
@@ -92,6 +93,7 @@ class GreedyBalancerTest extends BalancerConfigTestSuite {
                 Assertions.assertEquals("astraea.balancer", bean.domainName());
                 Assertions.assertTrue(0 < (long) bean.attributes().get("Iteration"));
                 Assertions.assertTrue(1.0 > (double) bean.attributes().get("MinCost"));
+                Assertions.assertTrue(0 < (long) bean.attributes().get("Plans"));
               });
     }
   }

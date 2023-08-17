@@ -193,7 +193,7 @@ public class PerformanceTest {
               .join()
               .replicaStream()
               .filter(Replica::isLeader)
-              .filter(r -> r.nodeInfo().id() == 1)
+              .filter(r -> r.brokerId() == 1)
               .map(Replica::topicPartition)
               .collect(Collectors.toUnmodifiableSet());
 
@@ -239,7 +239,7 @@ public class PerformanceTest {
               .join()
               .replicaStream()
               .filter(Replica::isLeader)
-              .filter(replica -> replica.nodeInfo().id() == 1)
+              .filter(replica -> replica.brokerId() == 1)
               .map(Replica::topicPartition)
               .collect(Collectors.toSet());
       var selector2 = args.topicPartitionSelector();
@@ -259,7 +259,7 @@ public class PerformanceTest {
               .get()
               .partition();
       // no specify broker
-      Assertions.assertTrue(-1 == partition);
+      Assertions.assertEquals(-1, partition);
 
       // Test no partition in specified broker
       var topicName3 = Utils.randomString(10);
@@ -273,8 +273,7 @@ public class PerformanceTest {
               .replicaStream()
               .findFirst()
               .get()
-              .nodeInfo()
-              .id();
+              .brokerId();
       var noPartitionBroker = (validBroker == 3) ? 1 : validBroker + 1;
       args =
           Argument.parse(

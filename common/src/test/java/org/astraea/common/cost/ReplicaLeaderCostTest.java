@@ -21,15 +21,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.astraea.common.Configuration;
+import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
-import org.astraea.common.admin.NodeInfo;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.metrics.ClusterBean;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class ReplicaLeaderCostTest {
-  private final Dispersion dispersion = Dispersion.cov();
+  private final Dispersion dispersion = Dispersion.standardDeviation();
 
   @Test
   void testLeaderCount() {
@@ -45,12 +45,12 @@ public class ReplicaLeaderCostTest {
                 "topic1",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(1)).build())
+                r -> Replica.builder(r).brokerId(baseCluster.node(1).id()).build())
             .addTopic(
                 "topic2",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(2)).build())
+                r -> Replica.builder(r).brokerId(baseCluster.node(2).id()).build())
             .build();
     var overFlowTargetCluster =
         ClusterInfo.builder(baseCluster)
@@ -58,22 +58,22 @@ public class ReplicaLeaderCostTest {
                 "topic1",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(2)).build())
+                r -> Replica.builder(r).brokerId(baseCluster.node(2).id()).build())
             .addTopic(
                 "topic2",
                 3,
                 (short) 1,
-                r -> Replica.builder(r).nodeInfo(baseCluster.node(1)).build())
+                r -> Replica.builder(r).brokerId(baseCluster.node(1).id()).build())
             .build();
 
     var overFlowMoveCost =
         new ReplicaLeaderCost(
-                Configuration.of(Map.of(ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY, "5")))
+                new Configuration(Map.of(ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY, "5")))
             .moveCost(sourceCluster, overFlowTargetCluster, ClusterBean.EMPTY);
 
     var noOverFlowMoveCost =
         new ReplicaLeaderCost(
-                Configuration.of(Map.of(ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY, "10")))
+                new Configuration(Map.of(ReplicaLeaderCost.MAX_MIGRATE_LEADER_KEY, "10")))
             .moveCost(sourceCluster, overFlowTargetCluster, ClusterBean.EMPTY);
 
     Assertions.assertTrue(overFlowMoveCost.overflow());
@@ -87,39 +87,47 @@ public class ReplicaLeaderCostTest {
             Replica.builder()
                 .topic("topic")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(10, "broker0", 1111))
+                .isLeader(true)
+                .brokerId(10)
+                .path("/tmp/aa")
+                .buildLeader(),
+            Replica.builder()
+                .topic("topic")
+                .partition(1)
+                .isLeader(true)
+                .partition(0)
+                .brokerId(10)
                 .path("/tmp/aa")
                 .buildLeader(),
             Replica.builder()
                 .topic("topic")
                 .partition(0)
-                .nodeInfo(NodeInfo.of(10, "broker0", 1111))
-                .path("/tmp/aa")
-                .buildLeader(),
-            Replica.builder()
-                .topic("topic")
-                .partition(0)
-                .nodeInfo(NodeInfo.of(11, "broker1", 1111))
+                .isLeader(true)
+                .brokerId(11)
                 .path("/tmp/aa")
                 .buildLeader());
     var clusterInfo =
         ClusterInfo.of(
             "fake",
             List.of(
-                NodeInfo.of(10, "host1", 8080),
-                NodeInfo.of(11, "host1", 8080),
-                NodeInfo.of(12, "host1", 8080)),
+                Broker.of(10, "host1", 8080),
+                Broker.of(11, "host1", 8080),
+                Broker.of(12, "host1", 8080)),
             Map.of(),
             replicas);
     var brokerCost = ReplicaLeaderCost.leaderCount(clusterInfo);
-    var clusterCost =
-        dispersion.calculate(
-            brokerCost.values().stream().map(x -> (double) x).collect(Collectors.toSet()));
+    var cf = new ReplicaLeaderCost();
+    var leaderNum = brokerCost.values().stream().mapToInt(x -> x).sum();
+    var normalizedScore =
+        brokerCost.values().stream()
+            .map(score -> (double) score / leaderNum)
+            .collect(Collectors.toList());
+    var clusterCost = dispersion.calculate(normalizedScore) * 2;
     Assertions.assertTrue(brokerCost.containsKey(10));
     Assertions.assertTrue(brokerCost.containsKey(11));
     Assertions.assertEquals(3, brokerCost.size());
     Assertions.assertTrue(brokerCost.get(10) > brokerCost.get(11));
     Assertions.assertEquals(brokerCost.get(12), 0);
-    Assertions.assertEquals(clusterCost, 0.816496580927726);
+    Assertions.assertEquals(clusterCost, cf.clusterCost(clusterInfo, ClusterBean.EMPTY).value());
   }
 }

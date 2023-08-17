@@ -18,13 +18,32 @@ package org.astraea.connector;
 
 import java.util.Collection;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
 
-public interface Definition {
+public record Definition(
+    String name,
+    Optional<Object> defaultValue,
+    String documentation,
+    Type type,
+    BiConsumer<String, Object> validator) {
 
-  static Builder builder() {
+  @Override
+  public Optional<Object> defaultValue() {
+    // ConfigDef.NO_DEFAULT_VALUE is a placeholder used to represent the lack of a default value.
+    return defaultValue.filter(v -> v != ConfigDef.NO_DEFAULT_VALUE);
+  }
+
+  /**
+   * @return true if the configuration is required, and it has no default value.
+   */
+  public boolean required() {
+    return defaultValue.filter(v -> v == ConfigDef.NO_DEFAULT_VALUE).isPresent();
+  }
+
+  public static Builder builder() {
     return new Builder();
   }
 
@@ -35,32 +54,20 @@ public interface Definition {
             def.define(
                 d.name(),
                 ConfigDef.Type.valueOf(d.type().name()),
-                d.defaultValue(),
-                d.validator() == null
-                    ? null
-                    : (n, o) -> {
-                      try {
-                        d.validator().accept(n, o);
-                      } catch (Exception e) {
-                        throw new ConfigException(n, o, e.getMessage());
-                      }
-                    },
+                d.required() ? ConfigDef.NO_DEFAULT_VALUE : d.defaultValue().orElse(null),
+                (n, o) -> {
+                  try {
+                    d.validator().accept(n, o);
+                  } catch (Exception e) {
+                    throw new ConfigException(n, o, e.getMessage());
+                  }
+                },
                 ConfigDef.Importance.MEDIUM,
                 d.documentation()));
     return def;
   }
 
-  String name();
-
-  Object defaultValue();
-
-  String documentation();
-
-  Type type();
-
-  BiConsumer<String, Object> validator();
-
-  enum Type {
+  public enum Type {
     BOOLEAN,
     STRING,
     INT,
@@ -72,14 +79,14 @@ public interface Definition {
     PASSWORD
   }
 
-  class Builder {
+  public static class Builder {
     private String name;
     private Object defaultValue;
 
     private String documentation = "";
     private Type type = Type.STRING;
 
-    private BiConsumer<String, Object> validator;
+    private BiConsumer<String, Object> validator = (l, h) -> {};
 
     private Builder() {}
 
@@ -113,39 +120,12 @@ public interface Definition {
     }
 
     public Definition build() {
-      return new Definition() {
-        private final String name = Objects.requireNonNull(Builder.this.name);
-        private final String documentation = Objects.requireNonNull(Builder.this.documentation);
-        private final Object defaultValue = Builder.this.defaultValue;
-        private final Type type = Objects.requireNonNull(Builder.this.type);
-
-        private final BiConsumer<String, Object> validator = Builder.this.validator;
-
-        @Override
-        public String name() {
-          return name;
-        }
-
-        @Override
-        public Object defaultValue() {
-          return defaultValue;
-        }
-
-        @Override
-        public String documentation() {
-          return documentation;
-        }
-
-        @Override
-        public Type type() {
-          return type;
-        }
-
-        @Override
-        public BiConsumer<String, Object> validator() {
-          return validator;
-        }
-      };
+      return new Definition(
+          Objects.requireNonNull(name),
+          Optional.ofNullable(defaultValue),
+          Objects.requireNonNull(documentation),
+          Objects.requireNonNull(type),
+          validator);
     }
   }
 }

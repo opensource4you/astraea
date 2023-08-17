@@ -20,7 +20,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 # ===============================[global variables]===============================
 declare -r ACCOUNT=${ACCOUNT:-skiptests}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
-declare -r VERSION=${REVISION:-${VERSION:-3.4.0}}
+declare -r VERSION=${REVISION:-${VERSION:-3.5.1}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/controller.dockerfile
 declare -r EXPORTER_VERSION="0.16.1"
 declare -r CLUSTER_ID=${CLUSTER_ID:-"$(randomString)"}
@@ -52,7 +52,7 @@ function showHelp() {
   echo "    ACCOUNT=skiptests                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set controller JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    VERSION=3.4.0                            set version of kafka distribution"
+  echo "    VERSION=3.5.1                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    META_FOLDER=/tmp/folder1                set host folder used by controller"
@@ -233,7 +233,7 @@ docker run -d --init \
   -p $CONTROLLER_PORT:9093 \
   -p $CONTROLLER_JMX_PORT:$CONTROLLER_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
-  "$IMAGE_NAME" sh -c "./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/controller.properties && ./bin/kafka-server-start.sh /tmp/controller.properties"
+  "$IMAGE_NAME" sh -c "./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/controller.properties --ignore-formatted && ./bin/kafka-server-start.sh /tmp/controller.properties"
 
 echo "================================================="
 [[ -n "$META_FOLDER" ]] && echo "mount $META_FOLDER to container: $CONTAINER_NAME"

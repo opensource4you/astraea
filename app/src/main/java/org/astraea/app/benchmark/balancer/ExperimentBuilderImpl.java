@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.balancer.bench;
+package org.astraea.app.benchmark.balancer;
 
 import java.time.Duration;
 import java.util.Set;

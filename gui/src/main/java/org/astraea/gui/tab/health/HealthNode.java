@@ -109,15 +109,13 @@ public class HealthNode {
                           .filter(
                               p ->
                                   p.isr().size() < minInSync.getOrDefault(p.topic(), 1)
-                                      || p.leader().isEmpty())
+                                      || p.leaderId().isEmpty())
                           .map(
                               p -> {
                                 var r = new LinkedHashMap<String, Object>();
                                 r.put("topic", p.topic());
                                 r.put("partition", p.partition());
-                                r.put(
-                                    "leader",
-                                    p.leader().map(n -> String.valueOf(n.id())).orElse("null"));
+                                r.put("leader", p.leaderId().map(String::valueOf).orElse("null"));
                                 r.put(
                                     "in-sync replicas",
                                     p.isr().stream()
@@ -126,10 +124,10 @@ public class HealthNode {
                                 r.put(
                                     TopicConfigs.MIN_IN_SYNC_REPLICAS_CONFIG,
                                     minInSync.getOrDefault(p.topic(), 1));
-                                r.put("readable", p.leader().isPresent());
+                                r.put("readable", p.leaderId().isPresent());
                                 r.put(
                                     "writable",
-                                    p.leader().isPresent()
+                                    p.leaderId().isPresent()
                                         && p.isr().size() >= minInSync.getOrDefault(p.topic(), 1));
                                 return (Map<String, Object>) r;
                               })

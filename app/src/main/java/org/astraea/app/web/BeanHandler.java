@@ -19,7 +19,6 @@ package org.astraea.app.web;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.metrics.BeanObject;
 import org.astraea.common.metrics.BeanQuery;
@@ -48,12 +47,10 @@ public class BeanHandler implements Handler {
                               try (var client = JndiClient.of(b.host(), jmxPorts.apply(b.id()))) {
                                 return new NodeBean(
                                     b.host(),
-                                    client.beans(builder.build()).stream()
-                                        .map(Bean::new)
-                                        .collect(Collectors.toUnmodifiableList()));
+                                    client.beans(builder.build()).stream().map(Bean::new).toList());
                               }
                             })
-                        .collect(Collectors.toUnmodifiableList())));
+                        .toList()));
   }
 
   static class Property implements Response {
@@ -86,11 +83,11 @@ public class BeanHandler implements Handler {
       this.properties =
           obj.properties().entrySet().stream()
               .map(e -> new Property(e.getKey(), e.getValue()))
-              .collect(Collectors.toUnmodifiableList());
+              .toList();
       this.attributes =
           obj.attributes().entrySet().stream()
               .map(e -> new Attribute(e.getKey(), e.getValue().toString()))
-              .collect(Collectors.toUnmodifiableList());
+              .toList();
     }
   }
 

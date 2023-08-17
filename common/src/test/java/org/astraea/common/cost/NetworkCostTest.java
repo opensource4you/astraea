@@ -184,7 +184,7 @@ class NetworkCostTest {
                 (short) 2,
                 (r) ->
                     Replica.builder(r)
-                        .nodeInfo(base.node(iter1.next()))
+                        .brokerId(base.node(iter1.next()).id())
                         .isPreferredLeader(iter2.next())
                         .isLeader(iter3.next())
                         .size(1)
@@ -195,7 +195,7 @@ class NetworkCostTest {
                 (short) 2,
                 (r) ->
                     Replica.builder(r)
-                        .nodeInfo(base.node(iter4.next()))
+                        .brokerId(base.node(iter4.next()).id())
                         .isPreferredLeader(iter5.next())
                         .isLeader(iter6.next())
                         .size(1)
@@ -208,19 +208,35 @@ class NetworkCostTest {
                     List.of(
                         MetricFactory.ofPartitionMetric("Rain", 0, 2),
                         MetricFactory.ofPartitionMetric("Drop", 0, 0),
-                        LogMetrics.Log.SIZE.builder().topic("Rain").partition(0).logSize(1).build(),
-                        LogMetrics.Log.SIZE.builder().topic("Drop").partition(0).logSize(1).build(),
+                        new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
+                            .topic("Rain")
+                            .partition(0)
+                            .logSize(1)
+                            .build(),
+                        new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
+                            .topic("Drop")
+                            .partition(0)
+                            .logSize(1)
+                            .build(),
                         bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Rain", 100),
                         bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Rain", 300)),
                 2,
                     List.of(
                         MetricFactory.ofPartitionMetric("Rain", 0, 0),
-                        LogMetrics.Log.SIZE.builder().topic("Rain").partition(0).logSize(1).build(),
+                        new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
+                            .topic("Rain")
+                            .partition(0)
+                            .logSize(1)
+                            .build(),
                         noise(5566)),
                 3,
                     List.of(
                         MetricFactory.ofPartitionMetric("Drop", 0, 2),
-                        LogMetrics.Log.SIZE.builder().topic("Drop").partition(0).logSize(1).build(),
+                        new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
+                            .topic("Drop")
+                            .partition(0)
+                            .logSize(1)
+                            .build(),
                         bandwidth(ServerMetrics.Topic.BYTES_IN_PER_SEC, "Drop", 80),
                         bandwidth(ServerMetrics.Topic.BYTES_OUT_PER_SEC, "Drop", 800))));
 
@@ -274,8 +290,7 @@ class NetworkCostTest {
                 1,
                     List.of(
                         MetricFactory.ofPartitionMetric("Pipeline", 0, 2),
-                        LogMetrics.Log.SIZE
-                            .builder()
+                        new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
                             .topic("Pipeline")
                             .partition(0)
                             .logSize(0)
@@ -284,8 +299,7 @@ class NetworkCostTest {
                 2,
                     List.of(
                         MetricFactory.ofPartitionMetric("Pipeline", 0, 0),
-                        LogMetrics.Log.SIZE
-                            .builder()
+                        new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
                             .topic("Pipeline")
                             .partition(0)
                             .logSize(0)
@@ -294,8 +308,7 @@ class NetworkCostTest {
                 3,
                     List.of(
                         MetricFactory.ofPartitionMetric("Pipeline", 0, 0),
-                        LogMetrics.Log.SIZE
-                            .builder()
+                        new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
                             .topic("Pipeline")
                             .partition(0)
                             .logSize(0)
@@ -351,40 +364,39 @@ class NetworkCostTest {
     var originalCost = costFunction.clusterCost(clusterInfo, clusterBean);
 
     Function<ShuffleTweaker, Double> experiment =
-        (tweaker) -> {
-          return IntStream.range(0, 10)
-              .mapToDouble(
-                  (ignore) -> {
-                    var end = System.currentTimeMillis() + Duration.ofMillis(1000).toMillis();
-                    var timeUp = (Supplier<Boolean>) () -> (System.currentTimeMillis() > end);
-                    var counting = 0;
-                    var next = clusterInfo;
-                    while (!timeUp.get()) {
-                      next =
-                          tweaker
-                              .generate(next)
-                              .parallel()
-                              .limit(30)
-                              .takeWhile(i -> !timeUp.get())
-                              .map(
-                                  cluster ->
-                                      Map.entry(
-                                          cluster,
-                                          costFunction.clusterCost(cluster, clusterBean).value()))
-                              .filter(e -> originalCost.value() > e.getValue())
-                              .min(Map.Entry.comparingByValue())
-                              .map(Map.Entry::getKey)
-                              .orElse(next);
-                      counting++;
-                    }
-                    var a = originalCost.value();
-                    var b = costFunction.clusterCost(next, clusterBean).value();
-                    System.out.println(counting);
-                    return a - b;
-                  })
-              .average()
-              .orElseThrow();
-        };
+        (tweaker) ->
+            IntStream.range(0, 10)
+                .mapToDouble(
+                    (ignore) -> {
+                      var end = System.currentTimeMillis() + Duration.ofMillis(1000).toMillis();
+                      var timeUp = (Supplier<Boolean>) () -> (System.currentTimeMillis() > end);
+                      var counting = 0;
+                      var next = clusterInfo;
+                      while (!timeUp.get()) {
+                        next =
+                            tweaker
+                                .generate(next)
+                                .parallel()
+                                .limit(30)
+                                .takeWhile(i -> !timeUp.get())
+                                .map(
+                                    cluster ->
+                                        Map.entry(
+                                            cluster,
+                                            costFunction.clusterCost(cluster, clusterBean).value()))
+                                .filter(e -> originalCost.value() > e.getValue())
+                                .min(Map.Entry.comparingByValue())
+                                .map(Map.Entry::getKey)
+                                .orElse(next);
+                        counting++;
+                      }
+                      var a = originalCost.value();
+                      var b = costFunction.clusterCost(next, clusterBean).value();
+                      System.out.println(counting);
+                      return a - b;
+                    })
+                .average()
+                .orElseThrow();
 
     long s0 = System.currentTimeMillis();
     double small = experiment.apply(smallShuffle);
@@ -523,19 +535,19 @@ class NetworkCostTest {
     var oneCost =
         Utils.construct(
             clz,
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BROKER_TOPIC_ONE_MINUTE_RATE")));
     var fiveCost =
         Utils.construct(
             clz,
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     NetworkCost.NETWORK_COST_ESTIMATION_METHOD, "BROKER_TOPIC_FIVE_MINUTE_RATE")));
     var fifteenCost =
         Utils.construct(
             clz,
-            Configuration.of(
+            new Configuration(
                 Map.of(
                     NetworkCost.NETWORK_COST_ESTIMATION_METHOD,
                     "BROKER_TOPIC_FIFTEEN_MINUTE_RATE")));
@@ -567,21 +579,12 @@ class NetworkCostTest {
       var random = new Random(seed);
       this.dataRateSupplier =
           () -> {
-            switch (1 + random.nextInt(8)) {
-              case 1:
-              case 2:
-              case 3:
-              case 4:
-              case 5:
-                return DataRate.MB.of((long) (random.nextInt(50)));
-              case 6:
-              case 7:
-                return DataRate.MB.of(3 * (long) (random.nextInt(50)));
-              case 8:
-                return DataRate.MB.of(5 * (long) (random.nextInt(50)));
-              default:
-                throw new RuntimeException();
-            }
+            return switch (1 + random.nextInt(8)) {
+              case 1, 2, 3, 4, 5 -> DataRate.MB.of((long) (random.nextInt(50)));
+              case 6, 7 -> DataRate.MB.of(3 * (long) (random.nextInt(50)));
+              case 8 -> DataRate.MB.of(5 * (long) (random.nextInt(50)));
+              default -> throw new RuntimeException();
+            };
           };
       this.clusterInfo =
           ClusterInfo.builder()
@@ -620,8 +623,7 @@ class NetworkCostTest {
               .timeRange(LocalDateTime.now(), Duration.ZERO)
               .seriesByBrokerTopic(
                   (time, broker, topic) ->
-                      ServerMetrics.Topic.BYTES_IN_PER_SEC
-                          .builder()
+                      new ServerMetricsMeterBuilder(ServerMetrics.Topic.BYTES_IN_PER_SEC)
                           .topic(topic)
                           .time(time.toEpochSecond(ZoneOffset.UTC))
                           .oneMinuteRate(
@@ -648,8 +650,7 @@ class NetworkCostTest {
                           .build())
               .seriesByBrokerTopic(
                   (time, broker, topic) ->
-                      ServerMetrics.Topic.BYTES_OUT_PER_SEC
-                          .builder()
+                      new ServerMetricsMeterBuilder(ServerMetrics.Topic.BYTES_OUT_PER_SEC)
                           .topic(topic)
                           .time(time.toEpochSecond(ZoneOffset.UTC))
                           .oneMinuteRate(
@@ -688,15 +689,14 @@ class NetworkCostTest {
                       IntStream.range(0, 10)
                           .mapToObj(
                               i ->
-                                  ServerMetrics.Topic.TOTAL_FETCH_REQUESTS_PER_SEC
-                                      .builder()
+                                  new ServerMetricsMeterBuilder(
+                                          ServerMetrics.Topic.TOTAL_FETCH_REQUESTS_PER_SEC)
                                       .topic("Noise_" + i)
                                       .time(time.toEpochSecond(ZoneOffset.UTC))
                                       .build()))
               .seriesByBrokerReplica(
                   (time, broker, replica) ->
-                      LogMetrics.Log.SIZE
-                          .builder()
+                      new LogMetricsGaugeBuilder(LogMetrics.Log.SIZE)
                           .topic(replica.topic())
                           .partition(replica.partition())
                           .logSize(replica.size())

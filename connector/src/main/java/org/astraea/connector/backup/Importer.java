@@ -26,17 +26,17 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.backup.RecordReader;
 import org.astraea.common.backup.RecordWriter;
 import org.astraea.connector.Definition;
-import org.astraea.connector.MetadataStorage;
 import org.astraea.connector.SourceConnector;
+import org.astraea.connector.SourceContext;
 import org.astraea.connector.SourceRecord;
 import org.astraea.connector.SourceTask;
+import org.astraea.connector.SourceTaskContext;
 import org.astraea.fs.FileSystem;
 import org.astraea.fs.Type;
 
@@ -79,11 +79,12 @@ public class Importer extends SourceConnector {
           .documentation("The root directory of the file that needs to be imported.")
           .required()
           .build();
+  static String CLEAN_SOURCE_DEFAULT = "off";
   static Definition CLEAN_SOURCE_KEY =
       Definition.builder()
           .name("clean.source")
           .type(Definition.Type.STRING)
-          .defaultValue("off")
+          .defaultValue(CLEAN_SOURCE_DEFAULT)
           .documentation(
               "Clean source policy. Available policies: \"off\", \"delete\", \"archive\". Default: off")
           .build();
@@ -98,7 +99,7 @@ public class Importer extends SourceConnector {
   private Configuration config;
 
   @Override
-  protected void init(Configuration configuration, MetadataStorage storage) {
+  protected void init(Configuration configuration, SourceContext context) {
     this.config = configuration;
   }
 
@@ -115,9 +116,9 @@ public class Importer extends SourceConnector {
               var taskMap = new HashMap<>(config.raw());
               taskMap.put(FILE_SET_KEY, String.valueOf(i));
               taskMap.put(TASKS_COUNT_KEY, String.valueOf(maxTasks));
-              return Configuration.of(taskMap);
+              return new Configuration(taskMap);
             })
-        .collect(Collectors.toList());
+        .toList();
   }
 
   @Override
@@ -143,17 +144,14 @@ public class Importer extends SourceConnector {
     private String cleanSource;
     private Optional<String> archiveDir;
 
-    protected void init(Configuration configuration, MetadataStorage storage) {
+    protected void init(Configuration configuration, SourceTaskContext storage) {
       this.Client = FileSystem.of(configuration.requireString(SCHEMA_KEY.name()), configuration);
       this.fileSet = configuration.requireInteger(FILE_SET_KEY);
       this.addedPaths = new HashSet<>();
       this.rootDir = configuration.requireString(PATH_KEY.name());
       this.tasksCount = configuration.requireInteger(TASKS_COUNT_KEY);
       this.paths = new LinkedList<>();
-      this.cleanSource =
-          configuration
-              .string(CLEAN_SOURCE_KEY.name())
-              .orElse(CLEAN_SOURCE_KEY.defaultValue().toString());
+      this.cleanSource = configuration.string(CLEAN_SOURCE_KEY.name()).orElse(CLEAN_SOURCE_DEFAULT);
       this.archiveDir = configuration.string(ARCHIVE_DIR_KEY.name());
     }
 
