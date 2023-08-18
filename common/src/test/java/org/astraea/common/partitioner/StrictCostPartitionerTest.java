@@ -228,7 +228,8 @@ public class StrictCostPartitionerTest {
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(Configuration.EMPTY);
       Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.brokerCost);
-      Utils.waitFor(() -> partitioner.metricStore.sensors().size() == 1);
+      Assertions.assertNotEquals(HasPartitionCost.EMPTY, partitioner.partitionCost);
+      Utils.waitFor(() -> partitioner.metricStore.sensors().size() == 2);
     }
   }
 
