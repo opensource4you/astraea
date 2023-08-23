@@ -137,6 +137,13 @@ public class StrictCostPartitionerTest {
     }
   }
 
+  public static class DumbHasPartitionCost implements HasPartitionCost {
+    @Override
+    public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+      return Map::of;
+    }
+  }
+
   @Test
   void testCostFunctionWithoutSensor() {
     var replicaInfo0 =
@@ -146,14 +153,16 @@ public class StrictCostPartitionerTest {
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(
           new Configuration(
-              (Map.of(Partitioner.COST_PREFIX + "." + DumbHasBrokerCost.class.getName(), "1"))));
+              (Map.of(
+                  Partitioner.COST_PREFIX + "." + DumbHasBrokerCost.class.getName(), "1",
+                  Partitioner.COST_PREFIX + "." + DumbHasPartitionCost.class.getName(), "1"))));
       partitioner.partition(
           "topic",
           new byte[0],
           new byte[0],
           ClusterInfoTest.of(List.of(replicaInfo0, replicaInfo1)));
       Utils.sleep(Duration.ofSeconds(1));
-      Assertions.assertEquals(1, partitioner.metricStore.sensors().size());
+      Assertions.assertEquals(2, partitioner.metricStore.sensors().size());
     }
   }
 
