@@ -29,11 +29,14 @@ import org.astraea.common.admin.Broker;
 import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.ClusterInfoTest;
 import org.astraea.common.admin.Replica;
+import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.cost.BrokerCost;
 import org.astraea.common.cost.BrokerInputCost;
 import org.astraea.common.cost.HasBrokerCost;
+import org.astraea.common.cost.HasPartitionCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.NodeThroughputCost;
+import org.astraea.common.cost.PartitionCost;
 import org.astraea.common.cost.ReplicaLeaderCost;
 import org.astraea.common.metrics.ClusterBean;
 import org.astraea.common.metrics.collector.MetricStore;
@@ -78,7 +81,7 @@ public class StrictCostPartitionerTest {
                   "2",
                   "jmx.port",
                   "1111")));
-      Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.costFunction);
+      Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.brokerCost);
     }
   }
 
@@ -94,7 +97,7 @@ public class StrictCostPartitionerTest {
                   "2",
                   "jmx.port",
                   "1111")));
-      Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.costFunction);
+      Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.brokerCost);
     }
   }
 
@@ -134,6 +137,13 @@ public class StrictCostPartitionerTest {
     }
   }
 
+  public static class DumbHasPartitionCost implements HasPartitionCost {
+    @Override
+    public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+      return Map::of;
+    }
+  }
+
   @Test
   void testCostFunctionWithoutSensor() {
     var replicaInfo0 =
@@ -143,14 +153,16 @@ public class StrictCostPartitionerTest {
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(
           new Configuration(
-              (Map.of(Partitioner.COST_PREFIX + "." + DumbHasBrokerCost.class.getName(), "1"))));
+              (Map.of(
+                  Partitioner.COST_PREFIX + "." + DumbHasBrokerCost.class.getName(), "1",
+                  Partitioner.COST_PREFIX + "." + DumbHasPartitionCost.class.getName(), "1"))));
       partitioner.partition(
           "topic",
           new byte[0],
           new byte[0],
           ClusterInfoTest.of(List.of(replicaInfo0, replicaInfo1)));
       Utils.sleep(Duration.ofSeconds(1));
-      Assertions.assertEquals(1, partitioner.metricStore.sensors().size());
+      Assertions.assertEquals(2, partitioner.metricStore.sensors().size());
     }
   }
 
@@ -165,10 +177,15 @@ public class StrictCostPartitionerTest {
     }
   }
 
-  public static class MyFunction implements HasBrokerCost {
+  public static class MyFunction implements HasBrokerCost, HasPartitionCost {
     @Override
     public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
       return () -> Map.of(22, 10D);
+    }
+
+    @Override
+    public PartitionCost partitionCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {
+      return () -> Map.of(TopicPartition.of("topic", 123), 10D);
     }
   }
 
@@ -195,13 +212,23 @@ public class StrictCostPartitionerTest {
               .path("/tmp/aa")
               .brokerId(1111)
               .buildLeader();
+      var replicaInfo2 =
+          Replica.builder()
+              .topic("topic")
+              .partition(2)
+              .path("/tmp/aa")
+              .brokerId(1111)
+              .buildLeader();
+
+      // MyFunction returns the partition "partitionId" only. So the partitioner will choose the
+      // only one.
       Assertions.assertEquals(
           partitionId,
           partitioner.partition(
               "topic",
               new byte[0],
               new byte[0],
-              ClusterInfoTest.of(List.of(replicaInfo0, replicaInfo1))));
+              ClusterInfoTest.of(List.of(replicaInfo0, replicaInfo1, replicaInfo2))));
     }
   }
 
@@ -209,8 +236,9 @@ public class StrictCostPartitionerTest {
   void testDefaultFunction() {
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(Configuration.EMPTY);
-      Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.costFunction);
-      Utils.waitFor(() -> partitioner.metricStore.sensors().size() == 1);
+      Assertions.assertNotEquals(HasBrokerCost.EMPTY, partitioner.brokerCost);
+      Assertions.assertNotEquals(HasPartitionCost.EMPTY, partitioner.partitionCost);
+      Utils.waitFor(() -> partitioner.metricStore.sensors().size() == 2);
     }
   }
 
@@ -262,7 +290,7 @@ public class StrictCostPartitionerTest {
     try (var partitioner = new StrictCostPartitioner()) {
       partitioner.configure(Configuration.EMPTY);
       // The cost function always throws exception
-      partitioner.costFunction =
+      partitioner.brokerCost =
           new HasBrokerCost() {
             @Override
             public BrokerCost brokerCost(ClusterInfo clusterInfo, ClusterBean clusterBean) {

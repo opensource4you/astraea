@@ -18,13 +18,16 @@ package org.astraea.common.partitioner;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -32,10 +35,14 @@ import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.BrokerTopic;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.Replica;
 import org.astraea.common.cost.BrokerCost;
+import org.astraea.common.cost.CostFunction;
 import org.astraea.common.cost.HasBrokerCost;
+import org.astraea.common.cost.HasPartitionCost;
 import org.astraea.common.cost.NoSufficientMetricsException;
 import org.astraea.common.cost.NodeLatencyCost;
+import org.astraea.common.cost.ReplicaLeaderSizeCost;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricStore;
@@ -43,8 +50,10 @@ import org.astraea.common.producer.ProducerConfigs;
 
 /**
  * this partitioner scores the nodes by multiples cost functions. Each function evaluate the target
- * node by different metrics. The default cost function ranks nodes by replica leader. It means the
- * node having lower replica leaders get higher score.
+ * node by different metrics. The default cost function ranks nodes by request latency. It means the
+ * node having lower request latency get higher score. After determining the node, this partitioner
+ * scores the partitions with partition cost function. The default partition cost function ranks
+ * partition by partition size. It means the node having lower size get higher score.
  *
  * <p>The important config is JMX port. Most cost functions need the JMX metrics to score nodes.
  * Normally, all brokers use the same JMX port, so you can just define the `jmx.port=12345`. If one
@@ -67,7 +76,11 @@ public class StrictCostPartitioner extends Partitioner {
   MetricStore metricStore = null;
 
   private Duration roundRobinLease = Duration.ofSeconds(4);
-  HasBrokerCost costFunction = new NodeLatencyCost();
+  HasBrokerCost brokerCost = new NodeLatencyCost();
+  HasPartitionCost partitionCost = new ReplicaLeaderSizeCost();
+  // The minimum partition cost of every topic of every broker.
+  final Map<String, Map<Integer, Integer>> minPartition = new HashMap<>();
+  long partitionUpdateTime = 0L;
   Function<Integer, Integer> jmxPortGetter =
       (id) -> {
         throw new NoSuchElementException("must define either broker.x.jmx.port or jmx.port");
@@ -86,7 +99,7 @@ public class StrictCostPartitioner extends Partitioner {
     try {
       roundRobinKeeper.tryToUpdate(
           clusterInfo,
-          () -> costToScore(costFunction.brokerCost(clusterInfo, metricStore.clusterBean())));
+          () -> costToScore(brokerCost.brokerCost(clusterInfo, metricStore.clusterBean())));
     } catch (NoSufficientMetricsException e) {
       // There is not enough metrics for the cost functions computing teh broker cost. We should not
       // update the round-robin keeper. Reuse the weights that were kept in the round-robin keeper.
@@ -97,13 +110,69 @@ public class StrictCostPartitioner extends Partitioner {
 
     var target = roundRobinKeeper.next();
 
+    // Choose a preferred partition from candidate by partition cost function
+    var preferredPartition =
+        tryUpdateMinPartition(
+            topic,
+            target,
+            (tp, id) -> {
+              // Update the preferred partition according to the topic and target broker id
+              // The target broker id may be determined previously by broker cost
+              // The returned value may be a special value "-1" which represents no preferred
+              // partition.
+              // There are three conditions that the special value "-1" appears:
+              //   1. the target broker id is not valid
+              //   2. the target broker id has no partition leader
+              //   3. no partition cost in the target broker id
+              if (id == -1) return -1;
+              var candidate = clusterInfo.replicaLeaders(BrokerTopic.of(target, topic));
+              if (candidate.isEmpty()) return -1;
+              var candidateSet =
+                  candidate.stream()
+                      .map(Replica::topicPartition)
+                      .collect(HashSet::new, HashSet::add, HashSet::addAll);
+              var preferred =
+                  partitionCost
+                      .partitionCost(clusterInfo, metricStore.clusterBean())
+                      .value()
+                      .entrySet()
+                      .stream()
+                      .filter(e -> candidateSet.contains(e.getKey()))
+                      .min(Comparator.comparingDouble(Map.Entry::getValue));
+
+              return preferred.map(e -> e.getKey().partition()).orElse(-1);
+            });
+    // Check if we can get preferred partition from partition cost function
+    if (preferredPartition != -1) return preferredPartition;
+
     // TODO: if the topic partitions are existent in fewer brokers, the target gets -1 in most cases
+    // Check "target valid" and the target "has partition leader".
     var candidate =
         target < 0 ? partitionLeaders : clusterInfo.replicaLeaders(BrokerTopic.of(target, topic));
     candidate = candidate.isEmpty() ? partitionLeaders : candidate;
+    // Randomly choose from candidate.
     return candidate.get((int) (Math.random() * candidate.size())).partition();
   }
 
+  /**
+   * @param topic the topic we send record
+   * @param brokerId the broker id that has been determined by the broker cost function
+   * @param partition update function
+   * @return the cached partition if the update time is not expired; otherwise update the partition
+   *     by the given supplier
+   */
+  private int tryUpdateMinPartition(
+      String topic, int brokerId, BiFunction<String, Integer, Integer> partition) {
+    synchronized (minPartition) {
+      if (Utils.isExpired(partitionUpdateTime, roundRobinLease)) {
+        partitionUpdateTime = System.currentTimeMillis();
+        minPartition.clear();
+      }
+      return minPartition
+          .computeIfAbsent(topic, (tp) -> new HashMap<>())
+          .computeIfAbsent(brokerId, (id) -> partition.apply(topic, id));
+    }
+  }
   /**
    * The value of cost returned from cost function is conflict to score, since the higher cost
    * represents lower score. This helper reverses the cost by subtracting the cost from "max cost".
@@ -131,8 +200,23 @@ public class StrictCostPartitioner extends Partitioner {
   public void configure(Configuration config) {
     var configuredFunctions =
         Utils.costFunctions(
-            config.filteredPrefixConfigs(COST_PREFIX).raw(), HasBrokerCost.class, config);
-    if (!configuredFunctions.isEmpty()) this.costFunction = HasBrokerCost.of(configuredFunctions);
+            config.filteredPrefixConfigs(COST_PREFIX).raw(), CostFunction.class, config);
+    if (!configuredFunctions.isEmpty()) {
+      this.brokerCost =
+          HasBrokerCost.of(
+              configuredFunctions.entrySet().stream()
+                  .filter(e -> e.getKey() instanceof HasBrokerCost)
+                  .collect(
+                      Collectors.toUnmodifiableMap(
+                          e -> (HasBrokerCost) e.getKey(), Map.Entry::getValue)));
+      this.partitionCost =
+          HasPartitionCost.of(
+              configuredFunctions.entrySet().stream()
+                  .filter(e -> e.getKey() instanceof HasPartitionCost)
+                  .collect(
+                      Collectors.toUnmodifiableMap(
+                          e -> (HasPartitionCost) e.getKey(), Map.Entry::getValue)));
+    }
     var customJmxPort = PartitionerUtils.parseIdJMXPort(config);
     var defaultJmxPort = config.integer(JMX_PORT);
     this.jmxPortGetter =
@@ -182,8 +266,14 @@ public class StrictCostPartitioner extends Partitioner {
         };
     metricStore =
         MetricStore.builder()
+            .sensorsSupplier(
+                () ->
+                    Map.of(
+                        this.brokerCost.metricSensor(),
+                        (brokerId, e) -> {},
+                        this.partitionCost.metricSensor(),
+                        (brokerId, e) -> {}))
             .receivers(receivers)
-            .sensorsSupplier(() -> Map.of(this.costFunction.metricSensor(), (integer, e) -> {}))
             .build();
 
     this.roundRobinKeeper = RoundRobinKeeper.of(ROUND_ROBIN_LENGTH, roundRobinLease);
