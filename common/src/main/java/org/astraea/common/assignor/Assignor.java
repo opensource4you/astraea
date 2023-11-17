@@ -37,7 +37,7 @@ import org.astraea.common.admin.ClusterInfo;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.cost.HasPartitionCost;
-import org.astraea.common.cost.ReplicaLeaderSizeCost;
+import org.astraea.common.cost.NetworkIngressCost;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.collector.MetricStore;
@@ -46,7 +46,7 @@ import org.astraea.common.producer.ProducerConfigs;
 
 /** Abstract assignor implementation which does some common work (e.g., configuration). */
 public abstract class Assignor implements ConsumerPartitionAssignor, Configurable {
-  private Configuration config;
+  protected Configuration config;
   public static final String COST_PREFIX = "assignor.cost";
   public static final String JMX_PORT = "jmx.port";
   Function<Integer, Integer> jmxPortGetter =
@@ -54,7 +54,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
         throw new NoSuchElementException("must define either broker.x.jmx.port or jmx.port");
       };
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
-  // TODO: metric collector may be configured by user in the future.
   // TODO: need to track the performance when using the assignor in large scale consumers, see
   // https://github.com/skiptests/astraea/pull/1162#discussion_r1036285677
   protected MetricStore metricStore = null;
@@ -70,8 +69,6 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    */
   protected abstract Map<String, List<TopicPartition>> assign(
       Map<String, SubscriptionInfo> subscriptions, ClusterInfo clusterInfo);
-  // TODO: replace the topicPartitions by ClusterInfo after Assignor is able to handle Admin
-  // https://github.com/skiptests/astraea/issues/1409
 
   /**
    * Parse config to get JMX port and cost function type.
@@ -195,7 +192,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
     var defaultJMXPort = config.integer(JMX_PORT);
     this.costFunction =
         costFunctions.isEmpty()
-            ? HasPartitionCost.of(Map.of(new ReplicaLeaderSizeCost(), 1D))
+            ? HasPartitionCost.of(Map.of(new NetworkIngressCost(config), 1D))
             : HasPartitionCost.of(costFunctions);
     this.jmxPortGetter =
         id ->

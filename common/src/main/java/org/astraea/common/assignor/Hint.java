@@ -37,16 +37,28 @@ public interface Hint {
   static Hint lowCostHint(
       Map<String, SubscriptionInfo> subscriptions, Map<TopicPartition, Double> partitionCost) {
     return (currentAssignment, tp) -> {
-      var candidates =
+      var consumerPerCost =
           currentAssignment.entrySet().stream()
               .filter(e -> subscriptions.get(e.getKey()).topics().contains(tp.topic()))
               .map(
                   e ->
                       Map.entry(
                           e.getKey(), e.getValue().stream().mapToDouble(partitionCost::get).sum()))
-              .sorted(Map.Entry.comparingByValue())
-              .map(Map.Entry::getKey)
-              .toList();
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      List<String> candidates;
+
+      if (consumerPerCost.containsValue(0.0))
+        candidates =
+            consumerPerCost.entrySet().stream()
+                .filter(e -> e.getValue() == 0.0)
+                .map(Map.Entry::getKey)
+                .toList();
+      else
+        candidates =
+            consumerPerCost.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .toList();
 
       return candidates.stream().limit((long) Math.ceil(candidates.size() / 2.0)).toList();
     };
@@ -61,7 +73,8 @@ public interface Hint {
               .filter(e -> e.getValue().topics().contains(tp.topic()))
               .map(Map.Entry::getKey)
               .toList();
-      if (incompatibilities.get(tp).isEmpty()) return subscriber;
+      if (incompatibilities.containsKey(tp) && incompatibilities.get(tp).isEmpty())
+        return subscriber;
 
       var candidates =
           currentAssignment.entrySet().stream()
@@ -71,6 +84,7 @@ public interface Hint {
                       Map.entry(
                           e.getKey(),
                           e.getValue().stream()
+                              .filter(incompatibilities::containsKey)
                               .filter(p -> incompatibilities.get(p).contains(tp))
                               .count()))
               .collect(
