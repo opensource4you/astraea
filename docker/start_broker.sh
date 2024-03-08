@@ -51,8 +51,10 @@ declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/broker:$VERSION"
 
 function showHelp() {
   echo "Usage: [ENV] start_broker.sh [ ARGUMENTS ]"
-  echo "Required Argument: "
-  echo "    zookeeper.connect=node:22222             set zookeeper connection"
+  echo "Required Argument (zk mode): "
+  echo "    zookeeper.connect=node:22222              set zookeeper connection"
+  echo "Required Argument (kraft mode): "
+  echo "    controller.quorum.voters=12310@node:14335 set controller connection"
   echo "Optional Arguments: "
   echo "    num.io.threads=10                        set broker I/O threads"
   echo "    num.network.threads=10                   set broker network threads"
