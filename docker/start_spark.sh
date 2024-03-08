@@ -101,7 +101,7 @@ WORKDIR /opt/spark
 
 function generateDockerfileBySource() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:22.04 AS build
+FROM ubuntu:23.10 AS build
 
 # Do not ask for confirmations when running apt-get, etc.
 ENV DEBIAN_FRONTEND noninteractive
