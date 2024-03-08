@@ -392,6 +392,10 @@ public final class Utils {
     return reflectionAttribute(object.getClass(), object, attribute);
   }
 
+  public static Object method(Object object, String name) {
+    return reflectionMethod(object.getClass(), object, name);
+  }
+
   /**
    * reflection class attribute
    *
@@ -413,6 +417,16 @@ public final class Utils {
       }
     } while (clz != null);
     throw new RuntimeException(attribute + " is not existent in " + object.getClass().getName());
+  }
+
+  private static Object reflectionMethod(Class<?> clz, Object object, String attribute) {
+    try {
+      var method = clz.getDeclaredMethod(attribute);
+      method.setAccessible(true);
+      return method.invoke(object);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public static <T> List<T> constants(

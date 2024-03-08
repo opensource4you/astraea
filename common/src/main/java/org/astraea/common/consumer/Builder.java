@@ -178,7 +178,7 @@ public abstract class Builder<Key, Value> {
     public BaseConsumer(org.apache.kafka.clients.consumer.Consumer<Key, Value> kafkaConsumer) {
       this.kafkaConsumer = kafkaConsumer;
       // KafkaConsumer does not expose client-id
-      this.clientId = (String) Utils.member(kafkaConsumer, "clientId");
+      this.clientId = (String) Utils.method(kafkaConsumer, "clientId");
     }
 
     @Override
