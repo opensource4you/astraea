@@ -30,6 +30,7 @@ dependencies {
     implementation libs["junit"]
     implementation libs["kafka-core"]
     implementation libs["kafka-server-common"]
+    implementation libs["kafka-metadata"]
     implementation libs["kafka-connect-runtime"]
     implementation libs["kafka-connect-json"]
     implementation libs["hadoop-minicluster"]

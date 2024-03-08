@@ -29,24 +29,32 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaRaftServer;
-import kafka.server.MetaProperties;
 import kafka.server.Server;
 import kafka.tools.StorageTool;
+import org.apache.kafka.common.DirectoryId;
 import org.apache.kafka.common.Uuid;
 import org.apache.kafka.common.utils.SystemTime;
+import org.apache.kafka.metadata.properties.MetaProperties;
+import org.apache.kafka.metadata.properties.MetaPropertiesVersion;
 import org.apache.kafka.server.common.MetadataVersion;
 
 public interface BrokerCluster extends AutoCloseable {
 
   private static CompletableFuture<Map.Entry<Integer, Server>> server(
       Map<String, String> configs, Set<String> folders, String clusterId, int nodeId) {
+
     StorageTool.formatCommand(
         new PrintStream(new ByteArrayOutputStream()),
         scala.collection.JavaConverters.collectionAsScalaIterableConverter(folders)
             .asScala()
             .toSeq(),
-        new MetaProperties(clusterId, nodeId),
-        MetadataVersion.latest(),
+        new MetaProperties.Builder()
+            .setVersion(MetaPropertiesVersion.V1)
+            .setClusterId(clusterId)
+            .setNodeId(nodeId)
+            .setDirectoryId(DirectoryId.random())
+            .build(),
+        MetadataVersion.latestProduction(),
         true);
 
     return CompletableFuture.supplyAsync(
