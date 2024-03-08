@@ -420,18 +420,13 @@ public final class Utils {
   }
 
   private static Object reflectionMethod(Class<?> clz, Object object, String attribute) {
-    do {
-      try {
-        var method = clz.getDeclaredMethod(attribute);
-        method.setAccessible(true);
-        return method.invoke(object);
-      } catch (NoSuchMethodException e) {
-        clz = clz.getSuperclass();
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
-    } while (clz != null);
-    throw new RuntimeException(attribute + " is not existent in " + object.getClass().getName());
+    try {
+      var method = clz.getDeclaredMethod(attribute);
+      method.setAccessible(true);
+      return method.invoke(object);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public static <T> List<T> constants(
