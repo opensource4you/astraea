@@ -61,7 +61,7 @@ RUN tar -xvf \$(find ./app/build/distributions/ -maxdepth 1 -type f -name app-*.
 FROM ubuntu:23.10
 
 # install tools
-RUN apt-get update && apt-get install -y openjdk-17-jre
+RUN apt-get update && apt-get install -y openjdk-21-jre
 
 # copy astraea
 COPY --from=build /opt/astraea /opt/astraea

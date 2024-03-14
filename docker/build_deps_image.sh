@@ -28,7 +28,7 @@ FROM ubuntu:23.10
 # install tools
 RUN apt-get update && apt-get install -y \
   git \
-  openjdk-17-jdk \
+  openjdk-21-jdk \
   wget \
   unzip \
   curl
