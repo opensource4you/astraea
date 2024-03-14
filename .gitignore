@@ -15,10 +15,8 @@ zookeeper.dockerfile
 controller.dockerfile
 broker.dockerfile
 app.dockerfile
-spark.dockerfile
 deps.dockerfile
 worker.dockerfile
-etl.dockerfile
 hadoop.dockerfile
 # we don't put binary file to git repo
 gradle-wrapper.jar

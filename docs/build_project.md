@@ -4,7 +4,6 @@
 
 - app: 處理與web server，成本分析與負載平衡等功能之模組
 - common: 有關叢集，客戶端等分析，管理與平衡等功能之模組
-- etl: 轉換 csv 檔，再匯入 delta 並使串接部份有更好的平行化處理之模組
 - gui: 與圖形化界面功能相關的模組
 - connector: 基於 Kafka connector 實作的各式分散式工具
 - it: 針對專案測試所提供的叢集環境
