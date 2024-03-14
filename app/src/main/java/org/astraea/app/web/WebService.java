@@ -84,17 +84,19 @@ public class WebService implements AutoCloseable {
             yield List.of(
                 MetricStore.Receiver.local(() -> admin.brokers().thenApply(asBeanClientMap)));
           }
-          case METRIC_STORE_TOPIC -> List.of(
-              MetricStore.Receiver.topic(config.requireString(BOOTSTRAP_SERVERS_KEY)),
-              MetricStore.Receiver.local(
-                  () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
-          default -> throw new IllegalArgumentException(
-              "unknown metric store type: "
-                  + config.string(METRIC_STORE_KEY)
-                  + ". use "
-                  + METRIC_STORE_LOCAL
-                  + " or "
-                  + METRIC_STORE_TOPIC);
+          case METRIC_STORE_TOPIC ->
+              List.of(
+                  MetricStore.Receiver.topic(config.requireString(BOOTSTRAP_SERVERS_KEY)),
+                  MetricStore.Receiver.local(
+                      () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
+          default ->
+              throw new IllegalArgumentException(
+                  "unknown metric store type: "
+                      + config.string(METRIC_STORE_KEY)
+                      + ". use "
+                      + METRIC_STORE_LOCAL
+                      + " or "
+                      + METRIC_STORE_TOPIC);
         };
     var metricStore =
         MetricStore.builder()

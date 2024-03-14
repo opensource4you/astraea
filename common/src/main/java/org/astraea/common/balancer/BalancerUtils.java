@@ -51,8 +51,9 @@ public final class BalancerUtils {
                           case "balancing" -> BalancingModes.BALANCING;
                           case "clear" -> BalancingModes.CLEAR;
                           case "excluded" -> BalancingModes.EXCLUDED;
-                          default -> throw new IllegalArgumentException(
-                              "Unsupported balancing mode: " + s[1]);
+                          default ->
+                              throw new IllegalArgumentException(
+                                  "Unsupported balancing mode: " + s[1]);
                         }));
 
     Function<Integer, BalancingModes> mode =

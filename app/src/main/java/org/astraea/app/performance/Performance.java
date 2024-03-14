@@ -363,6 +363,7 @@ public class Performance {
                 + "partition level. This argument can't be use in conjunction with `specify.brokers`, `topics` or `partitioner`.",
         converter = TopicPartitionField.class)
     List<TopicPartition> specifyPartitions = List.of();
+
     /**
      * @return a supplier that randomly return a sending target
      */
@@ -449,6 +450,7 @@ public class Performance {
         return () -> selection.get(ThreadLocalRandom.current().nextInt(selection.size()));
       }
     }
+
     // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
     @Parameter(
         names = {"--throughput"},

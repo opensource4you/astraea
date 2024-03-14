@@ -185,13 +185,13 @@ public class BrokerNode {
                         m ->
                             switch (m.type()) {
                               case BYTES_IN_PER_SEC,
-                                  BYTES_OUT_PER_SEC,
-                                  BYTES_REJECTED_PER_SEC,
-                                  REASSIGNMENT_BYTES_OUT_PER_SEC,
-                                  REASSIGNMENT_BYTES_IN_PER_SEC,
-                                  REPLICATION_BYTES_IN_PER_SEC,
-                                  REPLICATION_BYTES_OUT_PER_SEC -> DataSize.Byte.of(
-                                  (long) m.fiveMinuteRate());
+                                      BYTES_OUT_PER_SEC,
+                                      BYTES_REJECTED_PER_SEC,
+                                      REASSIGNMENT_BYTES_OUT_PER_SEC,
+                                      REASSIGNMENT_BYTES_IN_PER_SEC,
+                                      REPLICATION_BYTES_IN_PER_SEC,
+                                      REPLICATION_BYTES_OUT_PER_SEC ->
+                                  DataSize.Byte.of((long) m.fiveMinuteRate());
                               default -> m.fiveMinuteRate();
                             })));
 

@@ -37,6 +37,7 @@ public interface CsvReader extends AutoCloseable, Iterator<List<String>> {
    * @param num The number of lines to skip
    */
   void skip(int num);
+
   /**
    * Get the next line without checking.
    *

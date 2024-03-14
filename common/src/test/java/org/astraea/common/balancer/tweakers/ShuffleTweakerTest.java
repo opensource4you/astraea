@@ -246,12 +246,12 @@ class ShuffleTweakerTest {
                         .map(Replica::topicPartitionReplica)
                         .collect(Collectors.toUnmodifiableSet());
                 switch (partition.topic()) {
-                  case "topic2" -> Assertions.assertEquals(
-                      2, replicaSet.size(), replicaSet.toString());
-                  case "topic3" -> Assertions.assertEquals(
-                      3, replicaSet.size(), replicaSet.toString());
-                  case "topic4" -> Assertions.assertEquals(
-                      4, replicaSet.size(), replicaSet.toString());
+                  case "topic2" ->
+                      Assertions.assertEquals(2, replicaSet.size(), replicaSet.toString());
+                  case "topic3" ->
+                      Assertions.assertEquals(3, replicaSet.size(), replicaSet.toString());
+                  case "topic4" ->
+                      Assertions.assertEquals(4, replicaSet.size(), replicaSet.toString());
                 }
 
                 var replicas = cluster.replicas(partition).stream().toList();

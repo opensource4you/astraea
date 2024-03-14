@@ -80,6 +80,7 @@ public interface Consumer<Key, Value> extends AutoCloseable {
   static TopicsBuilder<byte[], byte[]> forTopics(Pattern patternTopics) {
     return new TopicsBuilder<>(Objects.requireNonNull(patternTopics));
   }
+
   /**
    * Create a consumer builder by setting specific topic partitions
    *

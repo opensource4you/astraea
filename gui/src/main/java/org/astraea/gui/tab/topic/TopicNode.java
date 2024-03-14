@@ -108,8 +108,8 @@ public class TopicNode {
                                                   .mapToDouble(HasRate::fiveMinuteRate)
                                                   .sum();
                                           switch (metric) {
-                                            case BYTES_IN_PER_SEC, BYTES_OUT_PER_SEC -> map.put(
-                                                key, DataSize.Byte.of((long) value));
+                                            case BYTES_IN_PER_SEC, BYTES_OUT_PER_SEC ->
+                                                map.put(key, DataSize.Byte.of((long) value));
                                             default -> map.put(key, value);
                                           }
                                         });

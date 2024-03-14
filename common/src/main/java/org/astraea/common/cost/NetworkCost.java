@@ -239,10 +239,11 @@ public abstract class NetworkCost implements HasClusterCost {
                                   switch (estimationMethod) {
                                     case BROKER_TOPIC_ONE_MINUTE_RATE -> hasRate.oneMinuteRate();
                                     case BROKER_TOPIC_FIVE_MINUTE_RATE -> hasRate.fiveMinuteRate();
-                                    case BROKER_TOPIC_FIFTEEN_MINUTE_RATE -> hasRate
-                                        .fifteenMinuteRate();
-                                    default -> throw new IllegalStateException(
-                                        "Unknown estimation method: " + estimationMethod);
+                                    case BROKER_TOPIC_FIFTEEN_MINUTE_RATE ->
+                                        hasRate.fifteenMinuteRate();
+                                    default ->
+                                        throw new IllegalStateException(
+                                            "Unknown estimation method: " + estimationMethod);
                                   })
                           // no load metric for this partition, treat as zero load
                           .orElse(0.0);

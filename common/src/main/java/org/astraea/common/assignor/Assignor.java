@@ -70,6 +70,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
    */
   protected abstract Map<String, List<TopicPartition>> assign(
       Map<String, SubscriptionInfo> subscriptions, ClusterInfo clusterInfo);
+
   // TODO: replace the topicPartitions by ClusterInfo after Assignor is able to handle Admin
   // https://github.com/skiptests/astraea/issues/1409
 
@@ -106,11 +107,12 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
         switch (config
             .string(ConsumerConfigs.METRIC_STORE_KEY)
             .orElse(ConsumerConfigs.METRIC_STORE_LOCAL)) {
-          case ConsumerConfigs.METRIC_STORE_TOPIC -> List.of(
-              MetricStore.Receiver.topic(
-                  config.requireString(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG)),
-              MetricStore.Receiver.local(
-                  () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
+          case ConsumerConfigs.METRIC_STORE_TOPIC ->
+              List.of(
+                  MetricStore.Receiver.topic(
+                      config.requireString(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG)),
+                  MetricStore.Receiver.local(
+                      () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
           case ConsumerConfigs.METRIC_STORE_LOCAL -> {
             Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
                 () ->
@@ -130,13 +132,14 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
                             });
             yield List.of(MetricStore.Receiver.local(clientSupplier));
           }
-          default -> throw new IllegalArgumentException(
-              "unknown metric store type: "
-                  + config.string(ConsumerConfigs.METRIC_STORE_KEY)
-                  + ". Use "
-                  + ConsumerConfigs.METRIC_STORE_TOPIC
-                  + " or "
-                  + ConsumerConfigs.METRIC_STORE_LOCAL);
+          default ->
+              throw new IllegalArgumentException(
+                  "unknown metric store type: "
+                      + config.string(ConsumerConfigs.METRIC_STORE_KEY)
+                      + ". Use "
+                      + ConsumerConfigs.METRIC_STORE_TOPIC
+                      + " or "
+                      + ConsumerConfigs.METRIC_STORE_LOCAL);
         };
     metricStore =
         MetricStore.builder()

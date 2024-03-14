@@ -61,6 +61,7 @@ public interface MetricSensor {
                 })
             .toList();
   }
+
   /**
    * generate the metrics to stored by metrics collector. The implementation can use MBeanClient to
    * fetch metrics from remote/local mbean server. Or the implementation can generate custom metrics

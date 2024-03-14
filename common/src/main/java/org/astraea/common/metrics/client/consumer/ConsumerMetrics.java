@@ -70,6 +70,7 @@ public class ConsumerMetrics {
         .map(b -> (AppInfo) () -> b)
         .collect(Collectors.toList());
   }
+
   /**
    * collect HasNodeMetrics from all consumers.
    *

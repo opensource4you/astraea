@@ -173,6 +173,7 @@ public class StrictCostPartitioner extends Partitioner {
           .computeIfAbsent(brokerId, (id) -> partition.apply(topic, id));
     }
   }
+
   /**
    * The value of cost returned from cost function is conflict to score, since the higher cost
    * represents lower score. This helper reverses the cost by subtracting the cost from "max cost".
@@ -232,11 +233,12 @@ public class StrictCostPartitioner extends Partitioner {
 
     List<MetricStore.Receiver> receivers =
         switch (config.string(METRIC_STORE_KEY).orElse(METRIC_STORE_LOCAL)) {
-          case METRIC_STORE_TOPIC -> List.of(
-              MetricStore.Receiver.topic(
-                  config.requireString(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG)),
-              MetricStore.Receiver.local(
-                  () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
+          case METRIC_STORE_TOPIC ->
+              List.of(
+                  MetricStore.Receiver.topic(
+                      config.requireString(ProducerConfigs.BOOTSTRAP_SERVERS_CONFIG)),
+                  MetricStore.Receiver.local(
+                      () -> CompletableFuture.completedStage(Map.of(-1, JndiClient.local()))));
           case METRIC_STORE_LOCAL -> {
             Supplier<CompletionStage<Map<Integer, MBeanClient>>> clientSupplier =
                 () ->
@@ -256,13 +258,14 @@ public class StrictCostPartitioner extends Partitioner {
                             });
             yield List.of(MetricStore.Receiver.local(clientSupplier));
           }
-          default -> throw new IllegalArgumentException(
-              "unknown metric store type: "
-                  + config.string(METRIC_STORE_KEY)
-                  + ". Use "
-                  + METRIC_STORE_TOPIC
-                  + " or "
-                  + METRIC_STORE_LOCAL);
+          default ->
+              throw new IllegalArgumentException(
+                  "unknown metric store type: "
+                      + config.string(METRIC_STORE_KEY)
+                      + ". Use "
+                      + METRIC_STORE_TOPIC
+                      + " or "
+                      + METRIC_STORE_LOCAL);
         };
     metricStore =
         MetricStore.builder()

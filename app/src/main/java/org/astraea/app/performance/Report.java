@@ -148,6 +148,7 @@ public interface Report {
    * @return Get the number of records.
    */
   long records();
+
   /**
    * @return Get the maximum of latency put.
    */
