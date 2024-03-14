@@ -32,9 +32,7 @@ def versions = [
         kafka            : project.properties['kafka.version'] ?: "3.7.0",
         mockito          : project.properties['mockito.version'] ?: "5.11.0",
         "mockito-inline" : project.properties['mockito-inline.version'] ?: "5.2.0",
-        scala            : project.properties['scala.version'] ?: "2.13.13",
         slf4j            : project.properties['slf4j.version'] ?: "2.0.12",
-        spark            : project.properties['spark.version'] ?: "3.5.1",
         hadoop           : project.properties["hadoop.version"] ?: "3.3.6",
 ]
 
@@ -59,10 +57,7 @@ libs += [
         "kafka-metadata"          : "org.apache.kafka:kafka-metadata:${versions["kafka"]}",
         "mockito-core"            : "org.mockito:mockito-core:${versions["mockito"]}",
         "mockito-inline"          : "org.mockito:mockito-inline:${versions["mockito-inline"]}",
-        scala                     : "org.scala-lang:scala-library:${versions["scala"]}",
         "slf4j-nop"               : "org.slf4j:slf4j-nop:${versions["slf4j"]}",
-        "spark-kafka"             : "org.apache.spark:spark-sql-kafka-0-10_2.13:${versions["spark"]}",
-        "spark-sql"               : "org.apache.spark:spark-sql_2.13:${versions["spark"]}",
         "hadoop-common"           : "org.apache.hadoop:hadoop-common:${versions["hadoop"]}",
         "hadoop-client"           : "org.apache.hadoop:hadoop-client:${versions["hadoop"]}",
         "hadoop-minicluster"      : "org.apache.hadoop:hadoop-minicluster:${versions["hadoop"]}",
