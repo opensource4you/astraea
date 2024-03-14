@@ -89,8 +89,8 @@ public interface Query {
                 switch (ops.get(index - 1)) {
                   case "&&" -> match && queries.get(index).required(item);
                   case "||" -> match || queries.get(index).required(item);
-                  default -> throw new IllegalArgumentException(
-                      "unsupported op: " + ops.get(index - 1));
+                  default ->
+                      throw new IllegalArgumentException("unsupported op: " + ops.get(index - 1));
                 };
           }
         }

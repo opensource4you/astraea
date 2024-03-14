@@ -29,6 +29,7 @@ public interface CsvWriter extends AutoCloseable {
   static CsvWriterBuilder builder(Writer sink) {
     return new CsvWriterBuilder(sink);
   }
+
   /**
    * Writes the next line to the file.Empty fields cannot be written and the lengths of the strings
    * written should be equal.

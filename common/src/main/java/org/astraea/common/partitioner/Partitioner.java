@@ -121,6 +121,7 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
   public static void endInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
     THREAD_LOCAL.remove();
   }
+
   /**
    * Close interdependence function.Send data using the original partitioner logic.
    *

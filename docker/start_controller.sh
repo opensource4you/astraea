@@ -80,7 +80,7 @@ RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname 
 FROM ubuntu:23.10
 
 # install tools
-RUN apt-get update && apt-get install -y openjdk-17-jre
+RUN apt-get update && apt-get install -y openjdk-21-jre
 
 # copy kafka
 COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
@@ -122,7 +122,7 @@ WORKDIR /opt/kafka
 FROM ubuntu:23.10
 
 # install tools
-RUN apt-get update && apt-get install -y openjdk-17-jre
+RUN apt-get update && apt-get install -y openjdk-21-jre
 
 # copy kafka
 COPY --from=build /opt/jmx_exporter /opt/jmx_exporter

@@ -23,6 +23,7 @@ import java.util.Optional;
 public record Config(Map<String, String> raw) {
 
   public static final Config EMPTY = new Config(Map.of());
+
   /**
    * @param key config key
    * @return the value associated to input key. otherwise, empty

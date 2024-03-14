@@ -85,6 +85,7 @@ public final class BrokerConfigs {
   public static final Set<String> DYNAMICAL_CONFIGS =
       new TreeSet<>(
           Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG"), String.class));
+
   // ---------------------------------[values]---------------------------------//
 
   private BrokerConfigs() {}

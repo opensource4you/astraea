@@ -137,18 +137,22 @@ public class NeutralIntegratedCost implements HasBrokerCost {
                     m -> m.metricName,
                     m ->
                         switch (m) {
-                          case inputThroughput -> brokerMetrics.values().stream()
-                              .map(metrics -> metrics.inputScore)
-                              .toList();
-                          case outputThroughput -> brokerMetrics.values().stream()
-                              .map(metrics -> metrics.outputScore)
-                              .toList();
-                          case memory -> brokerMetrics.values().stream()
-                              .map(metrics -> metrics.memoryScore)
-                              .toList();
-                          case cpu -> brokerMetrics.values().stream()
-                              .map(metrics -> metrics.cpuScore)
-                              .toList();
+                          case inputThroughput ->
+                              brokerMetrics.values().stream()
+                                  .map(metrics -> metrics.inputScore)
+                                  .toList();
+                          case outputThroughput ->
+                              brokerMetrics.values().stream()
+                                  .map(metrics -> metrics.outputScore)
+                                  .toList();
+                          case memory ->
+                              brokerMetrics.values().stream()
+                                  .map(metrics -> metrics.memoryScore)
+                                  .toList();
+                          case cpu ->
+                              brokerMetrics.values().stream()
+                                  .map(metrics -> metrics.cpuScore)
+                                  .toList();
                         }));
     return weightProvider.weight(values);
   }

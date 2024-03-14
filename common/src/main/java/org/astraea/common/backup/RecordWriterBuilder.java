@@ -134,11 +134,14 @@ public class RecordWriterBuilder {
               this.compressionType = configuration.string("compression.type").orElse("none");
 
               switch (this.compressionType) {
-                case "gzip" -> Utils.packException(
-                    () -> this.targetOutputStream = new GZIPOutputStream(outputStream));
+                case "gzip" ->
+                    Utils.packException(
+                        () -> this.targetOutputStream = new GZIPOutputStream(outputStream));
                 case "none" -> this.targetOutputStream = outputStream;
-                default -> throw new IllegalArgumentException(
-                    String.format("compression type '%s' is not supported", this.compressionType));
+                default ->
+                    throw new IllegalArgumentException(
+                        String.format(
+                            "compression type '%s' is not supported", this.compressionType));
               }
             }
 

@@ -321,12 +321,14 @@ public class BalancerHandlerTest {
       report.migrationCosts.forEach(
           migrationCost -> {
             switch (migrationCost.name) {
-              case TO_SYNC_BYTES, TO_FETCH_BYTES -> Assertions.assertTrue(
-                  migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
-                      <= DataSize.of(sizeLimit).bytes());
-              case REPLICA_LEADERS_TO_ADDED, REPLICA_LEADERS_TO_REMOVE -> Assertions.assertTrue(
-                  migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
-                      <= Long.parseLong(leaderLimit));
+              case TO_SYNC_BYTES, TO_FETCH_BYTES ->
+                  Assertions.assertTrue(
+                      migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
+                          <= DataSize.of(sizeLimit).bytes());
+              case REPLICA_LEADERS_TO_ADDED, REPLICA_LEADERS_TO_REMOVE ->
+                  Assertions.assertTrue(
+                      migrationCost.brokerCosts.values().stream().mapToLong(Long::intValue).sum()
+                          <= Long.parseLong(leaderLimit));
             }
           });
     }

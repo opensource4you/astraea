@@ -149,18 +149,20 @@ class BalancerHandler implements Handler, AutoCloseable {
             (phase) ->
                 switch (phase) {
                   case Searching, Searched, Executing, Executed ->
-                  // No error message during the search & execution
-                  null;
-                  case SearchFailed -> planGenerations
-                      .get(taskId)
-                      .handle((plan, err) -> err != null ? err.toString() : null)
-                      .toCompletableFuture()
-                      .getNow(null);
-                  case ExecutionFailed -> planExecutions
-                      .get(taskId)
-                      .handle((ignore, err) -> err != null ? err.toString() : null)
-                      .toCompletableFuture()
-                      .getNow(null);
+                      // No error message during the search & execution
+                      null;
+                  case SearchFailed ->
+                      planGenerations
+                          .get(taskId)
+                          .handle((plan, err) -> err != null ? err.toString() : null)
+                          .toCompletableFuture()
+                          .getNow(null);
+                  case ExecutionFailed ->
+                      planExecutions
+                          .get(taskId)
+                          .handle((ignore, err) -> err != null ? err.toString() : null)
+                          .toCompletableFuture()
+                          .getNow(null);
                   default -> throw new IllegalStateException("Unknown state: " + phase);
                 };
     var changes =
