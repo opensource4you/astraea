@@ -58,10 +58,7 @@ RUN ./gradlew clean build -x test --no-daemon
 RUN mkdir /opt/astraea
 RUN tar -xvf \$(find ./app/build/distributions/ -maxdepth 1 -type f -name app-*.tar) -C /opt/astraea/ --strip-components=1
 
-FROM ubuntu:23.10
-
-# install tools
-RUN apt-get update && apt-get install -y openjdk-21-jre
+FROM azul/zulu-openjdk:21-jre
 
 # copy astraea
 COPY --from=build /opt/astraea /opt/astraea

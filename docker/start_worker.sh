@@ -93,10 +93,7 @@ WORKDIR /tmp/astraea
 RUN ./gradlew clean shadowJar
 RUN cp /tmp/astraea/connector/build/libs/astraea-*-all.jar /opt/kafka/libs/
 
-FROM ubuntu:23.10
-
-# install tools
-RUN apt-get update && apt-get install -y openjdk-21-jre
+FROM azul/zulu-openjdk:21-jre
 
 # copy kafka
 COPY --from=build /opt/kafka /opt/kafka
@@ -132,10 +129,7 @@ WORKDIR /tmp/astraea
 RUN ./gradlew clean shadowJar
 RUN cp /tmp/astraea/connector/build/libs/astraea-*-all.jar /opt/kafka/libs/
 
-FROM ubuntu:23.10
-
-# install tools
-RUN apt-get update && apt-get install -y openjdk-21-jre
+FROM azul/zulu-openjdk:21-jre
 
 # copy kafka
 COPY --from=build /opt/kafka /opt/kafka

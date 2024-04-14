@@ -23,12 +23,11 @@ declare -r DOCKERFILE=$DOCKER_FOLDER/deps.dockerfile
 # ===================================[functions]===================================
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:23.10
+FROM azul/zulu-openjdk:21
 
 # install tools
 RUN apt-get update && apt-get install -y \
   git \
-  openjdk-21-jdk \
   wget \
   unzip \
   curl
