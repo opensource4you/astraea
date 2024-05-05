@@ -70,8 +70,9 @@ RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/exampl
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # build kafka from source code
-RUN git clone ${kafka_repo} /tmp/kafka
+RUN git clone --depth=1 ${kafka_repo} /tmp/kafka
 WORKDIR /tmp/kafka
+RUN git fetch --depth=1 origin $VERSION
 RUN git checkout $VERSION
 RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka

@@ -80,11 +80,10 @@ function generateDockerfileBySource() {
 FROM ghcr.io/skiptests/astraea/deps AS build
 
 # build kafka from source code
-RUN git clone ${kafka_repo} /tmp/kafka
+RUN git clone --depth=1 ${kafka_repo} /tmp/kafka
 WORKDIR /tmp/kafka
+RUN git fetch --depth=1 origin $VERSION
 RUN git checkout $VERSION
-# generate gradlew for previous
-RUN cp /tmp/kafka/gradlew /tmp/gradlew || /tmp/gradle-5.6.4/bin/gradle
 RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname \"kafka*tgz\" ! -iname \"*sit*\" \)) -C /opt/kafka --strip-components=1

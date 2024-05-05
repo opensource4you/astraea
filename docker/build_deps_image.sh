@@ -32,11 +32,6 @@ RUN apt-get update && apt-get install -y \
   unzip \
   curl
 
-# download gradle 5 for previous kafka having no built-in gradlew
-WORKDIR /tmp
-RUN wget https://downloads.gradle.org/distributions/gradle-5.6.4-bin.zip
-RUN unzip gradle-5.6.4-bin.zip
-
 # build code and download dependencies
 WORKDIR /astraea
 RUN git clone https://github.com/skiptests/astraea.git /astraea
