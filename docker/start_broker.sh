@@ -263,6 +263,7 @@ fi
 checkNetwork
 
 quorum="unknown"
+migration="false"
 while [[ $# -gt 0 ]]; do
   if [[ "$1" == "help" ]]; then
     showHelp
@@ -274,6 +275,9 @@ while [[ $# -gt 0 ]]; do
   fi
   if [[ "$1" == "zookeeper.connect"* ]]; then
     quorum="zookeeper"
+  fi
+  if [[ "$1" == "zookeeper.metadata.migration.enable=true"* ]]; then
+    migration="true"
   fi
   shift
 done
@@ -302,14 +306,21 @@ setLogDirs
 
 command="./bin/kafka-server-start.sh /tmp/broker.properties"
 if [[ "$quorum" == "kraft" ]]; then
-  if [[ -z "$CLUSTER_ID" ]]; then
-    echo "please set CLUSTER_ID for krafe mode"
-    exit 2
+  if [[ "$migration" == "false" ]]; then
+      if [[ -z "$CLUSTER_ID" ]]; then
+        echo "please set CLUSTER_ID for krafe mode"
+        exit 2
+      fi
+      setPropertyIfEmpty "node.id" "$NODE_ID"
+      setPropertyIfEmpty "process.roles" "broker"
+      setPropertyIfEmpty "controller.listener.names" "CONTROLLER"
+      command="./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/broker.properties --ignore-formatted && ./bin/kafka-server-start.sh /tmp/broker.properties"
+  else
+      setPropertyIfEmpty "broker.id" "$NODE_ID"
+      setPropertyIfEmpty "broker.id.generation.enable" "false"
+      setPropertyIfEmpty "listener.security.protocol.map" "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      setPropertyIfEmpty "controller.listener.names" "CONTROLLER"
   fi
-  setPropertyIfEmpty "node.id" "$NODE_ID"
-  setPropertyIfEmpty "process.roles" "broker"
-  setPropertyIfEmpty "controller.listener.names" "CONTROLLER"
-  command="./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/broker.properties --ignore-formatted && ./bin/kafka-server-start.sh /tmp/broker.properties"
 fi
 
 docker run -d --init \
