@@ -194,7 +194,6 @@ rejectProperty "listeners"
 rejectProperty "process.roles"
 rejectProperty "controller.listener.names"
 rejectProperty "advertised.listeners"
-rejectProperty "zookeeper.connect"
 rejectProperty "log.dirs"
 rejectProperty "broker.id"
 # we don't use this property as kraft can use head of log.dirs instead
