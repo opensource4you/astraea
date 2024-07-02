@@ -96,7 +96,7 @@ RUN chown -R $USER:$USER /opt/hadoop
 USER $USER
 
 #export ENV
-ENV HADOOP_HOME /opt/hadoop
+ENV HADOOP_HOME=/opt/hadoop
 WORKDIR /opt/hadoop
 " >"$DOCKERFILE"
 }

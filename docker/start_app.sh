@@ -71,7 +71,7 @@ RUN chown -R $USER:$USER /opt/astraea
 USER $USER
 
 # export ENV
-ENV ASTRAEA_HOME /opt/astraea
+ENV ASTRAEA_HOME=/opt/astraea
 WORKDIR /opt/astraea
 " >"$DOCKERFILE"
 }

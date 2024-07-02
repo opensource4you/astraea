@@ -92,7 +92,7 @@ RUN chown -R $USER:$USER /opt/kafka
 USER $USER
 
 # export ENV
-ENV KAFKA_HOME /opt/kafka
+ENV KAFKA_HOME=/opt/kafka
 WORKDIR /opt/kafka
 " >"$DOCKERFILE"
 }
@@ -131,7 +131,7 @@ RUN chown -R $USER:$USER /opt/kafka
 USER $USER
 
 # export ENV
-ENV KAFKA_HOME /opt/kafka
+ENV KAFKA_HOME=/opt/kafka
 WORKDIR /opt/kafka
 " >"$DOCKERFILE"
 }

@@ -77,7 +77,7 @@ RUN chown -R $USER:$USER /opt/zookeeper
 USER $USER
 
 # export ENV
-ENV ZOOKEEPER_HOME /opt/zookeeper
+ENV ZOOKEEPER_HOME=/opt/zookeeper
 WORKDIR /opt/zookeeper
 " >"$DOCKERFILE"
 }
