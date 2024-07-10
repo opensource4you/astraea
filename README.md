@@ -42,12 +42,12 @@
 
 `Astraea` 鼓勵貢獻者參與研討會做技術發表，各年度的發表請見下列連結：
 
-[2022 年度](https://github.com/skiptests/astraea/issues/238)
+[2022 年度](https://github.com/opensource4you/astraea/issues/238)
 
-上述報告和測試所使用的硬體詳細資訊：[Astraea 測試用硬體](https://github.com/skiptests/astraea/issues/130)
+上述報告和測試所使用的硬體詳細資訊：[Astraea 測試用硬體](https://github.com/opensource4you/astraea/issues/130)
 
 # 社群活動
 
 `Astraea` 定時舉辦線下活動，各年度活動請見下方連結
 
-[2022 聖誕節](https://github.com/skiptests/astraea/issues/830)
+[2022 聖誕節](https://github.com/opensource4you/astraea/issues/830)

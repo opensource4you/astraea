@@ -306,7 +306,7 @@ public class ThrottleHandler implements Handler {
     if (throttledReplicas.isEmpty()) return Set.of();
 
     // TODO: support for wildcard throttle might be implemented in the future, see
-    // https://github.com/skiptests/astraea/issues/625
+    // https://github.com/opensource4you/astraea/issues/625
     if (throttledReplicas.equals("*"))
       throw new UnsupportedOperationException("This API doesn't support wildcard throttle");
 

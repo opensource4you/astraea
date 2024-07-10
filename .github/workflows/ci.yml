@@ -11,7 +11,7 @@ jobs:
   container-test-job:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/skiptests/astraea/deps
+      image: ghcr.io/opensource4you/astraea/deps
       options: --cpus 2
     steps:
       - uses: actions/checkout@v2

@@ -19,7 +19,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
 declare -r VERSION=${VERSION:-3.3.5}
-declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/hadoop}
+declare -r REPO=${REPO:-ghcr.io/opensource4you/astraea/hadoop}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/hadoop.dockerfile
 declare -r EXPORTER_VERSION="0.16.1"
@@ -78,7 +78,7 @@ RUN tar -zxvf hadoop-${VERSION}.tar.gz -C /opt/hadoop --strip-components=1
 FROM ubuntu:23.10
 
 #install tools
-# TODO: upgrade to jdk 11 (https://github.com/skiptests/astraea/issues/1681)
+# TODO: upgrade to jdk 11 (https://github.com/opensource4you/astraea/issues/1681)
 RUN apt-get update && apt-get install -y openjdk-11-jre
 
 #copy hadoop

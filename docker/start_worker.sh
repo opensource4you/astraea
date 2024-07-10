@@ -18,7 +18,7 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
-declare -r ACCOUNT=${ACCOUNT:-skiptests}
+declare -r ACCOUNT=${ACCOUNT:-opensource4you}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
 declare -r VERSION=${REVISION:-${VERSION:-3.7.0}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/worker.dockerfile
@@ -47,7 +47,7 @@ function showHelp() {
   echo "    bootstrap.servers=node:22222,node:1111   set brokers connection"
   echo "ENV: "
   echo "    KAFKA_ACCOUNT=apache                      set the github account for kafka repo"
-  echo "    ACCOUNT=skiptests                      set the github account for astraea repo"
+  echo "    ACCOUNT=opensource4you                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"              set worker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
   echo "    VERSION=3.7.0                            set version of kafka distribution"
@@ -77,7 +77,7 @@ function generateDockerfileBySource() {
   local repo="https://github.com/${ACCOUNT}/astraea"
 
   echo "# this dockerfile is generated dynamically
-FROM ghcr.io/skiptests/astraea/deps AS build
+FROM ghcr.io/opensource4you/astraea/deps AS build
 
 # build kafka from source code
 RUN git clone --depth=1 ${kafka_repo} /tmp/kafka
@@ -113,7 +113,7 @@ WORKDIR /opt/kafka
 function generateDockerfileByVersion() {
   local repo="https://github.com/${ACCOUNT}/astraea"
   echo "# this dockerfile is generated dynamically
-FROM ghcr.io/skiptests/astraea/deps AS build
+FROM ghcr.io/opensource4you/astraea/deps AS build
 
 # install tools
 RUN apt-get update && apt-get install -y wget

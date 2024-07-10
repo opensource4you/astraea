@@ -19,7 +19,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
 declare -r VERSION=${VERSION:-3.9.1}
-declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/zookeeper}
+declare -r REPO=${REPO:-ghcr.io/opensource4you/astraea/zookeeper}
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r ZOOKEEPER_PORT=${ZOOKEEPER_PORT:-"$(getRandomPort)"}
 declare -r ZOOKEEPER_JMX_PORT="${ZOOKEEPER_JMX_PORT:-"$(getRandomPort)"}"

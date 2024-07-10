@@ -19,7 +19,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
 declare -r VERSION=${REVISION:-${VERSION:-main}}
-declare -r ACCOUNT=${ACCOUNT:-skiptests}
+declare -r ACCOUNT=${ACCOUNT:-opensource4you}
 if [[ "$VERSION" == "main" ]]; then
   declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/app:latest"
 else
@@ -38,14 +38,14 @@ declare -r BACKGROUND="${BACKGROUND:-"false"}"
 function showHelp() {
   echo "Usage: [ENV] start_app.sh"
   echo "ENV: "
-  echo "    ACCOUNT=skiptests          set the account to clone from"
+  echo "    ACCOUNT=opensource4you          set the account to clone from"
   echo "    BUILD=false                set true if you want to build image locally"
   echo "    RUN=false                  set false if you want to build/pull image only"
 }
 
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM ghcr.io/skiptests/astraea/deps AS build
+FROM ghcr.io/opensource4you/astraea/deps AS build
 
 # clone repo
 WORKDIR /tmp

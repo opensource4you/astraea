@@ -50,7 +50,7 @@
 
     docker run --rm -ti \
     -v $HOME/project/astraea:/tmp/astraea \
-    ghcr.io/skiptests/astraea/deps \
+    ghcr.io/opensource4you/astraea/deps \
     /bin/bash
 
 在運行的 container 中移至 `/tmp/astraea` 後，透過上方方式測試專案

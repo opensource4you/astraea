@@ -108,7 +108,7 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
    * @param producer Astraea producer
    */
   // TODO One thread supports multiple producers.
-  // TODO: https://github.com/skiptests/astraea/pull/721#discussion_r973677891
+  // TODO: https://github.com/opensource4you/astraea/pull/721#discussion_r973677891
   public static void beginInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
     beginInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
   }
@@ -127,7 +127,7 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
    *
    * @param producer Kafka producer
    */
-  // TODO: https://github.com/skiptests/astraea/pull/721#discussion_r973677891
+  // TODO: https://github.com/opensource4you/astraea/pull/721#discussion_r973677891
   public static void endInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
     endInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
   }

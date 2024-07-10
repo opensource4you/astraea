@@ -451,7 +451,7 @@ public class Performance {
       }
     }
 
-    // replace DataSize by DataRate (see https://github.com/skiptests/astraea/issues/488)
+    // replace DataSize by DataRate (see https://github.com/opensource4you/astraea/issues/488)
     @Parameter(
         names = {"--throughput"},
         description =

@@ -2,7 +2,7 @@
 
 > 這個實驗的內容和 [Experiment 1](./experiment_1.md) 目標雷同，只是透過 Web API 來做負載平衡
 
-這個測試展示目前的 Astraea Balancer [(5883c0d)](https://github.com/skiptests/astraea/tree/5883c0d5fbfb178714a4b3ab375d264ffcf7408d) 
+這個測試展示目前的 Astraea Balancer [(5883c0d)](https://github.com/opensource4you/astraea/tree/5883c0d5fbfb178714a4b3ab375d264ffcf7408d) 
 能在特定的系統環境中，平衡每個節點的 leader 數。
 
 在這次實驗中，Astraea Balancer 得到了以下結果：
@@ -12,7 +12,7 @@
 
 ## 測試情境
 
-我們透過專案內的 [WebAPI](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/web_server/web_api_topics_chinese.md#%E5%BB%BA%E7%AB%8B-topic)
+我們透過專案內的 [WebAPI](https://github.com/opensource4you/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/web_server/web_api_topics_chinese.md#%E5%BB%BA%E7%AB%8B-topic)
 工具來對測試叢集產生一個 Leader 數量不平衡的情境。WebAPI 在建立 topic 時能夠透過特定參數來以 Binomial Distribution 營造 topic logs 
 在叢集內分佈不均的情況。這最終形成的分佈類似於對生產環境 Kafka 叢集不斷加減 topics/partitions/nodes 所導致的資料配置不均勻狀態。
 
@@ -73,8 +73,8 @@
 ### 建立 Kafka 叢集
 
 請依照上述的環境建立叢集，您可以使用專案內的 
-[./docker/start_zookeeper.sh](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_zookeeper.md) 和
-[./docker/start_broker.sh](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_kafka_broker.md) 來建立叢集。
+[./docker/start_zookeeper.sh](https://github.com/opensource4you/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_zookeeper.md) 和
+[./docker/start_broker.sh](https://github.com/opensource4you/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_kafka_broker.md) 來建立叢集。
 
 ## 效能資料攝取
 
@@ -83,9 +83,9 @@
 進行底層硬體效能資料的攝取。
 
 您可以使用專案內的 
-[./docker/start_node_exporter.sh](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_node_exporter.md),
-[./docker/start_prometheus.sh](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_prometheus.md) 和
-[./docker/start_grafana.sh](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_grafana.md) 來建構監控環境。
+[./docker/start_node_exporter.sh](https://github.com/opensource4you/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_node_exporter.md),
+[./docker/start_prometheus.sh](https://github.com/opensource4you/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_prometheus.md) 和
+[./docker/start_grafana.sh](https://github.com/opensource4you/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/run_grafana.md) 來建構監控環境。
 
 本次實驗所使用的 Dashboard 可以在[這裡](resources/experiment_1_grafana-1663659783116.json)找到
 
@@ -94,7 +94,7 @@
 首先取得 Astraea Project
 
 ```script
-git clone https://github.com/skiptests/astraea.git
+git clone https://github.com/opensource4you/astraea.git
 cd astraea
 git checkout 5883c0d5fbfb178714a4b3ab375d264ffcf7408d
 ```
@@ -119,7 +119,7 @@ curl -X POST http://localhost:8001/topics \
 
 
 接着要開始對叢集輸入資料，我們在 P1 設備上執行下面的指令以啓動 
-[Astraea Performance Tool](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/performance_benchmark.md)
+[Astraea Performance Tool](https://github.com/opensource4you/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/performance_benchmark.md)
 
 ```shell
 ./gradlew run --args="performance --bootstrap.servers <broker-addresses> --topics imbalance-topic --producers 8 --consumers 16 --key.size 10KiB --run.until 3h"
@@ -200,7 +200,7 @@ curl -X PUT http://localhost:8001/balancer \
 
 > 如果計劃執行失敗，可以檢查 `exception` 欄位的訊息，或是查看 Web Service 是否有印出錯誤的資訊，來做進一步的診斷。
 
-> 詳細的 `/balancer` API 文件，可以參考[這裡](https://github.com/skiptests/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/web_server/web_api_balancer_chinese.md)
+> 詳細的 `/balancer` API 文件，可以參考[這裡](https://github.com/opensource4you/astraea/blob/5883c0d5fbfb178714a4b3ab375d264ffcf7408d/docs/web_server/web_api_balancer_chinese.md)
 
 每次執行上述步驟都會做一輪的負載平衡，每次都會給叢集帶來一定程度的進步，通常情況下您會需要重複執行多次上述的指令，直到您覺得叢集負載不平衡情況減緩爲止。
 這次實驗中我們總共執行了 8 次 Balancer。以下爲各項結果圖表：

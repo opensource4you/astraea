@@ -1,7 +1,7 @@
 /metricSensors
 ===
 
-此api用來指定未來可能會想要使用的`Costfunction`之`MetricSensors`，主要功能如下 (相關討論請看[#1665](https://github.com/skiptests/astraea/pull/1665)) :
+此api用來指定未來可能會想要使用的`Costfunction`之`MetricSensors`，主要功能如下 (相關討論請看[#1665](https://github.com/opensource4you/astraea/pull/1665)) :
 
 - [指定MetricSensors](#指定-MetricSensors): 選擇要使用的`Costfunction`之`MetricSensor`
 - [查詢已指定的 MetricSensors](#查詢已指定的-MetricSensors): 查看當前已指定之`MetricSensor`的`CostFunction`

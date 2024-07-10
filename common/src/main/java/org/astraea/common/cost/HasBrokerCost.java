@@ -30,7 +30,7 @@ public interface HasBrokerCost extends CostFunction {
   static HasBrokerCost of(Map<HasBrokerCost, Double> costAndWeight) {
     // the temporary exception won't affect the smooth-weighted too much.
     // TODO: should we propagate the exception by better way? For example: Slf4j ?
-    // see https://github.com/skiptests/astraea/issues/486
+    // see https://github.com/opensource4you/astraea/issues/486
     var sensor =
         MetricSensor.of(costAndWeight.keySet().stream().map(CostFunction::metricSensor).toList());
     return new HasBrokerCost() {

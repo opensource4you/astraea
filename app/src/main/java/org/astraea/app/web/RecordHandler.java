@@ -331,7 +331,7 @@ public class RecordHandler implements Handler {
     var builder = org.astraea.common.producer.Record.builder().topic(topic);
 
     // TODO: Support headers
-    // (https://github.com/skiptests/astraea/issues/422)
+    // (https://github.com/opensource4you/astraea/issues/422)
     var keySerializer = SerDe.ofAlias(postRecord.keySerializer).serializer;
     var valueSerializer = SerDe.ofAlias(postRecord.valueSerializer).serializer;
     postRecord.key.ifPresent(

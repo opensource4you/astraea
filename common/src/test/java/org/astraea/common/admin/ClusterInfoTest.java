@@ -44,7 +44,7 @@ public class ClusterInfoTest {
    */
   public static ClusterInfo of(List<Replica> replicas) {
     // TODO: this method is not suitable for production use. Move it to the test scope.
-    //  see https://github.com/skiptests/astraea/issues/1185
+    //  see https://github.com/opensource4you/astraea/issues/1185
     return ClusterInfo.of(
         "fake",
         replicas.stream()

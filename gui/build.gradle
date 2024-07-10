@@ -64,7 +64,7 @@ publishing {
     }
     repositories {
         maven {
-            url = "https://maven.pkg.github.com/skiptests/astraea"
+            url = "https://maven.pkg.github.com/opensource4you/astraea"
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")

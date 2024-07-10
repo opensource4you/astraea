@@ -18,7 +18,7 @@ declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null
 source $DOCKER_FOLDER/docker_build_common.sh
 
 # ===============================[global variables]===============================
-declare -r ACCOUNT=${ACCOUNT:-skiptests}
+declare -r ACCOUNT=${ACCOUNT:-opensource4you}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
 declare -r VERSION=${REVISION:-${VERSION:-3.7.0}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
@@ -60,7 +60,7 @@ function showHelp() {
   echo "    num.network.threads=10                   set broker network threads"
   echo "ENV: "
   echo "    KAFKA_ACCOUNT=apache                      set the github account for kafka repo"
-  echo "    ACCOUNT=skiptests                      set the github account for astraea repo"
+  echo "    ACCOUNT=opensource4you                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    REVISION=trunk                           set revision of kafka source code to build container"
   echo "    VERSION=3.7.0                            set version of kafka distribution"
@@ -73,7 +73,7 @@ function showHelp() {
 function generateDockerfileBySource() {
   local kafka_repo="https://github.com/${KAFKA_ACCOUNT}/kafka"
   echo "# this dockerfile is generated dynamically
-FROM ghcr.io/skiptests/astraea/deps AS build
+FROM ghcr.io/opensource4you/astraea/deps AS build
 
 # download jmx exporter
 RUN mkdir /opt/jmx_exporter

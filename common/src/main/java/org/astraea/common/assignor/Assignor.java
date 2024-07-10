@@ -56,7 +56,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
   HasPartitionCost costFunction = HasPartitionCost.EMPTY;
   // TODO: metric collector may be configured by user in the future.
   // TODO: need to track the performance when using the assignor in large scale consumers, see
-  // https://github.com/skiptests/astraea/pull/1162#discussion_r1036285677
+  // https://github.com/opensource4you/astraea/pull/1162#discussion_r1036285677
   protected MetricStore metricStore = null;
 
   protected Admin admin = null;
@@ -72,7 +72,7 @@ public abstract class Assignor implements ConsumerPartitionAssignor, Configurabl
       Map<String, SubscriptionInfo> subscriptions, ClusterInfo clusterInfo);
 
   // TODO: replace the topicPartitions by ClusterInfo after Assignor is able to handle Admin
-  // https://github.com/skiptests/astraea/issues/1409
+  // https://github.com/opensource4you/astraea/issues/1409
 
   /**
    * Parse config to get JMX port and cost function type.

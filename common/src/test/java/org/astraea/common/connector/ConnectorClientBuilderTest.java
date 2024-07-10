@@ -36,9 +36,9 @@ class ConnectorClientBuilderTest {
     Assertions.assertThrows(
         IllegalArgumentException.class, () -> ConnectorClient.builder().build());
 
-    ConnectorClient.builder().url(new URL("https://github.com/skiptests/astraea/")).build();
+    ConnectorClient.builder().url(new URL("https://github.com/opensource4you/astraea/")).build();
     ConnectorClient.builder()
-        .urls(List.of(new URL("https://github.com/skiptests/astraea/")))
+        .urls(List.of(new URL("https://github.com/opensource4you/astraea/")))
         .build();
   }
 

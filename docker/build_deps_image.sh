@@ -16,7 +16,7 @@
 
 declare -r DOCKER_FOLDER=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source $DOCKER_FOLDER/docker_build_common.sh
-declare -r REPO=${REPO:-ghcr.io/skiptests/astraea/deps}
+declare -r REPO=${REPO:-ghcr.io/opensource4you/astraea/deps}
 declare -r VERSION="latest"
 declare -r IMAGE_NAME="$REPO:$VERSION"
 declare -r DOCKERFILE=$DOCKER_FOLDER/deps.dockerfile
@@ -34,7 +34,7 @@ RUN apt-get update && apt-get install -y \
 
 # build code and download dependencies
 WORKDIR /astraea
-RUN git clone https://github.com/skiptests/astraea.git /astraea
+RUN git clone https://github.com/opensource4you/astraea.git /astraea
 RUN ./gradlew clean build -x test
 # download test dependencies
 RUN ./gradlew clean build testClasses -x test --no-daemon

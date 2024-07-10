@@ -23,7 +23,7 @@ Consumer: 調整Consumer config的"receive.buffer.bytes"，建議設定為-1，�
 
 ### 詳細討論
 
-[#1518](https://github.com/skiptests/astraea/issues/1516)
+[#1518](https://github.com/opensource4you/astraea/issues/1516)
 
 
 
@@ -50,5 +50,5 @@ Consumer 拉取資料的簡短流程：
 
 ### 詳細討論
 
-[#1475](https://github.com/skiptests/astraea/issues/1475)
+[#1475](https://github.com/opensource4you/astraea/issues/1475)
 

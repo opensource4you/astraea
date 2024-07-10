@@ -153,7 +153,7 @@ public interface JndiClient extends MBeanClient, AutoCloseable {
           () ->
               connection.queryMBeans(beanQuery.objectName(), null).stream()
                   // Parallelize the sampling of bean objects. The underlying RMI is thread-safe.
-                  // https://github.com/skiptests/astraea/issues/1553#issuecomment-1461143723
+                  // https://github.com/opensource4you/astraea/issues/1553#issuecomment-1461143723
                   .parallel()
                   .map(ObjectInstance::getObjectName)
                   .map(BeanQuery::fromObjectName)

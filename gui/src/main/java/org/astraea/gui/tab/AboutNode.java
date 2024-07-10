@@ -43,7 +43,7 @@ public class AboutNode {
                 "build date",
                 VersionUtils.DATE,
                 "web site",
-                "https://github.com/skiptests/astraea"))),
+                "https://github.com/opensource4you/astraea"))),
     Author(
         "維護者",
         List.of(

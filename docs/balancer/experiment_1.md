@@ -1,6 +1,6 @@
 # Astraea Balancer 測試 #1
 
-這個測試展示目前的 Astraea Balancer [(7596f59)](https://github.com/skiptests/astraea/tree/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4) 
+這個測試展示目前的 Astraea Balancer [(7596f59)](https://github.com/opensource4you/astraea/tree/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4) 
 能在特定的系統環境中，平衡每個節點的 leader 數。
 
 在這次實驗中，Astraea Balancer 得到了以下結果：
@@ -10,7 +10,7 @@
 
 ## 測試情境
 
-我們透過專案內的 [WebAPI](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/web_server/web_api_topics_chinese.md#%E5%BB%BA%E7%AB%8B-topic)
+我們透過專案內的 [WebAPI](https://github.com/opensource4you/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/web_server/web_api_topics_chinese.md#%E5%BB%BA%E7%AB%8B-topic)
 工具來對測試叢集產生一個 Leader 數量不平衡的情境。WebAPI 在建立 topic 時能夠透過特定參數來以 Binomial Distribution 營造 topic logs 
 在叢集內分佈不均的情況。這最終形成的分佈類似於對生產環境 Kafka 叢集不斷加減 topics/partitions/nodes 所導致的資料配置不均勻狀態。
 
@@ -71,8 +71,8 @@
 ### 建立 Kafka 叢集
 
 請依照上述的環境建立叢集，您可以使用專案內的 
-[./docker/start_zookeeper.sh](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_zookeeper.md) 和
-[./docker/start_broker.sh](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_kafka_broker.md) 來建立叢集。
+[./docker/start_zookeeper.sh](https://github.com/opensource4you/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_zookeeper.md) 和
+[./docker/start_broker.sh](https://github.com/opensource4you/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_kafka_broker.md) 來建立叢集。
 
 ## 效能資料攝取
 
@@ -81,9 +81,9 @@
 進行底層硬體效能資料的攝取。
 
 您可以使用專案內的 
-[./docker/start_node_exporter.sh](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_node_exporter.md),
-[./docker/start_prometheus.sh](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_prometheus.md) 和
-[./docker/start_grafana.sh](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_grafana.md) 來建構監控環境。
+[./docker/start_node_exporter.sh](https://github.com/opensource4you/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_node_exporter.md),
+[./docker/start_prometheus.sh](https://github.com/opensource4you/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_prometheus.md) 和
+[./docker/start_grafana.sh](https://github.com/opensource4you/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/run_grafana.md) 來建構監控環境。
 
 本次實驗所使用的 Dashboard 可以在[這裡](resources/experiment_1_grafana-1663659783116.json)找到
 
@@ -92,7 +92,7 @@
 首先取得 Astraea Project
 
 ```script
-git clone https://github.com/skiptests/astraea.git
+git clone https://github.com/opensource4you/astraea.git
 cd astraea
 git checkout 7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4
 ```
@@ -117,7 +117,7 @@ curl -X POST http://localhost:8001/topics \
 
 
 接着要開始對叢集輸入資料，我們在 P1 設備上執行下面的指令以啓動 
-[Astraea Performance Tool](https://github.com/skiptests/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/performance_benchmark.md)
+[Astraea Performance Tool](https://github.com/opensource4you/astraea/blob/7596f590ae0f0ec370a6e257c10cc2aeb5fb5bf4/docs/performance_benchmark.md)
 
 ```shell
 ./gradlew run --args="performance --bootstrap.servers <broker-addresses> --topics imbalance-topic --producers 8 --consumers 16 --key.size 10KiB --run.until 3h"

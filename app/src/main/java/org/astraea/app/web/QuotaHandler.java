@@ -73,8 +73,8 @@ public class QuotaHandler implements Handler {
                       .thenApply(Quotas::new));
     }
 
-    // TODO: use DataRate#Field (traced https://github.com/skiptests/astraea/issues/488)
-    // see https://github.com/skiptests/astraea/issues/490
+    // TODO: use DataRate#Field (traced https://github.com/opensource4you/astraea/issues/488)
+    // see https://github.com/opensource4you/astraea/issues/490
     if (postRequest.producer.isPresent()) {
       var producerQuota = postRequest.producer.get();
       return admin

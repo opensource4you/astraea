@@ -137,7 +137,7 @@ public interface RecordGenerator extends Function<TopicPartition, List<Record<by
             var key = recordKeyTable.get(keyDistribution.get());
             // Intentionally replace key with zero length by null key. A key with zero length can
             // lead to ambiguous behavior in an experiment.
-            // See https://github.com/skiptests/astraea/pull/1521#discussion_r1121801293 for further
+            // See https://github.com/opensource4you/astraea/pull/1521#discussion_r1121801293 for further
             // details.
             return key != null && key.length > 0 ? key : null;
           };
