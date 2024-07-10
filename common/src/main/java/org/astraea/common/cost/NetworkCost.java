@@ -64,8 +64,8 @@ import org.astraea.common.metrics.platform.HostMetrics;
  *       bandwidth is correct and steadily reflect the actual resource usage. This is generally true
  *       when the broker has reach its steady state, but to reach that state might takes awhile. And
  *       based on our observation this probably won't happen at the early broker start (see <a
- *       href="https://github.com/opensource4you/astraea/issues/1641">Issue #1641</a>). We suggest use
- *       this cost with metrics from the servers in steady state.
+ *       href="https://github.com/opensource4you/astraea/issues/1641">Issue #1641</a>). We suggest
+ *       use this cost with metrics from the servers in steady state.
  * </ol>
  */
 public abstract class NetworkCost implements HasClusterCost {
@@ -182,7 +182,8 @@ public abstract class NetworkCost implements HasClusterCost {
     var maxEgress = brokerEgressRate.values().stream().mapToDouble(x -> x).sum();
     var maxRate = Math.max(maxIngress, maxEgress);
     // the score is measured as the ratio of targeting network throughput related to the maximum
-    // ingress or egress throughput. See https://github.com/opensource4you/astraea/issues/1285 for the
+    // ingress or egress throughput. See https://github.com/opensource4you/astraea/issues/1285 for
+    // the
     // reason to do this.
     double score = (summary.getMax() - summary.getMin()) / (maxRate);
 
