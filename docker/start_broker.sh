@@ -44,6 +44,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
 declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/broker:$VERSION"
+declare -r METADATA_VERSION=${METADATA_VERSION:-""}
 # cleanup the file if it is existent
 [[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"
 
@@ -307,6 +308,12 @@ setLogDirs
 command="./bin/kafka-server-start.sh /tmp/broker.properties"
 if [[ "$quorum" == "kraft" ]]; then
   if [[ "$migration" == "false" ]]; then
+
+      release_version=""
+      if [[ -n "$METADATA_VERSION" ]]; then
+        release_version="--release-version $METADATA_VERSION"
+      fi
+
       if [[ -z "$CLUSTER_ID" ]]; then
         echo "please set CLUSTER_ID for krafe mode"
         exit 2
@@ -314,7 +321,7 @@ if [[ "$quorum" == "kraft" ]]; then
       setPropertyIfEmpty "node.id" "$NODE_ID"
       setPropertyIfEmpty "process.roles" "broker"
       setPropertyIfEmpty "controller.listener.names" "CONTROLLER"
-      command="./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/broker.properties --ignore-formatted && ./bin/kafka-server-start.sh /tmp/broker.properties"
+      command="./bin/kafka-storage.sh format -t $CLUSTER_ID $release_version -c /tmp/broker.properties --ignore-formatted && ./bin/kafka-server-start.sh /tmp/broker.properties"
   else
       setPropertyIfEmpty "broker.id" "$NODE_ID"
       setPropertyIfEmpty "broker.id.generation.enable" "false"

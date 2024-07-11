@@ -62,6 +62,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r CONTROLLER_PROPERTIES="/tmp/controller-${CONTROLLER_PORT}.properties"
 declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/controller:$VERSION"
+declare -r METADATA_VERSION=${METADATA_VERSION:-""}
 # cleanup the file if it is existent
 [[ -f "$CONTROLLER_PROPERTIES" ]] && rm -f "$CONTROLLER_PROPERTIES"
 
@@ -244,6 +245,11 @@ if [[ -n "$META_FOLDER" ]]; then
   metaMountCommand="-v $META_FOLDER:/tmp/kafka-meta"
 fi
 
+release_version=""
+if [[ -n "$METADATA_VERSION" ]]; then
+  release_version="--release-version $METADATA_VERSION"
+fi
+
 docker run -d --init \
   --name $CONTAINER_NAME \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
@@ -256,7 +262,7 @@ docker run -d --init \
   -p $CONTROLLER_PORT:$CONTROLLER_PORT \
   -p $CONTROLLER_JMX_PORT:$CONTROLLER_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
-  "$IMAGE_NAME" sh -c "./bin/kafka-storage.sh format -t $CLUSTER_ID -c /tmp/controller.properties --ignore-formatted && ./bin/kafka-server-start.sh /tmp/controller.properties"
+  "$IMAGE_NAME" sh -c "./bin/kafka-storage.sh format -t $CLUSTER_ID $release_version -c /tmp/controller.properties --ignore-formatted && ./bin/kafka-server-start.sh /tmp/controller.properties"
 
 echo "================================================="
 [[ -n "$META_FOLDER" ]] && echo "mount $META_FOLDER to container: $CONTAINER_NAME"
