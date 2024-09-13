@@ -39,6 +39,12 @@ RUN ./gradlew clean build -x test
 # download test dependencies
 RUN ./gradlew clean build testClasses -x test --no-daemon
 
+WORKDIR /kafka
+RUN git clone https://github.com/apache/kafka.git /kafka
+RUN ./gradlew clean build -x test
+# download test dependencies
+RUN ./gradlew clean build testClasses -x test --no-daemon
+
 WORKDIR /root
 " >"$DOCKERFILE"
 }
