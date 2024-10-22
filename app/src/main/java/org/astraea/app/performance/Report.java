@@ -38,6 +38,7 @@ public interface Report {
   static List<Report> consumers() {
 
     return ConsumerMetrics.fetch(JndiClient.local()).stream()
+        .filter(m -> m.clientId().startsWith(Performance.CLIENT_ID_PREFIX))
         .map(
             m ->
                 new Report() {
@@ -92,6 +93,7 @@ public interface Report {
 
   static List<Report> producers() {
     return ProducerMetrics.producer(JndiClient.local()).stream()
+        .filter(m -> m.clientId().startsWith(Performance.CLIENT_ID_PREFIX))
         .map(
             m ->
                 new Report() {

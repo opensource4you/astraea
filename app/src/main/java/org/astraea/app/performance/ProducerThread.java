@@ -23,7 +23,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.astraea.common.Utils;
@@ -46,7 +46,7 @@ public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
       List<ArrayBlockingQueue<List<Record<byte[], byte[]>>>> queues,
-      Supplier<Producer<byte[], byte[]>> producerSupplier,
+      Function<String, Producer<byte[], byte[]>> producerSupplier,
       int interdependent) {
     var producers = queues.size();
     if (producers <= 0) return List.of();
@@ -66,9 +66,10 @@ public interface ProducerThread extends AbstractThread {
     return IntStream.range(0, producers)
         .mapToObj(
             index -> {
+              var clientId = Performance.CLIENT_ID_PREFIX + "-producer-" + index;
               var closeLatch = closeLatches.get(index);
               var closed = new AtomicBoolean(false);
-              var producer = producerSupplier.get();
+              var producer = producerSupplier.apply(clientId);
               var queue = queues.get(index);
               var sensor = Sensor.builder().addStat(AVG_PROPERTY, Avg.of()).build();
               // export the custom jmx for report thread

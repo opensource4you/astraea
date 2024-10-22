@@ -53,7 +53,7 @@ public class MetricFetcherTest {
     var beans = List.of(new BeanObject(Utils.randomString(), Map.of(), Map.of()));
     var client = Mockito.mock(JndiClient.class);
     Mockito.when(client.beans(Mockito.any(), Mockito.any())).thenReturn(beans);
-    var sender = Mockito.mock(MetricFetcher.Sender.class);
+    var sender = Mockito.mock(MetricSender.class);
     var queue = new ConcurrentHashMap<Integer, Collection<BeanObject>>();
     Mockito.when(sender.send(Mockito.anyInt(), Mockito.any()))
         .thenAnswer(
@@ -90,7 +90,7 @@ public class MetricFetcherTest {
   void testNullCheck() {
     var builder = MetricFetcher.builder();
     Assertions.assertThrows(NullPointerException.class, builder::build);
-    builder.sender(MetricFetcher.Sender.local());
+    builder.sender(MetricSender.local());
     Assertions.assertThrows(NullPointerException.class, builder::build);
     builder.clientSupplier(() -> CompletableFuture.completedStage(Map.of()));
     var fetcher = builder.build();
@@ -102,7 +102,7 @@ public class MetricFetcherTest {
     var client = Mockito.mock(JndiClient.class);
     try (var fetcher =
         MetricFetcher.builder()
-            .sender(MetricFetcher.Sender.local())
+            .sender(MetricSender.local())
             .clientSupplier(() -> CompletableFuture.completedStage(Map.of(-1000, client)))
             .fetchBeanDelay(Duration.ofSeconds(1000))
             .build()) {
@@ -122,7 +122,7 @@ public class MetricFetcherTest {
         .thenReturn(CompletableFuture.completedStage(Map.of(-1000, client)));
     try (var fetcher =
         MetricFetcher.builder()
-            .sender(MetricFetcher.Sender.local())
+            .sender(MetricSender.local())
             .clientSupplier(supplier)
             .fetchMetadataDelay(Duration.ofSeconds(1000))
             .build()) {
@@ -137,7 +137,7 @@ public class MetricFetcherTest {
   @Test
   void testTopic() throws InterruptedException, ExecutionException {
     var testBean = new BeanObject("java.lang", Map.of("name", "n1"), Map.of("value", "v1"));
-    try (var topicSender = MetricFetcher.Sender.topic(SERVICE.bootstrapServers())) {
+    try (var topicSender = MetricSender.topic(SERVICE.bootstrapServers())) {
       topicSender.send(1, List.of(testBean));
 
       // Test topic creation

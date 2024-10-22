@@ -79,11 +79,6 @@ public interface MetricStore extends AutoCloseable {
   void close();
 
   interface Receiver extends AutoCloseable {
-
-    static MetricFetcher.Sender local() {
-      return LocalSenderReceiver.of();
-    }
-
     static Receiver fixed(Map<Integer, Collection<BeanObject>> beans) {
       return new Receiver() {
         private final AtomicBoolean done = new AtomicBoolean(false);
@@ -237,8 +232,8 @@ public interface MetricStore extends AutoCloseable {
       this.executor = Executors.newFixedThreadPool(2);
       Runnable cleanerJob =
           () -> {
-            while (!closed.get()) {
-              try {
+            try {
+              while (!closed.get()) {
                 var before = System.currentTimeMillis() - beanExpiration.toMillis();
                 var needUpdate =
                     this.beans.values().stream()
@@ -249,58 +244,51 @@ public interface MetricStore extends AutoCloseable {
                         .collect(Collectors.toSet());
                 if (needUpdate.contains(true)) updateClusterBean();
                 TimeUnit.MILLISECONDS.sleep(beanExpiration.toMillis());
-              } catch (Exception e) {
-                // TODO: it needs better error handling
-                e.printStackTrace();
               }
+            } catch (InterruptedException ignore) {
             }
           };
       Runnable receiverJob =
           () -> {
             while (!closed.get()) {
-              try {
-                receivers.stream()
-                    // TODO: Busy waiting on metric receiving.
-                    // issue: https://github.com/opensource4you/astraea/issues/1834
-                    // To prevent specific receiver block other receivers' job, we set receive
-                    // timeout to zero. But if all receivers return empty immediately, it may cause
-                    // this thread busy waiting on doing `receiver.receive`.
-                    .map(r -> r.receive(Duration.ZERO))
-                    .forEach(
-                        allBeans -> {
-                          beanReceivedSensor.record(
-                              allBeans.values().stream().mapToLong(Collection::size).sum());
-                          identities.addAll(allBeans.keySet());
-                          lastSensors = sensorsSupplier.get();
-                          allBeans.forEach(
-                              (id, bs) -> {
-                                var client = BeanObjectClient.of(id, bs);
-                                var clusterBean = clusterBean();
-                                lastSensors.forEach(
-                                    (sensor, errorHandler) -> {
-                                      try {
-                                        beans
-                                            .computeIfAbsent(
-                                                id, ignored -> new ConcurrentLinkedQueue<>())
-                                            .addAll(sensor.fetch(client, clusterBean));
-                                      } catch (Exception e) {
-                                        errorHandler.accept(id, e);
-                                      }
-                                    });
-                              });
-                          if (!allBeans.isEmpty()) {
-                            // generate new cluster bean
-                            updateClusterBean();
-                            // Tell waiting threads that cluster bean has been changed
-                            synchronized (beanUpdateMonitor) {
-                              beanUpdateMonitor.notifyAll();
-                            }
+              receivers.stream()
+                  // TODO: Busy waiting on metric receiving.
+                  // issue: https://github.com/opensource4you/astraea/issues/1834
+                  // To prevent specific receiver block other receivers' job, we set receive
+                  // timeout to zero. But if all receivers return empty immediately, it may cause
+                  // this thread busy waiting on doing `receiver.receive`.
+                  .map(r -> r.receive(Duration.ZERO))
+                  .forEach(
+                      allBeans -> {
+                        beanReceivedSensor.record(
+                            allBeans.values().stream().mapToLong(Collection::size).sum());
+                        identities.addAll(allBeans.keySet());
+                        lastSensors = sensorsSupplier.get();
+                        allBeans.forEach(
+                            (id, bs) -> {
+                              var client = BeanObjectClient.of(id, bs);
+                              var clusterBean = clusterBean();
+                              lastSensors.forEach(
+                                  (sensor, errorHandler) -> {
+                                    try {
+                                      beans
+                                          .computeIfAbsent(
+                                              id, ignored -> new ConcurrentLinkedQueue<>())
+                                          .addAll(sensor.fetch(client, clusterBean));
+                                    } catch (Exception e) {
+                                      errorHandler.accept(id, e);
+                                    }
+                                  });
+                            });
+                        if (!allBeans.isEmpty()) {
+                          // generate new cluster bean
+                          updateClusterBean();
+                          // Tell waiting threads that cluster bean has been changed
+                          synchronized (beanUpdateMonitor) {
+                            beanUpdateMonitor.notifyAll();
                           }
-                        });
-              } catch (Exception e) {
-                // TODO: it needs better error handling
-                e.printStackTrace();
-              }
+                        }
+                      });
             }
           };
       executor.execute(cleanerJob);

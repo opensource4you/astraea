@@ -67,6 +67,8 @@ import org.astraea.common.producer.Record;
 
 /** see docs/performance_benchmark.md for man page */
 public class Performance {
+  static final String CLIENT_ID_PREFIX = "Performance";
+
   /** Used in Automation, to achieve the end of one Performance and then start another. */
   public static void main(String[] args) {
     execute(Performance.Argument.parse(new Argument(), args));
@@ -268,17 +270,19 @@ public class Performance {
         validateWith = PositiveLongField.class)
     int transactionSize = 1;
 
-    Producer<byte[], byte[]> createProducer() {
+    Producer<byte[], byte[]> createProducer(String clientId) {
       return transactionSize > 1
           ? Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
               .config(ProducerConfigs.PARTITIONER_CLASS_CONFIG, partitioner())
+              .config(ProducerConfigs.CLIENT_ID_CONFIG, clientId)
               .buildTransactional()
           : Producer.builder()
               .configs(configs())
               .bootstrapServers(bootstrapServers())
               .config(ProducerConfigs.PARTITIONER_CLASS_CONFIG, partitioner())
+              .config(ProducerConfigs.CLIENT_ID_CONFIG, clientId)
               .build();
     }
 

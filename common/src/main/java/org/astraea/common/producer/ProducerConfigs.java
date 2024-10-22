@@ -28,6 +28,7 @@ public final class ProducerConfigs {
   public static final String METADATA_MAX_IDLE_CONFIG = "metadata.max.idle.ms";
   public static final String BATCH_SIZE_CONFIG = "batch.size";
   public static final String ACKS_CONFIG = "acks";
+  public static final String ENABLE_METRICS_PUSH_CONFIG = "enable.metrics.push";
   public static final String LINGER_MS_CONFIG = "linger.ms";
   public static final String REQUEST_TIMEOUT_MS_CONFIG = "request.timeout.ms";
   public static final String DELIVERY_TIMEOUT_MS_CONFIG = "delivery.timeout.ms";

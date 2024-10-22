@@ -28,6 +28,7 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Broker;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.collector.MetricFetcher;
+import org.astraea.common.metrics.collector.MetricSender;
 
 /** Keep fetching all kinds of metrics and publish to inner topics. */
 public class MetricPublisher {
@@ -44,7 +45,7 @@ public class MetricPublisher {
   // Valid for testing
   static void execute(Arguments arguments) {
     try (var admin = Admin.of(arguments.bootstrapServers());
-        var topicSender = MetricFetcher.Sender.topic(arguments.bootstrapServers());
+        var topicSender = MetricSender.topic(arguments.bootstrapServers());
         var metricFetcher =
             MetricFetcher.builder()
                 .clientSupplier(

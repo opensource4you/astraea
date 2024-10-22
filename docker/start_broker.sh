@@ -91,6 +91,13 @@ RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname \"kafka*tgz\" ! -iname \"*sit*\" \)) -C /opt/kafka --strip-components=1
 
+# build astraea from source code
+RUN git clone https://github.com/chia7712/astraea /tmp/astraea
+WORKDIR /tmp/astraea
+RUN git checkout tmp
+RUN ./gradlew clean build -x test
+RUN cp /tmp/astraea/common/build/libs/*.jar /opt/kafka/libs/
+
 FROM azul/zulu-openjdk:21-jre
 
 # copy kafka
