@@ -20,7 +20,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 # ===============================[global variables]===============================
 declare -r ACCOUNT=${ACCOUNT:-opensource4you}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
-declare -r VERSION=${REVISION:-${VERSION:-3.8.0}}
+declare -r KAFKA_VERSION=${KAFKA_REVISION:-${KAFKA_VERSION:-3.8.0}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/controller.dockerfile
 declare -r EXPORTER_VERSION="0.16.1"
 declare -r CLUSTER_ID=${CLUSTER_ID:-"$(randomString)"}
@@ -61,7 +61,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r CONTROLLER_PROPERTIES="/tmp/controller-${CONTROLLER_PORT}.properties"
-declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/controller:$VERSION"
+declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/controller:$KAFKA_VERSION"
 declare -r METADATA_VERSION=${METADATA_VERSION:-""}
 # cleanup the file if it is existent
 [[ -f "$CONTROLLER_PROPERTIES" ]] && rm -f "$CONTROLLER_PROPERTIES"
@@ -74,8 +74,8 @@ function showHelp() {
   echo "    KAFKA_ACCOUNT=apache                      set the github account for kafka repo"
   echo "    ACCOUNT=opensource4you                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set controller JVM memory"
-  echo "    REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    VERSION=3.8.0                            set version of kafka distribution"
+  echo "    KAFKA_REVISION=trunk                           set revision of kafka source code to build container"
+  echo "    KAFKA_VERSION=3.8.0                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    META_FOLDER=/tmp/folder1                set host folder used by controller"
@@ -95,8 +95,8 @@ RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaage
 # build kafka from source code
 RUN git clone --depth=1 ${kafka_repo} /tmp/kafka
 WORKDIR /tmp/kafka
-RUN git fetch --depth=1 origin $VERSION
-RUN git checkout $VERSION
+RUN git fetch --depth=1 origin $KAFKA_VERSION
+RUN git checkout $KAFKA_VERSION
 RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname \"kafka*tgz\" ! -iname \"*sit*\" \)) -C /opt/kafka --strip-components=1
@@ -135,9 +135,9 @@ RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaage
 
 # download kafka
 WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/kafka/${VERSION}/kafka_2.13-${VERSION}.tgz
+RUN wget https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz
 RUN mkdir /opt/kafka
-RUN tar -zxvf kafka_2.13-${VERSION}.tgz -C /opt/kafka --strip-components=1
+RUN tar -zxvf kafka_2.13-${KAFKA_VERSION}.tgz -C /opt/kafka --strip-components=1
 WORKDIR /opt/kafka
 
 FROM azul/zulu-openjdk:21-jre
@@ -160,7 +160,7 @@ WORKDIR /opt/kafka
 }
 
 function generateDockerfile() {
-  if [[ -n "$REVISION" ]]; then
+  if [[ -n "$KAFKA_REVISION" ]]; then
     generateDockerfileBySource
   else
     generateDockerfileByVersion
