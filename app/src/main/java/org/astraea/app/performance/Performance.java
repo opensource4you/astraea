@@ -131,6 +131,8 @@ public class Performance {
                           param.logInterval,
                           List.of(
                               ReportFormat.CSVContentElement.create(
+                                  "size", () -> String.valueOf(sizes.get().sum())),
+                              ReportFormat.CSVContentElement.create(
                                   "max size", () -> String.valueOf(sizes.get().max().getAsLong())),
                               ReportFormat.CSVContentElement.create(
                                   "min size",
