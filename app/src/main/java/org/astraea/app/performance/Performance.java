@@ -34,6 +34,7 @@ import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import org.astraea.app.argument.DataRateField;
 import org.astraea.app.argument.DataSizeField;
 import org.astraea.app.argument.DistributionTypeField;
@@ -58,6 +59,7 @@ import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.Replica;
 import org.astraea.common.admin.TopicPartition;
+import org.astraea.common.admin.TopicPartitionPath;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 import org.astraea.common.partitioner.Partitioner;
@@ -103,52 +105,75 @@ public class Performance {
             () -> producerThreads.stream().allMatch(AbstractThread::closed),
             () -> consumerThreads.stream().allMatch(AbstractThread::closed));
 
-    var fileWriterTask =
-        CompletableFuture.completedFuture(
-                param.CSVPath == null
-                    ? (Runnable) (() -> {})
-                    : ReportFormat.createFileWriter(
-                        param.reportFormat,
-                        param.CSVPath,
-                        () -> consumerThreads.stream().allMatch(AbstractThread::closed),
-                        () -> producerThreads.stream().allMatch(AbstractThread::closed)))
-            .thenAcceptAsync(Runnable::run);
+    try (var admin = Admin.of(param.bootstrapServers())) {
+      Supplier<LongStream> sizes =
+          () ->
+              admin.brokers().toCompletableFuture().join().stream()
+                  .filter(
+                      b ->
+                          b.topicPartitionPaths().stream()
+                              .anyMatch(p -> param.topics.contains(p.topic())))
+                  .mapToLong(
+                      b ->
+                          b.topicPartitionPaths().stream()
+                              .mapToLong(TopicPartitionPath::size)
+                              .sum());
 
-    var monkeys = MonkeyThread.play(consumerThreads, param);
+      var fileWriterTask =
+          CompletableFuture.completedFuture(
+                  param.CSVPath == null
+                      ? (Runnable) (() -> {})
+                      : ReportFormat.createFileWriter(
+                          param.reportFormat,
+                          param.CSVPath,
+                          () -> consumerThreads.stream().allMatch(AbstractThread::closed),
+                          () -> producerThreads.stream().allMatch(AbstractThread::closed),
+                          param.logInterval,
+                          List.of(
+                              ReportFormat.CSVContentElement.create(
+                                  "max size", () -> String.valueOf(sizes.get().max().getAsLong())),
+                              ReportFormat.CSVContentElement.create(
+                                  "min size",
+                                  () -> String.valueOf(sizes.get().min().getAsLong())))))
+              .thenAcceptAsync(Runnable::run);
 
-    CompletableFuture.runAsync(
-        () -> {
-          dataGenerator.waitForDone();
-          var last = 0L;
-          var lastChange = System.currentTimeMillis();
-          while (true) {
-            var current = Report.recordsConsumedTotal();
+      var monkeys = MonkeyThread.play(consumerThreads, param);
 
-            if (blockingQueues.stream().allMatch(Collection::isEmpty)) {
-              var unfinishedProducers = producerThreads.stream().filter(p -> !p.closed()).toList();
-              unfinishedProducers.forEach(AbstractThread::close);
+      CompletableFuture.runAsync(
+          () -> {
+            dataGenerator.waitForDone();
+            var last = 0L;
+            var lastChange = System.currentTimeMillis();
+            while (true) {
+              var current = Report.recordsConsumedTotal();
+
+              if (blockingQueues.stream().allMatch(Collection::isEmpty)) {
+                var unfinishedProducers =
+                    producerThreads.stream().filter(p -> !p.closed()).toList();
+                unfinishedProducers.forEach(AbstractThread::close);
+              }
+
+              if (current != last) {
+                last = current;
+                lastChange = System.currentTimeMillis();
+              }
+              if (System.currentTimeMillis() - lastChange >= param.readIdle.toMillis()) {
+                consumerThreads.forEach(AbstractThread::close);
+                monkeys.forEach(AbstractThread::close);
+              }
+              if (consumerThreads.stream().allMatch(AbstractThread::closed)
+                  && monkeys.stream().allMatch(AbstractThread::closed)
+                  && producerThreads.stream().allMatch(AbstractThread::closed)) return;
+              Utils.sleep(Duration.ofSeconds(1));
             }
-
-            if (current != last) {
-              last = current;
-              lastChange = System.currentTimeMillis();
-            }
-            if (System.currentTimeMillis() - lastChange >= param.readIdle.toMillis()) {
-              consumerThreads.forEach(AbstractThread::close);
-              monkeys.forEach(AbstractThread::close);
-            }
-            if (consumerThreads.stream().allMatch(AbstractThread::closed)
-                && monkeys.stream().allMatch(AbstractThread::closed)
-                && producerThreads.stream().allMatch(AbstractThread::closed)) return;
-            Utils.sleep(Duration.ofSeconds(1));
-          }
-        });
-    producerThreads.forEach(AbstractThread::waitForDone);
-    monkeys.forEach(AbstractThread::waitForDone);
-    consumerThreads.forEach(AbstractThread::waitForDone);
-    tracker.waitForDone();
-    fileWriterTask.join();
-    return param.topics;
+          });
+      producerThreads.forEach(AbstractThread::waitForDone);
+      monkeys.forEach(AbstractThread::waitForDone);
+      consumerThreads.forEach(AbstractThread::waitForDone);
+      tracker.waitForDone();
+      fileWriterTask.join();
+      return param.topics;
+    }
   }
 
   static List<ConsumerThread> consumers(Argument param, Map<TopicPartition, Long> latestOffsets) {
@@ -262,6 +287,12 @@ public class Performance {
       }
       return this.partitioner;
     }
+
+    @Parameter(
+        names = {"--log.interval"},
+        description = "integer: seconds to log csv output",
+        validateWith = PositiveLongField.class)
+    Duration logInterval = Duration.ofSeconds(2);
 
     @Parameter(
         names = {"--transaction.size"},

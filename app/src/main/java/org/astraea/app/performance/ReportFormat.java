@@ -69,7 +69,18 @@ public enum ReportFormat implements EnumInfo {
       ReportFormat reportFormat,
       Path path,
       Supplier<Boolean> consumerDone,
-      Supplier<Boolean> producerDone) {
+      Supplier<Boolean> producerDone,
+      Duration interval) {
+    return createFileWriter(reportFormat, path, consumerDone, producerDone, interval, List.of());
+  }
+
+  public static Runnable createFileWriter(
+      ReportFormat reportFormat,
+      Path path,
+      Supplier<Boolean> consumerDone,
+      Supplier<Boolean> producerDone,
+      Duration interval,
+      List<CSVContentElement> extraCsv) {
     var filePath =
         FileSystems.getDefault()
             .getPath(
@@ -81,12 +92,18 @@ public enum ReportFormat implements EnumInfo {
     var writer = new BufferedWriter(Utils.packException(() -> new FileWriter(filePath.toFile())));
     switch (reportFormat) {
       case CSV -> {
-        initCSVFormat(writer, latencyAndIO());
+        Supplier<List<CSVContentElement>> elements =
+            () -> {
+              var e = new ArrayList<>(latencyAndIO());
+              e.addAll(extraCsv);
+              return e;
+            };
+        initCSVFormat(writer, elements.get());
         return () -> {
           try {
             while (!(producerDone.get() && consumerDone.get())) {
-              logToCSV(writer, latencyAndIO());
-              Utils.sleep(Duration.ofSeconds(1));
+              logToCSV(writer, elements.get());
+              Utils.sleep(interval);
             }
           } finally {
             Utils.close(writer);
@@ -138,7 +155,7 @@ public enum ReportFormat implements EnumInfo {
   }
 
   // Visible for test
-  interface CSVContentElement {
+  public interface CSVContentElement {
     String title();
 
     String value();

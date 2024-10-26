@@ -32,9 +32,11 @@ import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.JndiClient;
 
 public class ServerMetricFetcher implements MetricsReporter, ClientTelemetry {
-  private static final String BOOTSTRAP_SERVERS = "server.metric.fetcher.bootstrap.servers";
+  private static final String BOOTSTRAP_SERVERS_CONFIG = "server.metric.fetcher.bootstrap.servers";
+  private static final String INTERVAL_CONFIG = "server.metric.fetcher.interval.seconds";
   private String bootstrapServers;
   private int nodeId = -1;
+  private Duration interval = Duration.ofSeconds(10);
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private final BlockingQueue<Boolean> queue = new LinkedBlockingQueue<>(1);
 
@@ -55,22 +57,23 @@ public class ServerMetricFetcher implements MetricsReporter, ClientTelemetry {
 
   @Override
   public void configure(Map<String, ?> map) {
-    if (!map.containsKey(BOOTSTRAP_SERVERS))
-      throw new RuntimeException(BOOTSTRAP_SERVERS + " is required");
+    if (!map.containsKey(BOOTSTRAP_SERVERS_CONFIG))
+      throw new RuntimeException(BOOTSTRAP_SERVERS_CONFIG + " is required");
     if (!map.containsKey("node.id")) throw new RuntimeException("node.id is required");
-    this.bootstrapServers = map.get(BOOTSTRAP_SERVERS).toString();
+    this.bootstrapServers = map.get(BOOTSTRAP_SERVERS_CONFIG).toString();
     nodeId = Integer.parseInt(map.get("node.id").toString());
+    if (map.containsKey(INTERVAL_CONFIG))
+      interval = Duration.ofSeconds(Long.parseLong(map.get(INTERVAL_CONFIG).toString()));
     CompletableFuture.runAsync(
         () -> {
           MetricSender sender = null;
           var lastSent = System.currentTimeMillis();
           try {
             while (!closed.get()) {
-              var done = queue.poll(3, TimeUnit.SECONDS);
+              var done = queue.poll(interval.toSeconds(), TimeUnit.SECONDS);
               if (done == null) done = false;
               if (done) return;
-              if (System.currentTimeMillis() - lastSent <= Duration.ofSeconds(3).toMillis())
-                continue;
+              if (System.currentTimeMillis() - lastSent <= interval.toMillis()) continue;
               if (sender == null) sender = MetricSender.topic(bootstrapServers);
               var beans = JndiClient.local().beans(BeanQuery.all());
               sender.send(nodeId, beans);
