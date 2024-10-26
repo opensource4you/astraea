@@ -113,12 +113,11 @@ public class Performance {
                   b ->
                       b.topicPartitionPaths().stream()
                           .anyMatch(p -> param.topics.contains(p.topic())))
-              .map(Broker::host)
               .collect(Collectors.toSet());
-      Function<String, Long> size =
-          host ->
+      Function<Broker, Long> size =
+          broker ->
               admin.brokers().toCompletableFuture().join().stream()
-                  .filter(b -> b.host().equals(host))
+                  .filter(b -> b.id() == broker.id())
                   .mapToLong(
                       b ->
                           b.topicPartitionPaths().stream()
@@ -138,9 +137,10 @@ public class Performance {
                           param.logInterval,
                           matchedBrokers.stream()
                               .map(
-                                  host ->
+                                  broker ->
                                       ReportFormat.CSVContentElement.create(
-                                          host, () -> String.valueOf(size.apply(host))))
+                                          String.valueOf(broker.id()),
+                                          () -> String.valueOf(size.apply(broker))))
                               .toList()))
               .thenAcceptAsync(Runnable::run);
 
