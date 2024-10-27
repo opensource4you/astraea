@@ -121,6 +121,13 @@ WORKDIR /opt/kafka
 }
 
 function generateDockerfileByVersion() {
+  local kafka_url="https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz"
+  local version=$KAFKA_VERSION
+  if [[ "$KAFKA_VERSION" == *"rc"* ]]; then
+    ## `3.8.1-rc1` the rc release does not exist in archive repo
+    version=${KAFKA_VERSION%-*}
+    kafka_url="https://dist.apache.org/repos/dist/dev/kafka/${KAFKA_VERSION}/kafka_2.13-${version}.tgz"
+  fi
   echo "# this dockerfile is generated dynamically
 FROM ubuntu:23.10 AS build
 
@@ -135,10 +142,9 @@ RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaage
 
 # download kafka
 WORKDIR /tmp
-RUN wget https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz
+RUN wget $kafka_url
 RUN mkdir /opt/kafka
-RUN tar -zxvf kafka_2.13-${KAFKA_VERSION}.tgz -C /opt/kafka --strip-components=1
-WORKDIR /opt/kafka
+RUN tar -zxvf kafka_2.13-${version}.tgz -C /opt/kafka --strip-components=1
 
 FROM azul/zulu-openjdk:21-jre
 
