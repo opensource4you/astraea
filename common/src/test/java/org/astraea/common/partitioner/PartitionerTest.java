@@ -128,7 +128,6 @@ public class PartitionerTest {
             .build()) {
       Runnable runnable =
           () -> {
-            Partitioner.beginInterdependent(instanceOfProducer(producer));
             var exceptPartition =
                 producerSend(producer, topicName, key, value, timestamp, header).partition();
             IntStream.range(0, 10)
@@ -140,9 +139,7 @@ public class PartitionerTest {
                       assertEquals(timestamp, metadata.timestamp().get());
                       assertEquals(exceptPartition, metadata.partition());
                     });
-            Partitioner.endInterdependent(instanceOfProducer(producer));
           };
-      Partitioner.beginInterdependent(instanceOfProducer(producer));
 
       var fs =
           IntStream.range(0, 10)
@@ -160,7 +157,6 @@ public class PartitionerTest {
                 assertEquals(timestamp, metadata.timestamp().get());
                 assertEquals(exceptPartition, metadata.partition());
               });
-      Partitioner.endInterdependent(instanceOfProducer(producer));
       fs.forEach(CompletableFuture::join);
     }
   }
@@ -190,7 +186,6 @@ public class PartitionerTest {
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp().get());
               });
-      Partitioner.beginInterdependent(instanceOfProducer(producer));
       var exceptPartition =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
       IntStream.range(0, 99)
@@ -202,7 +197,6 @@ public class PartitionerTest {
                 assertEquals(timestamp, metadata.timestamp().get());
                 assertEquals(exceptPartition, metadata.partition());
               });
-      Partitioner.endInterdependent(instanceOfProducer(producer));
       IntStream.range(0, 2400)
           .forEach(
               i -> {
@@ -211,7 +205,6 @@ public class PartitionerTest {
                 assertEquals(topicName, metadata.topic());
                 assertEquals(timestamp, metadata.timestamp().get());
               });
-      Partitioner.beginInterdependent(instanceOfProducer(producer));
       var exceptPartitionSec =
           producerSend(producer, topicName, key, value, timestamp, header).partition();
       IntStream.range(0, 99)
@@ -223,7 +216,6 @@ public class PartitionerTest {
                 assertEquals(timestamp, metadata.timestamp().get());
                 assertEquals(exceptPartitionSec, metadata.partition());
               });
-      Partitioner.endInterdependent(instanceOfProducer(producer));
     }
   }
 
