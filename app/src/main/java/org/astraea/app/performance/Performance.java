@@ -17,7 +17,6 @@
 package org.astraea.app.performance;
 
 import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.converters.LongConverter;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -44,7 +43,6 @@ import org.astraea.app.argument.NonEmptyStringField;
 import org.astraea.app.argument.NonNegativeShortField;
 import org.astraea.app.argument.PathField;
 import org.astraea.app.argument.PatternField;
-import org.astraea.app.argument.PositiveIntegerField;
 import org.astraea.app.argument.PositiveIntegerListField;
 import org.astraea.app.argument.PositiveLongField;
 import org.astraea.app.argument.StringListField;
@@ -63,7 +61,6 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.TopicPartitionPath;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
-import org.astraea.common.partitioner.Partitioner;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.ProducerConfigs;
 import org.astraea.common.producer.Record;
@@ -90,8 +87,7 @@ public class Performance {
     var latestOffsets = param.lastOffsets();
 
     System.out.println("creating threads");
-    var producerThreads =
-        ProducerThread.create(blockingQueues, param::createProducer, param.interdependent);
+    var producerThreads = ProducerThread.create(blockingQueues, param::createProducer);
     var consumerThreads =
         param.monkeys != null
             ? Collections.synchronizedList(new ArrayList<>(consumers(param, latestOffsets)))
@@ -269,21 +265,6 @@ public class Performance {
     String partitioner = null;
 
     String partitioner() {
-      // The given partitioner should be Astraea Partitioner when interdependent is set
-      if (this.interdependent > 1) {
-        try {
-          if (this.partitioner == null
-              || !Partitioner.class.isAssignableFrom(Class.forName(this.partitioner))) {
-            throw new ParameterException(
-                "The given partitioner \""
-                    + this.partitioner
-                    + "\" is not a subclass of Astraea Partitioner");
-          }
-        } catch (ClassNotFoundException e) {
-          throw new ParameterException(
-              "The given partitioner \"" + this.partitioner + "\" was not found.");
-        }
-      }
       if (this.partitioner != null) {
         if (!this.specifyBrokers.isEmpty())
           throw new IllegalArgumentException(
@@ -533,13 +514,6 @@ public class Performance {
             "Perf will close all read processes if it can't get more data in this duration",
         converter = DurationField.class)
     Duration readIdle = Duration.ofSeconds(2);
-
-    @Parameter(
-        names = {"--interdependent.size"},
-        description =
-            "Integer: the number of records sending to the same partition (Note: this parameter only works for Astraea partitioner)",
-        validateWith = PositiveIntegerField.class)
-    int interdependent = 1;
 
     @Parameter(
         names = {"--throttle"},

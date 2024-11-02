@@ -56,7 +56,7 @@ public class PerformanceTest {
       "2"
     };
     var argument = Argument.parse(new Performance.Argument(), arguments1);
-    try (var producer = argument.createProducer()) {
+    try (var producer = argument.createProducer("test-id")) {
       Assertions.assertTrue(producer.transactional());
     }
   }
@@ -66,7 +66,7 @@ public class PerformanceTest {
     var topic = "testProducerExecutor";
     String[] arguments1 = {"--bootstrap.servers", SERVICE.bootstrapServers(), "--topics", topic};
     var argument = Argument.parse(new Performance.Argument(), arguments1);
-    try (var producer = argument.createProducer()) {
+    try (var producer = argument.createProducer("test-id")) {
       Assertions.assertFalse(producer.transactional());
     }
   }
@@ -444,7 +444,7 @@ public class PerformanceTest {
               new String[] {
                 "--bootstrap.servers", SERVICE.bootstrapServers(), "--topics", topicName
               });
-      try (var producer = args.createProducer()) {
+      try (var producer = args.createProducer("test-id")) {
         IntStream.range(0, 250)
             .forEach(
                 i ->

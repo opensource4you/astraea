@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.Cluster;
 import org.astraea.common.Configuration;
 import org.astraea.common.Utils;
@@ -31,9 +30,6 @@ import org.astraea.common.producer.ProducerConfigs;
 public abstract class Partitioner implements org.apache.kafka.clients.producer.Partitioner {
   public static final String COST_PREFIX = "partitioner.cost";
   private static final Duration CLUSTER_INFO_LEASE = Duration.ofSeconds(15);
-
-  static final ThreadLocal<Interdependent> THREAD_LOCAL =
-      ThreadLocal.withInitial(Interdependent::new);
 
   private final AtomicLong lastUpdated = new AtomicLong(-1);
   volatile ClusterInfo clusterInfo = ClusterInfo.empty();
@@ -63,80 +59,6 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
     Utils.close(admin);
   }
 
-  // -----------------------[interdependent]-----------------------//
-
-  /**
-   * Use the producer to get the scheduler, allowing you to control it for interdependent
-   * messages.Interdependent message will be sent to the same partition. The system will
-   * automatically select the node with the best current condition as the target node.
-   * Action:Partitioner states can interfere with each other when multiple producers are in the same
-   * thread. Each Thread can only support one producer. For example:
-   *
-   * <pre>{
-   * @Code
-   * Dispatch.startInterdependent(producer);
-   * producer.send();
-   * Dispatch.endInterdependent(producer);
-   * }</pre>
-   *
-   * Begin interdependence function.Let the next messages be interdependent.
-   *
-   * @param producer Kafka producer
-   */
-  // TODO One thread supports multiple producers.
-  public static void beginInterdependent(
-      org.apache.kafka.clients.producer.Producer<?, ?> producer) {
-    THREAD_LOCAL.get().isInterdependent = true;
-  }
-
-  /**
-   * Use the producer to get the scheduler, allowing you to control it for interdependent
-   * messages.Interdependent message will be sent to the same partition. The system will
-   * automatically select the node with the best current condition as the target node.
-   * Action:Partitioner states can interfere with each other when multiple producers are in the same
-   * thread. Each Thread can only support one producer. For example:
-   *
-   * <pre>{
-   * @Code
-   * Dispatch.startInterdependent(producer);
-   * producer.send();
-   * Dispatch.endInterdependent(producer);
-   * }</pre>
-   *
-   * Begin interdependence function.Let the next messages be interdependent.
-   *
-   * @param producer Astraea producer
-   */
-  // TODO One thread supports multiple producers.
-  // TODO: https://github.com/opensource4you/astraea/pull/721#discussion_r973677891
-  public static void beginInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
-    beginInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
-  }
-
-  /**
-   * Close interdependence function.Send data using the original partitioner logic.
-   *
-   * @param producer Kafka producer
-   */
-  public static void endInterdependent(org.apache.kafka.clients.producer.Producer<?, ?> producer) {
-    THREAD_LOCAL.remove();
-  }
-
-  /**
-   * Close interdependence function.Send data using the original partitioner logic.
-   *
-   * @param producer Kafka producer
-   */
-  // TODO: https://github.com/opensource4you/astraea/pull/721#discussion_r973677891
-  public static void endInterdependent(org.astraea.common.producer.Producer<?, ?> producer) {
-    endInterdependent((Producer<?, ?>) Utils.member(producer, "kafkaProducer"));
-  }
-
-  private static class Interdependent {
-    boolean isInterdependent = false;
-    private int targetPartitions = -1;
-  }
-
   // -----------------------[kafka method]-----------------------//
 
   @Override
@@ -153,9 +75,6 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
   @Override
   public final int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    var interdependent = THREAD_LOCAL.get();
-    if (interdependent.isInterdependent && interdependent.targetPartitions >= 0)
-      return interdependent.targetPartitions;
     tryToUpdate();
     final int target;
     if (!clusterInfo.topicNames().contains(topic)) {
@@ -163,7 +82,6 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
       var ps = cluster.availablePartitionsForTopic(topic);
       target = ps.isEmpty() ? 0 : ps.get((int) (Math.random() * ps.size())).partition();
     } else target = partition(topic, keyBytes, valueBytes, clusterInfo);
-    interdependent.targetPartitions = target;
     return target;
   }
 

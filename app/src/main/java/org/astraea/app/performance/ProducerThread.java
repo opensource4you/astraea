@@ -30,7 +30,6 @@ import org.astraea.common.Utils;
 import org.astraea.common.metrics.MBeanRegister;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.stats.Avg;
-import org.astraea.common.partitioner.Partitioner;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 
@@ -46,8 +45,7 @@ public interface ProducerThread extends AbstractThread {
 
   static List<ProducerThread> create(
       List<ArrayBlockingQueue<List<Record<byte[], byte[]>>>> queues,
-      Function<String, Producer<byte[], byte[]>> producerSupplier,
-      int interdependent) {
+      Function<String, Producer<byte[], byte[]>> producerSupplier) {
     var producers = queues.size();
     if (producers <= 0) return List.of();
     var closeLatches =
@@ -88,11 +86,6 @@ public interface ProducerThread extends AbstractThread {
 
                         var data = queue.poll(3, TimeUnit.SECONDS);
 
-                        // Using interdependent
-                        if (interdependent > 1 && data != null) {
-                          Partitioner.beginInterdependent(producer);
-                          interdependentCounter += data.size();
-                        }
                         var now = System.currentTimeMillis();
                         if (data != null)
                           producer
@@ -105,12 +98,6 @@ public interface ProducerThread extends AbstractThread {
                                               sensor.record(
                                                   (double) (System.currentTimeMillis() - now));
                                           }));
-
-                        // End interdependent
-                        if (interdependent > 1 && interdependentCounter >= interdependent) {
-                          Partitioner.endInterdependent(producer);
-                          interdependentCounter = 0;
-                        }
                       }
                     } catch (InterruptedException e) {
                       if (!queue.isEmpty())
