@@ -21,7 +21,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 declare -r ACCOUNT=${ACCOUNT:-opensource4you}
 declare -r VERSION=${VERSION:-main}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
-declare -r KAFKA_VERSION=${KAFKA_REVISION:-${KAFKA_VERSION:-3.8.0}}
+declare -r KAFKA_VERSION=${KAFKA_REVISION:-${KAFKA_VERSION:-3.8.1}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
@@ -65,7 +65,7 @@ function showHelp() {
   echo "    ACCOUNT=opensource4you                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    KAFKA_REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    KAFKA_VERSION=3.8.0                            set version of kafka distribution"
+  echo "    KAFKA_VERSION=3.8.1                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1                set host folders used by broker"
