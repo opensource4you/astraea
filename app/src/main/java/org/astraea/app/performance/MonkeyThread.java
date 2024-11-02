@@ -26,7 +26,7 @@ import org.astraea.common.Utils;
 import org.astraea.common.consumer.Consumer;
 import org.astraea.common.consumer.ConsumerConfigs;
 
-public class MonkeyThread implements AbstractThread {
+class MonkeyThread implements AbstractThread {
 
   private final CountDownLatch closeLatch;
   private final AtomicBoolean close;

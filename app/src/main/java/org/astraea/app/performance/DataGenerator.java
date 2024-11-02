@@ -17,14 +17,9 @@
 package org.astraea.app.performance;
 
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.stream.LongStream;
 import org.astraea.common.Configuration;
@@ -34,13 +29,11 @@ import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.producer.Record;
 import org.astraea.common.producer.RecordGenerator;
 
-public interface DataGenerator extends AbstractThread {
+interface DataGenerator extends AbstractThread {
   static DataGenerator of(
-      List<ArrayBlockingQueue<List<Record<byte[], byte[]>>>> queues,
+      BlockingQueue<List<Record<byte[], byte[]>>> queue,
       Supplier<TopicPartition> partitionSelector,
       Performance.Argument argument) {
-    if (queues.size() == 0) return terminatedGenerator();
-
     var keyDistConfig = new Configuration(argument.keyDistributionConfig);
     var keySizeDistConfig = new Configuration(argument.keySizeDistributionConfig);
     var valueDistConfig = new Configuration(argument.valueDistributionConfig);
@@ -61,61 +54,43 @@ public interface DataGenerator extends AbstractThread {
                     argument.valueSize.measurement(DataUnit.Byte).intValue(), valueDistConfig))
             .throughput(tp -> argument.throttles.getOrDefault(tp, argument.throughput))
             .build();
-    var closeLatch = new CountDownLatch(1);
-    var executor = Executors.newFixedThreadPool(1);
     var closed = new AtomicBoolean(false);
     var start = System.currentTimeMillis();
-    var dataCount = new AtomicLong(0);
-
-    // monitor the data generator if close or not
-    CompletableFuture.runAsync(
-        () -> {
-          try {
-            Utils.swallowException(closeLatch::await);
-          } finally {
-            executor.shutdown();
-            Utils.swallowException(() -> executor.awaitTermination(30, TimeUnit.SECONDS));
-          }
-        });
 
     // put the data into blocking queue
-    CompletableFuture.runAsync(
-        () ->
-            executor.execute(
-                () -> {
-                  try {
+    var future =
+        CompletableFuture.runAsync(
+            () -> {
+              try {
+                long dataCount = 0;
+                while (!closed.get()) {
+                  // check the generator is finished or not
+                  if (argument.exeTime.percentage(dataCount, System.currentTimeMillis() - start)
+                      >= 100D) return;
+                  var tp = partitionSelector.get();
+                  var records = dataSupplier.apply(tp);
+                  dataCount += records.size();
 
-                    while (!closed.get()) {
-                      // check the generator is finished or not
-                      if (argument.exeTime.percentage(
-                              dataCount.getAndIncrement(), System.currentTimeMillis() - start)
-                          >= 100D) return;
+                  // throttled data wouldn't put into the queue
+                  if (records.isEmpty()) continue;
+                  queue.put(records);
+                }
+              } catch (InterruptedException e) {
+                throw new RuntimeException("The data generator didn't close properly", e);
+              } finally {
+                closed.set(true);
+              }
+            });
 
-                      var tp = partitionSelector.get();
-                      var records = dataSupplier.apply(tp);
-
-                      // throttled data wouldn't put into the queue
-                      if (records.isEmpty()) continue;
-                      var queue = queues.get(ThreadLocalRandom.current().nextInt(queues.size()));
-                      queue.put(records);
-                    }
-                  } catch (InterruptedException e) {
-                    if (closeLatch.getCount() != 0 || closed.get())
-                      throw new RuntimeException(e + ", The data generator didn't close properly");
-                  } finally {
-                    closeLatch.countDown();
-                    closed.set(true);
-                  }
-                }));
     return new DataGenerator() {
       @Override
       public void waitForDone() {
-        Utils.swallowException(closeLatch::await);
+        Utils.swallowException(future::join);
       }
 
       @Override
       public boolean closed() {
-        return closeLatch.getCount() == 0;
+        return future.isDone();
       }
 
       @Override
@@ -123,21 +98,6 @@ public interface DataGenerator extends AbstractThread {
         closed.set(true);
         waitForDone();
       }
-    };
-  }
-
-  static DataGenerator terminatedGenerator() {
-    return new DataGenerator() {
-      @Override
-      public void waitForDone() {}
-
-      @Override
-      public boolean closed() {
-        return true;
-      }
-
-      @Override
-      public void close() {}
     };
   }
 }

@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.function.ToDoubleFunction;
@@ -34,7 +33,7 @@ import org.astraea.common.metrics.client.producer.HasProducerTopicMetrics;
 import org.astraea.common.metrics.client.producer.ProducerMetrics;
 
 /** Print out the given metrics. */
-public interface TrackerThread extends AbstractThread {
+interface TrackerThread extends AbstractThread {
 
   class ProducerPrinter {
     private final JndiClient mBeanClient = JndiClient.local();
@@ -170,20 +169,18 @@ public interface TrackerThread extends AbstractThread {
 
   static TrackerThread create(Supplier<Boolean> producersDone, Supplier<Boolean> consumersDone) {
     var closed = new AtomicBoolean(false);
-    var latch = new CountDownLatch(1);
-    CompletableFuture.runAsync(trackerLoop(closed::get, producersDone, consumersDone))
-        .whenComplete((m, e) -> latch.countDown());
+    var future = CompletableFuture.runAsync(trackerLoop(closed::get, producersDone, consumersDone));
 
     return new TrackerThread() {
 
       @Override
       public void waitForDone() {
-        Utils.swallowException(latch::await);
+        Utils.swallowException(future::join);
       }
 
       @Override
       public boolean closed() {
-        return latch.getCount() == 0;
+        return future.isDone();
       }
 
       @Override

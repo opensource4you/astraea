@@ -17,10 +17,10 @@
 package org.astraea.app.performance;
 
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -33,7 +33,7 @@ import org.astraea.common.metrics.stats.Avg;
 import org.astraea.common.producer.Producer;
 import org.astraea.common.producer.Record;
 
-public interface ProducerThread extends AbstractThread {
+interface ProducerThread extends AbstractThread {
 
   String DOMAIN_NAME = "org.astraea";
   String TYPE_PROPERTY = "type";
@@ -44,90 +44,94 @@ public interface ProducerThread extends AbstractThread {
   String ID_PROPERTY = "client-id";
 
   static List<ProducerThread> create(
-      List<ArrayBlockingQueue<List<Record<byte[], byte[]>>>> queues,
-      Function<String, Producer<byte[], byte[]>> producerSupplier) {
-    var producers = queues.size();
-    if (producers <= 0) return List.of();
-    var closeLatches =
-        IntStream.range(0, producers).mapToObj(ignored -> new CountDownLatch(1)).toList();
-    var executors = Executors.newFixedThreadPool(producers);
+      BlockingQueue<List<Record<byte[], byte[]>>> dataQueue,
+      Function<String, Producer<byte[], byte[]>> producerSupplier,
+      int producers,
+      int threads) {
+    var producerAndSensors =
+        IntStream.range(0, producers)
+            .mapToObj(
+                index -> {
+                  var sensor = Sensor.builder().addStat(AVG_PROPERTY, Avg.of()).build();
+                  var producer =
+                      producerSupplier.apply(Performance.CLIENT_ID_PREFIX + "-producer-" + index);
+                  // export the custom jmx for report thread
+                  MBeanRegister.local()
+                      .domainName(DOMAIN_NAME)
+                      .property(TYPE_PROPERTY, TYPE_VALUE)
+                      .property(ID_PROPERTY, producer.clientId())
+                      .attribute(AVG_PROPERTY, Double.class, () -> sensor.measure(AVG_PROPERTY))
+                      .register();
+                  return Map.entry(producer, sensor);
+                })
+            .toList();
+    List<ProducerThread> reports =
+        IntStream.range(0, threads)
+            .mapToObj(
+                __ -> {
+                  var closed = new AtomicBoolean(false);
+                  var future =
+                      CompletableFuture.runAsync(
+                          () -> {
+                            try {
+                              while (!closed.get()) {
+                                var index =
+                                    ThreadLocalRandom.current().nextInt(producerAndSensors.size());
+                                var producerAndSensor = producerAndSensors.get(index);
+                                var data = dataQueue.poll(3, TimeUnit.SECONDS);
+                                if (data == null) continue;
+                                var now = System.currentTimeMillis();
+                                producerAndSensor
+                                    .getKey()
+                                    .send(data)
+                                    .forEach(
+                                        f ->
+                                            f.whenComplete(
+                                                (r, e) -> {
+                                                  if (e == null)
+                                                    producerAndSensor
+                                                        .getValue()
+                                                        .record(
+                                                            (double)
+                                                                (System.currentTimeMillis() - now));
+                                                }));
+                              }
+                            } catch (InterruptedException e) {
+                              throw new RuntimeException(
+                                  "The producer thread was prematurely closed.", e);
+                            } finally {
+                              closed.set(true);
+                            }
+                          });
+                  return new ProducerThread() {
+
+                    @Override
+                    public boolean closed() {
+                      return future.isDone();
+                    }
+
+                    @Override
+                    public void waitForDone() {
+                      Utils.swallowException(future::join);
+                    }
+
+                    @Override
+                    public void close() {
+                      closed.set(true);
+                      waitForDone();
+                    }
+                  };
+                })
+            .collect(Collectors.toUnmodifiableList());
     // monitor
     CompletableFuture.runAsync(
         () -> {
           try {
-            closeLatches.forEach(l -> Utils.swallowException(l::await));
+            reports.forEach(l -> Utils.swallowException(l::waitForDone));
           } finally {
-            executors.shutdown();
-            Utils.swallowException(() -> executors.awaitTermination(30, TimeUnit.SECONDS));
+            producerAndSensors.forEach(p -> Utils.swallowException(() -> p.getKey().close()));
           }
         });
-    return IntStream.range(0, producers)
-        .mapToObj(
-            index -> {
-              var clientId = Performance.CLIENT_ID_PREFIX + "-producer-" + index;
-              var closeLatch = closeLatches.get(index);
-              var closed = new AtomicBoolean(false);
-              var producer = producerSupplier.apply(clientId);
-              var queue = queues.get(index);
-              var sensor = Sensor.builder().addStat(AVG_PROPERTY, Avg.of()).build();
-              // export the custom jmx for report thread
-              MBeanRegister.local()
-                  .domainName(DOMAIN_NAME)
-                  .property(TYPE_PROPERTY, TYPE_VALUE)
-                  .property(ID_PROPERTY, producer.clientId())
-                  .attribute(AVG_PROPERTY, Double.class, () -> sensor.measure(AVG_PROPERTY))
-                  .register();
-              executors.execute(
-                  () -> {
-                    try {
-                      int interdependentCounter = 0;
-
-                      while (!closed.get()) {
-
-                        var data = queue.poll(3, TimeUnit.SECONDS);
-
-                        var now = System.currentTimeMillis();
-                        if (data != null)
-                          producer
-                              .send(data)
-                              .forEach(
-                                  f ->
-                                      f.whenComplete(
-                                          (r, e) -> {
-                                            if (e == null)
-                                              sensor.record(
-                                                  (double) (System.currentTimeMillis() - now));
-                                          }));
-                      }
-                    } catch (InterruptedException e) {
-                      if (!queue.isEmpty())
-                        throw new RuntimeException(
-                            e + ", The producer thread was prematurely closed.");
-                    } finally {
-                      Utils.close(producer);
-                      closeLatch.countDown();
-                      closed.set(true);
-                    }
-                  });
-              return new ProducerThread() {
-
-                @Override
-                public boolean closed() {
-                  return closeLatch.getCount() == 0;
-                }
-
-                @Override
-                public void waitForDone() {
-                  Utils.swallowException(closeLatch::await);
-                }
-
-                @Override
-                public void close() {
-                  closed.set(true);
-                  waitForDone();
-                }
-              };
-            })
-        .collect(Collectors.toUnmodifiableList());
+    return reports;
   }
 }

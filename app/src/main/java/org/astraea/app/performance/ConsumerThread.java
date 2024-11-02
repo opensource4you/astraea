@@ -22,9 +22,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -38,7 +35,7 @@ import org.astraea.common.metrics.MBeanRegister;
 import org.astraea.common.metrics.Sensor;
 import org.astraea.common.metrics.stats.Avg;
 
-public interface ConsumerThread extends AbstractThread {
+interface ConsumerThread extends AbstractThread {
   String DOMAIN_NAME = "org.astraea";
   String TYPE_PROPERTY = "type";
   String TYPE_VALUE = "consumer";
@@ -72,26 +69,12 @@ public interface ConsumerThread extends AbstractThread {
       BiFunction<String, ConsumerRebalanceListener, SubscribedConsumer<byte[], byte[]>>
           consumerSupplier) {
     if (consumers == 0) return List.of();
-    var closeLatches =
-        IntStream.range(0, consumers).mapToObj(ignored -> new CountDownLatch(1)).toList();
-    var executors = Executors.newFixedThreadPool(consumers);
-    // monitor
-    CompletableFuture.runAsync(
-        () -> {
-          try {
-            closeLatches.forEach(l -> Utils.swallowException(l::await));
-          } finally {
-            executors.shutdown();
-            Utils.swallowException(() -> executors.awaitTermination(30, TimeUnit.SECONDS));
-          }
-        });
     return IntStream.range(0, consumers)
         .mapToObj(
             index -> {
               var clientId = Performance.CLIENT_ID_PREFIX + "-consumer-" + index;
               var consumer = consumerSupplier.apply(clientId, new PartitionRatioListener(clientId));
               var closed = new AtomicBoolean(false);
-              var closeLatch = closeLatches.get(index);
               var subscribed = new AtomicBoolean(true);
               var sensor =
                   Sensor.builder()
@@ -109,43 +92,43 @@ public interface ConsumerThread extends AbstractThread {
                       Double.class,
                       () -> sensor.measure(EXP_WEIGHT_BY_TIME_PROPERTY))
                   .register();
-              executors.execute(
-                  () -> {
-                    try {
-                      while (!closed.get()) {
-                        if (subscribed.get()) consumer.resubscribe();
-                        else {
-                          consumer.unsubscribe();
-                          Utils.sleep(Duration.ofSeconds(1));
-                          continue;
+              var future =
+                  CompletableFuture.runAsync(
+                      () -> {
+                        try {
+                          while (!closed.get()) {
+                            if (subscribed.get()) consumer.resubscribe();
+                            else {
+                              consumer.unsubscribe();
+                              Utils.sleep(Duration.ofSeconds(1));
+                              continue;
+                            }
+                            consumer.poll(Duration.ofSeconds(1)).stream()
+                                .mapToLong(r -> System.currentTimeMillis() - r.timestamp())
+                                .average()
+                                .ifPresent(sensor::record);
+                          }
+                        } catch (WakeupException ignore) {
+                          // Stop polling and being ready to clean up
+                        } finally {
+                          Utils.close(consumer);
+                          closed.set(true);
+                          CLIENT_ID_ASSIGNED_PARTITIONS.remove(clientId);
+                          CLIENT_ID_REVOKED_PARTITIONS.remove(clientId);
+                          NON_STICKY_SENSOR.remove(clientId);
+                          DIFFERENCE_SENSOR.remove(clientId);
                         }
-                        consumer.poll(Duration.ofSeconds(1)).stream()
-                            .mapToLong(r -> System.currentTimeMillis() - r.timestamp())
-                            .average()
-                            .ifPresent(sensor::record);
-                      }
-                    } catch (WakeupException ignore) {
-                      // Stop polling and being ready to clean up
-                    } finally {
-                      Utils.close(consumer);
-                      closeLatch.countDown();
-                      closed.set(true);
-                      CLIENT_ID_ASSIGNED_PARTITIONS.remove(clientId);
-                      CLIENT_ID_REVOKED_PARTITIONS.remove(clientId);
-                      NON_STICKY_SENSOR.remove(clientId);
-                      DIFFERENCE_SENSOR.remove(clientId);
-                    }
-                  });
+                      });
               return new ConsumerThread() {
 
                 @Override
                 public void waitForDone() {
-                  Utils.swallowException(closeLatch::await);
+                  Utils.swallowException(future::join);
                 }
 
                 @Override
                 public boolean closed() {
-                  return closeLatch.getCount() == 0;
+                  return future.isDone();
                 }
 
                 @Override
@@ -161,7 +144,7 @@ public interface ConsumerThread extends AbstractThread {
                 @Override
                 public void close() {
                   closed.set(true);
-                  Utils.swallowException(closeLatch::await);
+                  waitForDone();
                 }
               };
             })

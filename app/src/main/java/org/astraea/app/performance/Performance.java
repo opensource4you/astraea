@@ -21,7 +21,6 @@ import com.beust.jcommander.converters.LongConverter;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +32,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.astraea.app.argument.DataRateField;
 import org.astraea.app.argument.DataSizeField;
 import org.astraea.app.argument.DistributionTypeField;
@@ -75,10 +73,7 @@ public class Performance {
   }
 
   public static List<String> execute(final Argument param) {
-    var blockingQueues =
-        IntStream.range(0, param.producers)
-            .mapToObj(i -> new ArrayBlockingQueue<List<Record<byte[], byte[]>>>(3000))
-            .toList();
+    var dataQueue = new ArrayBlockingQueue<List<Record<byte[], byte[]>>>(3000);
     // ensure topics are existent
     System.out.println("checking topics: " + String.join(",", param.topics));
     param.checkTopics();
@@ -87,14 +82,16 @@ public class Performance {
     var latestOffsets = param.lastOffsets();
 
     System.out.println("creating threads");
-    var producerThreads = ProducerThread.create(blockingQueues, param::createProducer);
+    var producerThreads =
+        ProducerThread.create(
+            dataQueue, param::createProducer, param.producers, param.producerThreads);
     var consumerThreads =
         param.monkeys != null
             ? Collections.synchronizedList(new ArrayList<>(consumers(param, latestOffsets)))
             : consumers(param, latestOffsets);
 
     System.out.println("creating data generator");
-    var dataGenerator = DataGenerator.of(blockingQueues, param.topicPartitionSelector(), param);
+    var dataGenerator = DataGenerator.of(dataQueue, param.topicPartitionSelector(), param);
 
     System.out.println("creating tracker");
     var tracker =
@@ -150,7 +147,7 @@ public class Performance {
             while (true) {
               var current = Report.recordsConsumedTotal();
 
-              if (blockingQueues.stream().allMatch(Collection::isEmpty)) {
+              if (dataQueue.isEmpty()) {
                 var unfinishedProducers =
                     producerThreads.stream().filter(p -> !p.closed()).toList();
                 unfinishedProducers.forEach(AbstractThread::close);
@@ -232,6 +229,13 @@ public class Performance {
             .collect(Collectors.toMap(Partition::topicPartition, Partition::latestOffset));
       }
     }
+
+    @Parameter(
+        names = {"--producerThreads"},
+        description = "Integer: number of producer threads",
+        validateWith = NonNegativeShortField.class,
+        converter = NonNegativeShortField.class)
+    int producerThreads = 1;
 
     @Parameter(
         names = {"--producers"},
