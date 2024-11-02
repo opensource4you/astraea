@@ -41,9 +41,8 @@ RUN ./gradlew clean build testClasses -x test --no-daemon
 
 WORKDIR /kafka
 RUN git clone https://github.com/apache/kafka.git /kafka
-RUN ./gradlew clean build -x test
-# download test dependencies
 RUN ./gradlew clean build testClasses -x test --no-daemon
+# download test dependencies
 
 WORKDIR /root
 " >"$DOCKERFILE"
@@ -51,7 +50,7 @@ WORKDIR /root
 
 function buildBaseImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    docker build --no-cache -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+    docker build -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
     docker push $IMAGE_NAME
   else
     echo "$IMAGE_NAME is existent in local"
