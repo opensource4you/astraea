@@ -17,7 +17,7 @@
 declare -r USER=astraea
 declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
-declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i)
+declare -r ADDRESS=$([[ "$(which ipconfig)" != "" ]] && ipconfig getifaddr en0 || hostname -i | awk '{print $1}')
 
 # ===================================[functions]===================================
 
