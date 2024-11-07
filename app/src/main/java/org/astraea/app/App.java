@@ -24,6 +24,7 @@ import java.util.Map;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.benchmark.BalancerBenchmarkApp;
 import org.astraea.app.performance.Performance;
+import org.astraea.app.performance.Prepare;
 import org.astraea.app.publisher.MetricPublisher;
 import org.astraea.app.version.Version;
 import org.astraea.app.web.WebService;
@@ -33,6 +34,8 @@ public class App {
       Map.of(
           "performance",
           Performance.class,
+          "prepare",
+          Prepare.class,
           "automation",
           Automation.class,
           "web",
