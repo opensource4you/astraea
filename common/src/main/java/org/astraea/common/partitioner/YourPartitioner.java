@@ -28,7 +28,8 @@ public class YourPartitioner implements Partitioner {
 
   // write your magic code
   @Override
-  public int partition(String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
+  public int partition(
+      String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
     int nextValue = nextValue(topic);
     List<PartitionInfo> availablePartitions = cluster.availablePartitionsForTopic(topic);
     if (!availablePartitions.isEmpty()) {
