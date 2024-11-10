@@ -30,21 +30,8 @@ public class YourPartitioner implements Partitioner {
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    int nextValue = nextValue(topic);
-    List<PartitionInfo> availablePartitions = cluster.availablePartitionsForTopic(topic);
-    if (!availablePartitions.isEmpty()) {
-      int part = Utils.toPositive(nextValue) % availablePartitions.size();
-      return availablePartitions.get(part).partition();
-    } else {
-      // no partitions are available, give a non-available partition
-      int numPartitions = cluster.partitionsForTopic(topic).size();
-      return Utils.toPositive(nextValue) % numPartitions;
-    }
-  }
-
-  private int nextValue(String topic) {
-    AtomicInteger counter = topicCounterMap.computeIfAbsent(topic, k -> new AtomicInteger(0));
-    return counter.getAndIncrement();
+    int partitionKey = (int) key;
+    return partitionKey % 2;
   }
 
   @Override
