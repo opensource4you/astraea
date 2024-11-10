@@ -30,7 +30,7 @@ public class YourPartitioner implements Partitioner {
   @Override
   public int partition(
       String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
-    int partitionKey = (int) key;
+    int partitionKey = (Integer) key;
     return partitionKey % 2;
   }
 
