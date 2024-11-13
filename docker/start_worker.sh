@@ -34,7 +34,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r WORKER_PROPERTIES="/tmp/worker-${WORKER_PORT}.properties"
 declare -r WORKER_PLUGIN_PATH=${WORKER_PLUGIN_PATH:-/tmp/worker-plugins}
-declare -r IMAGE_NAME="ghcr.io/${ACCOUNT,,}/astraea/worker:$VERSION"
+declare -r IMAGE_NAME="ghcr.io/${ACCOUNT,,}/astraea/worker:${KAFKA_VERSION,,}"
 declare -r SCRIPT_LOCATION_IN_CONTAINER="./bin/connect-distributed.sh"
 # cleanup the file if it is existent
 [[ -f "$WORKER_PROPERTIES" ]] && rm -f "$WORKER_PROPERTIES"
@@ -82,8 +82,8 @@ FROM ghcr.io/opensource4you/astraea/deps AS build
 # build kafka from source code
 RUN git clone --depth=1 ${kafka_repo} /tmp/kafka
 WORKDIR /tmp/kafka
-RUN git fetch --depth=1 origin $VERSION
-RUN git checkout $VERSION
+RUN git fetch --depth=1 origin $KAFKA_VERSION
+RUN git checkout $KAFKA_VERSION
 RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname \"kafka*tgz\" ! -iname \"*sit*\" \)) -C /opt/kafka --strip-components=1
@@ -128,7 +128,7 @@ RUN apt-get update && apt-get install -y wget
 WORKDIR /tmp
 RUN wget $kafka_url
 RUN mkdir /opt/kafka
-RUN tar -zxvf kafka_2.13-${VERSION}.tgz -C /opt/kafka --strip-components=1
+RUN tar -zxvf kafka_2.13-${version}.tgz -C /opt/kafka --strip-components=1
 RUN git clone ${repo} /tmp/astraea
 WORKDIR /tmp/astraea
 RUN ./gradlew clean shadowJar

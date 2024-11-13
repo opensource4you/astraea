@@ -23,7 +23,7 @@ declare -r ACCOUNT=${ACCOUNT:-opensource4you}
 if [[ "$VERSION" == "main" ]]; then
   declare -r IMAGE_NAME="ghcr.io/${ACCOUNT,,}/astraea/app:latest"
 else
-  declare -r IMAGE_NAME="ghcr.io/${ACCOUNT,,}/astraea/app:$VERSION"
+  declare -r IMAGE_NAME="ghcr.io/${ACCOUNT,,}/astraea/app:${VERSION,,}"
 fi
 declare -r DOCKERFILE=$DOCKER_FOLDER/app.dockerfile
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
