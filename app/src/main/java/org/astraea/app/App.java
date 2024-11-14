@@ -23,8 +23,9 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.benchmark.BalancerBenchmarkApp;
+import org.astraea.app.homework.Prepare;
+import org.astraea.app.homework.SendYourData;
 import org.astraea.app.performance.Performance;
-import org.astraea.app.performance.Prepare;
 import org.astraea.app.publisher.MetricPublisher;
 import org.astraea.app.version.Version;
 import org.astraea.app.web.WebService;
@@ -36,6 +37,8 @@ public class App {
           Performance.class,
           "prepare",
           Prepare.class,
+          "send_your_data",
+          SendYourData.class,
           "automation",
           Automation.class,
           "web",

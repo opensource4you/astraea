@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.app.performance;
+package org.astraea.app.homework;
 
 import com.beust.jcommander.Parameter;
 import java.util.List;
@@ -114,8 +114,7 @@ public class Prepare {
         names = {"--topics"},
         description = "List<String>: topic names which you subscribed",
         validateWith = StringListField.class,
-        listConverter = StringListField.class,
-        required = false)
+        listConverter = StringListField.class)
     List<String> topics;
   }
 }

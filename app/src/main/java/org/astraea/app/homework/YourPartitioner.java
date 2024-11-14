@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.astraea.common.partitioner;
+package org.astraea.app.homework;
 
 import java.util.Map;
 import org.apache.kafka.clients.producer.Partitioner;
