@@ -25,30 +25,8 @@ declare -r DOCKERFILE=$DOCKER_FOLDER/controller.dockerfile
 declare -r EXPORTER_VERSION="0.16.1"
 declare -r CLUSTER_ID=${CLUSTER_ID:-"$(randomString)"}
 declare -r EXPORTER_PORT=${EXPORTER_PORT:-"$(getRandomPort)"}
-declare -r VOTERS=${VOTERS:-""}
 declare -r NODE_ID=${NODE_ID:-"$(getRandomPort)"}
-
-# we need to parse the controller port from pre-defined `VOTERS`
-function generateControllerPort() {
-  if [[ -n "$VOTERS" ]]; then
-    port=""
-    IFS=',' read -ra ADDR <<< "$VOTERS"
-    for voter in "${ADDR[@]}"; do
-      if [[ "$voter" == "$NODE_ID"* ]]; then
-        port=${voter##*:}
-        break
-      fi
-    done
-    echo "$port"
-  else
-    echo "$(getRandomPort)"
-  fi
-}
 declare -r CONTROLLER_PORT=${CONTROLLER_PORT:-"$(generateControllerPort)"}
-if [[ "$CONTROLLER_PORT" == "" ]]; then
-  echo "VOTERS: $VOTERS is not matched to NODE_ID: $NODE_ID"
-  exit 1
-fi
 declare -r CONTAINER_NAME="controller-$CONTROLLER_PORT"
 declare -r CONTROLLER_JMX_PORT="${CONTROLLER_JMX_PORT:-"$(getRandomPort)"}"
 declare -r JMX_CONFIG_FILE="${JMX_CONFIG_FILE}"
@@ -218,7 +196,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 rejectProperty "node.id"
-rejectProperty "controller.quorum.voters"
+rejectProperty "controller.quorum.bootstrap.servers"
 rejectProperty "listeners"
 rejectProperty "process.roles"
 rejectProperty "controller.listener.names"
@@ -229,11 +207,7 @@ rejectProperty "broker.id"
 rejectProperty "metadata.log.dir"
 
 setPropertyIfEmpty "node.id" "$NODE_ID"
-if [[ -n "$VOTERS" ]]; then
-  setPropertyIfEmpty "controller.quorum.voters" "$VOTERS"
-else
-  setPropertyIfEmpty "controller.quorum.voters" "$NODE_ID@${ADDRESS}:$CONTROLLER_PORT"
-fi
+setPropertyIfEmpty "controller.quorum.bootstrap.servers" "${ADDRESS}:$CONTROLLER_PORT"
 # this is not allowed before 3.8 ...
 #setPropertyIfEmpty "advertised.listeners" "CONTROLLER://${ADDRESS}:$CONTROLLER_PORT"
 setPropertyIfEmpty "listeners" "CONTROLLER://:$CONTROLLER_PORT"
@@ -268,7 +242,7 @@ docker run -d --init \
   -p $CONTROLLER_PORT:$CONTROLLER_PORT \
   -p $CONTROLLER_JMX_PORT:$CONTROLLER_JMX_PORT \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
-  "$IMAGE_NAME" sh -c "./bin/kafka-storage.sh format -t $CLUSTER_ID $release_version -c /tmp/controller.properties --ignore-formatted && ./bin/kafka-server-start.sh /tmp/controller.properties"
+  "$IMAGE_NAME" sh -c "./bin/kafka-storage.sh format -t $CLUSTER_ID $release_version -c /tmp/controller.properties --standalone --ignore-formatted && ./bin/kafka-server-start.sh /tmp/controller.properties"
 
 echo "================================================="
 [[ -n "$META_FOLDER" ]] && echo "mount $META_FOLDER to container: $CONTAINER_NAME"
@@ -276,9 +250,5 @@ echo "controller address: ${ADDRESS}:$CONTROLLER_PORT"
 echo "jmx address: ${ADDRESS}:$CONTROLLER_JMX_PORT"
 echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
 echo "================================================="
-if [[ -n "$VOTERS" ]]; then
-  echo "run CLUSTER_ID=$CLUSTER_ID $DOCKER_FOLDER/start_broker.sh controller.quorum.voters=$VOTERS to join broker"
-else
-  echo "run CLUSTER_ID=$CLUSTER_ID $DOCKER_FOLDER/start_broker.sh controller.quorum.voters=$NODE_ID@${ADDRESS}:$CONTROLLER_PORT to join broker"
-fi
+echo "run CLUSTER_ID=$CLUSTER_ID $DOCKER_FOLDER/start_broker.sh controller.quorum.bootstrap.servers=${ADDRESS}:$CONTROLLER_PORT to join broker"
 echo "================================================="

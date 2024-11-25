@@ -56,7 +56,7 @@ function showHelp() {
   echo "Required Argument (zk mode): "
   echo "    zookeeper.connect=node:22222              set zookeeper connection"
   echo "Required Argument (kraft mode): "
-  echo "    controller.quorum.voters=12310@node:14335 set controller connection"
+  echo "    controller.quorum.bootstrap.servers=12310@node:14335 set controller connection"
   echo "Optional Arguments: "
   echo "    num.io.threads=10                        set broker I/O threads"
   echo "    num.network.threads=10                   set broker network threads"
@@ -287,7 +287,7 @@ while [[ $# -gt 0 ]]; do
     exit 0
   fi
   echo "$1" >>"$BROKER_PROPERTIES"
-  if [[ "$1" == "controller.quorum.voters"* ]]; then
+  if [[ "$1" == "controller.quorum.bootstrap.servers"* ]]; then
     quorum="kraft"
   fi
   if [[ "$1" == "zookeeper.connect"* ]]; then
@@ -300,7 +300,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$quorum" == "unknown" ]]; then
-  echo "please define either zookeeper.connect or controller.quorum.voters"
+  echo "please define either zookeeper.connect or controller.quorum.bootstrap.servers"
   exit 2
 fi
 
