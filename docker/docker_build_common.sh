@@ -25,6 +25,24 @@ function getRandomPort() {
   echo $(($(($RANDOM%10000))+10000))
 }
 
+
+# we need to parse the controller port from pre-defined `VOTERS`
+function generateControllerPort() {
+  if [[ -n "$VOTERS" ]]; then
+    port=""
+    IFS=',' read -ra ADDR <<< "$VOTERS"
+    for voter in "${ADDR[@]}"; do
+      if [[ "$voter" == "$NODE_ID"* ]]; then
+        port=${voter##*:}
+        break
+      fi
+    done
+    echo "$port"
+  else
+    echo "$(getRandomPort)"
+  fi
+}
+
 # don't change the length as it is expected 16 bytes of a base64-encoded UUID
 function randomString() {
   echo $(cat /dev/random | env LC_CTYPE=C tr -dc 'a-zA-Z0-9' | fold -w 22 | head -n 1)
