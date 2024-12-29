@@ -81,7 +81,7 @@ FROM ghcr.io/opensource4you/astraea/deps AS build
 # download jmx exporter
 RUN mkdir /opt/jmx_exporter
 WORKDIR /opt/jmx_exporter
-RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml --output-document=$JMX_CONFIG_FILE_IN_CONTAINER_PATH
+RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/examples/kafka-2_0_0.yml --output-document=$JMX_CONFIG_FILE_IN_CONTAINER_PATH
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # build kafka from source code
@@ -137,7 +137,7 @@ RUN apt-get update && apt-get install -y wget
 # download jmx exporter
 RUN mkdir /opt/jmx_exporter
 WORKDIR /opt/jmx_exporter
-RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/example_configs/kafka-2_0_0.yml --output-document=$JMX_CONFIG_FILE_IN_CONTAINER_PATH
+RUN wget https://raw.githubusercontent.com/prometheus/jmx_exporter/master/examples/kafka-2_0_0.yml --output-document=$JMX_CONFIG_FILE_IN_CONTAINER_PATH
 RUN wget https://REPO1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${EXPORTER_VERSION}/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar
 
 # download kafka
