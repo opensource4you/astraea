@@ -1,0 +1,18 @@
+{
+  "protocols": [
+    {
+      "name": "produce",
+      "base": 7,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    }
+  ],
+  "configs": [
+    {
+      "name": "password.encoder.secret",
+      "value": null,
+      "commit": "https://github.com/apache/kafka/commit/3161115adae4de9f2b2ec6b87462ea10a8993456",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
+    }
+  ]
+}
