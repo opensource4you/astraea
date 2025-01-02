@@ -20,6 +20,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.astraea.common.EnumInfo;
@@ -130,6 +132,26 @@ public class NetworkMetrics {
 
     public Histogram fetch(MBeanClient mBeanClient) {
       return new Histogram(mBeanClient.bean(ALL.get(this)));
+    }
+
+    public Set<Integer> versions(MBeanClient mBeanClient) {
+      try {
+        var beanObjects =
+            mBeanClient.beans(
+                BeanQuery.builder()
+                    .domainName("kafka.network")
+                    .property("type", "RequestMetrics")
+                    .property("request", "Produce")
+                    .property("name", "RequestsPerSec")
+                    .property("version", "*")
+                    .build());
+        return beanObjects.stream()
+            .map(b -> Integer.parseInt(b.properties().get("version")))
+            .collect(Collectors.toSet());
+      } catch (NoSuchElementException ignored) {
+        // this is expected if the node has no such request
+        return Set.of();
+      }
     }
 
     public record Histogram(BeanObject beanObject) implements HasHistogram {

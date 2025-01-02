@@ -23,8 +23,7 @@ import java.util.List;
 import java.util.Map;
 import org.astraea.app.automation.Automation;
 import org.astraea.app.benchmark.BalancerBenchmarkApp;
-import org.astraea.app.homework.BulkChecker;
-import org.astraea.app.homework.BulkSender;
+import org.astraea.app.checker.Checker;
 import org.astraea.app.homework.Prepare;
 import org.astraea.app.homework.SendYourData;
 import org.astraea.app.performance.Performance;
@@ -35,10 +34,8 @@ import org.astraea.app.web.WebService;
 public class App {
   private static final Map<String, Class<?>> MAIN_CLASSES =
       Map.of(
-          "bulk_sender",
-          BulkSender.class,
-          "bulk_checker",
-          BulkChecker.class,
+          "40_checker",
+          Checker.class,
           "performance",
           Performance.class,
           "prepare",
