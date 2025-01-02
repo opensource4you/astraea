@@ -18,6 +18,7 @@ app.dockerfile
 deps.dockerfile
 worker.dockerfile
 hadoop.dockerfile
+kafka.dockerfile
 # we don't put binary file to git repo
 gradle-wrapper.jar
 VersionUtils.java
