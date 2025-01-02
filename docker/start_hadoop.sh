@@ -57,7 +57,7 @@ function showHelp() {
 
 function generateDockerfile() {
   echo "#this dockerfile is generated dynamically
-FROM ubuntu:23.10 AS build
+FROM ubuntu:24.04 AS build
 
 #install tools
 RUN apt-get update && apt-get install -y wget
@@ -75,7 +75,7 @@ RUN wget https://archive.apache.org/dist/hadoop/common/hadoop-${VERSION}/hadoop-
 RUN mkdir /opt/hadoop
 RUN tar -zxvf hadoop-${VERSION}.tar.gz -C /opt/hadoop --strip-components=1
 
-FROM ubuntu:23.10
+FROM ubuntu:24.04
 
 #install tools
 # TODO: upgrade to jdk 11 (https://github.com/opensource4you/astraea/issues/1681)

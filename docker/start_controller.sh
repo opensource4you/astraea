@@ -107,7 +107,7 @@ function generateDockerfileByVersion() {
     kafka_url="https://dist.apache.org/repos/dist/dev/kafka/${KAFKA_VERSION}/kafka_2.13-${version}.tgz"
   fi
   echo "# this dockerfile is generated dynamically
-FROM ubuntu:23.10 AS build
+FROM ubuntu:24.04 AS build
 
 # install tools
 RUN apt-get update && apt-get install -y wget
