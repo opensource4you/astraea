@@ -49,4 +49,12 @@ public record Report(Node node, String why) {
     if (why.isEmpty()) return Stream.empty();
     return Stream.of(this);
   }
+
+  @Override
+  public String toString() {
+    if (node == null) {
+      return "Report[pass]";
+    }
+    return "Report[" + node + "]  why = " + why;
+  }
 }
