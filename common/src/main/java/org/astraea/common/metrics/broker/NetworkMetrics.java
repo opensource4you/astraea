@@ -141,7 +141,7 @@ public class NetworkMetrics {
                 BeanQuery.builder()
                     .domainName("kafka.network")
                     .property("type", "RequestMetrics")
-                    .property("request", "Produce")
+                    .property("request", this.metricName())
                     .property("name", "RequestsPerSec")
                     .property("version", "*")
                     .build());
