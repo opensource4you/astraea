@@ -16,11 +16,14 @@
  */
 package org.astraea.app.checker;
 
+import java.util.Locale;
 import java.util.Optional;
+import org.apache.kafka.common.config.ConfigResource;
 
 public class Config {
   private String name;
   private Optional<String> value;
+  private String type;
   private String commit;
   private String kip;
 
@@ -30,6 +33,14 @@ public class Config {
 
   public Optional<String> value() {
     return value;
+  }
+
+  public ConfigResource.Type type() {
+    return switch (type.toLowerCase(Locale.ENGLISH)) {
+      case "broker" -> ConfigResource.Type.BROKER;
+      case "topic" -> ConfigResource.Type.TOPIC;
+      default -> throw new IllegalArgumentException();
+    };
   }
 
   public String commit() {
