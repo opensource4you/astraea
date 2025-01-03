@@ -13,6 +13,35 @@
       "value": null,
       "commit": "https://github.com/apache/kafka/commit/3161115adae4de9f2b2ec6b87462ea10a8993456",
       "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
+    },
+    {
+      "name": "reserved.broker.max.id",
+      "value": null,
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
+    },
+    {
+      "name": "broker.id.generation.enable",
+      "value": null,
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
+    },
+    {
+      "name": "broker.id",
+      "value": null,
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
+    },
+    {
+      "name": "log.message.format.version",
+      "value": null,
+      "commit": "https://github.com/apache/kafka/commit/b4be1785998d382843002ffd8685d67fe8d9c97d",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-724%3A+Drop+support+for+message+formats+v0+and+v1",
+      "type": "broker"
+    },
+    {
+      "name": "message.format.version",
+      "value": null,
+      "commit": "https://github.com/apache/kafka/commit/b4be1785998d382843002ffd8685d67fe8d9c97d",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-724%3A+Drop+support+for+message+formats+v0+and+v1",
+      "type": "topic"
     }
   ]
 }
