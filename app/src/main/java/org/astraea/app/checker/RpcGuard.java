@@ -40,11 +40,11 @@ public class RpcGuard implements Guard {
       Node node, Map<String, Protocol> protocols, Function<Node, MBeanClient> clients) {
     return Arrays.stream(NetworkMetrics.Request.values())
         .filter(request -> protocols.containsKey(request.metricName().toLowerCase()))
-        .map(
+        .flatMap(
             request -> {
               var protocol = protocols.get(request.metricName().toLowerCase());
-              var versions = NetworkMetrics.Request.PRODUCE.versions(clients.apply(node));
-              return Report.of(node, protocol, versions);
+              var versions = request.versions(clients.apply(node));
+              return Report.of(node, protocol, versions).stream();
             })
         .toList();
   }

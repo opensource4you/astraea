@@ -35,7 +35,7 @@ import org.astraea.common.metrics.MBeanClient;
 
 public class Checker {
 
-  private static final List<Guard> GUARDS = List.of(new RpcGuard());
+  private static final List<Guard> GUARDS = List.of(new RpcGuard(), new ConfigGuard());
 
   public static void main(String[] args) throws Exception {
     execute(Argument.parse(new Argument(), args));

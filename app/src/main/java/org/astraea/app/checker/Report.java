@@ -22,10 +22,6 @@ import java.util.stream.Stream;
 import org.apache.kafka.common.Node;
 
 public record Report(Node node, String why) {
-  static Report noMetrics(Node node) {
-    return new Report(node, "failed to get metrics from");
-  }
-
   static Report of(Node node, String why) {
     return new Report(node, why);
   }
@@ -41,7 +37,7 @@ public record Report(Node node, String why) {
     return new Report(
         node,
         String.format(
-            "there are unsupported %s versions: %s due to new baseline: %s",
+            "there are unsupported %s versions: %s and new baseline: [%s]",
             protocol.name(), unsupportedVersions, protocol.base()));
   }
 
@@ -52,9 +48,6 @@ public record Report(Node node, String why) {
 
   @Override
   public String toString() {
-    if (node == null) {
-      return "Report[pass]";
-    }
-    return "Report[" + node + "]  why = " + why;
+    return "[" + node + "] has issue to 4.0 because \"" + why + "\"";
   }
 }
