@@ -7,6 +7,96 @@
       "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
     },
     {
+      "name": "fetch",
+      "base": 4,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "listoffsets",
+      "base": 1,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "metadata",
+      "base": 4,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "offsetcommit",
+      "base": 2,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "offsetfetch",
+      "base": 1,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "joingroup",
+      "base": 2,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "createtopics",
+      "base": 2,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "deletetopics",
+      "base": 1,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "offsetforleaderepoch",
+      "base": 2,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "describeacls",
+      "base": 1,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "createacls",
+      "base": 1,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "deleteacls",
+      "base": 1,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "describeconfigs",
+      "base": 1,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "alterreplicalogdirs",
+      "base": 1,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
+      "name": "describelogdirs",
+      "base": 1,
+      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
+    },
+    {
       "name": "createDelegationToken",
       "base": 1,
       "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
@@ -27,354 +117,6 @@
     {
       "name": "describeDelegationToken",
       "base": 1,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "fetch",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "listoffsets",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "metadata",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "controlledshutdown",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "offsetcommit",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "offsetfetch",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "findcoordinator",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "joingroup",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "heartbeat",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "leavegroup",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "syncgroup",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "describegroups",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "listgroups",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "saslhandshake",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "apiversions",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "createtopics",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "deletetopics",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "deleterecords",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "initproducerid",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "offsetforleaderepoch",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "addpartitionstotxn",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "addoffsetstotxn",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "endtxn",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "writetxnmarkers",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "txnoffsetcommit",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "describeacls",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "createacls",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "deleteacls",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "describeconfigs",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "alterconfigs",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "alterreplicalogdirs",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "describelogdirs",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "saslauthenticate",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "createpartitions",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "deletegroups",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "electleaders",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "incrementalalterconfigs",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "alterpartitionreassignments",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "listpartitionreassignments",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "offsetdelete",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "describeclientquotas",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "alterclientquotas",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "vote",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "beginquorumepoch",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "endquorumepoch",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "describequorum",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "alterpartition",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "updatefeatures",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "envelope",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "fetchsnapshot",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "describecluster",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "describeproducers",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "brokerregistration",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "brokerheartbeat",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "unregisterbroker",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "describetransactions",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "listtransactions",
-      "base": 7,
-      "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
-      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
-    },
-    {
-      "name": "allocateproducerids",
-      "base": 7,
       "commit": "https://github.com/apache/kafka/commit/fe56fc98fa736c79c9dcbb1f64f810065161a1cc",
       "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-896%3A+Remove+old+client+protocol+API+versions+in+Kafka+4.0"
     }
