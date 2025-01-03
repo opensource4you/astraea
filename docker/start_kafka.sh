@@ -14,8 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+get_ipv4_address() {
+  if command -v ip &>/dev/null; then
+    ip -o -4 address show | awk '!/127.0.0.1/ {gsub(/\/.*/, "", $4); print $4; exit}'
+  elif command -v ifconfig &>/dev/null; then
+    ifconfig | awk '/inet / && $2 != "127.0.0.1" { print $2; exit }'
+  elif command -v networksetup &>/dev/null; then
+    networksetup -getinfo Wi-Fi | awk '/IP address:/ { print $3; exit }'
+  else
+    echo "Error: No supported command found to fetch IP address." >&2
+    return 1
+  fi
+}
+
 # ===============================[global variables]===============================
-declare -r ADDRESS=$(ip -o -4  address show  | awk ' NR==2 { gsub(/\/.*/, "", $4); print $4 } ')
+declare -r ADDRESS=$(get_ipv4_address)
 declare -r KAFKA_VERSION=${KAFKA_VERSION:-2.1.1}
 declare -r DOCKERFILE=/tmp/astraea/kafka.dockerfile
 declare -r JMX0_OPTS="-Dcom.sun.management.jmxremote \
@@ -38,7 +52,7 @@ declare -r JMX2_OPTS="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/kafka-${BROKER_PORT}.properties"
-declare -r IMAGE_NAME="ghcr.io/opensource4you/astraea/kafka:${KAFKA_VERSION,,}"
+declare -r IMAGE_NAME="ghcr.io/opensource4you/astraea/kafka:$(echo "$KAFKA_VERSION" | tr '[:upper:]' '[:lower:]')"
 
 function generateDockerfileByVersion() {
   echo "# this dockerfile is generated dynamically
