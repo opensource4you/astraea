@@ -35,9 +35,7 @@ import org.astraea.common.metrics.MBeanClient;
 
 public class Checker {
 
-    private static final List<Guard> GUARDS = List.of(
-            new ProduceRpcGuard(),
-            new FetchRpcGuard());
+    private static final List<Guard> GUARDS = List.of(new RpcGuard());
 
   public static void main(String[] args) throws Exception {
     execute(Argument.parse(new Argument(), args));
@@ -47,7 +45,7 @@ public class Checker {
     try (var admin = Admin.create(Map.of("bootstrap.servers", param.bootstrapServers()))) {
       for (var guard : GUARDS) {
         var result = guard.run(admin, param.mBeanClientFunction(), param.readChangelog());
-        System.out.println(result);
+        result.forEach(System.out::println);
       }
     }
   }

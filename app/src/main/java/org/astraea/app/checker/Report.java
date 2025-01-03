@@ -16,37 +16,46 @@
  */
 package org.astraea.app.checker;
 
+import org.apache.kafka.common.Node;
+
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.kafka.common.Node;
 
 public record Report(Node node, String why) {
-  static Report noMetrics(Node node) {
-    return new Report(node, "failed to get metrics from");
-  }
+    static Report noMetrics(Node node) {
+        return new Report(node, "failed to get metrics from");
+    }
 
-  static Report of(Node node, String why) {
-    return new Report(node, why);
-  }
+    static Report of(Node node, String why) {
+        return new Report(node, why);
+    }
 
-  static Report empty() {
-    return new Report(null, "");
-  }
+    static Report empty() {
+        return new Report(null, "");
+    }
 
-  static Report of(Node node, Protocol protocol, Set<Integer> versions) {
-    var unsupportedVersions =
-        versions.stream().filter(v -> v < protocol.base()).collect(Collectors.toSet());
-    if (unsupportedVersions.isEmpty()) return empty();
-    return new Report(
-        node,
-        String.format(
-            "there are unsupported %s versions: %s due to new baseline: %s",
-            protocol.name(), unsupportedVersions, protocol.base()));
-  }
+    static Report of(Node node, Protocol protocol, Set<Integer> versions) {
+        var unsupportedVersions =
+                versions.stream().filter(v -> v < protocol.base()).collect(Collectors.toSet());
+        if (unsupportedVersions.isEmpty()) return empty();
+        return new Report(
+                node,
+                String.format(
+                        "there are unsupported %s versions: %s due to new baseline: %s",
+                        protocol.name(), unsupportedVersions, protocol.base()));
+    }
 
-  Stream<Report> stream() {
-    if (why.isEmpty()) return Stream.empty();
-    return Stream.of(this);
-  }
+    Stream<Report> stream() {
+        if (why.isEmpty()) return Stream.empty();
+        return Stream.of(this);
+    }
+
+    @Override
+    public String toString() {
+        if (node == null) {
+            return "Report[pass]";
+        }
+        return "Report[" + node+ "]  why = " + why;
+    }
 }
