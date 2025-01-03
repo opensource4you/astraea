@@ -16,35 +16,36 @@
  */
 package org.astraea.app.checker;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
+import java.util.function.Function;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.common.Node;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.NetworkMetrics;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
-import java.util.function.Function;
-
 public class RpcGuard implements Guard {
-    @Override
-    public Collection<Report> run(
-            Admin admin, Function<Node, MBeanClient> clients, Changelog changelog) throws Exception {
-        Map<String, Protocol> protocols = changelog.protocols();
-        return admin.describeCluster().nodes().get().stream()
-                .map(node -> checkNode(node, protocols, clients))
-                .flatMap(Collection::stream)
-                .toList();
-    }
+  @Override
+  public Collection<Report> run(
+      Admin admin, Function<Node, MBeanClient> clients, Changelog changelog) throws Exception {
+    Map<String, Protocol> protocols = changelog.protocols();
+    return admin.describeCluster().nodes().get().stream()
+        .map(node -> checkNode(node, protocols, clients))
+        .flatMap(Collection::stream)
+        .toList();
+  }
 
-    private Collection<Report> checkNode(Node node, Map<String, Protocol> protocols,Function<Node, MBeanClient> clients) {
-        return Arrays.stream(NetworkMetrics.Request.values())
-                .filter(request -> protocols.containsKey(request.metricName().toLowerCase()))
-                .map(request -> {
-                    var protocol = protocols.get(request.metricName().toLowerCase());
-                    var versions = NetworkMetrics.Request.PRODUCE.versions(clients.apply(node));
-                    return Report.of(node, protocol, versions);
-                }).toList();
-    }
-    
+  private Collection<Report> checkNode(
+      Node node, Map<String, Protocol> protocols, Function<Node, MBeanClient> clients) {
+    return Arrays.stream(NetworkMetrics.Request.values())
+        .filter(request -> protocols.containsKey(request.metricName().toLowerCase()))
+        .map(
+            request -> {
+              var protocol = protocols.get(request.metricName().toLowerCase());
+              var versions = NetworkMetrics.Request.PRODUCE.versions(clients.apply(node));
+              return Report.of(node, protocol, versions);
+            })
+        .toList();
+  }
 }
