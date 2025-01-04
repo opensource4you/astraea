@@ -53,7 +53,7 @@ RUN wget https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.12-${KAF
 RUN mkdir /opt/kafka
 RUN tar -zxvf kafka_2.12-${KAFKA_VERSION}.tgz -C /opt/kafka --strip-components=1
 
-FROM azul/zulu-openjdk:11-jre
+FROM azul/zulu-openjdk:8-jre
 
 # copy kafka
 COPY --from=build /opt/kafka /opt/kafka
