@@ -25,7 +25,7 @@ import org.astraea.common.metrics.AppInfo;
 import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ServerMetrics;
 
-public class VersionGuard implements Guard {
+public class ReleaseGuard implements Guard {
 
   @Override
   public Collection<Report> run(
