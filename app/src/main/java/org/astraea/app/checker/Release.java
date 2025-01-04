@@ -16,26 +16,15 @@
  */
 package org.astraea.app.checker;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+public class Release {
+  private String name;
+  private boolean supported;
 
-public class Changelog {
-  private List<Protocol> protocols;
-  private List<Config> configs;
-  private List<String> stale_releases;
-
-  public Map<String, Protocol> protocols() {
-    return protocols.stream().collect(Collectors.toMap(Protocol::name, Function.identity()));
+  public String name() {
+    return name;
   }
 
-  public Map<String, Config> configs() {
-    return configs.stream().collect(Collectors.toMap(Config::name, Function.identity()));
-  }
-
-  public List<String> staleReleases() {
-    return Collections.unmodifiableList(stale_releases);
+  public boolean supported() {
+    return supported;
   }
 }

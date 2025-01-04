@@ -17,7 +17,6 @@
 package org.astraea.app.checker;
 
 import java.util.Collection;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.Admin;
@@ -27,37 +26,6 @@ import org.astraea.common.metrics.MBeanClient;
 import org.astraea.common.metrics.broker.ServerMetrics;
 
 public class VersionGuard implements Guard {
-  private static final Set<String> UNSUPPORTED_VERSIONS =
-      Set.of(
-          "0.7.0",
-          "0.7.1",
-          "0.7.2",
-          "0.8.0",
-          "0.8.1",
-          "0.8.1.1",
-          "0.8.2-beta",
-          "0.8.2.1",
-          "0.8.2.2",
-          "0.9.0.0",
-          "0.9.0.1",
-          "0.10.0.0",
-          "0.10.0.1",
-          "0.10.1.0",
-          "0.10.1.1",
-          "0.10.2.0",
-          "0.10.2.1",
-          "0.10.2.2",
-          "0.11.0.0",
-          "0.11.0.1",
-          "0.11.0.2",
-          "0.11.0.3",
-          "1.0.0",
-          "1.0.1",
-          "1.0.2",
-          "1.1.0",
-          "1.1.1",
-          "2.0.0",
-          "2.0.1");
 
   @Override
   public Collection<Report> run(
@@ -68,7 +36,7 @@ public class VersionGuard implements Guard {
               var vs =
                   ServerMetrics.appInfo(clients.apply(node)).stream()
                       .map(AppInfo::version)
-                      .filter(UNSUPPORTED_VERSIONS::contains)
+                      .filter(v -> changelog.staleReleases().contains(v))
                       .collect(Collectors.toSet());
               if (vs.isEmpty()) return Report.empty();
               return Report.of(
