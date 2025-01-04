@@ -39,12 +39,7 @@ public class Checker {
       List.of(new ReleaseGuard(), new RpcGuard(), new ConfigGuard());
 
   public static void main(String[] args) throws Exception {
-    execute(
-        Argument.parse(
-            new Argument(),
-            new String[] {
-              "--bootstrap.servers", "172.20.10.2:9092", "--jmx.ports", "0=11111,1=11112,2=11113"
-            }));
+    execute(Argument.parse(new Argument(), args));
   }
 
   public static void execute(final Argument param) throws Exception {
