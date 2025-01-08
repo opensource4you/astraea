@@ -128,6 +128,48 @@
       "type": "broker",
       "commit": "https://github.com/apache/kafka/commit/3161115adae4de9f2b2ec6b87462ea10a8993456",
       "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
+    },
+    {
+      "name": "password.encoder.old.secret",
+      "value": null,
+      "type": "broker",
+      "commit": "https://github.com/apache/kafka/commit/3161115adae4de9f2b2ec6b87462ea10a8993456",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
+    },
+    {
+      "name": "password.encoder.keyfactory.algorithm",
+      "value": null,
+      "type": "broker",
+      "commit": "https://github.com/apache/kafka/commit/3161115adae4de9f2b2ec6b87462ea10a8993456",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
+    },
+    {
+      "name": "password.encoder.cipher.algorithm",
+      "value": "AES/CBC/PKCS5Padding",
+      "type": "broker",
+      "commit": "https://github.com/apache/kafka/commit/3161115adae4de9f2b2ec6b87462ea10a8993456",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
+    },
+    {
+      "name": "password.encoder.key.length",
+      "value": "128",
+      "type": "broker",
+      "commit": "https://github.com/apache/kafka/commit/3161115adae4de9f2b2ec6b87462ea10a8993456",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
+    },
+    {
+      "name": "password.encoder.iterations",
+      "value": "4096",
+      "type": "broker",
+      "commit": "https://github.com/apache/kafka/commit/3161115adae4de9f2b2ec6b87462ea10a8993456",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
+    },
+    {
+      "name": "control.plane.listener.name",
+      "value": null,
+      "type": "broker",
+      "commit": "https://github.com/apache/kafka/commit/0c435e3855bda58d08e28001290ec305acdbbc64",
+      "kip": "https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum"
     }
   ],
   "stale_releases": [
