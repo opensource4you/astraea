@@ -17,7 +17,7 @@
 declare -r USER=astraea
 declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
-declare -r ADDRESS=$(ip -o -4  address show  | awk ' NR==2 { gsub(/\/.*/, "", $4); print $4 } ')
+declare -r ADDRESS=$(ifconfig | awk '/inet / && !/127.0.0.1/ {print $2; exit}')
 
 # ===================================[functions]===================================
 
@@ -76,7 +76,7 @@ function buildImageIfNeed() {
     fi
     if [[ "$needToBuild" == "true" ]]; then
       generateDockerfile
-      docker build --no-cache -t "$imageName" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+      docker build --platform linux/amd64 --no-cache -t "$imageName" -f "$DOCKERFILE" "$DOCKER_FOLDER"
       if [[ "$?" != "0" ]]; then
         exit 2
       fi

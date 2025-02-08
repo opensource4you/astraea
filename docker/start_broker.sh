@@ -44,7 +44,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
-declare -r IMAGE_NAME="ghcr.io/${ACCOUNT,,}/astraea/broker:${KAFKA_VERSION,,}"
+declare -r IMAGE_NAME="ghcr.io/${ACCOUNT:l}/astraea/broker:${KAFKA_VERSION:l}"
 declare -r METADATA_VERSION=${METADATA_VERSION:-""}
 # cleanup the file if it is existent
 [[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"

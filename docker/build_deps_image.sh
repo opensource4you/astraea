@@ -50,7 +50,7 @@ WORKDIR /root
 
 function buildBaseImageIfNeed() {
   if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    docker build -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+    docker build --platform linux/amd64 -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
     docker push $IMAGE_NAME
   else
     echo "$IMAGE_NAME is existent in local"
