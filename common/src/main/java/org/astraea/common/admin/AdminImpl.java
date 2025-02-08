@@ -19,6 +19,7 @@ package org.astraea.common.admin;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -770,6 +771,26 @@ class AdminImpl implements Admin {
             .all());
   }
 
+  private static Map<String, String> entity(String name) {
+    var map = new HashMap<String, String>();
+    map.put(name, null);
+    return map;
+  }
+
+  @Override
+  public CompletionStage<Void> setConnectionQuota(int rate) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                List.of(
+                    new org.apache.kafka.common.quota.ClientQuotaAlteration(
+                        new ClientQuotaEntity(entity(ClientQuotaEntity.IP)),
+                        List.of(
+                            new ClientQuotaAlteration.Op(
+                                QuotaConfigs.IP_CONNECTION_RATE_CONFIG, (double) rate)))))
+            .all());
+  }
+
   @Override
   public CompletionStage<Void> unsetConnectionQuotas(Set<String> ips) {
     return to(
@@ -807,6 +828,20 @@ class AdminImpl implements Admin {
   }
 
   @Override
+  public CompletionStage<Void> setConsumerQuota(DataRate rate) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                List.of(
+                    new ClientQuotaAlteration(
+                        new ClientQuotaEntity(entity(ClientQuotaEntity.CLIENT_ID)),
+                        List.of(
+                            new ClientQuotaAlteration.Op(
+                                QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG, rate.byteRate())))))
+            .all());
+  }
+
+  @Override
   public CompletionStage<Void> unsetConsumerQuotas(Set<String> clientIds) {
     return to(
         kafkaAdmin
@@ -840,6 +875,20 @@ class AdminImpl implements Admin {
                                         QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG,
                                         entry.getValue().byteRate()))))
                     .collect(Collectors.toList()))
+            .all());
+  }
+
+  @Override
+  public CompletionStage<Void> setProducerQuota(DataRate rate) {
+    return to(
+        kafkaAdmin
+            .alterClientQuotas(
+                List.of(
+                    new ClientQuotaAlteration(
+                        new ClientQuotaEntity(entity(ClientQuotaEntity.CLIENT_ID)),
+                        List.of(
+                            new ClientQuotaAlteration.Op(
+                                QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, rate.byteRate())))))
             .all());
   }
 

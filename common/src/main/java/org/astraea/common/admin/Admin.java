@@ -223,6 +223,9 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<Void> setConnectionQuotas(Map<String, Integer> ipAndRate);
 
+  /** set the connection rate by default */
+  CompletionStage<Void> setConnectionQuota(int rate);
+
   /**
    * remove the connection quotas for given ip addresses
    *
@@ -237,6 +240,9 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<Void> setProducerQuotas(Map<String, DataRate> clientAndRate);
 
+  /** set the producer rate by default */
+  CompletionStage<Void> setProducerQuota(DataRate rate);
+
   /**
    * remove the producer rate quotas for given client ids
    *
@@ -250,6 +256,9 @@ public interface Admin extends AutoCloseable {
    * @param clientAndRate client id and its consumer rate
    */
   CompletionStage<Void> setConsumerQuotas(Map<String, DataRate> clientAndRate);
+
+  /** set the consumer rate by default */
+  CompletionStage<Void> setConsumerQuota(DataRate rate);
 
   /**
    * remove the consumer rate quotas for given client ids
