@@ -20,7 +20,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 # ===============================[global variables]===============================
 declare -r ACCOUNT=${ACCOUNT:-opensource4you}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
-declare -r KAFKA_VERSION=${KAFKA_REVISION:-${KAFKA_VERSION:-4.1.1}}
+declare -r KAFKA_VERSION=${KAFKA_REVISION:-${KAFKA_VERSION:-4.0.0}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/controller.dockerfile
 declare -r EXPORTER_VERSION="0.16.1"
 declare -r CLUSTER_ID=${CLUSTER_ID:-"$(randomString)"}
@@ -41,7 +41,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r CONTROLLER_PROPERTIES="/tmp/controller-${CONTROLLER_PORT}.properties"
-declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/controller:$KAFKA_VERSION"
+declare -r IMAGE_NAME="ghcr.io/${ACCOUNT:l}/astraea/controller:$KAFKA_VERSION"
 declare -r METADATA_VERSION=${METADATA_VERSION:-""}
 # cleanup the file if it is existent
 [[ -f "$CONTROLLER_PROPERTIES" ]] && rm -f "$CONTROLLER_PROPERTIES"
@@ -55,7 +55,7 @@ function showHelp() {
   echo "    ACCOUNT=opensource4you                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set controller JVM memory"
   echo "    KAFKA_REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    KAFKA_VERSION=4.1.1                            set version of kafka distribution"
+  echo "    KAFKA_VERSION=4.0.0                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    META_FOLDER=/tmp/folder1                set host folder used by controller"
@@ -81,7 +81,7 @@ RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname \"kafka*tgz\" ! -iname \"*sit*\" \)) -C /opt/kafka --strip-components=1
 
-FROM azul/zulu-openjdk:25-jre
+FROM azul/zulu-openjdk:23-jre
 
 # copy kafka
 COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
@@ -104,7 +104,7 @@ function generateDockerfileByVersion() {
   local kafka_url="https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz"
   local version=$KAFKA_VERSION
   if [[ "$KAFKA_VERSION" == *"rc"* ]]; then
-    ## `4.1.1-rc1` the rc release does not exist in archive repo
+    ## `4.0.0-rc1` the rc release does not exist in archive repo
     version=${KAFKA_VERSION%-*}
     kafka_url="https://dist.apache.org/repos/dist/dev/kafka/${KAFKA_VERSION}/kafka_2.13-${version}.tgz"
   fi
@@ -126,7 +126,7 @@ RUN wget $kafka_url
 RUN mkdir /opt/kafka
 RUN tar -zxvf kafka_2.13-${version}.tgz -C /opt/kafka --strip-components=1
 
-FROM azul/zulu-openjdk:25-jre
+FROM azul/zulu-openjdk:23-jre
 
 # copy kafka
 COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
@@ -155,7 +155,7 @@ function generateDockerfile() {
 
 function generateJmxConfigMountCommand() {
     if [[ "$JMX_CONFIG_FILE" != "" ]]; then
-        echo "-v $JMX_CONFIG_FILE:$JMX_CONFIG_FILE_IN_CONTAINER_PATH:Z"
+        echo "--mount type=bind,source=$JMX_CONFIG_FILE,target=$JMX_CONFIG_FILE_IN_CONTAINER_PATH"
     else
         echo ""
     fi
@@ -228,7 +228,7 @@ setPropertyIfEmpty "log.dirs" "/tmp/kafka-meta"
 
 metaMountCommand=""
 if [[ -n "$META_FOLDER" ]]; then
-  metaMountCommand="-v $META_FOLDER:/tmp/kafka-meta:Z"
+  metaMountCommand="-v $META_FOLDER:/tmp/kafka-meta"
 fi
 
 release_version=""
@@ -247,7 +247,7 @@ docker run -d --init \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
   -e KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:$JMX_CONFIG_FILE_IN_CONTAINER_PATH" \
-  -v $CONTROLLER_PROPERTIES:/tmp/controller.properties:ro,Z \
+  -v $CONTROLLER_PROPERTIES:/tmp/controller.properties:ro \
   $(generateJmxConfigMountCommand) \
   $metaMountCommand \
   -h $CONTAINER_NAME \
@@ -259,7 +259,6 @@ docker run -d --init \
 if [ "$(echo $?)" -eq 0 ]; then
   echo "================================================="
   [[ -n "$META_FOLDER" ]] && echo "mount $META_FOLDER to container: $CONTAINER_NAME"
-  echo "node.id=$NODE_ID"
   echo "controller address: ${ADDRESS}:$CONTROLLER_PORT"
   echo "jmx address: ${ADDRESS}:$CONTROLLER_JMX_PORT"
   echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"

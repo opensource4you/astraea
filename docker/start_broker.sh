@@ -21,7 +21,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 declare -r ACCOUNT=${ACCOUNT:-opensource4you}
 declare -r VERSION=${VERSION:-main}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
-declare -r KAFKA_VERSION=${KAFKA_REVISION:-${KAFKA_VERSION:-4.1.1}}
+declare -r KAFKA_VERSION=${KAFKA_REVISION:-${KAFKA_VERSION:-4.0.0}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
@@ -44,7 +44,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r BROKER_PROPERTIES="/tmp/server-${BROKER_PORT}.properties"
-declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/broker:${KAFKA_VERSION}"
+declare -r IMAGE_NAME="ghcr.io/${ACCOUNT:l}/astraea/broker:${KAFKA_VERSION:l}"
 declare -r METADATA_VERSION=${METADATA_VERSION:-""}
 # cleanup the file if it is existent
 [[ -f "$BROKER_PROPERTIES" ]] && rm -f "$BROKER_PROPERTIES"
@@ -65,7 +65,7 @@ function showHelp() {
   echo "    ACCOUNT=opensource4you                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    KAFKA_REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    KAFKA_VERSION=4.1.1                            set version of kafka distribution"
+  echo "    KAFKA_VERSION=4.0.0                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1                set host folders used by broker"
@@ -101,7 +101,7 @@ RUN git checkout $VERSION
 RUN ./gradlew clean build -x test
 RUN cp /tmp/astraea/common/build/libs/*.jar /opt/kafka/libs/
 
-FROM azul/zulu-openjdk:25-jre
+FROM azul/zulu-openjdk:23-jre
 
 # copy kafka
 COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
@@ -124,7 +124,7 @@ function generateDockerfileByVersion() {
   local kafka_url="https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz"
   local version=$KAFKA_VERSION
   if [[ "$KAFKA_VERSION" == *"rc"* ]]; then
-    ## `4.1.1-rc1` the rc release does not exist in archive repo
+    ## `4.0.0-rc1` the rc release does not exist in archive repo
     version=${KAFKA_VERSION%-*}
     kafka_url="https://dist.apache.org/repos/dist/dev/kafka/${KAFKA_VERSION}/kafka_2.13-${version}.tgz"
   fi
@@ -146,7 +146,7 @@ RUN wget $kafka_url
 RUN mkdir /opt/kafka
 RUN tar -zxvf kafka_2.13-${version}.tgz -C /opt/kafka --strip-components=1
 
-FROM azul/zulu-openjdk:25-jre
+FROM azul/zulu-openjdk:23-jre
 
 # copy kafka
 COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
@@ -217,7 +217,7 @@ function setLogDirs() {
 
 function generateJmxConfigMountCommand() {
     if [[ "$JMX_CONFIG_FILE" != "" ]]; then
-        echo "-v $JMX_CONFIG_FILE:$JMX_CONFIG_FILE_IN_CONTAINER_PATH:ro,Z"
+        echo "--mount type=bind,source=$JMX_CONFIG_FILE,target=$JMX_CONFIG_FILE_IN_CONTAINER_PATH"
     else
         echo ""
     fi
@@ -231,7 +231,7 @@ function generateDataFolderMountCommand() {
     declare -i count=0
 
     for folder in "${folders[@]}"; do
-      mount="$mount -v $folder:$DATA_FOLDER_IN_CONTAINER_PREFIX-$count:Z"
+      mount="$mount -v $folder:$DATA_FOLDER_IN_CONTAINER_PREFIX-$count"
       count=$((count + 1))
     done
   fi
@@ -352,7 +352,7 @@ docker run -d --init \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
   -e KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:$JMX_CONFIG_FILE_IN_CONTAINER_PATH" \
-  -v $BROKER_PROPERTIES:/tmp/broker.properties:ro,Z \
+  -v $BROKER_PROPERTIES:/tmp/broker.properties:ro \
   $(generateJmxConfigMountCommand) \
   $(generateDataFolderMountCommand) \
   -p $BROKER_PORT:9092 \
