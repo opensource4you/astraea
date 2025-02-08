@@ -359,28 +359,32 @@ docker run -d --init \
   -p $EXPORTER_PORT:$EXPORTER_PORT \
   "$IMAGE_NAME" sh -c "$command"
 
-echo "================================================="
-[[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to container: $CONTAINER_NAME"
-echo "node.id=$NODE_ID"
-echo "broker address: ${ADDRESS}:$BROKER_PORT"
-echo "jmx address: ${ADDRESS}:$BROKER_JMX_PORT"
-echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
-if [[ "$SASL" == "true" ]]; then
-  user_jaas_file=/tmp/user-jaas-${BROKER_PORT}.conf
-  echo "
-  sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=${USER_NAME} password=${USER_PASSWORD};
-  security.protocol=SASL_PLAINTEXT
-  sasl.mechanism=PLAIN
-  " >$user_jaas_file
+if [ "$(echo $?)" -eq 0 ]; then
+  echo "================================================="
+  [[ -n "$DATA_FOLDERS" ]] && echo "mount $DATA_FOLDERS to container: $CONTAINER_NAME"
+  echo "node.id=$NODE_ID"
+  echo "broker address: ${ADDRESS}:$BROKER_PORT"
+  echo "jmx address: ${ADDRESS}:$BROKER_JMX_PORT"
+  echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
+  if [[ "$SASL" == "true" ]]; then
+    user_jaas_file=/tmp/user-jaas-${BROKER_PORT}.conf
+    echo "
+    sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=${USER_NAME} password=${USER_PASSWORD};
+    security.protocol=SASL_PLAINTEXT
+    sasl.mechanism=PLAIN
+    " >$user_jaas_file
 
-  admin_jaas_file=/tmp/admin-jaas-${BROKER_PORT}.conf
-  echo "
-  sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=${ADMIN_NAME} password=${ADMIN_PASSWORD};
-  security.protocol=SASL_PLAINTEXT
-  sasl.mechanism=PLAIN
-  " >$admin_jaas_file
-  echo "SASL_PLAINTEXT is enabled. user config: $user_jaas_file admin config: $admin_jaas_file"
+    admin_jaas_file=/tmp/admin-jaas-${BROKER_PORT}.conf
+    echo "
+    sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username=${ADMIN_NAME} password=${ADMIN_PASSWORD};
+    security.protocol=SASL_PLAINTEXT
+    sasl.mechanism=PLAIN
+    " >$admin_jaas_file
+    echo "SASL_PLAINTEXT is enabled. user config: $user_jaas_file admin config: $admin_jaas_file"
+  fi
+  echo "================================================="
+  echo "run $DOCKER_FOLDER/start_worker.sh bootstrap.servers=$ADDRESS:$BROKER_PORT group.id=$(randomString) to join kafka worker"
+  echo "================================================="
+else
+    echo "Start up fail"
 fi
-echo "================================================="
-echo "run $DOCKER_FOLDER/start_worker.sh bootstrap.servers=$ADDRESS:$BROKER_PORT group.id=$(randomString) to join kafka worker"
-echo "================================================="
