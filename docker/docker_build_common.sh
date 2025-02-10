@@ -14,10 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+get_ipv4_address() {
+  if command -v ip &>/dev/null; then
+    ip -o -4 address show | awk '!/127.0.0.1/ {gsub(/\/.*/, "", $4); print $4; exit}'
+  elif command -v ifconfig &>/dev/null; then
+    ifconfig | awk '/inet / && $2 != "127.0.0.1" { print $2; exit }'
+  elif command -v networksetup &>/dev/null; then
+    networksetup -getinfo Wi-Fi | awk '/IP address:/ { print $3; exit }'
+  else
+    echo "Error: No supported command found to fetch IP address." >&2
+    return 1
+  fi
+}
+
 declare -r USER=astraea
 declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
-declare -r ADDRESS=$(ip -o -4  address show  | awk ' NR==2 { gsub(/\/.*/, "", $4); print $4 } ')
+declare -r ADDRESS=$(get_ipv4_address)
 
 # ===================================[functions]===================================
 
