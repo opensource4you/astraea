@@ -793,6 +793,18 @@ class AdminImpl implements Admin {
 
   @Override
   public CompletionStage<Void> unsetConnectionQuotas(Set<String> ips) {
+    if (ips.isEmpty()) {
+      return to(
+          kafkaAdmin
+              .alterClientQuotas(
+                  List.of(
+                      new ClientQuotaAlteration(
+                          new ClientQuotaEntity(entity(ClientQuotaEntity.IP)),
+                          List.of(
+                              new ClientQuotaAlteration.Op(
+                                  QuotaConfigs.IP_CONNECTION_RATE_CONFIG, null)))))
+              .all());
+    }
     return to(
         kafkaAdmin
             .alterClientQuotas(
@@ -843,6 +855,18 @@ class AdminImpl implements Admin {
 
   @Override
   public CompletionStage<Void> unsetConsumerQuotas(Set<String> clientIds) {
+    if (clientIds.isEmpty()) {
+      return to(
+          kafkaAdmin
+              .alterClientQuotas(
+                  List.of(
+                      new ClientQuotaAlteration(
+                          new ClientQuotaEntity(entity(ClientQuotaEntity.CLIENT_ID)),
+                          List.of(
+                              new ClientQuotaAlteration.Op(
+                                  QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG, null)))))
+              .all());
+    }
     return to(
         kafkaAdmin
             .alterClientQuotas(
@@ -894,6 +918,18 @@ class AdminImpl implements Admin {
 
   @Override
   public CompletionStage<Void> unsetProducerQuotas(Set<String> clientIds) {
+    if (clientIds.isEmpty()) {
+      return to(
+          kafkaAdmin
+              .alterClientQuotas(
+                  List.of(
+                      new ClientQuotaAlteration(
+                          new ClientQuotaEntity(entity(ClientQuotaEntity.CLIENT_ID)),
+                          List.of(
+                              new ClientQuotaAlteration.Op(
+                                  QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG, null)))))
+              .all());
+    }
     return to(
         kafkaAdmin
             .alterClientQuotas(

@@ -229,7 +229,7 @@ public interface Admin extends AutoCloseable {
   /**
    * remove the connection quotas for given ip addresses
    *
-   * @param ips to delete connection quotas
+   * @param ips to delete connection quotas. Empty means you want to remove default quota
    */
   CompletionStage<Void> unsetConnectionQuotas(Set<String> ips);
 
@@ -246,7 +246,7 @@ public interface Admin extends AutoCloseable {
   /**
    * remove the producer rate quotas for given client ids
    *
-   * @param clientIds to delete producer rate quotas
+   * @param clientIds to delete producer rate quotas. Empty means you want to remove default quota
    */
   CompletionStage<Void> unsetProducerQuotas(Set<String> clientIds);
 
@@ -263,7 +263,7 @@ public interface Admin extends AutoCloseable {
   /**
    * remove the consumer rate quotas for given client ids
    *
-   * @param clientIds to delete consumer rate quotas
+   * @param clientIds to delete consumer rate quotas. Empty means you want to remove default quota
    */
   CompletionStage<Void> unsetConsumerQuotas(Set<String> clientIds);
 

@@ -19,8 +19,8 @@ package org.astraea.gui.tab;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.geometry.Side;
@@ -45,36 +45,35 @@ public class QuotaNode {
     var rateKey = "connections/second";
     var multiInput =
         List.of(
-            TextInput.required(ipLabelKey, EditableText.singleLine().disallowEmpty().build()),
+            TextInput.of(ipLabelKey, EditableText.singleLine().disallowEmpty().build()),
             TextInput.of(rateKey, EditableText.singleLine().onlyNumber().build()));
     var firstPart =
         FirstPart.builder()
             .textInputs(multiInput)
             .clickName("ALTER")
             .tableRefresher(
-                (argument, logger) ->
-                    Optional.ofNullable(argument.nonEmptyTexts().get(rateKey))
-                        .map(
-                            rate ->
-                                context
-                                    .admin()
-                                    .setConnectionQuotas(
-                                        Map.of(
-                                            argument.nonEmptyTexts().get(ipLabelKey),
-                                            Integer.parseInt(rate))))
-                        .orElseGet(
-                            () ->
-                                context
-                                    .admin()
-                                    .unsetConnectionQuotas(
-                                        Set.of(argument.nonEmptyTexts().get(ipLabelKey))))
-                        .thenApply(
-                            ignored -> {
-                              logger.log(
-                                  "succeed to alter rate for "
-                                      + argument.nonEmptyTexts().get(ipLabelKey));
-                              return List.of();
-                            }))
+                (argument, logger) -> {
+                  var ip = argument.nonEmptyTexts().get(ipLabelKey);
+                  var rate = argument.nonEmptyTexts().get(rateKey);
+                  final CompletionStage<Void> result;
+                  if (ip == null && rate == null)
+                    result = context.admin().unsetConnectionQuotas(Set.of());
+                  else if (ip != null && rate != null)
+                    result =
+                        context.admin().setConnectionQuotas(Map.of(ip, Integer.parseInt(rate)));
+                  else if (ip != null) result = context.admin().unsetConnectionQuotas(Set.of(ip));
+                  else result = context.admin().setConnectionQuota(Integer.parseInt(rate));
+                  return result.thenApply(
+                      ignored -> {
+                        if (ip == null && rate == null)
+                          logger.log("succeed to remove default quota");
+                        else if (ip != null && rate != null)
+                          logger.log("succeed to alter " + rate + " for " + ip);
+                        else if (ip != null) logger.log("succeed to remove quota from " + ip);
+                        else logger.log("succeed to alter " + rate + " for default quota");
+                        return List.of();
+                      });
+                })
             .build();
     return PaneBuilder.of().firstPart(firstPart).build();
   }
@@ -84,36 +83,41 @@ public class QuotaNode {
     var byteRateKey = "MB/second";
     var multiInput =
         List.of(
-            TextInput.required(clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
+            TextInput.of(clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
             TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()));
     var firstPart =
         FirstPart.builder()
             .textInputs(multiInput)
             .clickName("ALTER")
             .tableRefresher(
-                (argument, logger) ->
-                    Optional.ofNullable(argument.nonEmptyTexts().get(byteRateKey))
-                        .map(
-                            rate ->
-                                context
-                                    .admin()
-                                    .setProducerQuotas(
-                                        Map.of(
-                                            argument.nonEmptyTexts().get(clientIdLabelKey),
-                                            DataRate.MB.of(Long.parseLong(rate)))))
-                        .orElseGet(
-                            () ->
-                                context
-                                    .admin()
-                                    .unsetProducerQuotas(
-                                        Set.of(argument.nonEmptyTexts().get(clientIdLabelKey))))
-                        .thenApply(
-                            ignored -> {
-                              logger.log(
-                                  "succeed to alter rate for "
-                                      + argument.nonEmptyTexts().get(clientIdLabelKey));
-                              return List.of();
-                            }))
+                (argument, logger) -> {
+                  var clientId = argument.nonEmptyTexts().get(clientIdLabelKey);
+                  var rate = argument.nonEmptyTexts().get(byteRateKey);
+                  final CompletionStage<Void> result;
+                  if (clientId == null && rate == null)
+                    result = context.admin().unsetProducerQuotas(Set.of());
+                  else if (clientId != null && rate != null)
+                    result =
+                        context
+                            .admin()
+                            .setProducerQuotas(
+                                Map.of(clientId, DataRate.MB.of(Long.parseLong(rate))));
+                  else if (clientId != null)
+                    result = context.admin().unsetProducerQuotas(Set.of(clientId));
+                  else
+                    result = context.admin().setProducerQuota(DataRate.MB.of(Long.parseLong(rate)));
+                  return result.thenApply(
+                      ignored -> {
+                        if (clientId == null && rate == null)
+                          logger.log("succeed to remove default quota");
+                        else if (clientId != null && rate != null)
+                          logger.log("succeed to alter " + rate + " for " + clientId);
+                        else if (clientId != null)
+                          logger.log("succeed to remove quota from " + clientId);
+                        else logger.log("succeed to alter " + rate + " for default quota");
+                        return List.of();
+                      });
+                })
             .build();
     return PaneBuilder.of().firstPart(firstPart).build();
   }
@@ -123,45 +127,54 @@ public class QuotaNode {
     var byteRateKey = "MB/second";
     var multiInput =
         List.of(
-            TextInput.required(clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
+            TextInput.of(clientIdLabelKey, EditableText.singleLine().disallowEmpty().build()),
             TextInput.of(byteRateKey, EditableText.singleLine().onlyNumber().build()));
     var firstPart =
         FirstPart.builder()
             .textInputs(multiInput)
             .clickName("ALTER")
             .tableRefresher(
-                (argument, logger) ->
-                    Optional.ofNullable(argument.nonEmptyTexts().get(byteRateKey))
-                        .map(
-                            rate ->
-                                context
-                                    .admin()
-                                    .setConsumerQuotas(
-                                        Map.of(
-                                            argument.nonEmptyTexts().get(clientIdLabelKey),
-                                            DataRate.MB.of(Long.parseLong(rate)))))
-                        .orElseGet(
-                            () ->
-                                context
-                                    .admin()
-                                    .unsetConsumerQuotas(
-                                        Set.of(argument.nonEmptyTexts().get(clientIdLabelKey))))
-                        .thenApply(
-                            ignored -> {
-                              logger.log(
-                                  "succeed to alter rate for "
-                                      + argument.nonEmptyTexts().get(clientIdLabelKey));
-                              return List.of();
-                            }))
+                (argument, logger) -> {
+                  var clientId = argument.nonEmptyTexts().get(clientIdLabelKey);
+                  var rate = argument.nonEmptyTexts().get(byteRateKey);
+                  final CompletionStage<Void> result;
+                  if (clientId == null && rate == null)
+                    result = context.admin().unsetConsumerQuotas(Set.of());
+                  else if (clientId != null && rate != null)
+                    result =
+                        context
+                            .admin()
+                            .setConsumerQuotas(
+                                Map.of(clientId, DataRate.MB.of(Long.parseLong(rate))));
+                  else if (clientId != null)
+                    result = context.admin().unsetConsumerQuotas(Set.of(clientId));
+                  else
+                    result = context.admin().setConsumerQuota(DataRate.MB.of(Long.parseLong(rate)));
+                  return result.thenApply(
+                      ignored -> {
+                        if (clientId == null && rate == null)
+                          logger.log("succeed to remove default quota");
+                        else if (clientId != null && rate != null)
+                          logger.log("succeed to alter " + rate + " for " + clientId);
+                        else if (clientId != null)
+                          logger.log("succeed to remove quota from " + clientId);
+                        else logger.log("succeed to alter " + rate + " for default quota");
+                        return List.of();
+                      });
+                })
             .build();
     return PaneBuilder.of().firstPart(firstPart).build();
   }
 
   static LinkedHashMap<String, Object> basicResult(Quota quota) {
     return MapUtils.of(
+        "entity",
         quota.targetKey(),
-        quota.targetValue(),
+        "name",
+        quota.targetValue() == null ? "<default>" : quota.targetValue(),
+        "limit",
         quota.limitKey(),
+        "value",
         quota.limitKey().equals(QuotaConfigs.PRODUCER_BYTE_RATE_CONFIG)
                 || quota.limitKey().equals(QuotaConfigs.CONSUMER_BYTE_RATE_CONFIG)
             ? DataSize.Byte.of((long) quota.limitValue())
