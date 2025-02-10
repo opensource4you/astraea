@@ -16,8 +16,6 @@
  */
 package org.astraea.it;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,36 +28,32 @@ import java.util.stream.IntStream;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaRaftServer;
 import kafka.server.Server;
-import kafka.tools.StorageTool;
-import org.apache.kafka.common.DirectoryId;
 import org.apache.kafka.common.Uuid;
-import org.apache.kafka.common.utils.SystemTime;
-import org.apache.kafka.metadata.properties.MetaProperties;
-import org.apache.kafka.metadata.properties.MetaPropertiesVersion;
-import org.apache.kafka.server.common.MetadataVersion;
+import org.apache.kafka.common.utils.Time;
 
 public interface BrokerCluster extends AutoCloseable {
 
   private static CompletableFuture<Map.Entry<Integer, Server>> server(
       Map<String, String> configs, Set<String> folders, String clusterId, int nodeId) {
 
-    StorageTool.formatCommand(
-        new PrintStream(new ByteArrayOutputStream()),
-        scala.collection.JavaConverters.collectionAsScalaIterableConverter(folders)
-            .asScala()
-            .toSeq(),
-        new MetaProperties.Builder()
-            .setVersion(MetaPropertiesVersion.V1)
-            .setClusterId(clusterId)
-            .setNodeId(nodeId)
-            .setDirectoryId(DirectoryId.random())
-            .build(),
-        MetadataVersion.latestProduction(),
-        true);
+    // TODO: fix it ..
+    //    StorageTool.formatCommand(
+    //        new PrintStream(new ByteArrayOutputStream()),
+    //        scala.collection.JavaConverters.collectionAsScalaIterableConverter(folders)
+    //            .asScala()
+    //            .toSeq(),
+    //        new MetaProperties.Builder()
+    //            .setVersion(MetaPropertiesVersion.V1)
+    //            .setClusterId(clusterId)
+    //            .setNodeId(nodeId)
+    //            .setDirectoryId(DirectoryId.random())
+    //            .build(),
+    //        MetadataVersion.latestProduction(),
+    //        true);
 
     return CompletableFuture.supplyAsync(
         () -> {
-          var broker = new KafkaRaftServer(new KafkaConfig(configs), SystemTime.SYSTEM);
+          var broker = new KafkaRaftServer(new KafkaConfig(configs), Time.SYSTEM);
           broker.startup();
           return Map.entry(nodeId, broker);
         });

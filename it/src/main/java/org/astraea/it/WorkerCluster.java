@@ -19,13 +19,11 @@ package org.astraea.it;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.kafka.connect.cli.ConnectDistributed;
-import org.apache.kafka.connect.runtime.Connect;
 import org.apache.kafka.connect.runtime.ConnectorConfig;
 import org.apache.kafka.connect.runtime.WorkerConfig;
 import org.apache.kafka.connect.runtime.distributed.DistributedConfig;
@@ -35,7 +33,7 @@ public interface WorkerCluster extends AutoCloseable {
 
   static WorkerCluster of(
       BrokerCluster brokerCluster, int numberOfWorkers, Map<String, String> override) {
-    List<Connect> connects =
+    var connects =
         IntStream.range(0, numberOfWorkers)
             .mapToObj(
                 index -> {
