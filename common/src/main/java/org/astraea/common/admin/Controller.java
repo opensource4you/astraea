@@ -16,12 +16,4 @@
  */
 package org.astraea.common.admin;
 
-import java.util.OptionalLong;
-import org.apache.kafka.common.Uuid;
-
-public record ReplicaState(
-    int replicaId,
-    Uuid replicaDirectoryId,
-    long logEndOffset,
-    OptionalLong lastFetchTimestamp,
-    OptionalLong lastCaughtUpTimestamp) {}
+public record Controller(int id, String host, int port) {}

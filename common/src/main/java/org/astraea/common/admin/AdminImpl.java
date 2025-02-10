@@ -36,7 +36,6 @@ import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
-import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.MemberToRemove;
@@ -44,11 +43,13 @@ import org.apache.kafka.clients.admin.NewPartitionReassignment;
 import org.apache.kafka.clients.admin.NewPartitions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.RaftVoterEndpoint;
 import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
+import org.apache.kafka.common.Uuid;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.errors.ElectionNotNeededException;
 import org.apache.kafka.common.errors.ReplicaNotAvailableException;
@@ -65,12 +66,13 @@ import org.astraea.common.Utils;
 class AdminImpl implements Admin {
 
   private final org.apache.kafka.clients.admin.Admin kafkaAdmin;
+  private final org.apache.kafka.clients.admin.Admin controllerAdmin;
   private final String clientId;
   private final AtomicInteger runningRequests = new AtomicInteger(0);
 
   AdminImpl(Map<String, String> props) {
     this(
-        KafkaAdminClient.create(
+        org.apache.kafka.clients.admin.Admin.create(
             props.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
   }
@@ -78,6 +80,22 @@ class AdminImpl implements Admin {
   AdminImpl(org.apache.kafka.clients.admin.Admin kafkaAdmin) {
     this.kafkaAdmin = kafkaAdmin;
     this.clientId = (String) Utils.member(kafkaAdmin, "clientId");
+    this.controllerAdmin =
+        org.apache.kafka.clients.admin.Admin.create(
+            Map.of(
+                "bootstrap.controllers",
+                kafkaAdmin
+                    .describeMetadataQuorum()
+                    .quorumInfo()
+                    .toCompletionStage()
+                    .toCompletableFuture()
+                    .join()
+                    .nodes()
+                    .values()
+                    .stream()
+                    .flatMap(n -> n.endpoints().stream())
+                    .map(e -> e.host() + ":" + e.port())
+                    .collect(Collectors.joining(","))));
   }
 
   <T> CompletionStage<T> to(org.apache.kafka.common.KafkaFuture<T> kafkaFuture) {
@@ -450,6 +468,13 @@ class AdminImpl implements Admin {
     return clusterIdAndBrokers().thenApply(Map.Entry::getValue);
   }
 
+  @Override
+  public CompletionStage<List<Controller>> controllers() {
+    return to(controllerAdmin.describeCluster().nodes())
+        .thenApply(
+            nodes -> nodes.stream().map(n -> new Controller(n.id(), n.host(), n.port())).toList());
+  }
+
   private CompletionStage<Map.Entry<String, List<Broker>>> clusterIdAndBrokers() {
     var cluster = kafkaAdmin.describeCluster();
     var nodeFuture = to(cluster.nodes());
@@ -792,7 +817,7 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<QuorumInfo> describeQuorumInfo() {
+  public CompletionStage<QuorumInfo> quorumInfo() {
     return to(kafkaAdmin.describeMetadataQuorum().quorumInfo())
         .thenApply(
             quorumInfo ->
@@ -805,6 +830,7 @@ class AdminImpl implements Admin {
                             v ->
                                 new ReplicaState(
                                     v.replicaId(),
+                                    v.replicaDirectoryId(),
                                     v.logEndOffset(),
                                     v.lastFetchTimestamp(),
                                     v.lastCaughtUpTimestamp()))
@@ -814,10 +840,30 @@ class AdminImpl implements Admin {
                             v ->
                                 new ReplicaState(
                                     v.replicaId(),
+                                    v.replicaDirectoryId(),
                                     v.logEndOffset(),
                                     v.lastFetchTimestamp(),
                                     v.lastCaughtUpTimestamp()))
-                        .toList()));
+                        .toList(),
+                    quorumInfo.nodes().entrySet().stream()
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                e ->
+                                    e.getValue().endpoints().stream()
+                                        .map(p -> new RaftEndpoint(p.name(), p.host(), p.port()))
+                                        .toList()))));
+  }
+
+  @Override
+  public CompletionStage<Void> addVoter(int nodeId, String directoryId, RaftEndpoint endpoint) {
+    return to(
+        kafkaAdmin
+            .addRaftVoter(
+                nodeId,
+                Uuid.fromString(directoryId),
+                Set.of(new RaftVoterEndpoint(endpoint.name(), endpoint.host(), endpoint.port())))
+            .all());
   }
 
   @Override
@@ -1480,6 +1526,7 @@ class AdminImpl implements Admin {
   @Override
   public void close() {
     kafkaAdmin.close();
+    controllerAdmin.close();
   }
 
   private CompletionStage<

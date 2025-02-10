@@ -17,10 +17,12 @@
 package org.astraea.common.admin;
 
 import java.util.List;
+import java.util.Map;
 
 public record QuorumInfo(
     int leaderId,
     long leaderEpoch,
     long highWatermark,
     List<ReplicaState> voters,
-    List<ReplicaState> observers) {}
+    List<ReplicaState> observers,
+    Map<Integer, List<RaftEndpoint>> endpoints) {}

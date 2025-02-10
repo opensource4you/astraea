@@ -26,6 +26,7 @@ import org.astraea.gui.tab.AboutNode;
 import org.astraea.gui.tab.BrokerNode;
 import org.astraea.gui.tab.ClientNode;
 import org.astraea.gui.tab.ConnectorNode;
+import org.astraea.gui.tab.QuorumNode;
 import org.astraea.gui.tab.QuotaNode;
 import org.astraea.gui.tab.SettingNode;
 import org.astraea.gui.tab.health.HealthNode;
@@ -61,6 +62,8 @@ public class Main {
                           SettingNode.of(context),
                           "broker",
                           BrokerNode.of(context),
+                          "quorum",
+                          QuorumNode.of(context),
                           "topic",
                           TopicNode.of(context),
                           "client",

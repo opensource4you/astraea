@@ -169,6 +169,8 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<List<Broker>> brokers();
 
+  CompletionStage<List<Controller>> controllers();
+
   default CompletionStage<String> bootstrapServers() {
     return brokers()
         .thenApply(
@@ -217,9 +219,11 @@ public interface Admin extends AutoCloseable {
   /**
    * @return the quorum
    */
-  CompletionStage<QuorumInfo> describeQuorumInfo();
+  CompletionStage<QuorumInfo> quorumInfo();
 
   // ---------------------------------[write]---------------------------------//
+
+  CompletionStage<Void> addVoter(int nodeId, String directoryId, RaftEndpoint endpoint);
 
   /**
    * set the connection rate for given ip address.
