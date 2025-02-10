@@ -792,6 +792,35 @@ class AdminImpl implements Admin {
   }
 
   @Override
+  public CompletionStage<QuorumInfo> describeQuorumInfo() {
+    return to(kafkaAdmin.describeMetadataQuorum().quorumInfo())
+        .thenApply(
+            quorumInfo ->
+                new QuorumInfo(
+                    quorumInfo.leaderId(),
+                    quorumInfo.leaderEpoch(),
+                    quorumInfo.highWatermark(),
+                    quorumInfo.voters().stream()
+                        .map(
+                            v ->
+                                new ReplicaState(
+                                    v.replicaId(),
+                                    v.logEndOffset(),
+                                    v.lastFetchTimestamp(),
+                                    v.lastCaughtUpTimestamp()))
+                        .toList(),
+                    quorumInfo.observers().stream()
+                        .map(
+                            v ->
+                                new ReplicaState(
+                                    v.replicaId(),
+                                    v.logEndOffset(),
+                                    v.lastFetchTimestamp(),
+                                    v.lastCaughtUpTimestamp()))
+                        .toList()));
+  }
+
+  @Override
   public CompletionStage<Void> unsetConnectionQuotas(Set<String> ips) {
     if (ips.isEmpty()) {
       return to(

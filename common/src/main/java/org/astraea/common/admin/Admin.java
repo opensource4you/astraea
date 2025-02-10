@@ -214,6 +214,11 @@ public interface Admin extends AutoCloseable {
 
   CompletionStage<List<Quota>> quotas();
 
+  /**
+   * @return the quorum
+   */
+  CompletionStage<QuorumInfo> describeQuorumInfo();
+
   // ---------------------------------[write]---------------------------------//
 
   /**
