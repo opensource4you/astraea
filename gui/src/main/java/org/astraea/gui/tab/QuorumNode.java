@@ -47,6 +47,7 @@ public class QuorumNode {
       Pattern.compile("^(.*)://\\[?([0-9a-zA-Z\\-%._:]*)\\]?:(-?[0-9]+)");
 
   private static Node addVoterNode(Context context) {
+
     var idKey = "node id";
     var multiInput =
         List.of(TextInput.required(idKey, EditableText.singleLine().disallowEmpty().build()));
@@ -56,24 +57,34 @@ public class QuorumNode {
             .clickName("add voter")
             .tableRefresher(
                 (argument, logger) ->
-                    FutureUtils.combine(
-                            context.admin().quorumInfo(),
-                            context.admin().controllers(),
-                            (quorumInfo, controllers) -> {
-                              var id = Integer.parseInt(argument.nonEmptyTexts().get(idKey));
-                              var directoryId =
-                                  quorumInfo.observers().stream()
-                                      .filter(e -> e.replicaId() == id)
-                                      .findFirst()
-                                      .get()
-                                      .replicaDirectoryId();
-                              var controller =
-                                  controllers.stream().filter(e -> e.id() == id).findFirst().get();
-                              var endpoints = raftEndpoints(controller.config().raw());
-                              return context
-                                  .admin()
-                                  .addVoter(id, directoryId.toString(), endpoints);
-                            })
+                    context
+                        .admin()
+                        .quorumInfo()
+                        .thenCompose(
+                            quorumInfo ->
+                                context
+                                    .admin()
+                                    .controllers()
+                                    .thenCompose(
+                                        controllers -> {
+                                          var id =
+                                              Integer.parseInt(argument.nonEmptyTexts().get(idKey));
+                                          var directoryId =
+                                              quorumInfo.observers().stream()
+                                                  .filter(e -> e.replicaId() == id)
+                                                  .findFirst()
+                                                  .get()
+                                                  .replicaDirectoryId();
+                                          var controller =
+                                              controllers.stream()
+                                                  .filter(e -> e.id() == id)
+                                                  .findFirst()
+                                                  .get();
+                                          var endpoints = raftEndpoints(controller.config().raw());
+                                          return context
+                                              .admin()
+                                              .addVoter(id, directoryId.toString(), endpoints);
+                                        }))
                         .thenApply(
                             ignored -> {
                               logger.log(
