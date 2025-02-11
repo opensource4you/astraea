@@ -867,6 +867,11 @@ class AdminImpl implements Admin {
   }
 
   @Override
+  public CompletionStage<Void> removeVoter(int nodeId, String directoryId) {
+    return to(kafkaAdmin.removeRaftVoter(nodeId, Uuid.fromString(directoryId)).all());
+  }
+
+  @Override
   public CompletionStage<Void> unsetConnectionQuotas(Set<String> ips) {
     if (ips.isEmpty()) {
       return to(

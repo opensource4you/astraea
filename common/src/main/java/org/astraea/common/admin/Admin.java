@@ -225,6 +225,8 @@ public interface Admin extends AutoCloseable {
 
   CompletionStage<Void> addVoter(int nodeId, String directoryId, RaftEndpoint endpoint);
 
+  CompletionStage<Void> removeVoter(int nodeId, String directoryId);
+
   /**
    * set the connection rate for given ip address.
    *

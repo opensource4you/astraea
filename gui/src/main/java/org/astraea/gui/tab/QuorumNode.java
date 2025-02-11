@@ -77,6 +77,36 @@ public class QuorumNode {
     return PaneBuilder.of().firstPart(firstPart).build();
   }
 
+  private static Node removeVoterNode(Context context) {
+    var id = "node id";
+    var directoryId = "directory id";
+    var multiInput =
+        List.of(
+            TextInput.required(id, EditableText.singleLine().disallowEmpty().build()),
+            TextInput.required(directoryId, EditableText.singleLine().disallowEmpty().build()));
+    var firstPart =
+        FirstPart.builder()
+            .textInputs(multiInput)
+            .clickName("remove voter")
+            .tableRefresher(
+                (argument, logger) ->
+                    context
+                        .admin()
+                        .removeVoter(
+                            Integer.parseInt(argument.nonEmptyTexts().get(id)),
+                            argument.nonEmptyTexts().get(directoryId))
+                        .thenApply(
+                            ignored -> {
+                              logger.log(
+                                  "succeed to remove "
+                                      + argument.nonEmptyTexts().get(id)
+                                      + " from the voters");
+                              return List.of();
+                            }))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
+  }
+
   private static List<Map<String, Object>> basicResult(
       QuorumInfo quorumInfo, List<Controller> controllers) {
 
@@ -104,6 +134,8 @@ public class QuorumNode {
                     MapUtils.<String, Object>of(
                         "role",
                         "voter",
+                        "leader",
+                        quorumInfo.leaderId() == rs.replicaId(),
                         "node id",
                         rs.replicaId(),
                         "directory id",
@@ -129,6 +161,8 @@ public class QuorumNode {
                         controllers.stream().anyMatch(b -> b.id() == rs.replicaId())
                             ? "observer"
                             : "observer (broker)",
+                        "leader",
+                        quorumInfo.leaderId() == rs.replicaId(),
                         "node id",
                         rs.replicaId(),
                         "directory id",
@@ -161,7 +195,14 @@ public class QuorumNode {
 
   public static Node of(Context context) {
     return Slide.of(
-            Side.TOP, MapUtils.of("basic", basicNode(context), "voter", addVoterNode(context)))
+            Side.TOP,
+            MapUtils.of(
+                "basic",
+                basicNode(context),
+                "add",
+                addVoterNode(context),
+                "remove",
+                removeVoterNode(context)))
         .node();
   }
 }
