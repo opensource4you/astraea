@@ -16,4 +16,4 @@
  */
 package org.astraea.common.admin;
 
-public record Controller(int id, String host, int port) {}
+public record Controller(int id, String host, int port, Config config) {}

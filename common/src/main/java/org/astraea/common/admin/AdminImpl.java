@@ -471,8 +471,44 @@ class AdminImpl implements Admin {
   @Override
   public CompletionStage<List<Controller>> controllers() {
     return to(controllerAdmin.describeCluster().nodes())
-        .thenApply(
-            nodes -> nodes.stream().map(n -> new Controller(n.id(), n.host(), n.port())).toList());
+        .thenCompose(
+            nodes ->
+                to(controllerAdmin
+                        .describeConfigs(
+                            nodes.stream()
+                                .map(
+                                    n ->
+                                        new ConfigResource(
+                                            ConfigResource.Type.BROKER, String.valueOf(n.id())))
+                                .toList())
+                        .all())
+                    .thenApply(
+                        configs ->
+                            nodes.stream()
+                                .map(
+                                    n ->
+                                        new Controller(
+                                            n.id(),
+                                            n.host(),
+                                            n.port(),
+                                            new org.astraea.common.admin.Config(
+                                                configs
+                                                    .getOrDefault(
+                                                        new ConfigResource(
+                                                            ConfigResource.Type.BROKER,
+                                                            String.valueOf(n.id())),
+                                                        new Config(List.of()))
+                                                    .entries()
+                                                    .stream()
+                                                    .filter(
+                                                        entry ->
+                                                            entry.value() != null
+                                                                && !entry.value().isBlank())
+                                                    .collect(
+                                                        Collectors.toMap(
+                                                            ConfigEntry::name,
+                                                            ConfigEntry::value)))))
+                                .toList()));
   }
 
   private CompletionStage<Map.Entry<String, List<Broker>>> clusterIdAndBrokers() {
@@ -856,13 +892,16 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<Void> addVoter(int nodeId, String directoryId, RaftEndpoint endpoint) {
+  public CompletionStage<Void> addVoter(
+      int nodeId, String directoryId, List<RaftEndpoint> endpoints) {
     return to(
         kafkaAdmin
             .addRaftVoter(
                 nodeId,
                 Uuid.fromString(directoryId),
-                Set.of(new RaftVoterEndpoint(endpoint.name(), endpoint.host(), endpoint.port())))
+                endpoints.stream()
+                    .map(e -> new RaftVoterEndpoint(e.name(), e.host(), e.port()))
+                    .collect(Collectors.toSet()))
             .all());
   }
 

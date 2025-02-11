@@ -223,7 +223,7 @@ public interface Admin extends AutoCloseable {
 
   // ---------------------------------[write]---------------------------------//
 
-  CompletionStage<Void> addVoter(int nodeId, String directoryId, RaftEndpoint endpoint);
+  CompletionStage<Void> addVoter(int nodeId, String directoryId, List<RaftEndpoint> endpoints);
 
   CompletionStage<Void> removeVoter(int nodeId, String directoryId);
 
