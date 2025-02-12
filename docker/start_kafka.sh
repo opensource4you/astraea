@@ -108,7 +108,7 @@ RUN echo \"\nbroker.id=2\" >> config/server2.properties
 
 mkdir -p /tmp/astraea
 generateDockerfileByVersion
-docker build --platform linux/amd64 -t "$IMAGE_NAME" -f "$DOCKERFILE" /tmp/astraea
+docker build -t "$IMAGE_NAME" -f "$DOCKERFILE" /tmp/astraea
 
 # cleanup
 docker rm -f zk bk-00 bk-01 bk-02
