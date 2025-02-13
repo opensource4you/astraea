@@ -121,6 +121,30 @@ class AdminImpl implements Admin {
   }
 
   @Override
+  public CompletionStage<FeatureInfo> feature() {
+    return to(kafkaAdmin.describeFeatures().featureMetadata())
+        .thenApply(
+            f ->
+                new FeatureInfo(
+                    f.finalizedFeatures().entrySet().stream()
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                e ->
+                                    new VersionRange(
+                                        e.getValue().minVersionLevel(),
+                                        e.getValue().maxVersionLevel()))),
+                    f.finalizedFeaturesEpoch(),
+                    f.supportedFeatures().entrySet().stream()
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                e ->
+                                    new VersionRange(
+                                        e.getValue().minVersion(), e.getValue().maxVersion())))));
+  }
+
+  @Override
   public CompletionStage<Set<String>> topicNames(boolean listInternal) {
     return to(kafkaAdmin
             .listTopics(new ListTopicsOptions().listInternal(listInternal))

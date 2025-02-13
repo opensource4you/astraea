@@ -55,6 +55,8 @@ public interface Admin extends AutoCloseable {
 
   // ---------------------------------[readonly]---------------------------------//
 
+  CompletionStage<FeatureInfo> feature();
+
   /**
    * @param listInternal should list internal topics or not
    * @return names of topics
