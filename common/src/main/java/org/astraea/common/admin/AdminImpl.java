@@ -1529,7 +1529,7 @@ class AdminImpl implements Admin {
                 .filter(e -> !e.getValue().entries().isEmpty())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    return doChangeConfigs(newVersion, previousVersion);
+    return to(kafkaAdmin.incrementalAlterConfigs(newVersion.get()).all());
   }
 
   private CompletionStage<Void> doUnsetConfigs(Map<ConfigResource, Set<String>> unset) {
@@ -1554,41 +1554,7 @@ class AdminImpl implements Admin {
                                             new ConfigEntry(key, ""), AlterConfigOp.OpType.DELETE))
                                 .collect(Collectors.toList())));
 
-    Supplier<Map<ConfigResource, Config>> previousVersion =
-        () ->
-            nonEmptyUnset.entrySet().stream()
-                .map(
-                    e ->
-                        Map.entry(
-                            e.getKey(),
-                            new org.apache.kafka.clients.admin.Config(
-                                e.getValue().stream()
-                                    .map(key -> new ConfigEntry(key, ""))
-                                    .collect(Collectors.toList()))))
-                .filter(e -> !e.getValue().entries().isEmpty())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-    return doChangeConfigs(newVersion, previousVersion);
-  }
-
-  private CompletionStage<Void> doChangeConfigs(
-      Supplier<Map<ConfigResource, Collection<AlterConfigOp>>> newVersion,
-      Supplier<Map<ConfigResource, Config>> previousVersion) {
-    return to(kafkaAdmin.incrementalAlterConfigs(newVersion.get()).all())
-        .handle(
-            (r, e) -> {
-              if (e != null) {
-                if (e instanceof UnsupportedVersionException
-                    || e.getCause() instanceof UnsupportedVersionException)
-                  // go back to use deprecated APIs for previous Kafka
-                  return to(kafkaAdmin.alterConfigs(previousVersion.get()).all());
-
-                if (e instanceof RuntimeException) throw (RuntimeException) e;
-                throw new RuntimeException(e);
-              }
-              return CompletableFuture.<Void>completedStage(null);
-            })
-        .thenCompose(s -> s);
+    return to(kafkaAdmin.incrementalAlterConfigs(newVersion.get()).all());
   }
 
   @Override

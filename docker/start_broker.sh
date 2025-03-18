@@ -21,7 +21,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 declare -r ACCOUNT=${ACCOUNT:-opensource4you}
 declare -r VERSION=${VERSION:-main}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
-declare -r KAFKA_VERSION=${KAFKA_REVISION:-${KAFKA_VERSION:-3.9.0}}
+declare -r KAFKA_VERSION=${KAFKA_REVISION:-${KAFKA_VERSION:-4.0.0}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/broker.dockerfile
 declare -r DATA_FOLDER_IN_CONTAINER_PREFIX="/tmp/log-folder"
 declare -r EXPORTER_VERSION="0.16.1"
@@ -65,7 +65,7 @@ function showHelp() {
   echo "    ACCOUNT=opensource4you                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"                set broker JVM memory"
   echo "    KAFKA_REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    KAFKA_VERSION=3.9.0                            set version of kafka distribution"
+  echo "    KAFKA_VERSION=4.0.0                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    DATA_FOLDERS=/tmp/folder1                set host folders used by broker"
@@ -124,7 +124,7 @@ function generateDockerfileByVersion() {
   local kafka_url="https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz"
   local version=$KAFKA_VERSION
   if [[ "$KAFKA_VERSION" == *"rc"* ]]; then
-    ## `3.9.0-rc1` the rc release does not exist in archive repo
+    ## `4.0.0-rc1` the rc release does not exist in archive repo
     version=${KAFKA_VERSION%-*}
     kafka_url="https://dist.apache.org/repos/dist/dev/kafka/${KAFKA_VERSION}/kafka_2.13-${version}.tgz"
   fi

@@ -103,9 +103,4 @@ public abstract class Partitioner implements org.apache.kafka.clients.producer.P
               });
     }
   }
-
-  @Override
-  public final void onNewBatch(String topic, Cluster cluster, int prevPartition) {
-    onNewBatch(topic, prevPartition, clusterInfo);
-  }
 }
