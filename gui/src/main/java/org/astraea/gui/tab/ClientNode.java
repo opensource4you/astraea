@@ -41,6 +41,7 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ConsumerGroup;
+import org.astraea.common.admin.Member;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicPartition;
@@ -66,6 +67,7 @@ public class ClientNode {
   private static final int LINE_LIMIT_DEFAULT = 500;
 
   private static final String TOPIC_NAMES_KEY = "topics";
+  private static final String GROUP_NAME_KEY = "group";
 
   public static Node csvNode(Context context) {
     var fileChooser = new FileChooser();
@@ -168,6 +170,25 @@ public class ClientNode {
     return PaneBuilder.of().firstPart(firstPart).secondPart(secondPart).build();
   }
 
+  static List<Map<String, Object>> memberResult(List<ConsumerGroup> cgs) {
+    return cgs.stream()
+        .map(
+            cg -> {
+              var result = new LinkedHashMap<String, Object>();
+              result.put(GROUP_NAME_KEY, cg.groupId());
+              result.put("assignor", cg.assignor());
+              result.put("state", cg.state());
+              result.put("coordinator", cg.coordinatorId());
+              result.put(
+                  "members",
+                  cg.assignment().keySet().stream()
+                      .map(Member::memberId)
+                      .collect(Collectors.joining(",")));
+              return result;
+            })
+        .collect(Collectors.toList());
+  }
+
   static List<Map<String, Object>> consumerResult(
       List<ConsumerGroup> cgs, List<Partition> partitions) {
     var pts = partitions.stream().collect(Collectors.groupingBy(Partition::topicPartition));
@@ -210,6 +231,46 @@ public class ClientNode {
                           return result;
                         }))
         .collect(Collectors.toList());
+  }
+
+  private static Node memberNode(Context context) {
+
+    var firstPart =
+        FirstPart.builder()
+            .clickName("REFRESH")
+            .tableRefresher(
+                (argument, logger) ->
+                    context
+                        .admin()
+                        .consumerGroupIds()
+                        .thenCompose(context.admin()::consumerGroups)
+                        .thenApply(ClientNode::memberResult))
+            .build();
+    var secondPart =
+        SecondPart.builder()
+            .buttonName("DELETE")
+            .action(
+                (items, inputs, logger) -> {
+                  var groupsToDelete =
+                      items.stream()
+                          .flatMap(
+                              map ->
+                                  Optional.ofNullable(map.get(GROUP_NAME_KEY))
+                                      .map(Object::toString)
+                                      .stream())
+                          .collect(Collectors.toSet());
+                  if (groupsToDelete.isEmpty()) {
+                    logger.log("nothing to delete");
+                    return CompletableFuture.completedStage(null);
+                  }
+                  return context
+                      .admin()
+                      .deleteGroups(groupsToDelete)
+                      .thenAccept(
+                          ignored -> logger.log("succeed to delete groups: " + groupsToDelete));
+                })
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).secondPart(secondPart).build();
   }
 
   private static Node consumerNode(Context context) {
@@ -461,6 +522,8 @@ public class ClientNode {
             MapUtils.of(
                 "consumer",
                 consumerNode(context),
+                "member",
+                memberNode(context),
                 "read",
                 readNode(context),
                 "producer",
