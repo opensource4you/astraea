@@ -192,13 +192,6 @@ public class TopicNode {
                       .internalTopicNames()
                       .thenCompose(
                           internalTopics -> {
-                            var internal =
-                                topicsToAlter.stream()
-                                    .filter(internalTopics::contains)
-                                    .collect(Collectors.toSet());
-                            if (!internal.isEmpty())
-                              throw new IllegalArgumentException(
-                                  "internal topics: " + internal + " can't be altered");
                             var unset =
                                 topicsToAlter.stream()
                                     .collect(

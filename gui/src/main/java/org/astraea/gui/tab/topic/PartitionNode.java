@@ -115,46 +115,36 @@ class PartitionNode {
           .admin()
           .internalTopicNames()
           .thenCompose(
-              internalTopics -> {
-                var internal =
-                    partitions.stream()
-                        .map(TopicPartition::topic)
-                        .filter(internalTopics::contains)
-                        .collect(Collectors.toSet());
-                if (!internal.isEmpty()) {
-                  logger.log("internal topics: " + internal + " can't be altered");
-                  return CompletableFuture.completedStage(null);
-                }
-                return FutureUtils.combine(
-                    context
-                        .admin()
-                        .deleteRecords(
-                            offset
-                                .map(
-                                    o ->
-                                        partitions.stream()
-                                            .collect(Collectors.toMap(tp -> tp, tp -> o)))
-                                .orElse(Map.of())),
-                    increasePartitions
-                        .map(
-                            total ->
-                                FutureUtils.sequence(
-                                    partitions.stream()
-                                        .map(TopicPartition::topic)
-                                        .distinct()
-                                        .map(
-                                            t ->
-                                                context
-                                                    .admin()
-                                                    .addPartitions(t, total)
-                                                    .toCompletableFuture())
-                                        .collect(Collectors.toList())))
-                        .orElse(CompletableFuture.completedFuture(List.of())),
-                    (i, j) -> {
-                      logger.log("succeed to alter partitions: " + partitions);
-                      return null;
-                    });
-              });
+              internalTopics ->
+                  FutureUtils.combine(
+                      context
+                          .admin()
+                          .deleteRecords(
+                              offset
+                                  .map(
+                                      o ->
+                                          partitions.stream()
+                                              .collect(Collectors.toMap(tp -> tp, tp -> o)))
+                                  .orElse(Map.of())),
+                      increasePartitions
+                          .map(
+                              total ->
+                                  FutureUtils.sequence(
+                                      partitions.stream()
+                                          .map(TopicPartition::topic)
+                                          .distinct()
+                                          .map(
+                                              t ->
+                                                  context
+                                                      .admin()
+                                                      .addPartitions(t, total)
+                                                      .toCompletableFuture())
+                                          .collect(Collectors.toList())))
+                          .orElse(CompletableFuture.completedFuture(List.of())),
+                      (i, j) -> {
+                        logger.log("succeed to alter partitions: " + partitions);
+                        return null;
+                      }));
     };
   }
 

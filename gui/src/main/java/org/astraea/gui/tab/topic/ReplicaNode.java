@@ -161,50 +161,40 @@ class ReplicaNode {
           .admin()
           .internalTopicNames()
           .thenCompose(
-              internalTopics -> {
-                var internal =
-                    partitions.stream()
-                        .map(TopicPartition::topic)
-                        .filter(internalTopics::contains)
-                        .collect(Collectors.toSet());
-                if (!internal.isEmpty()) {
-                  logger.log("internal topics: " + internal + " can't be altered");
-                  return CompletableFuture.completedStage(null);
-                }
-
-                return context
-                    .admin()
-                    .moveToBrokers(
-                        moveTo
-                            .map(
-                                bkAndPaths ->
-                                    partitions.stream()
-                                        .collect(
-                                            Collectors.toMap(
-                                                tp -> tp, tp -> List.copyOf(bkAndPaths.keySet()))))
-                            .orElse(Map.of()))
-                    .thenCompose(
-                        ignored ->
-                            context
-                                .admin()
-                                .waitCluster(
-                                    partitions.stream()
-                                        .map(TopicPartition::topic)
-                                        .collect(Collectors.toSet()),
-                                    rs ->
-                                        requestToMoveBrokers.entrySet().stream()
-                                            .allMatch(
-                                                entry ->
-                                                    rs.replicas(entry.getKey()).stream()
-                                                        .map(Replica::brokerId)
-                                                        .collect(Collectors.toSet())
-                                                        .containsAll(entry.getValue())),
-                                    Duration.ofSeconds(10),
-                                    1))
-                    .thenCompose(ignored -> context.admin().moveToFolders(requestToMoveFolders))
-                    .thenAccept(
-                        ignored -> logger.log("succeed to alter partitions: " + partitions));
-              });
+              internalTopics ->
+                  context
+                      .admin()
+                      .moveToBrokers(
+                          moveTo
+                              .map(
+                                  bkAndPaths ->
+                                      partitions.stream()
+                                          .collect(
+                                              Collectors.toMap(
+                                                  tp -> tp,
+                                                  tp -> List.copyOf(bkAndPaths.keySet()))))
+                              .orElse(Map.of()))
+                      .thenCompose(
+                          ignored ->
+                              context
+                                  .admin()
+                                  .waitCluster(
+                                      partitions.stream()
+                                          .map(TopicPartition::topic)
+                                          .collect(Collectors.toSet()),
+                                      rs ->
+                                          requestToMoveBrokers.entrySet().stream()
+                                              .allMatch(
+                                                  entry ->
+                                                      rs.replicas(entry.getKey()).stream()
+                                                          .map(Replica::brokerId)
+                                                          .collect(Collectors.toSet())
+                                                          .containsAll(entry.getValue())),
+                                      Duration.ofSeconds(10),
+                                      1))
+                      .thenCompose(ignored -> context.admin().moveToFolders(requestToMoveFolders))
+                      .thenAccept(
+                          ignored -> logger.log("succeed to alter partitions: " + partitions)));
     };
   }
 
