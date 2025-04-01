@@ -39,6 +39,7 @@ dependencies {
         // Kafka connector uses org.glassfish.jersey(2.34) which is conflict with com.sun.jersey(1.19).
         // Hence, the later must be excluded from hadoop dependencies to make embedded Kafka worker work
         exclude group: "com.sun.jersey"
+        exclude group: "ch.qos.reload4j"
     }
 
     //following dependencies are used for hdfs connector
