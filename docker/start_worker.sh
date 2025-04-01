@@ -90,7 +90,7 @@ RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname 
 RUN git clone ${repo} /tmp/astraea
 WORKDIR /tmp/astraea
 RUN ./gradlew clean shadowJar
-RUN cp /tmp/astraea/connector/build/libs/astraea-*-all.jar /opt/kafka/libs/
+#RUN cp /tmp/astraea/connector/build/libs/astraea-*-all.jar /opt/kafka/libs/
 
 FROM azul/zulu-openjdk:23-jre
 

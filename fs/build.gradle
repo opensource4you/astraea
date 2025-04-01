@@ -33,6 +33,7 @@ dependencies {
         exclude group: "org.apache.kafka"
         exclude group: "com.fasterxml.jackson.datatype"
         exclude group: "org.slf4j"
+        exclude group: "org.apache.logging.log4j"
     }
     implementation libs["commons-net"]
     implementation(libs["hadoop-common"]) {
