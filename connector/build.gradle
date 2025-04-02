@@ -38,11 +38,18 @@ dependencies {
         exclude group: "org.apache.kafka"
         exclude group: "com.fasterxml.jackson.datatype"
         exclude group: "org.slf4j"
+        exclude group: "org.apache.logging.log4j"
     }
     // those dependencies are included by kafka worker
     compileOnly libs["kafka-connect-api"]
 
-    implementation project(':fs')
+    implementation (project(':fs')) {
+        // those dependencies are included by kafka worker
+        exclude group: "org.apache.kafka"
+        exclude group: "com.fasterxml.jackson.datatype"
+        exclude group: "org.slf4j"
+        exclude group: "org.apache.logging.log4j"
+    }
 
 }
 
