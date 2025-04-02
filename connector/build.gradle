@@ -43,6 +43,7 @@ dependencies {
         exclude group: "com.fasterxml.jackson.module"
         exclude group: "org.slf4j"
         exclude group: "org.apache.logging.log4j"
+        exclude group: "org.eclipse.jetty"
     }
     // those dependencies are included by kafka worker
     compileOnly libs["kafka-connect-api"]
@@ -57,6 +58,7 @@ dependencies {
         exclude group: "com.fasterxml.jackson.module"
         exclude group: "org.slf4j"
         exclude group: "org.apache.logging.log4j"
+        exclude group: "org.eclipse.jetty"
     }
 
 }
