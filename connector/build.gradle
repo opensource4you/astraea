@@ -37,6 +37,10 @@ dependencies {
         // those dependencies are included by kafka worker
         exclude group: "org.apache.kafka"
         exclude group: "com.fasterxml.jackson.datatype"
+        exclude group: "com.fasterxml.jackson.dataformat"
+        exclude group: "com.fasterxml.jackson.core"
+        exclude group: "com.fasterxml.jackson.jaxrs"
+        exclude group: "com.fasterxml.jackson.module"
         exclude group: "org.slf4j"
         exclude group: "org.apache.logging.log4j"
     }
@@ -47,6 +51,10 @@ dependencies {
         // those dependencies are included by kafka worker
         exclude group: "org.apache.kafka"
         exclude group: "com.fasterxml.jackson.datatype"
+        exclude group: "com.fasterxml.jackson.dataformat"
+        exclude group: "com.fasterxml.jackson.core"
+        exclude group: "com.fasterxml.jackson.jaxrs"
+        exclude group: "com.fasterxml.jackson.module"
         exclude group: "org.slf4j"
         exclude group: "org.apache.logging.log4j"
     }
