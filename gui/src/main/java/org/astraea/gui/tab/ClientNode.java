@@ -206,6 +206,7 @@ public class ClientNode {
                           result.put("assignor", cg.assignor());
                           result.put("state", cg.state());
                           result.put("coordinator", cg.coordinatorId());
+                          result.put("type", cg.type());
                           result.put("topic", tp.topic());
                           result.put("partition", tp.partition());
                           Optional.ofNullable(cg.consumeProgress().get(tp))

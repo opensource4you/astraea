@@ -23,6 +23,7 @@ public record ConsumerGroup(
     String groupId,
     String assignor,
     String state,
+    String type,
     int coordinatorId,
     Map<TopicPartition, Long> consumeProgress,
     Map<Member, Set<TopicPartition>> assignment) {}

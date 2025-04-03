@@ -606,7 +606,8 @@ class AdminImpl implements Admin {
                         new ConsumerGroup(
                             groupId,
                             consumerGroupDescriptions.get(groupId).partitionAssignor(),
-                            consumerGroupDescriptions.get(groupId).state().name(),
+                            consumerGroupDescriptions.get(groupId).groupState().name(),
+                            consumerGroupDescriptions.get(groupId).type().toString(),
                             consumerGroupDescriptions.get(groupId).coordinator().id(),
                             consumerGroupMetadata.get(groupId).entrySet().stream()
                                 .collect(
