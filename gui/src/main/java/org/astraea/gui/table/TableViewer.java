@@ -187,7 +187,7 @@ public interface TableViewer {
                           var filteredData = allFilteredData.get(name);
                           var sortName =
                               table.getSortOrder().isEmpty()
-                                  ? filteredData.isEmpty()
+                                  ? filteredData.isEmpty() || filteredData.get(0).isEmpty()
                                       ? null
                                       : filteredData.get(0).entrySet().iterator().next().getKey()
                                   : table.getSortOrder().get(0).getText();

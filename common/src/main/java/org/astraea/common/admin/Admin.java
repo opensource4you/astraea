@@ -354,6 +354,10 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<Void> unsetBrokerConfigs(Map<Integer, Set<String>> unset);
 
+  CompletionStage<Void> setClusterConfigs(Map<String, String> override);
+
+  CompletionStage<org.astraea.common.admin.Config> clusterConfigs();
+
   /** delete topics by topic names */
   CompletionStage<Void> deleteTopics(Set<String> topics);
 

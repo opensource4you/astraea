@@ -24,26 +24,26 @@ public class SettingNodeTest {
 
   @Test
   void testProp() {
-    var prop = new SettingNode.Prop();
+    var prop = new ClusterNode.Prop();
 
     prop.bootstrapServers = "abc";
-    SettingNode.save(prop);
-    assertEqual(prop, SettingNode.load().get());
+    ClusterNode.save(prop);
+    assertEqual(prop, ClusterNode.load().get());
 
     prop.brokerJmxPort = Optional.of(123);
-    SettingNode.save(prop);
-    assertEqual(prop, SettingNode.load().get());
+    ClusterNode.save(prop);
+    assertEqual(prop, ClusterNode.load().get());
 
     prop.workerUrl = Optional.of("acc");
-    SettingNode.save(prop);
-    assertEqual(prop, SettingNode.load().get());
+    ClusterNode.save(prop);
+    assertEqual(prop, ClusterNode.load().get());
 
     prop.workerJmxPort = Optional.of(1222);
-    SettingNode.save(prop);
-    assertEqual(prop, SettingNode.load().get());
+    ClusterNode.save(prop);
+    assertEqual(prop, ClusterNode.load().get());
   }
 
-  private static void assertEqual(SettingNode.Prop lhs, SettingNode.Prop rhs) {
+  private static void assertEqual(ClusterNode.Prop lhs, ClusterNode.Prop rhs) {
     Assertions.assertEquals(lhs.bootstrapServers, rhs.bootstrapServers);
     Assertions.assertEquals(lhs.brokerJmxPort, rhs.brokerJmxPort);
     Assertions.assertEquals(lhs.workerUrl, rhs.workerUrl);

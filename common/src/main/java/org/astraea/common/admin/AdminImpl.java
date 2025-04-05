@@ -1339,6 +1339,28 @@ class AdminImpl implements Admin {
                     Map.Entry::getValue)));
   }
 
+  @Override
+  public CompletionStage<Void> setClusterConfigs(Map<String, String> override) {
+    return doSetConfigs(Map.of(new ConfigResource(ConfigResource.Type.BROKER, ""), override));
+  }
+
+  @Override
+  public CompletionStage<org.astraea.common.admin.Config> clusterConfigs() {
+    return to(kafkaAdmin
+            .describeConfigs(List.of(new ConfigResource(ConfigResource.Type.BROKER, "")))
+            .all())
+        .thenApply(
+            configs ->
+                new org.astraea.common.admin.Config(
+                    configs.values().stream()
+                        .flatMap(s -> s.entries().stream())
+                        .filter(
+                            s ->
+                                s.source()
+                                    == ConfigEntry.ConfigSource.DYNAMIC_DEFAULT_BROKER_CONFIG)
+                        .collect(Collectors.toMap(ConfigEntry::name, ConfigEntry::value))));
+  }
+
   private CompletionStage<Map<String, Map<String, String>>> doGetConfigs(
       Collection<ConfigResource> resources) {
     return to(kafkaAdmin.describeConfigs(resources).all())

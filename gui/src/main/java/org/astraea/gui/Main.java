@@ -25,11 +25,11 @@ import org.astraea.gui.pane.Slide;
 import org.astraea.gui.tab.AboutNode;
 import org.astraea.gui.tab.BrokerNode;
 import org.astraea.gui.tab.ClientNode;
+import org.astraea.gui.tab.ClusterNode;
 import org.astraea.gui.tab.ConnectorNode;
 import org.astraea.gui.tab.FeatureNode;
 import org.astraea.gui.tab.QuorumNode;
 import org.astraea.gui.tab.QuotaNode;
-import org.astraea.gui.tab.SettingNode;
 import org.astraea.gui.tab.health.HealthNode;
 import org.astraea.gui.tab.topic.TopicNode;
 
@@ -59,8 +59,8 @@ public class Main {
               Slide.of(
                       Side.BOTTOM,
                       MapUtils.of(
-                          "setting",
-                          SettingNode.of(context),
+                          "cluster",
+                          ClusterNode.of(context),
                           "broker",
                           BrokerNode.of(context),
                           "quorum",

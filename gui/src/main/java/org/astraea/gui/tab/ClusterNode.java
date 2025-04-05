@@ -21,14 +21,19 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javafx.geometry.Side;
 import javafx.scene.Node;
 import org.astraea.common.FutureUtils;
+import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
+import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.connector.ConnectorClient;
 import org.astraea.common.connector.WorkerStatus;
 import org.astraea.common.json.JsonConverter;
@@ -36,10 +41,12 @@ import org.astraea.common.json.TypeRef;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.FirstPart;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.SecondPart;
+import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
-public class SettingNode {
+public class ClusterNode {
 
   private static final JsonConverter JSON_CONVERTER = JsonConverter.defaultConverter();
 
@@ -72,7 +79,7 @@ public class SettingNode {
             f -> {
               try (var input = Files.newInputStream(f)) {
                 var bytes = input.readAllBytes();
-                if (bytes == null || bytes.length == 0) return Optional.<Prop>empty();
+                if (bytes.length == 0) return Optional.<Prop>empty();
                 return Optional.of(
                     JSON_CONVERTER.fromJson(
                         new String(bytes, StandardCharsets.UTF_8), TypeRef.of(Prop.class)));
@@ -95,7 +102,45 @@ public class SettingNode {
             });
   }
 
-  public static Node of(Context context) {
+  private static Node configNode(Context context) {
+    var firstPart =
+        FirstPart.builder()
+            .clickName("REFRESH")
+            .tableRefresher(
+                (argument, logger) ->
+                    context
+                        .admin()
+                        .clusterConfigs()
+                        .thenApply(
+                            config -> {
+                              var map = new LinkedHashMap<String, Object>();
+                              config.raw().entrySet().stream()
+                                  .sorted(Map.Entry.comparingByKey())
+                                  .forEach(entry -> map.put(entry.getKey(), entry.getValue()));
+                              return List.of(map);
+                            }))
+            .build();
+    var secondPart =
+        SecondPart.builder()
+            .textInputs(
+                List.of(
+                    TextInput.of(
+                        BrokerConfigs.BACKGROUND_THREADS_CONFIG,
+                        BrokerConfigs.DYNAMICAL_CONFIGS,
+                        EditableText.singleLine().disable().build())))
+            .buttonName("ALTER")
+            .action(
+                (tables, input, logger) ->
+                    context
+                        .admin()
+                        .setClusterConfigs(input.nonEmptyTexts())
+                        .thenAccept(
+                            ignored -> logger.log("succeed to alter: " + input.nonEmptyTexts())))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).secondPart(secondPart).build();
+  }
+
+  public static Node settingNode(Context context) {
     var properties = load();
     var multiInput =
         List.of(
@@ -172,5 +217,11 @@ public class SettingNode {
                 })
             .build();
     return PaneBuilder.of().firstPart(firstPart).build();
+  }
+
+  public static Node of(Context context) {
+    return Slide.of(
+            Side.TOP, MapUtils.of("setting", settingNode(context), "configs", configNode(context)))
+        .node();
   }
 }
