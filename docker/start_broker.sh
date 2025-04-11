@@ -317,6 +317,7 @@ setPropertyIfEmpty "num.network.threads" "8"
 setPropertyIfEmpty "num.partitions" "8"
 setPropertyIfEmpty "transaction.state.log.replication.factor" "1"
 setPropertyIfEmpty "offsets.topic.replication.factor" "1"
+setPropertyIfEmpty "share.coordinator.state.topic.replication.factor" "1"
 setPropertyIfEmpty "transaction.state.log.min.isr" "1"
 setPropertyIfEmpty "min.insync.replicas" "1"
 setLogDirs
