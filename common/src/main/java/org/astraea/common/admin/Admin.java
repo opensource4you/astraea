@@ -225,6 +225,8 @@ public interface Admin extends AutoCloseable {
 
   // ---------------------------------[write]---------------------------------//
 
+  CompletionStage<Void> feature(Map<String, Short> maxVersions);
+
   CompletionStage<Void> addVoter(int nodeId, String directoryId, List<RaftEndpoint> endpoints);
 
   CompletionStage<Void> removeVoter(int nodeId, String directoryId);

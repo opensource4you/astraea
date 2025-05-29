@@ -36,6 +36,7 @@ import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
+import org.apache.kafka.clients.admin.FeatureUpdate;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.MemberToRemove;
@@ -47,6 +48,7 @@ import org.apache.kafka.clients.admin.RaftVoterEndpoint;
 import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.RemoveMembersFromConsumerGroupOptions;
 import org.apache.kafka.clients.admin.TransactionListing;
+import org.apache.kafka.clients.admin.UpdateFeaturesOptions;
 import org.apache.kafka.common.ElectionType;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.Uuid;
@@ -118,6 +120,22 @@ class AdminImpl implements Admin {
   @Override
   public int runningRequests() {
     return runningRequests.get();
+  }
+
+  @Override
+  public CompletionStage<Void> feature(Map<String, Short> maxVersions) {
+    return to(
+        kafkaAdmin
+            .updateFeatures(
+                maxVersions.entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey,
+                            e ->
+                                new FeatureUpdate(
+                                    e.getValue(), FeatureUpdate.UpgradeType.UPGRADE))),
+                new UpdateFeaturesOptions())
+            .all());
   }
 
   @Override
