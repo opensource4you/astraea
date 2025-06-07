@@ -69,7 +69,8 @@ public class FeatureNode {
           .admin()
           .feature(
               features.stream()
-                  .collect(Collectors.toMap(Function.identity(), ignored -> finalizedVersion.get())))
+                  .collect(
+                      Collectors.toMap(Function.identity(), ignored -> finalizedVersion.get())))
           .thenApply(
               v -> {
                 logger.log("succeed to alter finalized version: " + finalizedVersion.get());
@@ -124,7 +125,9 @@ public class FeatureNode {
     var secondPart =
         SecondPart.builder()
             .textInputs(
-                List.of(TextInput.of(FINALIZED_VERSION_KEY, EditableText.singleLine().disable().build())))
+                List.of(
+                    TextInput.of(
+                        FINALIZED_VERSION_KEY, EditableText.singleLine().disable().build())))
             .buttonName("ALTER")
             .action(tableViewAction(context))
             .build();
