@@ -15,6 +15,13 @@
 # limitations under the License.
 
 get_ipv4_address() {
+  os="$(uname)"
+
+  if [[ "$os" == "Darwin" ]]; then
+    ifconfig | awk '/inet / && $2 != "127.0.0.1" { print $2; exit }'
+    return 0
+  fi
+
   if command -v ip &>/dev/null; then
     ip -o -4 address show | awk '!/127.0.0.1/ {gsub(/\/.*/, "", $4); print $4; exit}'
   elif command -v ifconfig &>/dev/null; then
