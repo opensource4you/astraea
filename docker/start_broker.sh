@@ -217,7 +217,7 @@ function setLogDirs() {
 
 function generateJmxConfigMountCommand() {
     if [[ "$JMX_CONFIG_FILE" != "" ]]; then
-        echo "--mount type=bind,source=$JMX_CONFIG_FILE,target=$JMX_CONFIG_FILE_IN_CONTAINER_PATH"
+        echo "-v $JMX_CONFIG_FILE:$JMX_CONFIG_FILE_IN_CONTAINER_PATH:ro:Z"
     else
         echo ""
     fi
@@ -231,7 +231,7 @@ function generateDataFolderMountCommand() {
     declare -i count=0
 
     for folder in "${folders[@]}"; do
-      mount="$mount -v $folder:$DATA_FOLDER_IN_CONTAINER_PREFIX-$count"
+      mount="$mount -v $folder:$DATA_FOLDER_IN_CONTAINER_PREFIX-$count:Z"
       count=$((count + 1))
     done
   fi
@@ -352,7 +352,7 @@ docker run -d --init \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
   -e KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:$JMX_CONFIG_FILE_IN_CONTAINER_PATH" \
-  -v $BROKER_PROPERTIES:/tmp/broker.properties:ro \
+  -v $BROKER_PROPERTIES:/tmp/broker.properties:ro,Z \
   $(generateJmxConfigMountCommand) \
   $(generateDataFolderMountCommand) \
   -p $BROKER_PORT:9092 \

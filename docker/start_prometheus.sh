@@ -73,7 +73,7 @@ function main() {
   docker run -d \
       --name "$CONTAINER_NAME" \
       -p "$PROMETHEUS_PORT:9090" \
-      -v "$CONFIGURATION_FILE:/etc/prometheus/prometheus.yml" \
+      -v "$CONFIGURATION_FILE:/etc/prometheus/prometheus.yml:ro,Z" \
       "$IMAGE_NAME"
 
   info "================================================="

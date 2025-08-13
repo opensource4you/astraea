@@ -151,7 +151,7 @@ function generateDataFolderMountCommand() {
     IFS=',' read -ra folders <<<"$DATA_FOLDERS"
 
     for folder in "${folders[@]}"; do
-      mount="$mount -v $folder:/tmp/hadoop-astraea"
+      mount="$mount -v $folder:/tmp/hadoop-astraea:Z"
     done
   fi
   echo "$mount"
@@ -211,8 +211,8 @@ function startNamenode() {
     --name $container_name \
     -h $ADDRESS \
     -e HDFS_NAMENODE_OPTS="$JMX_OPTS" \
-    -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro \
-    -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro \
+    -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro,Z \
+    -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro,Z \
     -p $HADOOP_HTTP_PORT:$HADOOP_HTTP_PORT \
     -p $HADOOP_JMX_PORT:$HADOOP_JMX_PORT \
     -p $HADOOP_PORT:$HADOOP_PORT \
@@ -254,8 +254,8 @@ function startDatanode() {
     --name $container_name \
     -h $ADDRESS \
     -e HDFS_DATANODE_OPTS="$JMX_OPTS" \
-    -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro \
-    -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro \
+    -v $HDFS_SITE_XML:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro,Z \
+    -v $CORE_SITE_XML:/opt/hadoop/etc/hadoop/core-site.xml:ro,Z \
     -p $HADOOP_HTTP_PORT:$HADOOP_HTTP_PORT \
     -p $HADOOP_IPC_PORT:$HADOOP_IPC_PORT \
     -p $HADOOP_PORT:$HADOOP_PORT \

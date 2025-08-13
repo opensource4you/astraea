@@ -121,7 +121,7 @@ function runContainer() {
     fi
     # this element must be something to mount
     if [[ "$defined_file" == "true" ]]; then
-      need_to_bind_file="${need_to_bind_file} -v $word:$word"
+      need_to_bind_file="${need_to_bind_file} -v $word:$word:Z"
       defined_file="false"
     fi
   done

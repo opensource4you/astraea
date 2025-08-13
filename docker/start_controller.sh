@@ -155,7 +155,7 @@ function generateDockerfile() {
 
 function generateJmxConfigMountCommand() {
     if [[ "$JMX_CONFIG_FILE" != "" ]]; then
-        echo "--mount type=bind,source=$JMX_CONFIG_FILE,target=$JMX_CONFIG_FILE_IN_CONTAINER_PATH"
+        echo "-v $JMX_CONFIG_FILE:$JMX_CONFIG_FILE_IN_CONTAINER_PATH:Z"
     else
         echo ""
     fi
@@ -228,7 +228,7 @@ setPropertyIfEmpty "log.dirs" "/tmp/kafka-meta"
 
 metaMountCommand=""
 if [[ -n "$META_FOLDER" ]]; then
-  metaMountCommand="-v $META_FOLDER:/tmp/kafka-meta"
+  metaMountCommand="-v $META_FOLDER:/tmp/kafka-meta:Z"
 fi
 
 release_version=""
@@ -247,7 +247,7 @@ docker run -d --init \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
   -e KAFKA_OPTS="-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent-${EXPORTER_VERSION}.jar=$EXPORTER_PORT:$JMX_CONFIG_FILE_IN_CONTAINER_PATH" \
-  -v $CONTROLLER_PROPERTIES:/tmp/controller.properties:ro \
+  -v $CONTROLLER_PROPERTIES:/tmp/controller.properties:ro,Z \
   $(generateJmxConfigMountCommand) \
   $metaMountCommand \
   -h $CONTAINER_NAME \

@@ -62,7 +62,7 @@ function run_node_exporter() {
   docker run -d \
     --net="host" \
     --pid="host" \
-    -v "/:/host:ro,rslave" \
+    -v "/:/host:ro,rslave:Z" \
     prom/node-exporter \
     --path.rootfs=/host \
     --web.listen-address="0.0.0.0:$PORT"

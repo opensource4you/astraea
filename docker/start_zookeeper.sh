@@ -106,7 +106,7 @@ if [[ -n "$DATA_FOLDER" ]]; then
     --name $CONTAINER_NAME \
     -e JVMFLAGS="$HEAP_OPTS" \
     -p $ZOOKEEPER_PORT:2181 \
-    -v "$DATA_FOLDER":$DATA_FOLDER_IN_CONTAINER \
+    -v "$DATA_FOLDER":$DATA_FOLDER_IN_CONTAINER:Z \
     "$IMAGE_NAME" ./bin/zkServer.sh start-foreground
 else
   # TODO: zookeeper does not support java.rmi.server.hostname so we have to disable the default settings of jmx from zookeeper

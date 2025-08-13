@@ -228,8 +228,8 @@ docker run -d --init \
   --name "$CONTAINER_NAME" \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
-  -v "$WORKER_PROPERTIES":/tmp/worker.properties:ro \
-  -v "$WORKER_PLUGIN_PATH":/opt/worker-plugins:ro \
+  -v "$WORKER_PROPERTIES":/tmp/worker.properties:ro:Z \
+  -v "$WORKER_PLUGIN_PATH":/opt/worker-plugins:ro:Z \
   -p "$WORKER_PORT":8083 \
   -p $WORKER_JMX_PORT:$WORKER_JMX_PORT \
   "$IMAGE_NAME" "$SCRIPT_LOCATION_IN_CONTAINER" /tmp/worker.properties
