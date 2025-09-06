@@ -35,8 +35,8 @@ import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
-import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.FeatureUpdate;
+import org.apache.kafka.clients.admin.GroupListing;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.MemberToRemove;
@@ -592,11 +592,11 @@ class AdminImpl implements Admin {
 
   @Override
   public CompletionStage<Set<String>> consumerGroupIds() {
-    return to(kafkaAdmin.listConsumerGroups().all())
+    return to(kafkaAdmin.listGroups().all())
         .thenApply(
             gs ->
                 gs.stream()
-                    .map(ConsumerGroupListing::groupId)
+                    .map(GroupListing::groupId)
                     .collect(Collectors.toCollection(TreeSet::new)));
   }
 
@@ -802,7 +802,7 @@ class AdminImpl implements Admin {
                                                   .isFuture(pathAndReplica.getValue().isFuture())
                                                   .isOffline(
                                                       node.isEmpty()
-                                                          || pathAndReplica.getKey().equals(""))
+                                                          || pathAndReplica.getKey().isEmpty())
                                                   // The first replica in the return result is the
                                                   // preferred leader. This only works with Kafka
                                                   // broker version after 0.11. Version before
@@ -930,7 +930,8 @@ class AdminImpl implements Admin {
                                 Map.Entry::getKey,
                                 e ->
                                     e.getValue().endpoints().stream()
-                                        .map(p -> new RaftEndpoint(p.name(), p.host(), p.port()))
+                                        .map(
+                                            p -> new RaftEndpoint(p.listener(), p.host(), p.port()))
                                         .toList()))));
   }
 
@@ -1556,20 +1557,6 @@ class AdminImpl implements Admin {
                                 .collect(Collectors.toList())))
                 .filter(e -> !e.getValue().isEmpty())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    Supplier<Map<ConfigResource, Config>> previousVersion =
-        () ->
-            nonEmptyOverride.entrySet().stream()
-                .map(
-                    e ->
-                        Map.entry(
-                            e.getKey(),
-                            new org.apache.kafka.clients.admin.Config(
-                                e.getValue().entrySet().stream()
-                                    .map(entry -> new ConfigEntry(entry.getKey(), entry.getValue()))
-                                    .collect(Collectors.toList()))))
-                .filter(e -> !e.getValue().entries().isEmpty())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
     return to(kafkaAdmin.incrementalAlterConfigs(newVersion.get()).all());
   }
 
