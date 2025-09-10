@@ -123,8 +123,10 @@ public class TopicNode {
   }
 
   private static Node configNode(Context context) {
+    var selectBox = SelectBox.single(List.of("use broker", "use controller"), 2);
     var firstPart =
         FirstPart.builder()
+            .selectBox(selectBox)
             .clickName("REFRESH")
             .tableRefresher(
                 (argument, logger) ->
@@ -136,7 +138,9 @@ public class TopicNode {
                                 names ->
                                     context
                                         .admin()
-                                        .topics(names)
+                                        .topics(
+                                            names,
+                                            argument.selectedKeys().contains("use controller"))
                                         .thenApply(
                                             topics ->
                                                 topics.stream()

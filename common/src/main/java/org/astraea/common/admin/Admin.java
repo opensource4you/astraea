@@ -92,7 +92,11 @@ public interface Admin extends AutoCloseable {
                                 .collect(Collectors.toUnmodifiableSet())));
   }
 
-  CompletionStage<List<Topic>> topics(Set<String> topics);
+  default CompletionStage<List<Topic>> topics(Set<String> topics) {
+    return topics(topics, false);
+  }
+
+  CompletionStage<List<Topic>> topics(Set<String> topics, boolean fromController);
 
   /**
    * @param topics target
