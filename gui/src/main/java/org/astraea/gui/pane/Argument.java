@@ -56,7 +56,10 @@ public interface Argument {
   default Map<String, String> nonEmptyTexts() {
     return texts().entrySet().stream()
         .filter(entry -> entry.getValue().isPresent())
-        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().get()));
+        .collect(
+            Collectors.toUnmodifiableMap(
+                Map.Entry::getKey,
+                e -> e.getValue().get().equals("empty") ? "" : e.getValue().get()));
   }
 
   /**
