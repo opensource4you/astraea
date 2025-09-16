@@ -41,7 +41,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
   -Djava.rmi.server.hostname=$ADDRESS"
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r CONTROLLER_PROPERTIES="/tmp/controller-${CONTROLLER_PORT}.properties"
-declare -r IMAGE_NAME="ghcr.io/${ACCOUNT,,}/astraea/controller:$KAFKA_VERSION"
+declare -r IMAGE_NAME="ghcr.io/${ACCOUNT:l}/astraea/controller:$KAFKA_VERSION"
 declare -r METADATA_VERSION=${METADATA_VERSION:-""}
 # cleanup the file if it is existent
 [[ -f "$CONTROLLER_PROPERTIES" ]] && rm -f "$CONTROLLER_PROPERTIES"
