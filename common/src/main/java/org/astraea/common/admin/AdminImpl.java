@@ -520,42 +520,63 @@ class AdminImpl implements Admin {
     return to(admin(true).describeCluster().nodes())
         .thenCompose(
             nodes ->
-                to(controllerAdmin
-                        .describeConfigs(
-                            nodes.stream()
-                                .map(
-                                    n ->
-                                        new ConfigResource(
-                                            ConfigResource.Type.BROKER, String.valueOf(n.id())))
-                                .toList())
-                        .all())
-                    .thenApply(
-                        configs ->
-                            nodes.stream()
-                                .map(
-                                    n ->
-                                        new Controller(
-                                            n.id(),
-                                            n.host(),
-                                            n.port(),
-                                            new org.astraea.common.admin.Config(
-                                                configs
-                                                    .getOrDefault(
-                                                        new ConfigResource(
-                                                            ConfigResource.Type.BROKER,
-                                                            String.valueOf(n.id())),
-                                                        new Config(List.of()))
-                                                    .entries()
-                                                    .stream()
-                                                    .filter(
-                                                        entry ->
-                                                            entry.value() != null
-                                                                && !entry.value().isBlank())
-                                                    .collect(
-                                                        Collectors.toMap(
-                                                            ConfigEntry::name,
-                                                            ConfigEntry::value)))))
-                                .toList()));
+                to(admin(true).describeMetadataQuorum().quorumInfo())
+                    .thenCompose(
+                        quorumInfo ->
+                            to(controllerAdmin
+                                    .describeConfigs(
+                                        nodes.stream()
+                                            // don't query the died nodes
+                                            .filter(
+                                                n ->
+                                                    quorumInfo.voters().stream()
+                                                            .anyMatch(
+                                                                r ->
+                                                                    r.replicaId() == n.id()
+                                                                        && r.lastCaughtUpTimestamp()
+                                                                            .isPresent())
+                                                        || quorumInfo.observers().stream()
+                                                            .anyMatch(
+                                                                r ->
+                                                                    r.replicaId() == n.id()
+                                                                        && r.lastCaughtUpTimestamp()
+                                                                            .isPresent()))
+                                            .map(
+                                                n ->
+                                                    new ConfigResource(
+                                                        ConfigResource.Type.BROKER,
+                                                        String.valueOf(n.id())))
+                                            .toList())
+                                    .all())
+                                .thenApply(
+                                    configs ->
+                                        nodes.stream()
+                                            .map(
+                                                n ->
+                                                    new Controller(
+                                                        n.id(),
+                                                        n.host(),
+                                                        n.port(),
+                                                        new org.astraea.common.admin.Config(
+                                                            configs
+                                                                .getOrDefault(
+                                                                    new ConfigResource(
+                                                                        ConfigResource.Type.BROKER,
+                                                                        String.valueOf(n.id())),
+                                                                    new Config(List.of()))
+                                                                .entries()
+                                                                .stream()
+                                                                .filter(
+                                                                    entry ->
+                                                                        entry.value() != null
+                                                                            && !entry
+                                                                                .value()
+                                                                                .isBlank())
+                                                                .collect(
+                                                                    Collectors.toMap(
+                                                                        ConfigEntry::name,
+                                                                        ConfigEntry::value)))))
+                                            .toList())));
   }
 
   private CompletionStage<Map.Entry<String, List<Broker>>> clusterIdAndBrokers() {
