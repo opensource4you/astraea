@@ -81,7 +81,7 @@ RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname \"kafka*tgz\" ! -iname \"*sit*\" \)) -C /opt/kafka --strip-components=1
 
-FROM azul/zulu-openjdk:23-jre
+FROM azul/zulu-openjdk:25-jre
 
 # copy kafka
 COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
@@ -126,7 +126,7 @@ RUN wget $kafka_url
 RUN mkdir /opt/kafka
 RUN tar -zxvf kafka_2.13-${version}.tgz -C /opt/kafka --strip-components=1
 
-FROM azul/zulu-openjdk:23-jre
+FROM azul/zulu-openjdk:25-jre
 
 # copy kafka
 COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
