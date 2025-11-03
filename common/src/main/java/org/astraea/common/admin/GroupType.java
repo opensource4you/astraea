@@ -16,11 +16,31 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Optional;
+public enum GroupType {
+  UNKNOWN("Unknown"),
+  CONSUMER("Consumer"),
+  CLASSIC("Classic"),
+  SHARE("Share"),
+  STREAMS("Streams");
 
-public record Member(
-    String groupId,
-    String memberId,
-    Optional<String> groupInstanceId,
-    String clientId,
-    String host) {}
+  private final String name;
+
+  GroupType(String name) {
+    this.name = name;
+  }
+
+  public static GroupType of(org.apache.kafka.common.GroupType type) {
+    return switch (type) {
+      case CONSUMER -> CONSUMER;
+      case CLASSIC -> CLASSIC;
+      case SHARE -> SHARE;
+      case STREAMS -> STREAMS;
+      default -> UNKNOWN;
+    };
+  }
+
+  @Override
+  public String toString() {
+    return name;
+  }
+}

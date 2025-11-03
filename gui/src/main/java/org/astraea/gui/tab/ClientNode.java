@@ -41,9 +41,12 @@ import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.ConsumerGroup;
-import org.astraea.common.admin.Member;
+import org.astraea.common.admin.ConsumerMember;
+import org.astraea.common.admin.GroupType;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ProducerState;
+import org.astraea.common.admin.ShareGroup;
+import org.astraea.common.admin.ShareMember;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.admin.Transaction;
 import org.astraea.common.consumer.Deserializer;
@@ -170,22 +173,71 @@ public class ClientNode {
     return PaneBuilder.of().firstPart(firstPart).secondPart(secondPart).build();
   }
 
-  static List<Map<String, Object>> memberResult(List<ConsumerGroup> cgs) {
+  static List<Map<String, Object>> groupResult(List<ConsumerGroup> cgs, List<ShareGroup> sgs) {
+    var result = new ArrayList<Map<String, Object>>();
+    cgs.forEach(
+        cg -> {
+          var r = new LinkedHashMap<String, Object>();
+          r.put(GROUP_NAME_KEY, cg.groupId());
+          r.put("type", cg.type());
+          r.put("assignor", cg.assignor());
+          r.put("state", cg.state());
+          r.put("coordinator", cg.coordinatorId());
+          r.put(
+              "members",
+              cg.assignment().keySet().stream()
+                  .map(ConsumerMember::memberId)
+                  .collect(Collectors.joining(",")));
+          result.add(r);
+        });
+    sgs.forEach(
+        sg -> {
+          var r = new LinkedHashMap<String, Object>();
+          r.put(GROUP_NAME_KEY, sg.groupId());
+          r.put("type", GroupType.SHARE.name());
+          r.put("state", sg.state());
+          r.put("coordinator", sg.coordinatorId());
+          r.put(
+              "members",
+              sg.assignment().keySet().stream()
+                  .map(ShareMember::memberId)
+                  .collect(Collectors.joining(",")));
+          result.add(r);
+        });
+    return result;
+  }
+
+  static List<Map<String, Object>> shareResult(List<ShareGroup> cgs, List<Partition> partitions) {
+    var pts = partitions.stream().collect(Collectors.groupingBy(Partition::topicPartition));
     return cgs.stream()
-        .map(
-            cg -> {
-              var result = new LinkedHashMap<String, Object>();
-              result.put(GROUP_NAME_KEY, cg.groupId());
-              result.put("assignor", cg.assignor());
-              result.put("state", cg.state());
-              result.put("coordinator", cg.coordinatorId());
-              result.put(
-                  "members",
-                  cg.assignment().keySet().stream()
-                      .map(Member::memberId)
-                      .collect(Collectors.joining(",")));
-              return result;
-            })
+        .flatMap(
+            cg ->
+                cg.assignment().values().stream()
+                    .flatMap(Collection::stream)
+                    .map(
+                        tp -> {
+                          var result = new LinkedHashMap<String, Object>();
+                          result.put("group", cg.groupId());
+                          result.put("topic", tp.topic());
+                          result.put("partition", tp.partition());
+                          Optional.ofNullable(cg.consumeProgress().get(tp))
+                              .ifPresent(offset -> result.put("offset", offset));
+                          result.put(
+                              "lag",
+                              pts.get(tp).get(0).latestOffset()
+                                  - Optional.ofNullable(cg.consumeProgress().get(tp)).orElse(0L));
+                          cg.assignment().entrySet().stream()
+                              .filter(e -> e.getValue().contains(tp))
+                              .findFirst()
+                              .map(Map.Entry::getKey)
+                              .ifPresent(
+                                  consumerMember -> {
+                                    result.put("client host", consumerMember.host());
+                                    result.put("client id", consumerMember.clientId());
+                                    result.put("member id", consumerMember.memberId());
+                                  });
+                          return result;
+                        }))
         .collect(Collectors.toList());
   }
 
@@ -203,9 +255,6 @@ public class ClientNode {
                         tp -> {
                           var result = new LinkedHashMap<String, Object>();
                           result.put("group", cg.groupId());
-                          result.put("assignor", cg.assignor());
-                          result.put("state", cg.state());
-                          result.put("coordinator", cg.coordinatorId());
                           result.put("type", cg.type());
                           result.put("topic", tp.topic());
                           result.put("partition", tp.partition());
@@ -220,11 +269,11 @@ public class ClientNode {
                               .findFirst()
                               .map(Map.Entry::getKey)
                               .ifPresent(
-                                  member -> {
-                                    result.put("client host", member.host());
-                                    result.put("client id", member.clientId());
-                                    result.put("member id", member.memberId());
-                                    member
+                                  consumerMember -> {
+                                    result.put("client host", consumerMember.host());
+                                    result.put("client id", consumerMember.clientId());
+                                    result.put("member id", consumerMember.memberId());
+                                    consumerMember
                                         .groupInstanceId()
                                         .ifPresent(
                                             instanceId -> result.put("instance id", instanceId));
@@ -234,18 +283,20 @@ public class ClientNode {
         .collect(Collectors.toList());
   }
 
-  private static Node memberNode(Context context) {
+  private static Node groupNode(Context context) {
 
     var firstPart =
         FirstPart.builder()
             .clickName("REFRESH")
             .tableRefresher(
                 (argument, logger) ->
-                    context
-                        .admin()
-                        .consumerGroupIds()
-                        .thenCompose(context.admin()::consumerGroups)
-                        .thenApply(ClientNode::memberResult))
+                    FutureUtils.combine(
+                        context
+                            .admin()
+                            .consumerGroupIds()
+                            .thenCompose(context.admin()::consumerGroups),
+                        context.admin().shareGroupIds().thenCompose(context.admin()::shareGroups),
+                        ClientNode::groupResult))
             .build();
     var secondPart =
         SecondPart.builder()
@@ -275,7 +326,6 @@ public class ClientNode {
   }
 
   private static Node consumerNode(Context context) {
-
     var firstPart =
         FirstPart.builder()
             .clickName("REFRESH")
@@ -291,6 +341,23 @@ public class ClientNode {
                             .topicNames(true)
                             .thenCompose(names -> context.admin().partitions(names)),
                         ClientNode::consumerResult))
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).build();
+  }
+
+  private static Node shareNode(Context context) {
+    var firstPart =
+        FirstPart.builder()
+            .clickName("REFRESH")
+            .tableRefresher(
+                (argument, logger) ->
+                    FutureUtils.combine(
+                        context.admin().shareGroupIds().thenCompose(context.admin()::shareGroups),
+                        context
+                            .admin()
+                            .topicNames(true)
+                            .thenCompose(names -> context.admin().partitions(names)),
+                        ClientNode::shareResult))
             .build();
     return PaneBuilder.of().firstPart(firstPart).build();
   }
@@ -521,10 +588,12 @@ public class ClientNode {
     return Slide.of(
             Side.TOP,
             MapUtils.of(
+                "group",
+                groupNode(context),
                 "consumer",
                 consumerNode(context),
-                "member",
-                memberNode(context),
+                "share",
+                shareNode(context),
                 "read",
                 readNode(context),
                 "producer",

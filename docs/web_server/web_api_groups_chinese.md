@@ -2,7 +2,7 @@
 ===
 
 Consumer groups 是 Kafka 提供給讀取端的負載平衡機制，該機制允許我們建立多個 consumer instances，它們會透過 Kafka broker 來互相溝通，
-並且協調各自該負責讀取哪些 partitions，藉此達到平衡以及容錯等功能。 Groups APIs 可以幫助我們觀察 groups 內各個 consumer member 的狀態
+並且協調各自該負責讀取哪些 partitions，藉此達到平衡以及容錯等功能。 Groups APIs 可以幫助我們觀察 groups 內各個 consumer consumerMember 的狀態
 
 - [查詢所有 groups](#查詢所有-groups)
 - [查詢指定 group](#查詢指定-group)
@@ -115,7 +115,7 @@ DELETE /groups/{groupId}?{instance=id}
 |--------------------------|------------------------------------------------|-------|
 | groupId                    | (必填) 清除此group底下所有的consumer members             | 無     |
 | group                    | (選填) group=true 將忽視其他參數並刪除group                | 無 |
-| instance                    | (選填) 只清除此group instance id 關聯的 consumer member | 無     |
+| instance                    | (選填) 只清除此group instance id 關聯的 consumer consumerMember | 無     |
 
 cURL 範例
 

@@ -16,14 +16,11 @@
  */
 package org.astraea.common.admin;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
-public record ConsumerGroup(
+public record ConsumerMember(
     String groupId,
-    String assignor,
-    String state,
-    String type,
-    int coordinatorId,
-    Map<TopicPartition, Long> consumeProgress,
-    Map<ConsumerMember, Set<TopicPartition>> assignment) {}
+    String memberId,
+    Optional<String> groupInstanceId,
+    String clientId,
+    String host) {}

@@ -37,7 +37,9 @@ import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.FeatureUpdate;
 import org.apache.kafka.clients.admin.GroupListing;
+import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsSpec;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
+import org.apache.kafka.clients.admin.ListShareGroupOffsetsSpec;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.MemberToRemove;
 import org.apache.kafka.clients.admin.NewPartitionReassignment;
@@ -618,13 +620,62 @@ class AdminImpl implements Admin {
   }
 
   @Override
-  public CompletionStage<Set<String>> consumerGroupIds() {
+  public CompletionStage<List<ShareGroup>> shareGroups(Set<String> shareGroupIds) {
+    if (shareGroupIds.isEmpty()) return CompletableFuture.completedFuture(List.of());
+    return FutureUtils.combine(
+        to(admin(false).describeShareGroups(shareGroupIds).all()),
+        kafkaAdmin
+            .listShareGroupOffsets(
+                shareGroupIds.stream()
+                    .collect(
+                        Collectors.toUnmodifiableMap(
+                            Function.identity(), __ -> new ListShareGroupOffsetsSpec())))
+            .all()
+            .toCompletionStage(),
+        (shareGroupDescriptions, shareGroupMetadata) ->
+            shareGroupDescriptions.entrySet().stream()
+                .map(
+                    g ->
+                        new ShareGroup(
+                            g.getKey(),
+                            g.getValue().groupState().toString(),
+                            g.getValue().coordinator().id(),
+                            g.getValue().groupEpoch(),
+                            g.getValue().targetAssignmentEpoch(),
+                            shareGroupMetadata.get(g.getKey()).entrySet().stream()
+                                .collect(
+                                    Collectors.toUnmodifiableMap(
+                                        tp -> TopicPartition.from(tp.getKey()),
+                                        offset -> offset.getValue().offset())),
+                            g.getValue().members().stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        m ->
+                                            new ShareMember(
+                                                g.getKey(),
+                                                m.consumerId(),
+                                                m.clientId(),
+                                                m.memberEpoch(),
+                                                m.host()),
+                                        m ->
+                                            m.assignment().topicPartitions().stream()
+                                                .map(TopicPartition::from)
+                                                .collect(Collectors.toUnmodifiableSet())))))
+                .toList());
+  }
+
+  @Override
+  public CompletionStage<Map<GroupType, Set<String>>> groupIds() {
     return to(admin(false).listGroups().all())
         .thenApply(
             gs ->
                 gs.stream()
-                    .map(GroupListing::groupId)
-                    .collect(Collectors.toCollection(TreeSet::new)));
+                    .filter(g -> g.type().isPresent())
+                    .collect(
+                        Collectors.groupingBy(
+                            g -> GroupType.of(g.type().get()),
+                            Collectors.mapping(
+                                GroupListing::groupId, Collectors.toUnmodifiableSet()))));
   }
 
   @Override
@@ -632,18 +683,14 @@ class AdminImpl implements Admin {
     if (consumerGroupIds.isEmpty()) return CompletableFuture.completedFuture(List.of());
     return FutureUtils.combine(
         to(admin(false).describeConsumerGroups(consumerGroupIds).all()),
-        FutureUtils.sequence(
+        kafkaAdmin
+            .listConsumerGroupOffsets(
                 consumerGroupIds.stream()
-                    .map(
-                        id ->
-                            kafkaAdmin
-                                .listConsumerGroupOffsets(id)
-                                .partitionsToOffsetAndMetadata()
-                                .thenApply(of -> Map.entry(id, of)))
-                    .map(f -> to(f).toCompletableFuture())
-                    .toList())
-            .thenApply(
-                s -> s.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))),
+                    .collect(
+                        Collectors.toMap(
+                            Function.identity(), __ -> new ListConsumerGroupOffsetsSpec())))
+            .all()
+            .toCompletionStage(),
         (consumerGroupDescriptions, consumerGroupMetadata) ->
             consumerGroupIds.stream()
                 .map(
@@ -663,7 +710,7 @@ class AdminImpl implements Admin {
                                 .collect(
                                     Collectors.toUnmodifiableMap(
                                         member ->
-                                            new Member(
+                                            new ConsumerMember(
                                                 groupId,
                                                 member.consumerId(),
                                                 member.groupInstanceId(),

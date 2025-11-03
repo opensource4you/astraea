@@ -19,11 +19,11 @@ package org.astraea.common.admin;
 import java.util.Map;
 import java.util.Set;
 
-public record ConsumerGroup(
+public record ShareGroup(
     String groupId,
-    String assignor,
     String state,
-    String type,
     int coordinatorId,
+    int groupEpoch,
+    int targetAssignmentEpoch,
     Map<TopicPartition, Long> consumeProgress,
-    Map<ConsumerMember, Set<TopicPartition>> assignment) {}
+    Map<ShareMember, Set<TopicPartition>> assignment) {}

@@ -37,7 +37,6 @@ import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
-import org.astraea.common.admin.ConsumerGroup;
 import org.astraea.common.admin.Partition;
 import org.astraea.common.admin.ProducerState;
 import org.astraea.common.admin.TopicConfigs;
@@ -238,10 +237,6 @@ public class TopicNode {
                                     context.admin().partitions(topics),
                                     context
                                         .admin()
-                                        .consumerGroupIds()
-                                        .thenCompose(ids -> context.admin().consumerGroups(ids)),
-                                    context
-                                        .admin()
                                         .topicPartitions(topics)
                                         .thenCompose(tps -> context.admin().producerStates(tps)),
                                     TopicNode::basicResult)))
@@ -351,10 +346,7 @@ public class TopicNode {
   }
 
   private static List<Map<String, Object>> basicResult(
-      List<Broker> brokers,
-      List<Partition> partitions,
-      List<ConsumerGroup> groups,
-      List<ProducerState> producerStates) {
+      List<Broker> brokers, List<Partition> partitions, List<ProducerState> producerStates) {
     var topicSize =
         brokers.stream()
             .flatMap(n -> n.topicPartitionPaths().stream())
@@ -365,16 +357,6 @@ public class TopicNode {
                         TopicPartitionPath::size, Collectors.reducing(0L, Long::sum))));
 
     var topicPartitions = partitions.stream().collect(Collectors.groupingBy(Partition::topic));
-    var topicGroups =
-        groups.stream()
-            .flatMap(
-                g ->
-                    g.assignment().values().stream()
-                        .flatMap(tps -> tps.stream().map(tp -> Map.entry(tp.topic(), g.groupId()))))
-            .collect(
-                Collectors.groupingBy(
-                    Map.Entry::getKey,
-                    Collectors.mapping(Map.Entry::getValue, Collectors.toSet())));
     var topicProducers =
         producerStates.stream()
             .collect(
@@ -398,8 +380,6 @@ public class TopicNode {
                       t -> LocalDateTime.ofInstant(Instant.ofEpochMilli(t), ZoneId.systemDefault()))
                   .findFirst()
                   .ifPresent(t -> result.put("max timestamp", t));
-              result.put(
-                  "number of consumer group", topicGroups.getOrDefault(topic, Set.of()).size());
               // producer states is supported by kafka 2.8.0+
               if (!topicProducers.isEmpty())
                 result.put(
