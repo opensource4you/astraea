@@ -214,6 +214,7 @@ public class ClientNode {
             cg ->
                 cg.assignment().values().stream()
                     .flatMap(Collection::stream)
+                    .distinct()
                     .map(
                         tp -> {
                           var result = new LinkedHashMap<String, Object>();
@@ -226,16 +227,24 @@ public class ClientNode {
                               "lag",
                               pts.get(tp).get(0).latestOffset()
                                   - Optional.ofNullable(cg.consumeProgress().get(tp)).orElse(0L));
-                          cg.assignment().entrySet().stream()
-                              .filter(e -> e.getValue().contains(tp))
-                              .findFirst()
-                              .map(Map.Entry::getKey)
-                              .ifPresent(
-                                  consumerMember -> {
-                                    result.put("client host", consumerMember.host());
-                                    result.put("client id", consumerMember.clientId());
-                                    result.put("member id", consumerMember.memberId());
-                                  });
+                          var ms =
+                              cg.assignment().entrySet().stream()
+                                  .filter(e -> e.getValue().contains(tp))
+                                  .map(Map.Entry::getKey)
+                                  .toList();
+                          result.put(
+                              "client host",
+                              ms.stream().map(ShareMember::host).collect(Collectors.joining(",")));
+                          result.put(
+                              "client id",
+                              ms.stream()
+                                  .map(ShareMember::clientId)
+                                  .collect(Collectors.joining(",")));
+                          result.put(
+                              "member id",
+                              ms.stream()
+                                  .map(ShareMember::memberId)
+                                  .collect(Collectors.joining(",")));
                           return result;
                         }))
         .collect(Collectors.toList());
@@ -266,9 +275,8 @@ public class ClientNode {
                                   - Optional.ofNullable(cg.consumeProgress().get(tp)).orElse(0L));
                           cg.assignment().entrySet().stream()
                               .filter(e -> e.getValue().contains(tp))
-                              .findFirst()
                               .map(Map.Entry::getKey)
-                              .ifPresent(
+                              .forEach(
                                   consumerMember -> {
                                     result.put("client host", consumerMember.host());
                                     result.put("client id", consumerMember.clientId());
