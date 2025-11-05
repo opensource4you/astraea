@@ -643,6 +643,7 @@ class AdminImpl implements Admin {
                             g.getValue().groupEpoch(),
                             g.getValue().targetAssignmentEpoch(),
                             shareGroupMetadata.get(g.getKey()).entrySet().stream()
+                                .filter(e -> e.getValue() != null)
                                 .collect(
                                     Collectors.toUnmodifiableMap(
                                         tp -> TopicPartition.from(tp.getKey()),
@@ -702,6 +703,7 @@ class AdminImpl implements Admin {
                             consumerGroupDescriptions.get(groupId).type().toString(),
                             consumerGroupDescriptions.get(groupId).coordinator().id(),
                             consumerGroupMetadata.get(groupId).entrySet().stream()
+                                .filter(e -> e.getValue() != null)
                                 .collect(
                                     Collectors.toUnmodifiableMap(
                                         tp -> TopicPartition.from(tp.getKey()),
