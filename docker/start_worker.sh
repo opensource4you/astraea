@@ -34,7 +34,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r WORKER_PROPERTIES="/tmp/worker-${WORKER_PORT}.properties"
 declare -r WORKER_PLUGIN_PATH=${WORKER_PLUGIN_PATH:-/tmp/worker-plugins}
-declare -r IMAGE_NAME="ghcr.io/${ACCOUNT,,}/astraea/worker:${KAFKA_VERSION,,}"
+declare -r IMAGE_NAME="ghcr.io/${ACCOUNT:l}/astraea/worker:${KAFKA_VERSION:l}"
 declare -r SCRIPT_LOCATION_IN_CONTAINER="./bin/connect-distributed.sh"
 # cleanup the file if it is existent
 [[ -f "$WORKER_PROPERTIES" ]] && rm -f "$WORKER_PROPERTIES"
