@@ -61,7 +61,9 @@ ext {
     numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
 }
 
-archivesBaseName = "astraea-app"
+base {
+    archivesName = 'astraea-app'
+}
 
 tasks.named('test') {
     // Use JUnit Platform for unit tests.

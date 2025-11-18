@@ -56,7 +56,9 @@ ext {
     numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
 }
 
-archivesBaseName = "astraea-common"
+base {
+    archivesName = 'astraea-common'
+}
 
 protobuf {
     // Configure the protoc executable

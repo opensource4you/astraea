@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 plugins {
-    id 'org.openjfx.javafxplugin' version '0.0.13'
-    id "com.github.johnrengelman.shadow" version "8.1.1"
+    id 'org.openjfx.javafxplugin' version '0.0.14'
+    id "com.gradleup.shadow" version "9.2.2"
     id 'maven-publish'
 }
 
@@ -40,7 +40,10 @@ ext {
     numberOfForks = project.hasProperty('maxParallelForks') ? maxParallelForks.toInteger() : Math.max((int) (Runtime.runtime.availableProcessors() / 2), 1)
 }
 
-archivesBaseName = "astraea-gui"
+base {
+    archivesName = 'astraea-gui'
+}
+
 jar {
     manifest {
         attributes 'Main-Class': 'org.astraea.gui.Main'
