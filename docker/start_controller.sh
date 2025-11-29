@@ -259,6 +259,7 @@ docker run -d --init \
 if [ "$(echo $?)" -eq 0 ]; then
   echo "================================================="
   [[ -n "$META_FOLDER" ]] && echo "mount $META_FOLDER to container: $CONTAINER_NAME"
+  echo "node.id=$NODE_ID"
   echo "controller address: ${ADDRESS}:$CONTROLLER_PORT"
   echo "jmx address: ${ADDRESS}:$CONTROLLER_JMX_PORT"
   echo "exporter address: ${ADDRESS}:$EXPORTER_PORT"
