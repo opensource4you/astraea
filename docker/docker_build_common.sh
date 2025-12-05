@@ -15,13 +15,6 @@
 # limitations under the License.
 
 get_ipv4_address() {
-  os="$(uname)"
-
-  if [[ "$os" == "Darwin" ]]; then
-    ifconfig | awk '/inet / && $2 != "127.0.0.1" { print $2; exit }'
-    return 0
-  fi
-
   if command -v ip &>/dev/null; then
     ip -o -4 address show | awk '!/127.0.0.1/ {gsub(/\/.*/, "", $4); print $4; exit}'
   elif command -v ifconfig &>/dev/null; then
@@ -65,7 +58,11 @@ function generateControllerPort() {
 
 # don't change the length as it is expected 16 bytes of a base64-encoded UUID
 function randomString() {
-  openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 22
+    if [[ "$(uname)" == "Darwin" ]]; then
+        openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 22
+    else
+        LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 22
+    fi
 }
 
 function checkDocker() {
