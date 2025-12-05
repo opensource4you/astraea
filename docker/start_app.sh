@@ -21,9 +21,9 @@ source $DOCKER_FOLDER/docker_build_common.sh
 declare -r VERSION=${REVISION:-${VERSION:-main}}
 declare -r ACCOUNT=${ACCOUNT:-opensource4you}
 if [[ "$VERSION" == "main" ]]; then
-  declare -r IMAGE_NAME="ghcr.io/${ACCOUNT:l}/astraea/app:latest"
+  declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/app:latest"
 else
-  declare -r IMAGE_NAME="ghcr.io/${ACCOUNT:l}/astraea/app:${VERSION:l}"
+  declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/app:${VERSION}"
 fi
 declare -r DOCKERFILE=$DOCKER_FOLDER/app.dockerfile
 declare -r JMX_PORT=${JMX_PORT:-"$(getRandomPort)"}
@@ -58,7 +58,7 @@ RUN ./gradlew clean build -x test --no-daemon
 RUN mkdir /opt/astraea
 RUN tar -xvf \$(find ./app/build/distributions/ -maxdepth 1 -type f -name app-*.tar) -C /opt/astraea/ --strip-components=1
 
-FROM azul/zulu-openjdk:23-jre
+FROM azul/zulu-openjdk:25-jre
 
 # copy astraea
 COPY --from=build /opt/astraea /opt/astraea
@@ -121,7 +121,7 @@ function runContainer() {
     fi
     # this element must be something to mount
     if [[ "$defined_file" == "true" ]]; then
-      need_to_bind_file="${need_to_bind_file} -v $word:$word"
+      need_to_bind_file="${need_to_bind_file} -v $word:$word:Z"
       defined_file="false"
     fi
   done

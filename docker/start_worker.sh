@@ -20,7 +20,7 @@ source $DOCKER_FOLDER/docker_build_common.sh
 # ===============================[global variables]===============================
 declare -r ACCOUNT=${ACCOUNT:-opensource4you}
 declare -r KAFKA_ACCOUNT=${KAFKA_ACCOUNT:-apache}
-declare -r KAFKA_VERSION=${KAFKA_REVISION:-${KAFKA_VERSION:-4.0.0}}
+declare -r KAFKA_VERSION=${KAFKA_REVISION:-${KAFKA_VERSION:-4.1.1}}
 declare -r DOCKERFILE=$DOCKER_FOLDER/worker.dockerfile
 declare -r WORKER_PORT=${WORKER_PORT:-"$(getRandomPort)"}
 declare -r CONTAINER_NAME="worker-$WORKER_PORT"
@@ -34,7 +34,7 @@ declare -r JMX_OPTS="-Dcom.sun.management.jmxremote \
 declare -r HEAP_OPTS="${HEAP_OPTS:-"-Xmx2G -Xms2G"}"
 declare -r WORKER_PROPERTIES="/tmp/worker-${WORKER_PORT}.properties"
 declare -r WORKER_PLUGIN_PATH=${WORKER_PLUGIN_PATH:-/tmp/worker-plugins}
-declare -r IMAGE_NAME="ghcr.io/${ACCOUNT:l}/astraea/worker:${KAFKA_VERSION:l}"
+declare -r IMAGE_NAME="ghcr.io/${ACCOUNT}/astraea/worker:${KAFKA_VERSION}"
 declare -r SCRIPT_LOCATION_IN_CONTAINER="./bin/connect-distributed.sh"
 # cleanup the file if it is existent
 [[ -f "$WORKER_PROPERTIES" ]] && rm -f "$WORKER_PROPERTIES"
@@ -50,7 +50,7 @@ function showHelp() {
   echo "    ACCOUNT=opensource4you                      set the github account for astraea repo"
   echo "    HEAP_OPTS=\"-Xmx2G -Xms2G\"              set worker JVM memory"
   echo "    KAFKA_REVISION=trunk                           set revision of kafka source code to build container"
-  echo "    KAFKA_VERSION=4.0.0                            set version of kafka distribution"
+  echo "    KAFKA_VERSION=4.1.1                            set version of kafka distribution"
   echo "    BUILD=false                              set true if you want to build image locally"
   echo "    RUN=false                                set false if you want to build/pull image only"
   echo "    WORKER_PLUGIN_PATH=/tmp/worker-plugins   set plugin path to kafka worker"
@@ -92,7 +92,7 @@ WORKDIR /tmp/astraea
 RUN ./gradlew clean shadowJar
 RUN cp /tmp/astraea/connector/build/libs/astraea-*-all.jar /opt/kafka/libs/
 
-FROM azul/zulu-openjdk:23-jre
+FROM azul/zulu-openjdk:25-jre
 
 # copy kafka
 COPY --from=build /opt/kafka /opt/kafka
@@ -114,7 +114,7 @@ function generateDockerfileByVersion() {
   local kafka_url="https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_2.13-${KAFKA_VERSION}.tgz"
   local version=$KAFKA_VERSION
   if [[ "$KAFKA_VERSION" == *"rc"* ]]; then
-    ## `4.0.0-rc1` the rc release does not exist in archive repo
+    ## `4.1.1-rc1` the rc release does not exist in archive repo
     version=${KAFKA_VERSION%-*}
     kafka_url="https://dist.apache.org/repos/dist/dev/kafka/${KAFKA_VERSION}/kafka_2.13-${version}.tgz"
   fi
@@ -134,7 +134,7 @@ WORKDIR /tmp/astraea
 RUN ./gradlew clean shadowJar
 RUN cp /tmp/astraea/connector/build/libs/astraea-*-all.jar /opt/kafka/libs/
 
-FROM azul/zulu-openjdk:23-jre
+FROM azul/zulu-openjdk:25-jre
 
 # copy kafka
 COPY --from=build /opt/kafka /opt/kafka
@@ -228,8 +228,8 @@ docker run -d --init \
   --name "$CONTAINER_NAME" \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
-  -v "$WORKER_PROPERTIES":/tmp/worker.properties:ro \
-  -v "$WORKER_PLUGIN_PATH":/opt/worker-plugins:ro \
+  -v "$WORKER_PROPERTIES":/tmp/worker.properties:ro,Z \
+  -v "$WORKER_PLUGIN_PATH":/opt/worker-plugins:ro,Z \
   -p "$WORKER_PORT":8083 \
   -p $WORKER_JMX_PORT:$WORKER_JMX_PORT \
   "$IMAGE_NAME" "$SCRIPT_LOCATION_IN_CONTAINER" /tmp/worker.properties
