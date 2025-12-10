@@ -56,9 +56,12 @@ function generateControllerPort() {
   fi
 }
 
-# don't change the length as it is expected 16 bytes of a base64-encoded UUID
+# Kafka cluster ID is a 22-char URL-safe base64-encoded UUID (16 bytes encoded = 22 chars)
+# KIP-78 specifies allowed chars are [a-zA-Z0-9_\-]+
+# https://cwiki.apache.org/confluence/display/KAFKA/KIP-78:+Cluster+Id
+# tr '+/' '-_' converts standard base64 to URL-safe base64 for Kafka compatibility
 function randomString() {
-  echo $(cat /dev/random | env LC_CTYPE=C tr -dc 'a-zA-Z0-9' | fold -w 22 | head -n 1)
+  head -c 16 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=' | head -c 22
 }
 
 function checkDocker() {
