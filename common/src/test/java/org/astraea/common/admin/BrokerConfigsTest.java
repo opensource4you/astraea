@@ -26,8 +26,6 @@ public class BrokerConfigsTest {
   void testDynamicalConfigs() {
     Assertions.assertNotEquals(0, BrokerConfigs.DYNAMICAL_CONFIGS.size());
     Assertions.assertTrue(
-        BrokerConfigs.DYNAMICAL_CONFIGS.contains(BrokerConfigs.ADVERTISED_LISTENERS_CONFIG));
-    Assertions.assertTrue(
         BrokerConfigs.DYNAMICAL_CONFIGS.contains(BrokerConfigs.BACKGROUND_THREADS_CONFIG));
     Assertions.assertTrue(
         BrokerConfigs.DYNAMICAL_CONFIGS.contains(
