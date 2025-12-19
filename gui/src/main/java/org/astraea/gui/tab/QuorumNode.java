@@ -19,9 +19,13 @@ package org.astraea.gui.tab;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,16 +37,21 @@ import org.apache.kafka.common.network.ListenerName;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Controller;
+import org.astraea.common.admin.NodeConfigs;
 import org.astraea.common.admin.QuorumInfo;
 import org.astraea.common.admin.RaftEndpoint;
 import org.astraea.gui.Context;
 import org.astraea.gui.pane.FirstPart;
 import org.astraea.gui.pane.PaneBuilder;
+import org.astraea.gui.pane.SecondPart;
 import org.astraea.gui.pane.Slide;
 import org.astraea.gui.text.EditableText;
 import org.astraea.gui.text.TextInput;
 
 public class QuorumNode {
+
+  private static final String CONTROLLER_NODE_ID = "controller id";
+
   private static final Pattern URI_PARSE_REGEXP =
       Pattern.compile("^(.*)://\\[?([0-9a-zA-Z\\-%._:]*)\\]?:(-?[0-9]+)");
 
@@ -211,6 +220,90 @@ public class QuorumNode {
     return result;
   }
 
+  private static Node configNode(Context context) {
+    var firstPart =
+        FirstPart.builder()
+            .clickName("REFRESH")
+            .tableRefresher(
+                (argument, logger) ->
+                    context
+                        .admin()
+                        .controllers()
+                        .thenApply(
+                            controllers ->
+                                controllers.stream().map(t -> Map.entry(t.id(), t.config())))
+                        .thenApply(
+                            items ->
+                                items
+                                    .map(
+                                        e -> {
+                                          var map = new LinkedHashMap<String, Object>();
+                                          map.put(CONTROLLER_NODE_ID, e.getKey());
+                                          map.putAll(new TreeMap<>(e.getValue().raw()));
+                                          return map;
+                                        })
+                                    .collect(Collectors.toList())))
+            .build();
+    var secondPart =
+        SecondPart.builder()
+            .textInputs(
+                List.of(
+                    TextInput.of(
+                        NodeConfigs.BACKGROUND_THREADS_CONFIG,
+                        NodeConfigs.DYNAMICAL_CONFIGS,
+                        EditableText.singleLine().disable().build())))
+            .buttonName("ALTER")
+            .action(
+                (tables, input, logger) -> {
+                  var controllerToAlter =
+                      tables.stream()
+                          .flatMap(
+                              m ->
+                                  Optional.ofNullable(m.get(CONTROLLER_NODE_ID))
+                                      .map(o -> (Integer) o)
+                                      .stream())
+                          .collect(Collectors.toSet());
+                  if (controllerToAlter.isEmpty()) {
+                    logger.log("nothing to alter");
+                    return CompletableFuture.completedStage(null);
+                  }
+                  return context
+                      .admin()
+                      .controllers()
+                      .thenApply(
+                          controllers ->
+                              controllers.stream()
+                                  .filter(b -> controllerToAlter.contains(b.id()))
+                                  .collect(Collectors.toList()))
+                      .thenCompose(
+                          controllers -> {
+                            var unset =
+                                controllers.stream()
+                                    .collect(
+                                        Collectors.toMap(
+                                            Controller::id, b -> input.emptyValueKeys()));
+                            var set =
+                                controllers.stream()
+                                    .collect(
+                                        Collectors.toMap(
+                                            Controller::id, b -> input.nonEmptyTexts()));
+                            if (unset.isEmpty() && set.isEmpty()) {
+                              logger.log("nothing to alter");
+                              return CompletableFuture.completedStage(null);
+                            }
+                            return context
+                                .admin()
+                                .unsetControllerConfigs(unset)
+                                .thenCompose(ignored -> context.admin().setControllerConfigs(set))
+                                .thenAccept(
+                                    ignored ->
+                                        logger.log("succeed to alter: " + controllerToAlter));
+                          });
+                })
+            .build();
+    return PaneBuilder.of().firstPart(firstPart).secondPart(secondPart).build();
+  }
+
   private static Node basicNode(Context context) {
     var firstPart =
         FirstPart.builder()
@@ -231,6 +324,8 @@ public class QuorumNode {
             MapUtils.of(
                 "basic",
                 basicNode(context),
+                "config",
+                configNode(context),
                 "add",
                 addVoterNode(context),
                 "remove",

@@ -645,7 +645,7 @@ public class AdminTest {
       Assertions.assertEquals("producer", broker.config().value("compression.type").get());
 
       admin
-          .setBrokerConfigs(Map.of(id, Map.of(BrokerConfigs.COMPRESSION_TYPE_CONFIG, "gzip")))
+          .setBrokerConfigs(Map.of(id, Map.of(NodeConfigs.COMPRESSION_TYPE_CONFIG, "gzip")))
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(2));
@@ -655,10 +655,10 @@ public class AdminTest {
               .findFirst()
               .get();
       Assertions.assertEquals(
-          "gzip", broker.config().value(BrokerConfigs.COMPRESSION_TYPE_CONFIG).get());
+          "gzip", broker.config().value(NodeConfigs.COMPRESSION_TYPE_CONFIG).get());
 
       admin
-          .unsetBrokerConfigs(Map.of(id, Set.of(BrokerConfigs.COMPRESSION_TYPE_CONFIG)))
+          .unsetBrokerConfigs(Map.of(id, Set.of(NodeConfigs.COMPRESSION_TYPE_CONFIG)))
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(2));
@@ -668,7 +668,7 @@ public class AdminTest {
               .findFirst()
               .get();
       Assertions.assertNotEquals(
-          "gzip", broker.config().value(BrokerConfigs.COMPRESSION_TYPE_CONFIG).get());
+          "gzip", broker.config().value(NodeConfigs.COMPRESSION_TYPE_CONFIG).get());
     }
   }
 
@@ -2099,7 +2099,7 @@ public class AdminTest {
       var broker = admin.brokers().toCompletableFuture().join().get(0);
       var sets =
           broker.config().raw().entrySet().stream()
-              .filter(entry -> BrokerConfigs.DYNAMICAL_CONFIGS.contains(entry.getKey()))
+              .filter(entry -> NodeConfigs.DYNAMICAL_CONFIGS.contains(entry.getKey()))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       admin.setBrokerConfigs(Map.of(broker.id(), sets)).toCompletableFuture().join();
     }

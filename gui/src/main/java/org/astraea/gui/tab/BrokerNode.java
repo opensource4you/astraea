@@ -38,8 +38,8 @@ import org.astraea.common.DataSize;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.MapUtils;
 import org.astraea.common.admin.Broker;
-import org.astraea.common.admin.BrokerConfigs;
 import org.astraea.common.admin.ClusterInfo;
+import org.astraea.common.admin.NodeConfigs;
 import org.astraea.common.admin.TopicPartitionPath;
 import org.astraea.common.metrics.JndiClient;
 import org.astraea.common.metrics.broker.ControllerMetrics;
@@ -349,8 +349,8 @@ public class BrokerNode {
             .textInputs(
                 List.of(
                     TextInput.of(
-                        BrokerConfigs.BACKGROUND_THREADS_CONFIG,
-                        BrokerConfigs.DYNAMICAL_CONFIGS,
+                        NodeConfigs.BACKGROUND_THREADS_CONFIG,
+                        NodeConfigs.DYNAMICAL_CONFIGS,
                         EditableText.singleLine().disable().build())))
             .buttonName("ALTER")
             .action(

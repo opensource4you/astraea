@@ -31,7 +31,7 @@ import org.astraea.common.DataRate;
 import org.astraea.common.Utils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Broker;
-import org.astraea.common.admin.BrokerConfigs;
+import org.astraea.common.admin.NodeConfigs;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartition;
 import org.astraea.common.json.JsonConverter;
@@ -64,8 +64,8 @@ public class ThrottleHandlerTest {
                               Broker::id,
                               ignored ->
                                   Set.of(
-                                      BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
-                                      BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG))))
+                                      NodeConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                      NodeConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG))))
           .thenCompose(admin::unsetBrokerConfigs)
           .toCompletableFuture()
           .join();
@@ -103,17 +103,17 @@ public class ThrottleHandlerTest {
               Map.of(
                   0,
                   Map.of(
-                      BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                      NodeConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
                       String.valueOf(longDataRate)),
                   1,
                   Map.of(
-                      BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                      NodeConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
                       String.valueOf(longDataRate)),
                   2,
                   Map.of(
-                      BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                      NodeConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
                       String.valueOf(longDataRate),
-                      BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                      NodeConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
                       String.valueOf(longDataRate))))
           .toCompletableFuture()
           .join();
@@ -493,7 +493,7 @@ public class ThrottleHandlerTest {
                   .findFirst()
                   .get()
                   .config()
-                  .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
+                  .value(NodeConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
                   .map(Long::parseLong)
                   .orElse(-1L);
       Function<Integer, Long> ingressRate =
@@ -503,7 +503,7 @@ public class ThrottleHandlerTest {
                   .findFirst()
                   .get()
                   .config()
-                  .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
+                  .value(NodeConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
                   .map(Long::parseLong)
                   .orElse(-1L);
       Runnable setThrottle =
@@ -519,10 +519,9 @@ public class ThrottleHandlerTest {
                                     n -> n,
                                     ignored ->
                                         Map.of(
-                                            BrokerConfigs
-                                                .FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                            NodeConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
                                             "100",
-                                            BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                            NodeConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
                                             "100"))))
                 .thenCompose(admin::setBrokerConfigs)
                 .toCompletableFuture()

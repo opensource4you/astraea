@@ -373,11 +373,15 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<Void> setBrokerConfigs(Map<Integer, Map<String, String>> override);
 
+  CompletionStage<Void> setControllerConfigs(Map<Integer, Map<String, String>> override);
+
   /**
    * unset the value associated to given keys. The unset config will become either null of default
    * value. Normally, the default value is defined by server.properties or hardcode in source code.
    */
   CompletionStage<Void> unsetBrokerConfigs(Map<Integer, Set<String>> unset);
+
+  CompletionStage<Void> unsetControllerConfigs(Map<Integer, Set<String>> unset);
 
   CompletionStage<Void> setClusterConfigs(Map<String, String> override);
 

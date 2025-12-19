@@ -1381,7 +1381,8 @@ class AdminImpl implements Admin {
             .collect(
                 Collectors.toMap(
                     e -> new ConfigResource(ConfigResource.Type.TOPIC, e.getKey()),
-                    Map.Entry::getValue)));
+                    Map.Entry::getValue)),
+        false);
   }
 
   @Override
@@ -1411,7 +1412,8 @@ class AdminImpl implements Admin {
             .collect(
                 Collectors.toMap(
                     e -> new ConfigResource(ConfigResource.Type.TOPIC, e.getKey()),
-                    Map.Entry::getValue)));
+                    Map.Entry::getValue)),
+        false);
   }
 
   @Override
@@ -1421,7 +1423,19 @@ class AdminImpl implements Admin {
             .collect(
                 Collectors.toMap(
                     e -> new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(e.getKey())),
-                    Map.Entry::getValue)));
+                    Map.Entry::getValue)),
+        false);
+  }
+
+  @Override
+  public CompletionStage<Void> setControllerConfigs(Map<Integer, Map<String, String>> override) {
+    return doSetConfigs(
+        override.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    e -> new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(e.getKey())),
+                    Map.Entry::getValue)),
+        true);
   }
 
   @Override
@@ -1431,12 +1445,25 @@ class AdminImpl implements Admin {
             .collect(
                 Collectors.toMap(
                     e -> new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(e.getKey())),
-                    Map.Entry::getValue)));
+                    Map.Entry::getValue)),
+        false);
+  }
+
+  @Override
+  public CompletionStage<Void> unsetControllerConfigs(Map<Integer, Set<String>> unset) {
+    return doUnsetConfigs(
+        unset.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    e -> new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(e.getKey())),
+                    Map.Entry::getValue)),
+        true);
   }
 
   @Override
   public CompletionStage<Void> setClusterConfigs(Map<String, String> override) {
-    return doSetConfigs(Map.of(new ConfigResource(ConfigResource.Type.BROKER, ""), override));
+    return doSetConfigs(
+        Map.of(new ConfigResource(ConfigResource.Type.BROKER, ""), override), false);
   }
 
   @Override
@@ -1541,7 +1568,7 @@ class AdminImpl implements Admin {
                                                   AlterConfigOp.OpType.APPEND))
                                       .collect(Collectors.toList())));
 
-              return doSetConfigs(requestToSet)
+              return doSetConfigs(requestToSet, false)
                   .thenCompose(
                       ignored -> to(admin(false).incrementalAlterConfigs(requestToAppend).all()));
             });
@@ -1608,7 +1635,8 @@ class AdminImpl implements Admin {
             });
   }
 
-  private CompletionStage<Void> doSetConfigs(Map<ConfigResource, Map<String, String>> override) {
+  private CompletionStage<Void> doSetConfigs(
+      Map<ConfigResource, Map<String, String>> override, boolean fromController) {
 
     var nonEmptyOverride =
         override.entrySet().stream()
@@ -1633,10 +1661,11 @@ class AdminImpl implements Admin {
                                 .collect(Collectors.toList())))
                 .filter(e -> !e.getValue().isEmpty())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    return to(admin(false).incrementalAlterConfigs(newVersion.get()).all());
+    return to(admin(fromController).incrementalAlterConfigs(newVersion.get()).all());
   }
 
-  private CompletionStage<Void> doUnsetConfigs(Map<ConfigResource, Set<String>> unset) {
+  private CompletionStage<Void> doUnsetConfigs(
+      Map<ConfigResource, Set<String>> unset, boolean fromController) {
     var nonEmptyUnset =
         unset.entrySet().stream()
             .filter(e -> !e.getValue().isEmpty())
@@ -1658,7 +1687,7 @@ class AdminImpl implements Admin {
                                             new ConfigEntry(key, ""), AlterConfigOp.OpType.DELETE))
                                 .collect(Collectors.toList())));
 
-    return to(admin(false).incrementalAlterConfigs(newVersion.get()).all());
+    return to(admin(fromController).incrementalAlterConfigs(newVersion.get()).all());
   }
 
   @Override

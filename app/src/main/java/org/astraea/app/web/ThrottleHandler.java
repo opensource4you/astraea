@@ -31,7 +31,7 @@ import org.astraea.common.EnumInfo;
 import org.astraea.common.FutureUtils;
 import org.astraea.common.admin.Admin;
 import org.astraea.common.admin.Broker;
-import org.astraea.common.admin.BrokerConfigs;
+import org.astraea.common.admin.NodeConfigs;
 import org.astraea.common.admin.TopicConfigs;
 import org.astraea.common.admin.TopicPartitionReplica;
 import org.astraea.common.json.TypeRef;
@@ -56,11 +56,11 @@ public class ThrottleHandler implements Handler {
                             new BrokerThrottle(
                                 node.id(),
                                 node.config()
-                                    .value(BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
+                                    .value(NodeConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
                                     .map(Long::valueOf)
                                     .orElse(null),
                                 node.config()
-                                    .value(BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
+                                    .value(NodeConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
                                     .map(Long::valueOf)
                                     .orElse(null)))
                     .filter(b -> b.leader.isPresent() || b.follower.isPresent())
@@ -175,12 +175,12 @@ public class ThrottleHandler implements Handler {
                       b.follower.ifPresent(
                           aLong ->
                               result.put(
-                                  BrokerConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                  NodeConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
                                   String.valueOf(aLong)));
                       b.leader.ifPresent(
                           aLong ->
                               result.put(
-                                  BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                  NodeConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG,
                                   String.valueOf(aLong)));
                       return result;
                     }));
@@ -267,9 +267,8 @@ public class ThrottleHandler implements Handler {
                                 id -> id,
                                 id ->
                                     Stream.of(
-                                            BrokerConfigs
-                                                .FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
-                                            BrokerConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
+                                            NodeConfigs.FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG,
+                                            NodeConfigs.LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
                                         .filter(
                                             key ->
                                                 !channel.queries().containsKey("type")
@@ -282,11 +281,11 @@ public class ThrottleHandler implements Handler {
                                                             t ->
                                                                 t.equals("follower")
                                                                     ? Stream.of(
-                                                                        BrokerConfigs
+                                                                        NodeConfigs
                                                                             .FOLLOWER_REPLICATION_THROTTLED_RATE_CONFIG)
                                                                     : t.equals("leader")
                                                                         ? Stream.of(
-                                                                            BrokerConfigs
+                                                                            NodeConfigs
                                                                                 .LEADER_REPLICATION_THROTTLED_RATE_CONFIG)
                                                                         : Stream.of())
                                                         .collect(Collectors.toSet())

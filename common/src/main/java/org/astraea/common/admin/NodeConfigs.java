@@ -20,7 +20,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import org.astraea.common.Utils;
 
-public final class BrokerConfigs {
+public final class NodeConfigs {
   // ====================================================================
   // Log (Retention/Cleaning/Storage) Configurations
   // ====================================================================
@@ -242,7 +242,7 @@ public final class BrokerConfigs {
 
   public static final Set<String> DYNAMICAL_CONFIGS =
       new TreeSet<>(
-          Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG"), String.class));
+          Utils.constants(NodeConfigs.class, name -> name.endsWith("CONFIG"), String.class));
 
-  private BrokerConfigs() {}
+  private NodeConfigs() {}
 }

@@ -20,26 +20,25 @@ import org.astraea.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class BrokerConfigsTest {
+public class NodeConfigsTest {
 
   @Test
   void testDynamicalConfigs() {
-    Assertions.assertNotEquals(0, BrokerConfigs.DYNAMICAL_CONFIGS.size());
+    Assertions.assertNotEquals(0, NodeConfigs.DYNAMICAL_CONFIGS.size());
     Assertions.assertTrue(
-        BrokerConfigs.DYNAMICAL_CONFIGS.contains(BrokerConfigs.BACKGROUND_THREADS_CONFIG));
+        NodeConfigs.DYNAMICAL_CONFIGS.contains(NodeConfigs.BACKGROUND_THREADS_CONFIG));
     Assertions.assertTrue(
-        BrokerConfigs.DYNAMICAL_CONFIGS.contains(
-            BrokerConfigs.UNCLEAN_LEADER_ELECTION_ENABLE_CONFIG));
+        NodeConfigs.DYNAMICAL_CONFIGS.contains(NodeConfigs.UNCLEAN_LEADER_ELECTION_ENABLE_CONFIG));
     Assertions.assertTrue(
-        BrokerConfigs.DYNAMICAL_CONFIGS.contains(BrokerConfigs.NUM_IO_THREADS_CONFIG));
+        NodeConfigs.DYNAMICAL_CONFIGS.contains(NodeConfigs.NUM_IO_THREADS_CONFIG));
     Assertions.assertTrue(
-        BrokerConfigs.DYNAMICAL_CONFIGS.contains(BrokerConfigs.NUM_REPLICA_FETCHERS_CONFIG));
+        NodeConfigs.DYNAMICAL_CONFIGS.contains(NodeConfigs.NUM_REPLICA_FETCHERS_CONFIG));
   }
 
   @Test
   void testDuplicate() {
     Assertions.assertEquals(
-        BrokerConfigs.DYNAMICAL_CONFIGS.size(),
-        Utils.constants(BrokerConfigs.class, name -> name.endsWith("CONFIG"), String.class).size());
+        NodeConfigs.DYNAMICAL_CONFIGS.size(),
+        Utils.constants(NodeConfigs.class, name -> name.endsWith("CONFIG"), String.class).size());
   }
 }
