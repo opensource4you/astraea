@@ -46,6 +46,9 @@ public final class TopicConfigs {
       "unclean.leader.election.enable";
   public static final String MIN_IN_SYNC_REPLICAS_CONFIG = "min.insync.replicas";
   public static final String COMPRESSION_TYPE_CONFIG = "compression.type";
+  public static final String COMPRESSION_GZIP_LEVEL_CONFIG = "compression.gzip.level";
+  public static final String COMPRESSION_LZ4_LEVEL_CONFIG = "compression.lz4.level";
+  public static final String COMPRESSION_ZSTD_LEVEL_CONFIG = "compression.zstd.level";
   public static final String PREALLOCATE_CONFIG = "preallocate";
   public static final String MESSAGE_TIMESTAMP_TYPE_CONFIG = "message.timestamp.type";
   public static final String MESSAGE_TIMESTAMP_DIFFERENCE_MAX_MS_CONFIG =
