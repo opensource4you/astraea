@@ -527,12 +527,14 @@ public class ClientNode {
   private static Node writeNode(Context context) {
     var topicKey = "topic";
     var partitionKey = "partition";
+    var timestampKey = "timestamp";
     var keyKey = "key";
     var valueKey = "value";
     var multiInput =
         List.of(
             TextInput.required(topicKey, EditableText.singleLine().build()),
             TextInput.of(partitionKey, EditableText.singleLine().build()),
+            TextInput.of(timestampKey, EditableText.singleLine().build()),
             TextInput.of(keyKey, EditableText.multiline().build()),
             TextInput.of(valueKey, EditableText.multiline().build()));
     var firstPart =
@@ -553,6 +555,10 @@ public class ClientNode {
                                     .get(partitionKey)
                                     .map(Integer::parseInt)
                                     .ifPresent(builder::partition);
+                                argument
+                                    .get(timestampKey)
+                                    .map(Long::parseLong)
+                                    .ifPresent(builder::timestamp);
                                 argument
                                     .get(keyKey)
                                     .map(b -> Serializer.STRING.serialize(topic, List.of(), b))

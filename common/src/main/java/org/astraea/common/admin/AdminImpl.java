@@ -439,7 +439,7 @@ class AdminImpl implements Admin {
                     tp ->
                         Optional.ofNullable(result.get(TopicPartition.to(tp))).stream()
                             .map(ListOffsetsResult.ListOffsetsResultInfo::timestamp)
-                            .filter(t -> t > 0)
+                            .filter(t -> t >= 0)
                             .map(t -> Map.entry(tp, t)))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
   }
