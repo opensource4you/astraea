@@ -31,6 +31,7 @@ import org.apache.kafka.server.telemetry.ClientTelemetryReceiver;
 import org.astraea.common.metrics.BeanQuery;
 import org.astraea.common.metrics.JndiClient;
 
+@SuppressWarnings("removal")
 public class ServerMetricFetcher implements MetricsReporter, ClientTelemetry {
   private static final String BOOTSTRAP_SERVERS_CONFIG = "server.metric.fetcher.bootstrap.servers";
   private static final String INTERVAL_CONFIG = "server.metric.fetcher.interval.seconds";

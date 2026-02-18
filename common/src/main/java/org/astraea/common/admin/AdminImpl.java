@@ -647,7 +647,7 @@ class AdminImpl implements Admin {
                                 .collect(
                                     Collectors.toUnmodifiableMap(
                                         tp -> TopicPartition.from(tp.getKey()),
-                                        offset -> offset.getValue().offset())),
+                                        offset -> offset.getValue().startOffset())),
                             g.getValue().members().stream()
                                 .collect(
                                     Collectors.toMap(
