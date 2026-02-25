@@ -126,7 +126,7 @@ class ClusterBeanTest {
               return new ServerMetrics.Topic.Meter(
                   new BeanObject(domainName, properties, Map.of()));
             }
-              // topic/partition metrics
+            // topic/partition metrics
             case 2, 3 -> // topic/partition/replica metrics
             {
               var domainName = LogMetrics.DOMAIN_NAME;

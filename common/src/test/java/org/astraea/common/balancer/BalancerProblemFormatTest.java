@@ -94,7 +94,8 @@ class BalancerProblemFormatTest {
       Assertions.assertThrows(IllegalArgumentException.class, converted::parse);
     }
     {
-      var payload = """
+      var payload =
+          """
           { "moveCosts": [ "no.such.move.Cost" ] }
           """;
       var converted =
