@@ -32,6 +32,12 @@ declare -r BUILD=${BUILD:-false}
 declare -r RUN=${RUN:-true}
 declare -r ADDRESS=$(get_ipv4_address)
 
+if command -v podman &>/dev/null; then
+  declare -r CONTAINER_ENGINE="podman"
+else
+  declare -r CONTAINER_ENGINE="docker"
+fi
+
 # ===================================[functions]===================================
 
 function getRandomPort() {
@@ -66,8 +72,8 @@ function randomString() {
 }
 
 function checkDocker() {
-  if [[ "$(which docker)" == "" ]]; then
-    echo "you have to install docker"
+  if ! command -v $CONTAINER_ENGINE &>/dev/null; then
+    echo "you have to install $CONTAINER_ENGINE"
     exit 2
   fi
 }
@@ -81,10 +87,10 @@ function checkNetwork() {
 
 function buildImageIfNeed() {
   local imageName="$1"
-  if [[ "$(docker images -q "$imageName" 2>/dev/null)" == "" ]]; then
+  if [[ "$(${CONTAINER_ENGINE} images -q "$imageName" 2>/dev/null)" == "" ]]; then
     local needToBuild="true"
     if [[ "$BUILD" == "false" ]]; then
-      docker pull "$imageName" 2>/dev/null
+      ${CONTAINER_ENGINE} pull "$imageName" 2>/dev/null
       if [[ "$?" == "0" ]]; then
         needToBuild="false"
       else
@@ -93,7 +99,7 @@ function buildImageIfNeed() {
     fi
     if [[ "$needToBuild" == "true" ]]; then
       generateDockerfile
-      docker build --no-cache -t "$imageName" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+      ${CONTAINER_ENGINE} build --no-cache -t "$imageName" -f "$DOCKERFILE" "$DOCKER_FOLDER"
       if [[ "$?" != "0" ]]; then
         exit 2
       fi

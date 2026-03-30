@@ -58,7 +58,7 @@ RUN ./gradlew clean build -x test --no-daemon
 RUN mkdir /opt/astraea
 RUN tar -xvf \$(find ./app/build/distributions/ -maxdepth 1 -type f -name app-*.tar) -C /opt/astraea/ --strip-components=1
 
-FROM azul/zulu-openjdk:25-jre
+FROM docker.io/azul/zulu-openjdk:25-jre
 
 # copy astraea
 COPY --from=build /opt/astraea /opt/astraea
@@ -131,7 +131,7 @@ function runContainer() {
     background="-d"
   fi
 
-  docker run --rm --init \
+  ${CONTAINER_ENGINE} run --rm --init \
     $background \
     -e JAVA_OPTS="$JMX_OPTS $HEAP_OPTS" \
     -p $JMX_PORT:$JMX_PORT \

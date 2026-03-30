@@ -23,7 +23,7 @@ declare -r DOCKERFILE=$DOCKER_FOLDER/deps.dockerfile
 # ===================================[functions]===================================
 function generateDockerfile() {
   echo "# this dockerfile is generated dynamically
-FROM azul/zulu-openjdk:23
+FROM docker.io/azul/zulu-openjdk:23
 
 # install tools
 RUN apt-get update && apt-get install -y \
@@ -49,9 +49,9 @@ WORKDIR /root
 }
 
 function buildBaseImageIfNeed() {
-  if [[ "$(docker images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
-    docker build -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
-    docker push $IMAGE_NAME
+  if [[ "$(${CONTAINER_ENGINE} images -q $IMAGE_NAME 2>/dev/null)" == "" ]]; then
+    ${CONTAINER_ENGINE} build -t "$IMAGE_NAME" -f "$DOCKERFILE" "$DOCKER_FOLDER"
+    ${CONTAINER_ENGINE} push $IMAGE_NAME
   else
     echo "$IMAGE_NAME is existent in local"
   fi

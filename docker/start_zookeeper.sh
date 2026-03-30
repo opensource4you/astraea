@@ -59,7 +59,7 @@ RUN wget https://archive.apache.org/dist/zookeeper/zookeeper-${VERSION}/apache-z
 RUN mkdir /opt/zookeeper
 RUN tar -zxvf apache-zookeeper-${VERSION}-bin.tar.gz -C /opt/zookeeper --strip-components=1
 
-FROM azul/zulu-openjdk:25-jre
+FROM docker.io/azul/zulu-openjdk:25-jre
 
 # copy zookeeper
 COPY --from=build /opt/zookeeper /opt/zookeeper
@@ -102,7 +102,7 @@ checkNetwork
 if [[ -n "$DATA_FOLDER" ]]; then
   mkdir -p "$DATA_FOLDER"
   echo "mount $DATA_FOLDER to container"
-  docker run -d --init \
+  ${CONTAINER_ENGINE} run -d --init \
     --name $CONTAINER_NAME \
     -e JVMFLAGS="$HEAP_OPTS" \
     -p $ZOOKEEPER_PORT:2181 \
@@ -111,7 +111,7 @@ if [[ -n "$DATA_FOLDER" ]]; then
 else
   # TODO: zookeeper does not support java.rmi.server.hostname so we have to disable the default settings of jmx from zookeeper
   # and then add our custom settings. see https://issues.apache.org/jira/browse/ZOOKEEPER-3606
-  docker run -d --init \
+  ${CONTAINER_ENGINE} run -d --init \
     -e JMXDISABLE="true" \
     -e JVMFLAGS="$HEAP_OPTS $JMX_OPTS" \
     -p $ZOOKEEPER_JMX_PORT:$ZOOKEEPER_JMX_PORT \

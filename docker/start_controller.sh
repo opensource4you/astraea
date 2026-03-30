@@ -81,7 +81,7 @@ RUN ./gradlew clean releaseTarGz
 RUN mkdir /opt/kafka
 RUN tar -zxvf \$(find ./core/build/distributions/ -maxdepth 1 -type f \( -iname \"kafka*tgz\" ! -iname \"*sit*\" \)) -C /opt/kafka --strip-components=1
 
-FROM azul/zulu-openjdk:25-jre
+FROM docker.io/azul/zulu-openjdk:25-jre
 
 # copy kafka
 COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
@@ -126,7 +126,7 @@ RUN wget $kafka_url
 RUN mkdir /opt/kafka
 RUN tar -zxvf kafka_2.13-${version}.tgz -C /opt/kafka --strip-components=1
 
-FROM azul/zulu-openjdk:25-jre
+FROM docker.io/azul/zulu-openjdk:25-jre
 
 # copy kafka
 COPY --from=build /opt/jmx_exporter /opt/jmx_exporter
@@ -242,7 +242,7 @@ if [[ "$addVoter" == "true" ]]; then
   command="./bin/kafka-storage.sh format -t $CLUSTER_ID $release_version -c /tmp/controller.properties --no-initial-controllers && ./bin/kafka-server-start.sh /tmp/controller.properties"
 fi
 
-docker run -d --init \
+${CONTAINER_ENGINE} run -d --init \
   --name $CONTAINER_NAME \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \

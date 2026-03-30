@@ -92,7 +92,7 @@ WORKDIR /tmp/astraea
 RUN ./gradlew clean shadowJar
 RUN cp /tmp/astraea/connector/build/libs/astraea-*-all.jar /opt/kafka/libs/
 
-FROM azul/zulu-openjdk:25-jre
+FROM docker.io/azul/zulu-openjdk:25-jre
 
 # copy kafka
 COPY --from=build /opt/kafka /opt/kafka
@@ -134,7 +134,7 @@ WORKDIR /tmp/astraea
 RUN ./gradlew clean shadowJar
 RUN cp /tmp/astraea/connector/build/libs/astraea-*-all.jar /opt/kafka/libs/
 
-FROM azul/zulu-openjdk:25-jre
+FROM docker.io/azul/zulu-openjdk:25-jre
 
 # copy kafka
 COPY --from=build /opt/kafka /opt/kafka
@@ -224,7 +224,7 @@ setPropertyIfEmpty "rest.advertised.port" "$WORKER_PORT"
 # WORKER_PLUGIN_PATH is used to mount connector jars to worker container
 mkdir -p "$WORKER_PLUGIN_PATH"
 
-docker run -d --init \
+${CONTAINER_ENGINE} run -d --init \
   --name "$CONTAINER_NAME" \
   -e KAFKA_HEAP_OPTS="$HEAP_OPTS" \
   -e KAFKA_JMX_OPTS="$JMX_OPTS" \
