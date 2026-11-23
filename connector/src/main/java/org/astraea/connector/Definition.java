@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
+import org.astraea.common.EnumInfo;
 
 public record Definition(
     String name,
@@ -67,7 +68,7 @@ public record Definition(
     return def;
   }
 
-  public enum Type {
+  public enum Type implements EnumInfo {
     BOOLEAN,
     STRING,
     INT,
@@ -76,7 +77,21 @@ public record Definition(
     DOUBLE,
     LIST,
     CLASS,
-    PASSWORD
+    PASSWORD;
+
+    public static Type ofAlias(String alias) {
+      return EnumInfo.ignoreCaseEnum(Type.class, alias);
+    }
+
+    @Override
+    public String toString() {
+      return alias();
+    }
+
+    @Override
+    public String alias() {
+      return name();
+    }
   }
 
   public static class Builder {

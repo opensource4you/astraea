@@ -17,6 +17,7 @@
 package org.astraea.app;
 
 import java.util.Arrays;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.astraea.common.EnumInfo;
 import org.junit.jupiter.api.Assertions;
@@ -27,8 +28,10 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
-/** TODO: 2022-09-10 astraea#694 The test is duplicated in common module. Can we avoid it? */
 class EnumInfoTest {
+
+  // protobuf-generated enums can't implement EnumInfo
+  public static final Set<String> EXCLUSION_PACKAGE = Set.of("org.astraea.common.generated");
 
   @Test
   void testAlias() {
@@ -52,27 +55,33 @@ class EnumInfoTest {
   @ParameterizedTest
   @ArgumentsSource(EnumClassProvider.class)
   void testExtendEnumInfo(Class<?> cls) {
-    Assertions.assertTrue(
-        EnumInfo.class.isAssignableFrom(cls), String.format("Fail class %s", cls));
+    if (EXCLUSION_PACKAGE.stream().noneMatch(prefix -> cls.getPackageName().startsWith(prefix))) {
+      Assertions.assertTrue(
+          EnumInfo.class.isAssignableFrom(cls), String.format("Fail class %s", cls));
+    }
   }
 
   @ParameterizedTest
   @ArgumentsSource(EnumClassProvider.class)
   void testOfAlias(Class<?> cls) {
-    var method =
-        Assertions.assertDoesNotThrow(
-            () -> cls.getDeclaredMethod("ofAlias", String.class),
-            String.format("Fail class %s", cls));
-    Assertions.assertEquals(cls, method.getReturnType());
+    if (EXCLUSION_PACKAGE.stream().noneMatch(prefix -> cls.getPackageName().startsWith(prefix))) {
+      var method =
+          Assertions.assertDoesNotThrow(
+              () -> cls.getDeclaredMethod("ofAlias", String.class),
+              String.format("Fail class %s", cls));
+      Assertions.assertEquals(cls, method.getReturnType());
+    }
   }
 
   @ParameterizedTest
   @ArgumentsSource(EnumClassProvider.class)
   void testToString(Class<?> cls) {
-    var enumConstants = (EnumInfo[]) cls.getEnumConstants();
-    Assertions.assertDoesNotThrow(() -> cls.getDeclaredMethod("toString"));
-    Assertions.assertTrue(
-        Arrays.stream(enumConstants).allMatch(x -> x.toString().equals(x.alias())));
+    if (EXCLUSION_PACKAGE.stream().noneMatch(prefix -> cls.getPackageName().startsWith(prefix))) {
+      var enumConstants = (EnumInfo[]) cls.getEnumConstants();
+      Assertions.assertDoesNotThrow(() -> cls.getDeclaredMethod("toString"));
+      Assertions.assertTrue(
+          Arrays.stream(enumConstants).allMatch(x -> x.toString().equals(x.alias())));
+    }
   }
 
   enum MyTestEnum implements EnumInfo {

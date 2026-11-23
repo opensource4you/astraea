@@ -28,6 +28,7 @@ import java.util.Set;
 import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
+import javax.naming.Context;
 
 public interface Service extends AutoCloseable {
   static Builder builder() {
@@ -151,6 +152,15 @@ public interface Service extends AutoCloseable {
       try {
         LocateRegistry.createRegistry(port);
         var mBeanServer = ManagementFactory.getPlatformMBeanServer();
+        // hadoop ships a jndi.properties naming jetty's InitialContextFactory, and the mixed
+        // jetty versions on the test classpath break that factory; ask for the JDK rmi registry
+        // context explicitly so the classpath default never loads
+        var env =
+            Map.of(
+                Context.INITIAL_CONTEXT_FACTORY,
+                "com.sun.jndi.rmi.registry.RegistryContextFactory",
+                Context.PROVIDER_URL,
+                "rmi://" + address() + ":" + port);
         var jmxServer =
             JMXConnectorServerFactory.newJMXConnectorServer(
                 // we usually use JNDI to get metrics in production, so the embedded server should
@@ -160,7 +170,7 @@ public interface Service extends AutoCloseable {
                     String.format(
                         "service:jmx:rmi://%s:%s/jndi/rmi://%s:%s/jmxrmi",
                         address(), port, address(), port)),
-                null,
+                env,
                 mBeanServer);
         jmxServer.start();
         return jmxServer;

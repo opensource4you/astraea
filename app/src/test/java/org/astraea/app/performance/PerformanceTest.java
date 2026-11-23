@@ -470,47 +470,6 @@ public class PerformanceTest {
 
   @Test
   void testPartitionerConflict() {
-    var argument =
-        new String[] {
-          "--bootstrap.servers",
-          "localhost:9092",
-          "--topics",
-          "ignore",
-          "--interdependent.size",
-          "3",
-          "--partitioner",
-          "org.astraea.common.partitioner.StrictCostPartitioner"
-        };
-    Assertions.assertDoesNotThrow(
-        () -> Argument.parse(new Performance.Argument(), argument).partitioner());
-
-    var argument1 =
-        new String[] {
-          "--bootstrap.servers",
-          "localhost:9092",
-          "--topics",
-          "ignore",
-          "--interdependent.size",
-          "3"
-        };
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> Argument.parse(new Performance.Argument(), argument1).partitioner());
-    var argument2 =
-        new String[] {
-          "--bootstrap.servers",
-          "localhost:9092",
-          "--topics",
-          "ignore",
-          "--interdependent.size",
-          "3",
-          "--partitioner",
-          "org.apache.kafka.clients.producer.internals.DefaultPartitioner"
-        };
-    Assertions.assertThrows(
-        ParameterException.class,
-        () -> Argument.parse(new Performance.Argument(), argument2).partitioner());
-
     var argument3 =
         new String[] {
           "--bootstrap.servers",

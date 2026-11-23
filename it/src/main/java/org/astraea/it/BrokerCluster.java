@@ -16,6 +16,7 @@
  */
 package org.astraea.it;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,28 +29,40 @@ import java.util.stream.IntStream;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaRaftServer;
 import kafka.server.Server;
+import org.apache.kafka.common.DirectoryId;
 import org.apache.kafka.common.Uuid;
 import org.apache.kafka.common.utils.Time;
+import org.apache.kafka.metadata.properties.MetaProperties;
+import org.apache.kafka.metadata.properties.MetaPropertiesEnsemble;
+import org.apache.kafka.metadata.properties.MetaPropertiesVersion;
 
 public interface BrokerCluster extends AutoCloseable {
+
+  // KRaft refuses to start on directories without meta.properties, so every directory is
+  // formatted before the server boots
+  private static void formatDirectories(Set<String> folders, String clusterId, int nodeId) {
+    try {
+      var copier = new MetaPropertiesEnsemble.Copier(MetaPropertiesEnsemble.EMPTY);
+      for (var folder : folders) {
+        copier.setLogDirProps(
+            folder,
+            new MetaProperties.Builder()
+                .setVersion(MetaPropertiesVersion.V1)
+                .setClusterId(clusterId)
+                .setNodeId(nodeId)
+                .setDirectoryId(DirectoryId.random())
+                .build());
+      }
+      copier.writeLogDirChanges();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   private static CompletableFuture<Map.Entry<Integer, Server>> server(
       Map<String, String> configs, Set<String> folders, String clusterId, int nodeId) {
 
-    // TODO: fix it ..
-    //    StorageTool.formatCommand(
-    //        new PrintStream(new ByteArrayOutputStream()),
-    //        scala.collection.JavaConverters.collectionAsScalaIterableConverter(folders)
-    //            .asScala()
-    //            .toSeq(),
-    //        new MetaProperties.Builder()
-    //            .setVersion(MetaPropertiesVersion.V1)
-    //            .setClusterId(clusterId)
-    //            .setNodeId(nodeId)
-    //            .setDirectoryId(DirectoryId.random())
-    //            .build(),
-    //        MetadataVersion.latestProduction(),
-    //        true);
+    formatDirectories(folders, clusterId, nodeId);
 
     return CompletableFuture.supplyAsync(
         () -> {

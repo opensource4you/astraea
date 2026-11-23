@@ -29,6 +29,7 @@ repositories {
 
 dependencies {
     testImplementation libs["junit"]
+    testRuntimeOnly libs["junit-platform-launcher"]
     testImplementation project(':it')
     testImplementation libs["kafka-connect-api"]
     testImplementation libs["commons-net"]

@@ -16,12 +16,18 @@
  */
 package org.astraea.common.admin;
 
-public enum GroupType {
+import org.astraea.common.EnumInfo;
+
+public enum GroupType implements EnumInfo {
   UNKNOWN("Unknown"),
   CONSUMER("Consumer"),
   CLASSIC("Classic"),
   SHARE("Share"),
   STREAMS("Streams");
+
+  public static GroupType ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(GroupType.class, alias);
+  }
 
   private final String name;
 
@@ -41,6 +47,11 @@ public enum GroupType {
 
   @Override
   public String toString() {
+    return alias();
+  }
+
+  @Override
+  public String alias() {
     return name;
   }
 }

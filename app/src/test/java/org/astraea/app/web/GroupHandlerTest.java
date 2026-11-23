@@ -95,6 +95,13 @@ public class GroupHandlerTest {
               .bootstrapServers(SERVICE.bootstrapServers())
               .build()) {
         Assertions.assertEquals(0, consumer.poll(Duration.ofSeconds(3)).size());
+        // the group registration shows up in the coordinator asynchronously
+        Utils.waitFor(
+            () -> {
+              var groups = admin.consumerGroups(Set.of(groupId)).toCompletableFuture().join();
+              return groups.stream()
+                  .anyMatch(g -> g.groupId().equals(groupId) && g.assignment().size() == 1);
+            });
         var group =
             Assertions.assertInstanceOf(
                 GroupHandler.Group.class,

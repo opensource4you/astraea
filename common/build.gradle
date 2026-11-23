@@ -30,6 +30,7 @@ repositories {
 
 dependencies {
     testImplementation libs["junit"]
+    testRuntimeOnly libs["junit-platform-launcher"]
     testImplementation libs["mockito-core"]
     testImplementation libs["mockito-inline"]
     testImplementation libs["commons-io"]

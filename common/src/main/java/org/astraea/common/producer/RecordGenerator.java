@@ -31,7 +31,6 @@ import org.astraea.common.Configuration;
 import org.astraea.common.DataRate;
 import org.astraea.common.DistributionType;
 import org.astraea.common.admin.TopicPartition;
-import org.astraea.common.metrics.stats.Rate;
 
 @FunctionalInterface
 public interface RecordGenerator extends Function<TopicPartition, List<Record<byte[], byte[]>>> {
@@ -178,12 +177,23 @@ public interface RecordGenerator extends Function<TopicPartition, List<Record<by
   }
 
   static Function<Long, Boolean> throttler(DataRate max) {
-    final var throughput = max.byteRate();
-    final var rate = Rate.of();
-    return payloadLength -> {
-      if (rate.measure() >= throughput) return true;
-      rate.record((double) payloadLength);
-      return false;
+    final var budget = max.byteRate();
+    // token bucket sized to one second of budget; a rate measured since start
+    // spikes on the first calls and throttles batches well under the limit
+    return new Function<Long, Boolean>() {
+      private long last = System.nanoTime();
+      private double credit = budget;
+
+      @Override
+      public Boolean apply(Long payloadLength) {
+        var now = System.nanoTime();
+        credit = Math.min(budget, credit + (now - last) * budget / 1e9);
+        last = now;
+        // a record larger than the whole budget still goes out when the bucket is full
+        if (payloadLength > credit && credit != budget) return true;
+        credit -= payloadLength;
+        return false;
+      }
     };
   }
 }
