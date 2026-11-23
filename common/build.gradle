@@ -31,7 +31,6 @@ repositories {
 dependencies {
     testImplementation libs["junit"]
     testImplementation libs["mockito-core"]
-    testImplementation libs["mockito-inline"]
     testImplementation libs["commons-io"]
     testImplementation libs["kafka-connect-runtime"]
     testImplementation libs["jmh-core"]
