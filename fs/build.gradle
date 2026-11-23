@@ -26,6 +26,7 @@ repositories {
 }
 dependencies {
     testImplementation libs["junit"]
+    testRuntimeOnly libs["junit-platform-launcher"]
     testImplementation project(':it')
 
     implementation(project(':common')) {

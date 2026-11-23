@@ -28,6 +28,7 @@ repositories {
 dependencies {
     implementation libs["ftp-server"]
     implementation libs["junit"]
+    testRuntimeOnly libs["junit-platform-launcher"]
     implementation libs["kafka-core"]
     implementation libs["kafka-server-common"]
     implementation libs["kafka-metadata"]
