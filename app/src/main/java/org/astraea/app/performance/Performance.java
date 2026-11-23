@@ -73,6 +73,7 @@ public class Performance {
   }
 
   public static List<String> execute(final Argument param) {
+    var startMillis = System.currentTimeMillis();
     var dataQueue = new ArrayBlockingQueue<List<Record<byte[], byte[]>>>(3000);
     // ensure topics are existent
     System.out.println("checking topics: " + String.join(",", param.topics));
@@ -172,8 +173,23 @@ public class Performance {
       consumerThreads.forEach(AbstractThread::waitForDone);
       tracker.waitForDone();
       fileWriterTask.join();
+      warnUnmetThroughput(param, startMillis);
       return param.topics;
     }
+  }
+
+  private static void warnUnmetThroughput(Argument param, long startMillis) {
+    var producedBytes = Report.producers().stream().mapToLong(Report::totalBytes).sum();
+    var seconds = (System.currentTimeMillis() - startMillis) / 1000.0;
+    if (seconds <= 0) return;
+    var achieved =
+        DataSize.Byte.of((long) (producedBytes / seconds)).dataRate(Duration.ofSeconds(1));
+    if (achieved.byteRate() < param.throughput.byteRate())
+      System.out.println(
+          "WARNING: the achieved throughput "
+              + achieved
+              + " is lower than the requested "
+              + param.throughput);
   }
 
   static List<ConsumerThread> consumers(Argument param, Map<TopicPartition, Long> latestOffsets) {

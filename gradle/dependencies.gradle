@@ -30,8 +30,7 @@ def versions = [
         "jmh"            : project.properties['jmh.version'] ?: "1.37",
         junit            : project.properties['junit.version'] ?: "5.10.2",
         kafka            : project.properties['kafka.version'] ?: "4.2.0",
-        mockito          : project.properties['mockito.version'] ?: "5.11.0",
-        "mockito-inline" : project.properties['mockito-inline.version'] ?: "5.2.0",
+        mockito          : project.properties['mockito.version'] ?: "5.18.0",
         slf4j            : project.properties['slf4j.version'] ?: "2.0.12",
         hadoop           : project.properties["hadoop.version"] ?: "3.3.6",
 ]
@@ -56,7 +55,6 @@ libs += [
         "kafka-server-common"     : "org.apache.kafka:kafka-server-common:${versions["kafka"]}",
         "kafka-metadata"          : "org.apache.kafka:kafka-metadata:${versions["kafka"]}",
         "mockito-core"            : "org.mockito:mockito-core:${versions["mockito"]}",
-        "mockito-inline"          : "org.mockito:mockito-inline:${versions["mockito-inline"]}",
         "slf4j-nop"               : "org.slf4j:slf4j-nop:${versions["slf4j"]}",
         "hadoop-common"           : "org.apache.hadoop:hadoop-common:${versions["hadoop"]}",
         "hadoop-client"           : "org.apache.hadoop:hadoop-client:${versions["hadoop"]}",

@@ -29,7 +29,6 @@ repositories {
 dependencies {
     testImplementation libs["junit"]
     testImplementation libs["mockito-core"]
-    testImplementation libs["mockito-inline"]
     testImplementation libs["kafka-core"]
     testImplementation libs["commons-io"]
     testImplementation project(':it')
