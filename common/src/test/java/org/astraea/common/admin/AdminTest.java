@@ -1836,63 +1836,37 @@ public class AdminTest {
           .toCompletableFuture()
           .join();
 
-      Utils.sleep(Duration.ofSeconds(3));
+      // config updates are visible to reads asynchronously, so poll instead of sleeping a
+      // fixed time
+      var configKey = TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG;
+      Utils.waitFor(
+          () ->
+              admin
+                  .topics(Set.of(topic))
+                  .toCompletableFuture()
+                  .join()
+                  .get(0)
+                  .config()
+                  .value(configKey)
+                  .isEmpty());
 
       // append to nonexistent value
-      Assertions.assertEquals(
-          Optional.empty(),
-          admin
-              .topics(Set.of(topic))
-              .toCompletableFuture()
-              .join()
-              .get(0)
-              .config()
-              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG));
       admin
-          .appendTopicConfigs(
-              Map.of(
-                  topic,
-                  Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
+          .appendTopicConfigs(Map.of(topic, Map.of(configKey, "1:1001")))
           .toCompletableFuture()
           .join();
-      Utils.sleep(Duration.ofSeconds(3));
-      Assertions.assertEquals(
-          "1:1001",
-          admin
-              .topics(Set.of(topic))
-              .toCompletableFuture()
-              .join()
-              .get(0)
-              .config()
-              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
-              .get());
+      waitTopicConfig(admin, topic, configKey, "1:1001");
 
       // append to existent value
       admin
-          .appendTopicConfigs(
-              Map.of(
-                  topic,
-                  Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002")))
+          .appendTopicConfigs(Map.of(topic, Map.of(configKey, "2:1002")))
           .toCompletableFuture()
           .join();
-      Utils.sleep(Duration.ofSeconds(3));
-      Assertions.assertEquals(
-          "1:1001,2:1002",
-          admin
-              .topics(Set.of(topic))
-              .toCompletableFuture()
-              .join()
-              .get(0)
-              .config()
-              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
-              .get());
+      waitTopicConfig(admin, topic, configKey, "1:1001,2:1002");
 
-      // append duplicate value
+      // append duplicate value; the value must stay unchanged, which cannot be polled
       admin
-          .appendTopicConfigs(
-              Map.of(
-                  topic,
-                  Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "2:1002")))
+          .appendTopicConfigs(Map.of(topic, Map.of(configKey, "2:1002")))
           .toCompletableFuture()
           .join();
       Utils.sleep(Duration.ofSeconds(3));
@@ -1904,16 +1878,17 @@ public class AdminTest {
               .join()
               .get(0)
               .config()
-              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+              .value(configKey)
               .get());
 
       // append to wildcard
+      admin.setTopicConfigs(Map.of(topic, Map.of(configKey, "*"))).toCompletableFuture().join();
+      waitTopicConfig(admin, topic, configKey, "*");
       admin
-          .setTopicConfigs(
-              Map.of(
-                  topic, Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "*")))
+          .appendTopicConfigs(Map.of(topic, Map.of(configKey, "1:1001")))
           .toCompletableFuture()
           .join();
+      // appending to a wildcard must not replace it, which cannot be polled
       Utils.sleep(Duration.ofSeconds(3));
       Assertions.assertEquals(
           "*",
@@ -1923,27 +1898,24 @@ public class AdminTest {
               .join()
               .get(0)
               .config()
-              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
-              .get());
-      admin
-          .appendTopicConfigs(
-              Map.of(
-                  topic,
-                  Map.of(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG, "1:1001")))
-          .toCompletableFuture()
-          .join();
-      Utils.sleep(Duration.ofSeconds(3));
-      Assertions.assertEquals(
-          "*",
-          admin
-              .topics(Set.of(topic))
-              .toCompletableFuture()
-              .join()
-              .get(0)
-              .config()
-              .value(TopicConfigs.FOLLOWER_REPLICATION_THROTTLED_REPLICAS_CONFIG)
+              .value(configKey)
               .get());
     }
+  }
+
+  private static void waitTopicConfig(
+      Admin admin, String topic, String configKey, String expected) {
+    Utils.waitFor(
+        () ->
+            admin
+                .topics(Set.of(topic))
+                .toCompletableFuture()
+                .join()
+                .get(0)
+                .config()
+                .value(configKey)
+                .map(expected::equals)
+                .orElse(false));
   }
 
   @Test

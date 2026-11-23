@@ -18,6 +18,9 @@ package org.astraea.common.admin;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.astraea.common.Utils;
 import org.astraea.it.Service;
@@ -72,17 +75,28 @@ public class SomePartitionOfflineTest {
       Assertions.assertNull(SERVICE.dataFolders().get(0));
       Assertions.assertNotNull(SERVICE.dataFolders().get(1));
       Assertions.assertNotNull(SERVICE.dataFolders().get(2));
-      var offlineReplicaOnBroker0 =
-          admin
-              .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
-              .toCompletableFuture()
-              .join()
-              .replicaStream()
-              .filter(replica -> replica.brokerId() == 0)
-              .collect(
-                  Collectors.groupingBy(
-                      replica -> TopicPartition.of(replica.topic(), replica.partition())));
-      offlineReplicaOnBroker0.values().stream()
+      // metadata still lists the killed broker until the refresh completes, and requests
+      // routed to it time out, so poll until every replica on broker 0 is reported offline
+      var offlineReplicaOnBroker0 = new AtomicReference<Map<TopicPartition, List<Replica>>>();
+      Utils.waitFor(
+          () -> {
+            var replicas =
+                admin
+                    .clusterInfo(admin.topicNames(false).toCompletableFuture().join())
+                    .toCompletableFuture()
+                    .join()
+                    .replicaStream()
+                    .filter(replica -> replica.brokerId() == 0)
+                    .collect(
+                        Collectors.groupingBy(
+                            replica -> TopicPartition.of(replica.topic(), replica.partition())));
+            var allOffline =
+                replicas.values().stream().flatMap(Collection::stream).allMatch(Replica::isOffline);
+            if (allOffline) offlineReplicaOnBroker0.set(replicas);
+            return allOffline;
+          },
+          Duration.ofSeconds(30));
+      offlineReplicaOnBroker0.get().values().stream()
           .flatMap(Collection::stream)
           .forEach(
               replica -> {
