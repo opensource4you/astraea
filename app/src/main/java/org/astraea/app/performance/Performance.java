@@ -225,8 +225,22 @@ public class Performance {
 
     Map<TopicPartition, Long> lastOffsets() {
       try (var admin = Admin.of(configs())) {
-        return admin.partitions(Set.copyOf(topics)).toCompletableFuture().join().stream()
-            .collect(Collectors.toMap(Partition::topicPartition, Partition::latestOffset));
+        var offsets =
+            admin.partitions(Set.copyOf(topics)).toCompletableFuture().join().stream()
+                .collect(Collectors.toMap(Partition::topicPartition, Partition::latestOffset));
+        // an offline partition reports -1, and seeking to it fails with a confusing
+        // "seek offset must not be a negative number"
+        var unavailable =
+            offsets.entrySet().stream()
+                .filter(entry -> entry.getValue() < 0)
+                .map(entry -> entry.getKey().toString())
+                .toList();
+        if (!unavailable.isEmpty())
+          throw new IllegalArgumentException(
+              "the latest offsets of "
+                  + unavailable
+                  + " are unavailable, their partitions are offline");
+        return offsets;
       }
     }
 

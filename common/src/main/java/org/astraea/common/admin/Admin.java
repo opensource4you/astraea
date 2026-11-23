@@ -114,8 +114,22 @@ public interface Admin extends AutoCloseable {
    */
   CompletionStage<Set<TopicPartitionReplica>> topicPartitionReplicas(Set<Integer> brokers);
 
+  /**
+   * Get the earliest offset of each given topic-partition.
+   *
+   * @param topicPartitions to query
+   * @return the earliest offset of each topic-partition, or -1 if the offset is unavailable, such
+   *     as when all replicas of the partition are offline
+   */
   CompletionStage<Map<TopicPartition, Long>> earliestOffsets(Set<TopicPartition> topicPartitions);
 
+  /**
+   * Get the latest offset of each given topic-partition.
+   *
+   * @param topicPartitions to query
+   * @return the latest offset of each topic-partition, or -1 if the offset is unavailable, such as
+   *     when all replicas of the partition are offline
+   */
   CompletionStage<Map<TopicPartition, Long>> latestOffsets(Set<TopicPartition> topicPartitions);
 
   /**
