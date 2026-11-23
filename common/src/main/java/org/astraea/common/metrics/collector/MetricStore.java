@@ -250,45 +250,52 @@ public interface MetricStore extends AutoCloseable {
           };
       Runnable receiverJob =
           () -> {
+            var emptyRound = false;
             while (!closed.get()) {
-              receivers.stream()
-                  // TODO: Busy waiting on metric receiving.
-                  // issue: https://github.com/opensource4you/astraea/issues/1834
-                  // To prevent specific receiver block other receivers' job, we set receive
-                  // timeout to zero. But if all receivers return empty immediately, it may cause
-                  // this thread busy waiting on doing `receiver.receive`.
-                  .map(r -> r.receive(Duration.ZERO))
-                  .forEach(
-                      allBeans -> {
-                        beanReceivedSensor.record(
-                            allBeans.values().stream().mapToLong(Collection::size).sum());
-                        identities.addAll(allBeans.keySet());
-                        lastSensors = sensorsSupplier.get();
-                        allBeans.forEach(
-                            (id, bs) -> {
-                              var client = BeanObjectClient.of(id, bs);
-                              var clusterBean = clusterBean();
-                              lastSensors.forEach(
-                                  (sensor, errorHandler) -> {
-                                    try {
-                                      beans
-                                          .computeIfAbsent(
-                                              id, ignored -> new ConcurrentLinkedQueue<>())
-                                          .addAll(sensor.fetch(client, clusterBean));
-                                    } catch (Exception e) {
-                                      errorHandler.accept(id, e);
-                                    }
-                                  });
-                            });
-                        if (!allBeans.isEmpty()) {
-                          // generate new cluster bean
-                          updateClusterBean();
-                          // Tell waiting threads that cluster bean has been changed
-                          synchronized (beanUpdateMonitor) {
-                            beanUpdateMonitor.notifyAll();
-                          }
-                        }
-                      });
+              var received = new ArrayList<Map<Integer, Collection<BeanObject>>>();
+              if (emptyRound) {
+                // a zero timeout keeps one slow receiver from blocking the others, but when
+                // every receiver was empty the loop would spin, so block on one of them
+                // instead (astraea#1834)
+                received.add(receivers.iterator().next().receive(Duration.ofSeconds(1)));
+              }
+              receivers.forEach(r -> received.add(r.receive(Duration.ZERO)));
+              var receivedBeans =
+                  received.stream()
+                      .flatMap(m -> m.values().stream())
+                      .mapToLong(Collection::size)
+                      .sum();
+              emptyRound = receivedBeans == 0;
+              received.forEach(
+                  allBeans -> {
+                    beanReceivedSensor.record(
+                        allBeans.values().stream().mapToLong(Collection::size).sum());
+                    identities.addAll(allBeans.keySet());
+                    lastSensors = sensorsSupplier.get();
+                    allBeans.forEach(
+                        (id, bs) -> {
+                          var client = BeanObjectClient.of(id, bs);
+                          var clusterBean = clusterBean();
+                          lastSensors.forEach(
+                              (sensor, errorHandler) -> {
+                                try {
+                                  beans
+                                      .computeIfAbsent(id, ignored -> new ConcurrentLinkedQueue<>())
+                                      .addAll(sensor.fetch(client, clusterBean));
+                                } catch (Exception e) {
+                                  errorHandler.accept(id, e);
+                                }
+                              });
+                        });
+                    if (!allBeans.isEmpty()) {
+                      // generate new cluster bean
+                      updateClusterBean();
+                      // Tell waiting threads that cluster bean has been changed
+                      synchronized (beanUpdateMonitor) {
+                        beanUpdateMonitor.notifyAll();
+                      }
+                    }
+                  });
             }
           };
       executor.execute(cleanerJob);
