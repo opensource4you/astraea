@@ -18,12 +18,13 @@ package org.astraea.common.metrics;
 
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
-import java.util.Hashtable;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.AttributeNotFoundException;
@@ -58,7 +59,7 @@ public class MBeanRegister {
     private LocalRegister() {}
 
     private String domainName;
-    private final Map<String, String> properties = new Hashtable<>();
+    private final Map<String, String> properties = new LinkedHashMap<>();
     private String description = "";
     private final List<MBeanAttributeInfo> attributeInfo = new ArrayList<>();
     private final Map<String, Supplier<?>> attributes = new ConcurrentHashMap<>();
@@ -187,7 +188,14 @@ public class MBeanRegister {
     public void register() {
       Utils.packException(
           () -> {
-            var name = new ObjectName(domainName, new Hashtable<>(properties));
+            // the Hashtable constructor reshuffles the properties, and exporters like
+            // jmx_exporter match the ObjectName string by pattern, so the key order given by
+            // the caller must survive
+            var props =
+                properties.entrySet().stream()
+                    .map(e -> e.getKey() + "=" + e.getValue())
+                    .collect(Collectors.joining(","));
+            var name = ObjectName.getInstance(domainName + ":" + props);
             var mBean = buildMBean();
             ManagementFactory.getPlatformMBeanServer().registerMBean(mBean, name);
           });

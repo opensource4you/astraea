@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -192,18 +193,26 @@ public abstract class NetworkCost implements HasClusterCost {
 
   @Override
   public MetricSensor metricSensor() {
-    // TODO: We need a reliable way to access the actual current cluster info. To do that we need to
+    // TODO: We need a reliable way to access the actual cluster info. To do that we need to
     //  obtain the replica info, so we intentionally sample log size but never use it.
     //  https://github.com/opensource4you/astraea/pull/1240#discussion_r1044487473
-    return (client, clusterBean) ->
-        Stream.of(
-                List.of(HostMetrics.jvmMemory(client)),
-                ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
-                ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client),
-                LogMetrics.Log.SIZE.fetch(client),
-                clusterInfoSensor.fetch(client, clusterBean))
-            .flatMap(Collection::stream)
-            .toList();
+    return (client, clusterBean) -> {
+      // the packaged beans may not contain every metric this sensor asks for; one miss must
+      // not discard the metrics that are available
+      List<HasBeanObject> jvmMemoryBean = List.of();
+      try {
+        jvmMemoryBean = List.of(HostMetrics.jvmMemory(client));
+      } catch (NoSuchElementException ignore) {
+      }
+      return Stream.of(
+              jvmMemoryBean,
+              ServerMetrics.Topic.BYTES_IN_PER_SEC.fetch(client),
+              ServerMetrics.Topic.BYTES_OUT_PER_SEC.fetch(client),
+              LogMetrics.Log.SIZE.fetch(client),
+              clusterInfoSensor.fetch(client, clusterBean))
+          .flatMap(Collection::stream)
+          .toList();
+    };
   }
 
   private Map<BrokerTopic, List<Replica>> mapLeaderAllocation(ClusterInfo clusterInfo) {
