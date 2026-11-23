@@ -18,6 +18,7 @@ package org.astraea.app.web;
 
 import static java.util.Objects.requireNonNull;
 
+import java.math.BigInteger;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Collection;
@@ -175,6 +176,7 @@ public class RecordHandler implements Handler {
     var records = postRequest.records();
     if (records.isEmpty())
       throw new IllegalArgumentException("records should contain at least one record");
+    records.forEach(RecordHandler::checkKeyAndValue);
 
     var producer =
         postRequest
@@ -334,14 +336,33 @@ public class RecordHandler implements Handler {
     // (https://github.com/opensource4you/astraea/issues/422)
     var keySerializer = SerDe.ofAlias(postRecord.keySerializer).serializer;
     var valueSerializer = SerDe.ofAlias(postRecord.valueSerializer).serializer;
-    postRecord.key.ifPresent(
-        // TODO: 2022-11-23 astraea-1163 key and value should be Json String or Json Number
-        key -> builder.key(keySerializer.apply(topic, key.toString())));
+    postRecord.key.ifPresent(key -> builder.key(keySerializer.apply(topic, key.toString())));
     postRecord.value.ifPresent(
         value -> builder.value(valueSerializer.apply(topic, value.toString())));
     postRecord.timestamp.ifPresent(builder::timestamp);
     postRecord.partition.ifPresent(builder::partition);
     return builder.build();
+  }
+
+  // only JSON strings and integers survive the round-trip; any other type would be squeezed
+  // through toString and corrupt the payload
+  private static void checkKeyAndValue(PostRecord record) {
+    record.key.ifPresent(key -> requireStringOrInteger("key", key, record.topic));
+    record.value.ifPresent(value -> requireStringOrInteger("value", value, record.topic));
+  }
+
+  private static void requireStringOrInteger(String field, Object value, String topic) {
+    if (value instanceof String
+        || value instanceof Integer
+        || value instanceof Long
+        || value instanceof BigInteger) return;
+    throw new IllegalArgumentException(
+        "the "
+            + field
+            + " of records for topic "
+            + topic
+            + " supports only JSON string and integer, got "
+            + value.getClass().getSimpleName());
   }
 
   static class RecordPostRequest implements Request {
