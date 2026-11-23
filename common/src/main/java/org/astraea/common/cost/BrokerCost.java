@@ -21,6 +21,15 @@ import java.util.Map;
 /** Return type of cost function, `HasBrokerCost`. It returns the score of brokers. */
 public interface BrokerCost {
   /**
+   * The cost score of each broker. This value represents the load of a broker in terms of a
+   * specific performance aspect.
+   *
+   * <p>This value should be bounded between the range of [0, 1]. The value of 0 represents the
+   * broker is in the best condition regarding the specific performance aspect. And 1 represents the
+   * opposite(worst condition). Given two cost numbers `a` and `b` from two different brokers `A`
+   * and `B`, if a < b then we can state that broker A takes less load than broker B in terms of the
+   * specific performance aspect.
+   *
    * @return broker-id and its "cost"
    */
   Map<Integer, Double> value();

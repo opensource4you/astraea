@@ -19,7 +19,6 @@ package org.astraea.common;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
-import java.math.RoundingMode;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Objects;
@@ -31,12 +30,8 @@ public class DataSize implements Comparable<DataSize> {
     var splits = argument.split("(?<=\\d)\\s?(?=[a-zA-Z])");
     if (splits.length == 2) {
       var unit = DataUnit.valueOf(splits[1]);
-      var value = Double.parseDouble(splits[0]);
-      var index = DataUnit.BYTE_UNIT_SIZE_ORDERED_LIST.indexOf(unit);
-      if (index <= 0) return unit.of((long) value);
-      var smaller = DataUnit.BYTE_UNIT_SIZE_ORDERED_LIST.get(index - 1);
-      var newValue = unit.bits.divide(smaller.bits).doubleValue() * value;
-      return smaller.of((long) newValue);
+      var bits = new BigDecimal(splits[0]).multiply(new BigDecimal(unit.bits));
+      return new DataSize(bits.toBigIntegerExact());
     }
     throw new IllegalArgumentException("Unknown DataSize \"" + argument + "\"");
   }
@@ -270,11 +265,16 @@ public class DataSize implements Comparable<DataSize> {
     return new DataRate(this, timePassed);
   }
 
-  /** Return a string represent current size in given data unit. */
+  /**
+   * Return a string represent current size in given data unit. The number is exact, so the string
+   * can be parsed back by {@link #of(String)} without losing precision.
+   */
   public String toString(DataUnit unit) {
     var divide =
-        new BigDecimal(this.bits).divide(new BigDecimal(unit.bits), 2, RoundingMode.HALF_EVEN);
-    return String.format("%s %s", divide, unit.name());
+        new BigDecimal(this.bits)
+            .divide(new BigDecimal(unit.bits), MathContext.DECIMAL128)
+            .stripTrailingZeros();
+    return String.format("%s %s", divide.toPlainString(), unit.name());
   }
 
   /**

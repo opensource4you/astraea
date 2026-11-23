@@ -28,6 +28,15 @@ import org.astraea.common.admin.TopicPartition;
 public interface PartitionCost {
 
   /**
+   * The cost score of each topic-partition. This value represents the load of a topic-partition in
+   * terms of a specific performance aspect.
+   *
+   * <p>This value should be bounded between the range of [0, 1]. The value of 0 represents the
+   * topic-partition is in the best condition regarding the specific performance aspect. And 1
+   * represents the opposite(worst condition). Given two cost numbers `a` and `b` from two different
+   * topic-partitions `A` and `B`, if a < b then we can state that topic-partition A takes less load
+   * than topic-partition B in terms of the specific performance aspect.
+   *
    * @return Topic-partition and its cost.
    */
   Map<TopicPartition, Double> value();

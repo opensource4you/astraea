@@ -130,7 +130,8 @@ public interface JsonConverter {
           var t =
               objectMapper.readValue(
                   json,
-                  new TypeReference<T>() { // astraea-986 diamond not work (jdk bug)
+                  // diamond infers Object here, so the explicit type witness is required
+                  new TypeReference<T>() {
                     @Override
                     public Type getType() {
                       return typeRef.getType();
