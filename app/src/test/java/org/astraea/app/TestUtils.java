@@ -32,27 +32,24 @@ public class TestUtils {
 
   public static List<Class<?>> getProductionClass() {
     var pkg = "org/astraea";
-    var mainDir =
+    // the app classpath carries the main output of every module, so all of them get scanned
+    var mainDirs =
         Collections.list(
                 Utils.packException(() -> ResponseTest.class.getClassLoader().getResources(pkg)))
             .stream()
             .filter(x -> x.toExternalForm().contains("main/" + pkg))
-            .findFirst()
             .map(x -> Utils.packException(() -> Path.of(x.toURI())))
             .map(x -> x.resolve("../../").normalize())
-            .orElseThrow();
-
-    var dirFiles =
-        FileUtils.listFiles(mainDir.toFile(), new String[] {"class"}, true).stream()
-            .map(File::toPath)
-            .map(mainDir::relativize)
             .toList();
 
     var classNames =
-        dirFiles.stream()
-            .map(Path::toString)
-            .map(FilenameUtils::removeExtension)
-            .map(x -> x.replace(File.separatorChar, '.'))
+        mainDirs.stream()
+            .flatMap(
+                dir ->
+                    FileUtils.listFiles(dir.toFile(), new String[] {"class"}, true).stream()
+                        .map(file -> dir.relativize(file.toPath())))
+            .map(path -> FilenameUtils.removeExtension(path.toString()))
+            .map(name -> name.replace(File.separatorChar, '.'))
             .toList();
 
     return classNames.stream()

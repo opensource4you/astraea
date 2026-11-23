@@ -16,8 +16,24 @@
  */
 package org.astraea.fs;
 
-public enum Type {
+import org.astraea.common.EnumInfo;
+
+public enum Type implements EnumInfo {
   NONEXISTENT,
   FILE,
-  FOLDER
+  FOLDER;
+
+  public static Type ofAlias(String alias) {
+    return EnumInfo.ignoreCaseEnum(Type.class, alias);
+  }
+
+  @Override
+  public String toString() {
+    return alias();
+  }
+
+  @Override
+  public String alias() {
+    return name();
+  }
 }
